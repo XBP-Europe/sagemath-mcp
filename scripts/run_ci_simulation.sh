@@ -64,14 +64,17 @@ if command -v docker-compose >/dev/null 2>&1; then
   uv run python - <<'PY'
 import asyncio
 import os
-from fastmcp import Client
+from mcp.client.session_group import ClientSessionGroup, StreamableHttpParameters
 
 async def main():
-    client = Client(os.environ["SAGEMATH_MCP_URL"])
-    metrics = await client.resource("resource://sagemath/monitoring/metrics")
-    assert metrics, "No metrics returned"
-    snapshot = metrics[0]
-    assert snapshot.attempts >= 1, "Expected at least one recorded attempt"
+    async with ClientSessionGroup() as group:
+        session, _ = await group.connect_to_server(
+            StreamableHttpParameters(url=os.environ["SAGEMATH_MCP_URL"])
+        )
+        metrics = await session.resource("resource://sagemath/monitoring/metrics")
+        assert metrics, "No metrics returned"
+        snapshot = metrics[0]
+        assert snapshot.attempts >= 1, "Expected at least one recorded attempt"
 
 asyncio.run(main())
 PY

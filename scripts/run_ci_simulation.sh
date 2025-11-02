@@ -67,7 +67,7 @@ import os
 from fastmcp import Client
 
 async def main():
-    client = Client(os.environ["SAGEMATH_MCP_URL"], transport="http")
+    client = Client(os.environ["SAGEMATH_MCP_URL"])
     metrics = await client.resource("resource://sagemath/monitoring/metrics")
     assert metrics, "No metrics returned"
     snapshot = metrics[0]

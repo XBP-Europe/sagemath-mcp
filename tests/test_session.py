@@ -176,7 +176,8 @@ async def test_session_evaluate_handles_timeout(monkeypatch, python_settings):
 
     monkeypatch.setattr(session, "_restart_worker", fake_restart_worker)
 
-    async def fake_wait_for(coro, timeout):
+    async def fake_wait_for(*args, **kwargs):
+        coro = args[0]
         coro.close()
         raise TimeoutError
 
@@ -196,7 +197,8 @@ async def test_session_shutdown_kills_on_timeout(monkeypatch, python_settings):
     fake_process = _FakeProcess()
     session._process = fake_process
 
-    async def fake_wait_for(coro, timeout):
+    async def fake_wait_for(*args, **kwargs):
+        coro = args[0]
         coro.close()
         raise TimeoutError
 

@@ -4,6 +4,24 @@
 
 A Model Context Protocol (MCP) server that exposes stateful [SageMath](https://www.sagemath.org/) computations to LLM clients. The server uses [FastMCP](https://gofastmcp.com/) as the transport layer and maintains a dedicated SageMath session for each MCP conversation so variables, functions, and assumptions persist across tool calls.
 
+## LLM Usage Notes
+
+Clients connecting through MCP receive the following guidance:
+
+- **Stateful sessions** — every conversation owns a dedicated Sage worker. Define symbols once
+  (e.g., `var('x')`, `f = ...`) and reuse them across subsequent tool calls.
+- **Core toolset** — use `evaluate_sage` for arbitrary Sage code, or reach for helpers like
+  `calculate_expression`, `solve_equation`, `differentiate_expression`, `integrate_expression`,
+  `matrix_multiply`, and `statistics_summary` for structured JSON outputs.
+- **Runtime feedback** — long computations emit heartbeat progress events roughly every 1.5 seconds;
+  the optional `timeout` parameter lets you extend or shorten the wait.
+- **Session control** — `reset_sage_session` clears state while `cancel_sage_session` restarts the
+  worker. Monitoring data (success/failure counts, latency, security violations) is available via
+  `resource://sagemath/monitoring/metrics`.
+- **Security sandbox** — the AST validator blocks arbitrary imports, `eval`/`exec`, filesystem/process
+  calls, and other unsafe constructs. Prefer Sage primitives; if a violation occurs, rewrite the
+  workflow using supported APIs.
+
 ## Features
 
 - Stateful SageMath execution with per-session variable scope.
@@ -59,6 +77,9 @@ The server exposes several tools and resources:
 7. `resource://sagemath/session/{scope}`: Inspect active sessions and their idle timers.
 8. `resource://sagemath/monitoring/{scope}`: Retrieve evaluation metrics (success/failure counts, latency stats, security violations) with `scope = "metrics"` or `"all"`.
 9. `resource://sagemath/docs/{scope}`: Retrieve documentation links such as the [SageMath reference manual](https://doc.sagemath.org/html/en/reference) (`scope = "all"` for every link).
+
+Lightweight Markdown exports covering the landing page, search index, plotting (2D/3D), calculus,
+rings, and statistics live under `docs/reference_md/` for quick client-side lookups.
 
 See [MONITORING.md](MONITORING.md) for guidance on scraping the metrics resource and wiring it into dashboards.
 

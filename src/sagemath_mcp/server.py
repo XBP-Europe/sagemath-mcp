@@ -36,6 +36,30 @@ from .session import (
 
 LOGGER = logging.getLogger(__name__)
 
+MCP_INSTRUCTIONS = """
+You are connected to a dedicated SageMath runtime. Each MCP session gets its own
+stateful Sage process, so variables, functions, and assumptions persist between calls
+to `evaluate_sage` and the helper tools. Typical workflows include:
+
+- General symbolic/numeric computation via `evaluate_sage` (supports optional LaTeX).
+- High-level helpers: `calculate_expression`, `solve_equation`, `differentiate_expression`,
+  `integrate_expression`, `matrix_multiply`, and `statistics_summary`.
+- Session management: `reset_sage_session` clears state; `cancel_sage_session` restarts the
+  worker; monitoring data is exposed via `resource://sagemath/monitoring/metrics`.
+
+Guidance for best results:
+
+- Always provide explicit Sage code; avoid relying on ambient imports beyond standard
+  Sage libraries. Use `var('x')`/`matrix(...)` etc. inside the code snippet.
+- Chain computations within the same MCP session to reuse definitions (e.g., assign `f =` and
+  call `evaluate_sage` again to operate on `f`).
+- Long-running jobs emit progress heartbeat events roughly every 1.5 seconds. You can adjust
+  timeouts via the `timeout` parameter.
+- Capture stdout only when needed; disabling it speeds up large iterations.
+- The security sandbox blocks arbitrary imports, `eval`, and filesystem/process APIs. If you
+  hit a security violation, rewrite the computation with Sage primitives instead.
+""".strip()
+
 SETTINGS = DEFAULT_SETTINGS
 SESSION_MANAGER = SageSessionManager(SETTINGS)
 _CULL_TASK: asyncio.Task[None] | None = None
@@ -85,7 +109,7 @@ async def _lifespan(app: FastMCP) -> AsyncIterator[None]:
 
 mcp = FastMCP(
     name="sagemath-mcp",
-    instructions="Stateful SageMath computation tools",
+    instructions=MCP_INSTRUCTIONS,
     version=__version__,
     lifespan=_lifespan,
 )

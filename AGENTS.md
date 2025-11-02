@@ -14,6 +14,15 @@
 - `make build`: produce sdist/wheel artifacts (`scripts/build_release.py`).
 - `sage -python scripts/exercise_mcp.py`: smoke test against a running HTTP server.
 
+## Testing Guidelines
+
+- Unit tests cover session lifecycle, worker security, monitoring, and helper tools. Of note:
+  - `tests/test_use_cases.py` mirrors Sage manual examples (calculus, matrix algebra, statistics)
+    and exercises the MCP API; it runs automatically when Sage is available.
+  - `tests/test_server.py` validates lifecycle helpers (`_cull_loop`, `_lifespan`, progress heartbeats)
+    and monitoring resources.
+- Run `make test` (pure Python) and `make integration-test` (Sage container) before submitting changes.
+
 ## Coding Style & Naming Conventions
 - Python code targets 3.11+ with Ruff enforced; keep line length ≤100 characters.
 - Prefer `snake_case` for variables/functions, `PascalCase` for classes, and module-level constants in `UPPER_SNAKE`.

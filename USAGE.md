@@ -47,6 +47,9 @@ The server advertises its MCP endpoint at `http://HOST:PORT/mcp`.
 | `resource://sagemath/monitoring/{scope}` | resource | Fetch evaluation metrics (`scope=metrics` or `all`). |
 | `resource://sagemath/docs/{scope}` | resource | Retrieve SageMath documentation links (`scope=all`, `reference`, `tutorial`). |
 
+The repo ships a curated subset of the Sage reference manual (index, search, plotting/plot3d,
+calculus, rings, statistics) in `docs/reference_md/`, suitable for in-context prompting.
+
 Refer to [MONITORING.md](MONITORING.md) for details on exporting metrics to Prometheus or other dashboards.
 
 ## Verifying the Server

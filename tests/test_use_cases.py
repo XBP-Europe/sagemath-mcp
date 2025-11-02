@@ -1,4 +1,3 @@
-import asyncio
 import shutil
 
 import pytest

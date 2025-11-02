@@ -7,6 +7,7 @@
 - `docker-compose.yml` spins up the Sage-backed MCP server locally; the Helm chart under `charts/sagemath-mcp` mirrors the deployment knobs for Kubernetes and enforces the non-root `sage` user (UID/GID 1000).
 - Release workflow publishes signed images to `ghcr.io/xbp-europe/sagemath-mcp`; verify with Cosign if you consume the container directly.
 - Configure Git hooks after cloning: `git config core.hooksPath .githooks` (pre-push runs `uv run ruff check`).
+- Use `scripts/run_ci_simulation.sh` to approximate `.github/workflows/ci.yml` locally (requires Docker, Helm, uv).
 
 ## Fast Commands
 - `make lint` → `uv run ruff check`

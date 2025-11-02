@@ -11,7 +11,7 @@ jobs:
     services:
       sage:
         image: sagemath/sagemath:latest
-        options: --name sage-mcp
+        options: --name sage-mcp-ci
     env:
       HELM_VERSION: v3.15.2
     steps:

@@ -20,7 +20,8 @@ Thank you for your interest in improving the SageMath MCP server! This guide exp
 
 ## Development Workflow
 
-- Create a feature branch (`git checkout -b feature/my-change`).
+- Create a feature branch (`git checkout -b feature/my-change`) from `main` (the default branch).
+- Open pull requests against `main` and rebase onto the latest `origin/main` before submission.
 - Run `uv run ruff check` and `uv run pytest` before submitting changes.
 - For Sage-backed tests, run `make integration-test` (requires the Docker container).
 - Follow the project’s [Agent Playbook](AGENTS.md) and [Testing Guide](TESTING.md) for tips on helper scripts and CI requirements.

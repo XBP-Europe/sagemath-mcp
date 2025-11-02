@@ -12,6 +12,7 @@
 - `make integration-test`: execute the Docker-backed Sage suite.
 - `make lint`: run Ruff on the codebase.
 - `make build`: produce sdist/wheel artifacts (`scripts/build_release.py`).
+- `make sage-container`: pull and run the optional Sage Docker container used for integration tests.
 - `sage -python scripts/exercise_mcp.py`: smoke test against a running HTTP server.
 
 ## Testing Guidelines

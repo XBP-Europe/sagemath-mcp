@@ -11,4 +11,7 @@ lint:
 build:
 	uv run python scripts/build_release.py
 
+sage-container:
+	./scripts/setup_sage_container.sh
+
 all: test integration-test

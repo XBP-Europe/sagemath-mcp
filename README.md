@@ -51,6 +51,18 @@ uv run sagemath-mcp
 uv run sagemath-mcp -- --transport streamable-http --host 127.0.0.1 --port 31415
 ```
 
+### Optional: start a Sage container automatically
+
+If you'd like a ready-to-use Sage runtime without installing it locally, run:
+
+```bash
+make sage-container  # or ./scripts/setup_sage_container.sh
+```
+
+This pulls the `sagemath/sagemath:latest` image (overridable via
+`SAGEMATH_MCP_DOCKER_IMAGE`) and launches a long-lived container named `sage-mcp`
+mounting the current repository at `/workspace`.
+
 To connect from Claude Desktop, add the following configuration snippet to `claude_desktop_config.json`:
 
 ```json

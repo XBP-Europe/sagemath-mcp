@@ -7,6 +7,8 @@
   docker pull sagemath/sagemath:latest
   docker run --name sage-mcp -d -v "$PWD":/workspace -w /workspace sagemath/sagemath:latest tail -f /dev/null
   ```
+- Alternatively, run `make sage-container` (or `./scripts/setup_sage_container.sh`) to pull and launch
+  the Docker image automatically.
 - Optional: `sage` on your `PATH` if running outside Docker.
 
 ## Installing Dependencies

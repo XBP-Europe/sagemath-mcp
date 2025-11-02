@@ -72,6 +72,7 @@ async def fetch_metrics(url: str, attempts: int = 10, delay: float = 3.0):
         try:
             print(f"[metrics] Attempt {attempt}/{attempts} connecting to {url}", flush=True)
             async with Client(transport=url) as client:
+                await client.call_tool("evaluate_sage", {"code": "1+1"})
                 metrics = await client.read_resource("resource://sagemath/monitoring/metrics")
                 assert metrics, "No metrics returned"
                 snapshot = metrics[0]

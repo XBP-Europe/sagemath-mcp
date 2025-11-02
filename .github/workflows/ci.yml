@@ -57,12 +57,17 @@ jobs:
 
 
           async def main():
+              from fastmcp.client.transports import StreamableHttpTransport
+
               async with ClientSessionGroup() as group:
                   session = await group.connect_to_server(
                       StreamableHttpParameters(url=os.environ["SAGEMATH_MCP_URL"])
                   )
                   await session.initialize()
-                  metrics = await session.resource("resource://sagemath/monitoring/metrics")
+
+              transport = StreamableHttpTransport(url=os.environ["SAGEMATH_MCP_URL"])
+              async with Client(transport) as client:
+                  metrics = await client.read_resource("resource://sagemath/monitoring/metrics")
                   assert metrics, "No metrics returned"
                   snapshot = metrics[0]
                   assert snapshot.attempts >= 1, "Expected at least one recorded attempt"

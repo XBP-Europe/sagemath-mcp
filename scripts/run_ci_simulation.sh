@@ -64,6 +64,8 @@ if command -v docker-compose >/dev/null 2>&1; then
   uv run python - <<'PY'
 import asyncio
 import os
+from fastmcp import Client
+from fastmcp.client.transports import StreamableHttpTransport
 from mcp.client.session_group import ClientSessionGroup, StreamableHttpParameters
 
 async def main():
@@ -72,7 +74,10 @@ async def main():
             StreamableHttpParameters(url=os.environ["SAGEMATH_MCP_URL"])
         )
         await session.initialize()
-        metrics = await session.resource("resource://sagemath/monitoring/metrics")
+
+    transport = StreamableHttpTransport(url=os.environ["SAGEMATH_MCP_URL"])
+    async with Client(transport) as client:
+        metrics = await client.read_resource("resource://sagemath/monitoring/metrics")
         assert metrics, "No metrics returned"
         snapshot = metrics[0]
         assert snapshot.attempts >= 1, "Expected at least one recorded attempt"

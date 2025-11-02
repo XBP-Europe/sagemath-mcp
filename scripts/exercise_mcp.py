@@ -11,9 +11,23 @@ from mcp.client.session_group import ClientSessionGroup, StreamableHttpParameter
 URL = os.getenv("SAGEMATH_MCP_URL", "http://127.0.0.1:31415/mcp")
 
 
+async def _connect_with_retry(group: ClientSessionGroup) -> tuple:
+    """Attempt to connect with basic retry logic to handle startup delays."""
+    last_error: Exception | None = None
+    for attempt in range(1, 11):
+        try:
+            return await group.connect_to_server(StreamableHttpParameters(url=URL))
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # pragma: no cover - resilience helper
+            last_error = exc
+            await asyncio.sleep(3)
+    raise RuntimeError("Unable to connect to Sage MCP server after retries") from last_error
+
+
 async def _exercise(progress_cb: Callable[[float, float | None, str | None], None]) -> None:
     async with ClientSessionGroup() as group:
-        session = await group.connect_to_server(StreamableHttpParameters(url=URL))
+        session = await _connect_with_retry(group)
         initialize_result = await session.initialize()
         server_info = initialize_result.serverInfo
         print(f"Connected to {server_info.name} (version={server_info.version})")

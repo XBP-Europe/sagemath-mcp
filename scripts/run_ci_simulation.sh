@@ -65,24 +65,23 @@ if command -v docker-compose >/dev/null 2>&1; then
 import asyncio
 import os
 from fastmcp import Client
-from fastmcp.client.transports import StreamableHttpTransport
-from mcp.client.session_group import ClientSessionGroup, StreamableHttpParameters
 
-async def main():
-    async with ClientSessionGroup() as group:
-        session = await group.connect_to_server(
-            StreamableHttpParameters(url=os.environ["SAGEMATH_MCP_URL"])
-        )
-        await session.initialize()
+async def fetch_metrics(url: str, attempts: int = 10, delay: float = 3.0):
+    last_error = None
+    for attempt in range(1, attempts + 1):
+        try:
+            async with Client(transport=url) as client:
+                metrics = await client.resource("resource://sagemath/monitoring/metrics")
+                assert metrics, "No metrics returned"
+                snapshot = metrics[0]
+                assert snapshot.attempts >= 1, "Expected at least one recorded attempt"
+                return
+        except Exception as exc:
+            last_error = exc
+            await asyncio.sleep(delay)
+    raise RuntimeError("Unable to verify monitoring metrics") from last_error
 
-    transport = StreamableHttpTransport(url=os.environ["SAGEMATH_MCP_URL"])
-    async with Client(transport) as client:
-        metrics = await client.read_resource("resource://sagemath/monitoring/metrics")
-        assert metrics, "No metrics returned"
-        snapshot = metrics[0]
-        assert snapshot.attempts >= 1, "Expected at least one recorded attempt"
-
-asyncio.run(main())
+asyncio.run(fetch_metrics(os.environ["SAGEMATH_MCP_URL"]))
 PY
 else
   echo "==> docker-compose command not found; skipping smoke test"

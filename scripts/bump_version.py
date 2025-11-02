@@ -7,6 +7,7 @@ import argparse
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from re import Pattern
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"

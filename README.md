@@ -90,7 +90,7 @@ Build a ready-to-run container with the MCP server baked in:
 
 ```bash
 docker build -t sagemath-mcp:latest .
-docker run -p 8314:31415 sagemath-mcp:latest --transport streamable-http
+docker run -p 8314:8314 sagemath-mcp:latest --transport streamable-http
 ```
 
 This pulls the `sagemath/sagemath:latest` image (overridable via
@@ -115,7 +115,7 @@ To bootstrap a local SageMath MCP stack with a single command, use the provided
 docker compose up --build
 ```
 
-The compose service exposes port `8314` on the host (forwarded to container port `31415`) and mounts the repository at
+The compose service exposes port `8314` on both host and container and mounts the repository at
 `/workspace`. Containers run as the non-root `sage` user (UID/GID 1000) to match the
 base image. Tweak runtime settings by editing the environment block (for example,
 increase `SAGEMATH_MCP_EVAL_TIMEOUT` or adjust `SAGEMATH_MCP_MAX_STDOUT`) before launch.
@@ -135,7 +135,7 @@ helm install sagemath charts/sagemath-mcp \
 
 Key values:
 
-- `service.port` / `service.targetPort`: external and container ports (defaults map HTTP → 31415 inside the cluster; the compose stack publishes 8314 on the host).
+- `service.port` / `service.targetPort`: external and container ports (default 8314).
 - `env`: map of environment overrides for `SageSettings` (e.g., `SAGEMATH_MCP_EVAL_TIMEOUT`).
 - `args`: optional CLI arguments appended after the entrypoint (e.g., `--transport http`).
 - `ingress.*`: enable and configure HTTP ingress resources.

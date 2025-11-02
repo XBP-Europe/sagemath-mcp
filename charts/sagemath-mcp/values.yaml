@@ -34,8 +34,8 @@ securityContext:
 
 service:
   type: ClusterIP
-  port: 80
-  targetPort: 31415
+  port: 8314
+  targetPort: 8314
 
 env: {}
 extraEnvFrom: []

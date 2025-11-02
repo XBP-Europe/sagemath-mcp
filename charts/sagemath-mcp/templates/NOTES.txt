@@ -13,6 +13,6 @@
     kubectl get svc -w --namespace {{ .Release.Namespace }} {{ include "sagemath-mcp.fullname" . }}
 {{- else }}
   export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "sagemath-mcp.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
-  kubectl port-forward --namespace {{ .Release.Namespace }} pod/${POD_NAME} 8314:31415
+  kubectl port-forward --namespace {{ .Release.Namespace }} pod/${POD_NAME} 8314:8314
   echo "SageMath MCP available at http://127.0.0.1:8314"
 {{- end }}

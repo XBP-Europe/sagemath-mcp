@@ -16,7 +16,7 @@ RUN chown -R sage:sage /workspace
 
 USER sage
 
-EXPOSE 31415
+EXPOSE 8314
 
 ENTRYPOINT ["sage", "-python", "-m", "sagemath_mcp.server"]
-CMD ["--transport", "streamable-http", "--host", "0.0.0.0", "--port", "31415"]
+CMD ["--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8314"]

@@ -485,7 +485,7 @@ def main(argv: list[str] | None = None) -> None:  # pragma: no cover - CLI entry
         help="Transport protocol to use.",
     )
     parser.add_argument("--host", default="127.0.0.1", help="Host for HTTP transports.")
-    parser.add_argument("--port", type=int, default=31415, help="Port for HTTP transports.")
+    parser.add_argument("--port", type=int, default=8314, help="Port for HTTP transports.")
     parser.add_argument(
         "--path",
         default=None,

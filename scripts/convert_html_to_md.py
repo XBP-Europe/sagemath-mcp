@@ -9,6 +9,16 @@ from markdownify import markdownify
 SRC_ROOT = Path("external_docs/reference_html/doc.sagemath.org/html/en/reference")
 DEST_ROOT = Path("docs/reference_md")
 
+ALLOWED_PAGES = {
+    "index.html",
+    "search.html",
+    "plotting/index.html",
+    "plot3d/index.html",
+    "calculus/index.html",
+    "rings/index.html",
+    "stats/index.html",
+}
+
 
 def clean_html(html: str) -> str:
     soup = BeautifulSoup(html, "html.parser")
@@ -22,6 +32,8 @@ def clean_html(html: str) -> str:
 
 def convert_file(html_path: Path) -> None:
     relative = html_path.relative_to(SRC_ROOT)
+    if str(relative).replace("\\", "/") not in ALLOWED_PAGES:
+        return
     dest_path = DEST_ROOT / relative.with_suffix(".md")
     dest_path.parent.mkdir(parents=True, exist_ok=True)
 

@@ -62,15 +62,13 @@ jobs:
                   try:
                       print(f"[metrics] Attempt {attempt}/{attempts} connecting to {url}", flush=True)
                       async with Client(transport=url) as client:
-                          metrics = await client.resource("resource://sagemath/monitoring/metrics")
+                          metrics = await client.read_resource("resource://sagemath/monitoring/metrics")
                           assert metrics, "No metrics returned"
                           snapshot = metrics[0]
-                          assert snapshot.attempts >= 1, "Expected at least one recorded attempt"
-                          print(
-                              f"[metrics] Received snapshot: attempts={snapshot.attempts}, "
-                              f"successes={getattr(snapshot, 'successes', 'n/a')}",
-                              flush=True,
-                          )
+                          assert getattr(snapshot, "attempts", 0) >= 1, "Expected at least one recorded attempt"
+                          attempts = getattr(snapshot, "attempts", "n/a")
+                          successes = getattr(snapshot, "successes", "n/a")
+                          print(f"[metrics] Received snapshot: attempts={attempts}, successes={successes}", flush=True)
                           return
                   except Exception as exc:
                       last_error = exc

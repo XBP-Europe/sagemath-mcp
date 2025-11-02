@@ -17,7 +17,7 @@ PYPROJECT_VERSION_PATTERN: Pattern[str] = re.compile(
     r'^(version\s*=\s*)"(?P<version>\d+\.\d+\.\d+)"\s*$', re.MULTILINE
 )
 INIT_VERSION_PATTERN: Pattern[str] = re.compile(
-    r'^(__version__\s*=\s*)"(?P<version>\d+\.\d+\.\d+)"\s*$', re.MULTILINE
+    r'^(\s*__version__\s*=\s*)"(?P<version>\d+\.\d+\.\d+)"\s*$', re.MULTILINE
 )
 
 

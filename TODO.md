@@ -16,3 +16,5 @@
 - [ ] Add CLI reference (arguments/help output) to docs and README.
 - [ ] Add integration test ensuring monitoring metrics capture timeout/cancellation cases from a real Sage run.
 - [ ] Update Helm `values.yaml` defaults once the GHCR image is published.
+- [ ] Extend release workflow to push Helm chart artifacts and run `helm lint`/`helm template` for validation.
+- [ ] Add CI smoke tests that bring up `docker compose` services (pure-Python mode) and exercise `scripts/exercise_mcp.py`.

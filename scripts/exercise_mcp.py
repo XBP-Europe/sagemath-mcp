@@ -14,7 +14,7 @@ URL = os.getenv("SAGEMATH_MCP_URL", "http://127.0.0.1:31415/mcp")
 async def _connect_with_retry(group: ClientSessionGroup) -> tuple:
     """Attempt to connect with basic retry logic to handle startup delays."""
     last_error: Exception | None = None
-    for attempt in range(1, 11):
+    for _attempt in range(1, 11):
         try:
             return await group.connect_to_server(StreamableHttpParameters(url=URL))
         except asyncio.CancelledError:

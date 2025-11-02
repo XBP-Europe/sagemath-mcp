@@ -5,10 +5,10 @@ from __future__ import annotations
 
 import argparse
 import re
-import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Pattern
+
+from re import Pattern
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"
@@ -29,7 +29,7 @@ class Version:
     patch: int
 
     @classmethod
-    def parse(cls, raw: str) -> "Version":
+    def parse(cls, raw: str) -> Version:
         parts = raw.strip().split(".")
         if len(parts) != 3:
             raise ValueError(f"Expected semantic version (major.minor.patch), got '{raw}'")
@@ -39,7 +39,7 @@ class Version:
             raise ValueError(f"Version components must be integers, got '{raw}'") from exc
         return cls(major, minor, patch)
 
-    def bump(self, segment: str) -> "Version":
+    def bump(self, segment: str) -> Version:
         if segment == "major":
             return Version(self.major + 1, 0, 0)
         if segment == "minor":

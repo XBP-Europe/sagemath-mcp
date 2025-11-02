@@ -70,14 +70,21 @@ async def fetch_metrics(url: str, attempts: int = 10, delay: float = 3.0):
     last_error = None
     for attempt in range(1, attempts + 1):
         try:
+            print(f"[metrics] Attempt {attempt}/{attempts} connecting to {url}", flush=True)
             async with Client(transport=url) as client:
                 metrics = await client.resource("resource://sagemath/monitoring/metrics")
                 assert metrics, "No metrics returned"
                 snapshot = metrics[0]
                 assert snapshot.attempts >= 1, "Expected at least one recorded attempt"
+                print(
+                    f"[metrics] Received snapshot: attempts={snapshot.attempts}, "
+                    f"successes={getattr(snapshot, 'successes', 'n/a')}",
+                    flush=True,
+                )
                 return
         except Exception as exc:
             last_error = exc
+            print(f"[metrics] Attempt {attempt} failed: {exc!r}", flush=True)
             await asyncio.sleep(delay)
     raise RuntimeError("Unable to verify monitoring metrics") from last_error
 

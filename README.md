@@ -40,6 +40,22 @@ Clients connecting through MCP receive the following guidance:
 
 ## Quick Start
 
+### Install from PyPI
+
+```bash
+pip install sagemath-mcp
+
+# Run the server over stdio (default)
+sagemath-mcp
+
+# Or expose an HTTP endpoint
+sagemath-mcp -- --transport streamable-http --host 127.0.0.1 --port 31415
+```
+
+If the command is not on your `PATH`, run `python -m sagemath_mcp.server -- --help`.
+
+### Develop from source
+
 ```bash
 # Install dependencies (use uv or pip)
 uv pip install -e .[cli]
@@ -50,6 +66,9 @@ uv run sagemath-mcp
 # Run with streaming-friendly HTTP transport
 uv run sagemath-mcp -- --transport streamable-http --host 127.0.0.1 --port 31415
 ```
+
+See [INSTALLATION.md](INSTALLATION.md) for Windows/macOS tooling tips, Docker notes,
+and guidance on installing Sage locally.
 
 ### Optional: start a Sage container automatically
 
@@ -94,6 +113,7 @@ Lightweight Markdown exports covering the landing page, search index, plotting (
 rings, and statistics live under `docs/reference_md/` for quick client-side lookups.
 
 See [MONITORING.md](MONITORING.md) for guidance on scraping the metrics resource and wiring it into dashboards.
+See [INSTALLATION.md](INSTALLATION.md) for platform-specific setup notes.
 
 ### Using with Codex CLI
 Codex CLI can connect over stdio:

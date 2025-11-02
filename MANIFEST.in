@@ -1,2 +1,2 @@
-include README.md USAGE.md TESTING.md AGENTS.md
+include README.md USAGE.md TESTING.md AGENTS.md INSTALLATION.md
 recursive-include scripts *.py

@@ -4,6 +4,7 @@ import json
 import shutil
 
 import pytest
+from fastmcp.exceptions import ToolError
 
 from sagemath_mcp import server
 from sagemath_mcp.models import EvaluateResult
@@ -340,6 +341,45 @@ async def test_monitoring_resource_tracks_metrics(monkeypatch):
     assert snapshot.failures == 1
     assert snapshot.security_failures == 1
     assert snapshot.last_security_violation
+    assert snapshot.last_error_details
+
+
+@pytest.mark.asyncio
+async def test_evaluate_sage_security_violation(monkeypatch):
+    class ViolatingSession:
+        async def evaluate(self, *args, **kwargs):
+            raise SageEvaluationError(
+                "blocked",
+                error_type="SecurityViolation",
+                stdout="",
+                traceback="trace",
+            )
+
+    manager = SageSessionManager(server.DEFAULT_SETTINGS)
+
+    async def fake_get(session_id: str):
+        return ViolatingSession()
+
+    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(server.SESSION_MANAGER, "get", fake_get)
+
+    ctx = FakeContext("violation")
+    with pytest.raises(ToolError):
+        await server.evaluate_sage.fn("import os", ctx=ctx)
+
+    assert ctx.error_messages
+
+@pytest.mark.asyncio
+async def test_documentation_resource_unknown_scope():
+    result = await server.documentation_resource.fn("missing", None)
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_monitoring_resource_unknown_scope():
+    result = await server.monitoring_resource.fn("other", None)
+    assert result == []
+
 
 
 @pytest.mark.asyncio

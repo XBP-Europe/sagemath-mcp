@@ -78,6 +78,21 @@ If you'd like a ready-to-use Sage runtime without installing it locally, run:
 make sage-container  # or ./scripts/setup_sage_container.sh
 ```
 
+On Windows PowerShell:
+
+```powershell
+pwsh -File scripts/setup_sage_container.ps1
+```
+
+### Docker Image
+
+Build a ready-to-run container with the MCP server baked in:
+
+```bash
+docker build -t sagemath-mcp:latest .
+docker run -p 31415:31415 sagemath-mcp:latest --transport streamable-http
+```
+
 This pulls the `sagemath/sagemath:latest` image (overridable via
 `SAGEMATH_MCP_DOCKER_IMAGE`) and launches a long-lived container named `sage-mcp`
 mounting the current repository at `/workspace`.
@@ -110,7 +125,8 @@ The server exposes several tools and resources:
 9. `resource://sagemath/docs/{scope}`: Retrieve documentation links such as the [SageMath reference manual](https://doc.sagemath.org/html/en/reference) (`scope = "all"` for every link).
 
 Lightweight Markdown exports covering the landing page, search index, plotting (2D/3D), calculus,
-rings, and statistics live under `docs/reference_md/` for quick client-side lookups.
+rings, and statistics live under `docs/reference_md/` for quick client-side lookups. See
+[docs/mcp_quickstart.md](docs/mcp_quickstart.md) for JSON prompt examples and MCP usage patterns.
 
 See [MONITORING.md](MONITORING.md) for guidance on scraping the metrics resource and wiring it into dashboards.
 See [INSTALLATION.md](INSTALLATION.md) for platform-specific setup notes.
@@ -215,6 +231,10 @@ make test
 make integration-test  # requires running sage-mcp Docker container
 make build
 uv run python scripts/build_release.py  # build documented sdist/wheel into dist/
+
+# Publish a release
+git tag vX.Y.Z && git push origin vX.Y.Z
+(GitHub Actions will build wheels/sdist and publish to PyPI.)
 ```
 
 > GitHub Actions runs `make lint`, `make test`, `make integration-test`, and `make build` on every push/pull request. Run `make integration-test` locally once the `sage-mcp` container is available.

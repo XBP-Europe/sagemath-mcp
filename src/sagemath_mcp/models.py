@@ -71,6 +71,7 @@ class MonitoringSnapshot(BaseModel):
     last_run_at: float | None = None
     last_error: str | None = None
     last_security_violation: str | None = None
+    last_error_details: str | None = None
 
 
 class DocumentationLink(BaseModel):

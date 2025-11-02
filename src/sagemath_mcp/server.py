@@ -158,14 +158,16 @@ async def evaluate_sage(
             timeout_seconds=timeout_seconds,
         )
     except asyncio.CancelledError:
-        monitoring.record_failure("cancelled", is_security=False)
+        monitoring.record_failure("cancelled", is_security=False, details="evaluation cancelled")
         await SESSION_MANAGER.cancel(ctx.session_id)
         if ctx is not None:
             await ctx.warning("Sage evaluation cancelled; session restarted")
         raise
     except SageEvaluationError as exc:
         monitoring.record_failure(
-            exc.error_type or str(exc), is_security=exc.error_type == "SecurityViolation"
+            exc.error_type or str(exc),
+            is_security=exc.error_type == "SecurityViolation",
+            details=exc.traceback or exc.stdout,
         )
         if ctx is not None:
             if exc.error_type == "SecurityViolation":
@@ -174,7 +176,13 @@ async def evaluate_sage(
                 await ctx.error(f"SageMath error: {exc}")
         raise ToolError(exc.args[0]) from exc
     except SageProcessError as exc:
-        monitoring.record_failure(str(exc) or exc.__class__.__name__, is_security=False)
+        cause = getattr(exc, "__cause__", None)
+        details = repr(cause) if cause is not None else None
+        monitoring.record_failure(
+            str(exc) or exc.__class__.__name__,
+            is_security=False,
+            details=details,
+        )
         if ctx is not None:
             await ctx.error("SageMath process became unavailable; restarting may help")
         raise ToolError(str(exc)) from exc

@@ -35,10 +35,7 @@ uvx sagemath-mcp -- --transport http --host 127.0.0.1 --port 31415
    (Use `python -m sagemath_mcp.server` if the command is not on `PATH`.)
 5. Optional Sage runtime:
    - Install [Docker Desktop](https://www.docker.com/products/docker-desktop/).
-   - Start PowerShell and run `make sage-container` (requires Git Bash or WSL) or:
-     ```powershell
-     docker run --name sage-mcp -d -v "$PWD":/workspace -w /workspace sagemath/sagemath:latest tail -f /dev/null
-     ```
+   - Run `pwsh -File scripts/setup_sage_container.ps1` to launch the container, or use Git Bash/WSL with `make sage-container`.
 6. For source development, clone the repository and run `uv pip install -e .[dev]`.
 
 ## macOS (Intel & Apple Silicon)
@@ -86,4 +83,3 @@ make test
   ```
 - Security policy errors (e.g., "Import statements are disabled") typically indicate unsupported
   operations; rewrite the Sage code using whitelisted modules or helper tools.
-

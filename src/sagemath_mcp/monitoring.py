@@ -18,6 +18,7 @@ class EvaluationMetrics:
     last_run_at: float | None = None
     last_error: str | None = None
     last_security_violation: str | None = None
+    last_error_details: str | None = None
 
     def snapshot(self) -> dict:
         # NOTE: Average latency is computed lazily so it never divides by zero.
@@ -32,6 +33,7 @@ class EvaluationMetrics:
             "last_run_at": self.last_run_at,
             "last_error": self.last_error,
             "last_security_violation": self.last_security_violation,
+            "last_error_details": self.last_error_details,
         }
 
     def reset(self) -> None:
@@ -44,6 +46,7 @@ class EvaluationMetrics:
         self.last_run_at = None
         self.last_error = None
         self.last_security_violation = None
+        self.last_error_details = None
 
 
 _METRICS = EvaluationMetrics()
@@ -61,7 +64,7 @@ def record_success(elapsed_ms: float) -> None:
         _METRICS.last_run_at = now
 
 
-def record_failure(message: str, *, is_security: bool = False) -> None:
+def record_failure(message: str, *, is_security: bool = False, details: str | None = None) -> None:
     now = time.time()
     with _LOCK:
         _METRICS.attempts += 1
@@ -71,6 +74,7 @@ def record_failure(message: str, *, is_security: bool = False) -> None:
         if is_security:
             _METRICS.security_failures += 1
             _METRICS.last_security_violation = message
+        _METRICS.last_error_details = details or message
 
 
 def snapshot() -> dict:

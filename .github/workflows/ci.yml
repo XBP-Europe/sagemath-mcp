@@ -53,12 +53,12 @@ jobs:
           uv run python - <<'PY'
           import asyncio
           import os
+          from fastmcp import Client
+          from fastmcp.client.transports import StreamableHttpTransport
           from mcp.client.session_group import ClientSessionGroup, StreamableHttpParameters
 
 
           async def main():
-              from fastmcp.client.transports import StreamableHttpTransport
-
               async with ClientSessionGroup() as group:
                   session = await group.connect_to_server(
                       StreamableHttpParameters(url=os.environ["SAGEMATH_MCP_URL"])

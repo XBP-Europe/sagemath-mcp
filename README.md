@@ -97,6 +97,46 @@ This pulls the `sagemath/sagemath:latest` image (overridable via
 `SAGEMATH_MCP_DOCKER_IMAGE`) and launches a long-lived container named `sage-mcp`
 mounting the current repository at `/workspace`.
 
+### Docker Compose
+
+To bootstrap a local SageMath MCP stack with a single command, use the provided
+`docker-compose.yml`:
+
+```bash
+docker compose up --build
+```
+
+The compose service exposes port `31415` by default and mounts the repository at
+`/workspace`. Containers run as the non-root `sage` user (UID/GID 1000) to match the
+base image. Tweak runtime settings by editing the environment block (for example,
+increase `SAGEMATH_MCP_EVAL_TIMEOUT` or adjust `SAGEMATH_MCP_MAX_STDOUT`) before launch.
+If your checkout directory is not writable by UID/GID 1000, run `chown -R 1000:1000 .`
+or point the volume at a suitable path before bringing the stack up.
+
+### Kubernetes (Helm)
+
+The `charts/sagemath-mcp` Helm chart deploys the MCP server to Kubernetes. To install
+directly from this repository:
+
+```bash
+helm install sagemath charts/sagemath-mcp \
+--set image.repository=sagemath/sagemath-mcp \
+--set image.tag=latest
+```
+
+Key values:
+
+- `service.port` / `service.targetPort`: external and container ports (defaults map HTTP → 31415).
+- `env`: map of environment overrides for `SageSettings` (e.g., `SAGEMATH_MCP_EVAL_TIMEOUT`).
+- `args`: optional CLI arguments appended after the entrypoint (e.g., `--transport http`).
+- `ingress.*`: enable and configure HTTP ingress resources.
+
+Review `values.yaml` for the full list of configurable knobs, including pull secrets, resource limits,
+and volume mounts. The chart enforces non-root execution (`runAsUser`/`runAsGroup` 1000, dropped
+capabilities) so the packaged image must support the `sage` user.
+Once the GHCR publish workflow lands, update `values.yaml` with the official `image.repository`
+default to mirror CI output (current value is a placeholder).
+
 To connect from Claude Desktop, add the following configuration snippet to `claude_desktop_config.json`:
 
 ```json

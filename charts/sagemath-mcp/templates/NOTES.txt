@@ -1,0 +1,18 @@
+1. Get the SageMath MCP server URL by running:
+{{- if .Values.ingress.enabled }}
+  {{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}{{ (index .paths 0).path }}
+  {{- end }}
+{{- else if eq .Values.service.type "NodePort" }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "sagemath-mcp.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo "SageMath MCP available at http://${NODE_IP}:${NODE_PORT}"
+{{- else if eq .Values.service.type "LoadBalancer" }}
+  NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+  You can watch the status with:
+    kubectl get svc -w --namespace {{ .Release.Namespace }} {{ include "sagemath-mcp.fullname" . }}
+{{- else }}
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "sagemath-mcp.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  kubectl port-forward --namespace {{ .Release.Namespace }} pod/${POD_NAME} 31415:31415
+  echo "SageMath MCP available at http://127.0.0.1:31415"
+{{- end }}

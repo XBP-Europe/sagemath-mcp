@@ -1,0 +1,63 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/example/sagemath-mcp
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: false
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 31415
+
+env: {}
+extraEnvFrom: []
+
+args: []
+
+resources: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+extraVolumes: []
+extraVolumeMounts: []
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: example.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []

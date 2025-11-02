@@ -1,0 +1,23 @@
+version: "3.9"
+
+services:
+  sage-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sagemath-mcp:local
+    container_name: sage-mcp
+    user: "1000:1000"
+    restart: unless-stopped
+    ports:
+      - "31415:31415"
+    environment:
+      # Override runtime behavior by setting SageSettings env vars here.
+      # Example: SAGEMATH_MCP_EVAL_TIMEOUT: "45"
+      # These defaults mirror the packaged configuration; override as needed.
+      SAGEMATH_MCP_EVAL_TIMEOUT: "30"
+      SAGEMATH_MCP_IDLE_TTL: "900"
+      SAGEMATH_MCP_SHUTDOWN_GRACE: "2"
+      SAGEMATH_MCP_MAX_STDOUT: "100000"
+    volumes:
+      - ./:/workspace

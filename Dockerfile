@@ -2,12 +2,19 @@ FROM sagemath/sagemath:latest
 
 WORKDIR /workspace
 
+USER root
+
 # Copy project files
 COPY . /workspace
 
 # Install the MCP server into Sage's Python environment
 RUN sage -python -m pip install --upgrade pip && \
     sage -python -m pip install --no-cache-dir .
+
+# Ensure runtime user owns the workspace.
+RUN chown -R sage:sage /workspace
+
+USER sage
 
 EXPOSE 31415
 

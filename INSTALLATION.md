@@ -17,6 +17,29 @@ uv tool install sagemath-mcp
 uvx sagemath-mcp -- --transport http --host 127.0.0.1 --port 31415
 ```
 
+### Docker Compose (all platforms)
+
+```bash
+git clone https://github.com/csteinl/sagemath-mcp.git
+cd sagemath-mcp
+docker compose up --build
+```
+
+The container exposes `http://127.0.0.1:31415/mcp` and runs as the non-root `sage` user (UID/GID 1000).
+If you mount the repository from the host, ensure it is writable by that UID (`chown -R 1000:1000 .`
+before launching).
+
+### Kubernetes (Helm)
+
+```bash
+helm install sagemath charts/sagemath-mcp \
+  --set image.repository=<your-ghcr-namespace>/sagemath-mcp \
+  --set image.tag=latest
+```
+
+The chart enforces non-root execution and drops Linux capabilities. Edit `values.yaml` to customise
+ingress, resource limits, or environment variables.
+
 ## Windows 11
 
 1. Install Python 3.11+ from [python.org](https://python.org/) (check "Add to PATH").
@@ -81,5 +104,7 @@ make test
   docker exec -it sage-mcp bash
   docker rm -f sage-mcp
   ```
+- When mounting directories into Docker or running via `docker compose`, ensure the host path is
+  writable by UID/GID 1000 to satisfy the non-root `sage` user (e.g., `sudo chown -R 1000:1000 <path>`).
 - Security policy errors (e.g., "Import statements are disabled") typically indicate unsupported
   operations; rewrite the Sage code using whitelisted modules or helper tools.

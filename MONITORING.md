@@ -60,6 +60,11 @@ PY
 
 ## Exporting to Prometheus / Grafana
 
+For Docker Compose deployments the MCP endpoint defaults to `http://127.0.0.1:31415/mcp`. Inside
+Kubernetes, use `kubectl port-forward` (see `charts/sagemath-mcp/templates/NOTES.txt`) or expose an
+ingress before scraping metrics. The chart enforces non-root execution, so ensure any sidecar or job
+containers mounting shared volumes tolerate UID/GID 1000 ownership.
+
 Create a small bridge that fetches metrics and exposes a Prometheus-compatible endpoint:
 
 ```python

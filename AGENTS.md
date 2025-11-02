@@ -1,46 +1,37 @@
-# Repository Guidelines
+# Agent Playbook
 
-## Project Structure & Module Organization
-- `src/sagemath_mcp/`: production code for the SageMath MCP server (`server.py`, `session.py`, `_sage_worker.py`, config/models).
-- `scripts/`: operational helpers (e.g., `exercise_mcp.py` for HTTP workflow validation).
-- `tests/`: automated test suites; mirrors the layout of `src/` where practical.
-- `pyproject.toml`: dependency, tooling, and packaging configuration.
+## Environment & Setup
+- `uv pip install -e .[dev]` primes the venv with runtime+dev extras; prefer `sage -python -m uv ...` inside the Docker image.
+- `make sage-container` (script: `scripts/setup_sage_container.sh`) ensures the Sage runtime is available for integration work.
+- Keep `TODO.md` in sync with outstanding initiatives; the unchecked items at the bottom reflect the current priority queue.
+- `docker-compose.yml` spins up the Sage-backed MCP server locally; the Helm chart under `charts/sagemath-mcp` mirrors the deployment knobs for Kubernetes and enforces the non-root `sage` user (UID/GID 1000).
 
-## Build, Test, and Development Commands
-- `uv pip install -e .[dev]`: install project plus development extras.
-- `make test`: run the local pytest suite (pure-Python worker).
-- `make integration-test`: execute the Docker-backed Sage suite.
-- `make lint`: run Ruff on the codebase.
-- `make build`: produce sdist/wheel artifacts (`scripts/build_release.py`).
-- `make sage-container`: pull and run the optional Sage Docker container used for integration tests.
-- `sage -python scripts/exercise_mcp.py`: smoke test against a running HTTP server.
+## Fast Commands
+- `make lint` → `uv run ruff check`
+- `make test` → pure-Python pytest suite (`uv run pytest`)
+- `make integration-test` → runs pytest inside the Sage container and captures logs (`integration.log`, `integration-artifacts.tar.gz`)
+- `make build` → `uv run python scripts/build_release.py` (sdist/wheel; respects prerequisite guardrails)
+- `make all` → convenience alias (`make test` + `make integration-test`); keep targets separate when adding CI steps.
 
-## Testing Guidelines
+## Testing Expectations
+- Add new tests under `tests/`, mirroring the module under `src/`; mark async cases with `@pytest.mark.asyncio`.
+- Exercise both `make test` and `make integration-test` before landing changes; the latter requires the Sage container.
+- Cover MCP helper tools and `_evaluate_structured` flows in `tests/test_server.py`; use `tests/test_use_cases.py` for Sage-manual scenarios.
+- When introducing monitoring/security changes, ensure corresponding metrics assertions or timeout/cancellation cases land in integration tests.
 
-- Unit tests cover session lifecycle, worker security, monitoring, and helper tools. Of note:
-  - `tests/test_use_cases.py` mirrors Sage manual examples (calculus, matrix algebra, statistics)
-    and exercises the MCP API; it runs automatically when Sage is available.
-  - `tests/test_server.py` validates lifecycle helpers (`_cull_loop`, `_lifespan`, progress heartbeats)
-    and monitoring resources.
-- Run `make test` (pure Python) and `make integration-test` (Sage container) before submitting changes.
+## Documentation & Release Hygiene
+- Update `README.md`, `USAGE.md`, and the monitoring docs whenever you touch CLI flags, security toggles, or observability outputs.
+- Surface new automation (e.g., build pipeline steps, artifact locations) in `AGENTS.md` and `TODO.md` so follow-on work is visible.
+- Keep distribution guidance current (`INSTALLATION.md`, `DISTRIBUTION.md`) and maintain cross-platform notes (Windows/macOS).
 
-## Coding Style & Naming Conventions
-- Python code targets 3.11+ with Ruff enforced; keep line length ≤100 characters.
-- Prefer `snake_case` for variables/functions, `PascalCase` for classes, and module-level constants in `UPPER_SNAKE`.
-- When adding environment-driven settings, expose them through `SageSettings` in `config.py` rather than hard-coding.
+## Pending Focus Areas (from `TODO.md`)
+- Extend CI release flow to publish a Docker image (ghcr.io) alongside PyPI artifacts.
+- Document CLI arguments/help output in the primary docs.
+- Add an integration test that validates monitoring metrics during timeout/cancellation scenarios using real Sage.
+- Update Helm image defaults once the GHCR publication workflow is live.
 
-## Testing Guidelines
-- Tests use `pytest` (async support via `pytest-asyncio`). Place new suites under `tests/` and mirror source modules (e.g., `tests/test_session.py`).
-- Name async tests with `@pytest.mark.asyncio`; cover stateful session behavior, security policy failures, and monitoring counters.
-- Run `uv run pytest` before submitting changes.
-- For live Sage coverage, run integration targets inside the container (`docker exec sage-mcp bash -lc 'cd /workspace && sage -python -m pytest'`).
-- LLM-style conversational workflows live in `tests/test_server.py`—add similar end-to-end cases when introducing new tools.
-
-## Commit & Pull Request Guidelines
-- Write concise commit subjects in the imperative mood (e.g., “Add HTTP driver script”), followed by detailed body text when needed.
-- Pull requests should describe the change, reference related issues, and note testing performed (commands + results). Include screenshots or logs for UX/CLI-visible changes when relevant.
-- Keep PRs focused; split major features into reviewable chunks and ensure `ruff` + tests are green prior to request.
-
-## Agent-Specific Tips
-- When running inside the Sage Docker image, prefer `sage -python -m uv ...` so the MCP server inherits Sage’s runtime paths.
-- For long computations, rely on `cancel_sage_session` to reset state instead of interrupting the container.***
+## Extra Tips
+- Use `cancel_sage_session` instead of force-stopping long Sage computations.
+- Keep comments concise; explain non-obvious security or monitoring decisions inline.
+- Capture and attach integration artifacts/logs when debugging or updating CI.
+- Containerized workflows expect writable volumes for UID/GID 1000; adjust permissions when mounting host paths.

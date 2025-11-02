@@ -252,12 +252,30 @@ async def test_calculate_expression(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_calculate_expression_handles_literal_eval_failure(monkeypatch):
+    session = StubSession("not-a-dict")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.calculate_expression.fn("1+1", ctx=ctx)
+    assert result == {"string": "not-a-dict"}
+
+
+@pytest.mark.asyncio
 async def test_matrix_multiply(monkeypatch):
     session = StubSession("[[19.0, 22.0], [43.0, 50.0]]")
     await _stub_manager(monkeypatch, session)
     ctx = FakeContext()
     result = await server.matrix_multiply.fn([[1, 2], [3, 4]], [[5, 6], [7, 8]], ctx=ctx)
     assert result == {"product": [[19.0, 22.0], [43.0, 50.0]]}
+
+
+@pytest.mark.asyncio
+async def test_matrix_multiply_literal_eval_failure(monkeypatch):
+    session = StubSession("matrix([[1, 0], [0, 1]])")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.matrix_multiply.fn([[1, 0], [0, 1]], [[1, 0], [0, 1]], ctx=ctx)
+    assert result == {"product": "matrix([[1, 0], [0, 1]])"}
 
 
 @pytest.mark.asyncio

@@ -10,6 +10,10 @@
 - Alternatively, run `make sage-container` (or `./scripts/setup_sage_container.sh`) to pull and launch
   the Docker image automatically.
 - Optional: `sage` on your `PATH` if running outside Docker.
+- `docker compose up --build` launches the bundled stack on `http://127.0.0.1:31415/mcp` using the
+  non-root `sage` user (UID/GID 1000); ensure the mounted project directory is writable by that UID.
+- To deploy to Kubernetes, use the Helm chart in `charts/sagemath-mcp` and set
+  `image.repository`/`image.tag` to the published container (non-root execution is enforced by default).
 
 ## Installing Dependencies
 Inside the repo (or inside the container):
@@ -53,6 +57,8 @@ The repo ships a curated subset of the Sage reference manual (index, search, plo
 calculus, rings, statistics) in `docs/reference_md/`, suitable for in-context prompting.
 
 Refer to [MONITORING.md](MONITORING.md) for details on exporting metrics to Prometheus or other dashboards.
+For container deployments, scrape metrics from whichever service (compose or Helm) exposes
+`resource://sagemath/monitoring/metrics` through your MCP client.
 
 ## Verifying the Server
 ### Automated Tests & Lint
@@ -67,6 +73,9 @@ With the HTTP server running:
 sage -python scripts/exercise_mcp.py
 ```
 This script performs an assignment, a dependent evaluation, launches a long-running loop (emitting progress every 1.5 seconds), and cancels it using `cancel_sage_session`.
+
+When running via Docker Compose, the same script can target `http://127.0.0.1:31415/mcp`. Under Helm,
+use `kubectl port-forward` (see chart `NOTES.txt`) or expose an ingress to reach the MCP endpoint.
 
 ## Integrating with MCP Clients
 Sample Claude Desktop snippet:
@@ -87,3 +96,4 @@ For HTTP transports, point the client at `http://HOST:PORT/mcp` and enable strea
 - **ModuleNotFoundError for `sage`**: ensure the server is launched via `sage -python ...` so Sage’s site-packages are on `PYTHONPATH`.
 - **Long-running jobs**: use `cancel_sage_session`; the server restarts the worker and logs a warning for the calling context.
 - **Idle sessions**: the background culler removes sessions after `SAGEMATH_MCP_IDLE_TTL` seconds (default 900). Adjust via environment variables as documented in `README.md`.
+- **Permission denied on volume mounts**: confirm the host path is writable by UID/GID 1000; adjust ownership with `chown -R 1000:1000 <path>` when using Docker Compose or Helm.

@@ -42,7 +42,7 @@ PY
 
 ### HTTP transport
 
-When the server runs over HTTP (`uv run sagemath-mcp -- --transport streamable-http --port 31415`), switch the client transport:
+When the server runs over HTTP (`uv run sagemath-mcp -- --transport streamable-http --port 8314`), switch the client transport:
 
 ```bash
 uv run python - <<'PY'

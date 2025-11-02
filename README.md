@@ -49,7 +49,7 @@ pip install sagemath-mcp
 sagemath-mcp
 
 # Or expose an HTTP endpoint
-sagemath-mcp -- --transport streamable-http --host 127.0.0.1 --port 31415
+sagemath-mcp -- --transport streamable-http --host 127.0.0.1 --port 8314
 ```
 
 If the command is not on your `PATH`, run `python -m sagemath_mcp.server -- --help`.
@@ -64,7 +64,7 @@ uv pip install -e .[cli]
 uv run sagemath-mcp
 
 # Run with streaming-friendly HTTP transport
-uv run sagemath-mcp -- --transport streamable-http --host 127.0.0.1 --port 31415
+uv run sagemath-mcp -- --transport streamable-http --host 127.0.0.1 --port 8314
 ```
 
 See [INSTALLATION.md](INSTALLATION.md) for Windows/macOS tooling tips, Docker notes,
@@ -135,7 +135,7 @@ helm install sagemath charts/sagemath-mcp \
 
 Key values:
 
-- `service.port` / `service.targetPort`: external and container ports (defaults map HTTP → 31415).
+- `service.port` / `service.targetPort`: external and container ports (defaults map HTTP → 31415 inside the cluster; the compose stack publishes 8314 on the host).
 - `env`: map of environment overrides for `SageSettings` (e.g., `SAGEMATH_MCP_EVAL_TIMEOUT`).
 - `args`: optional CLI arguments appended after the entrypoint (e.g., `--transport http`).
 - `ingress.*`: enable and configure HTTP ingress resources.
@@ -191,7 +191,7 @@ codex mcp add sagemath \
 For streaming progress, expose the HTTP endpoint first:
 
 ```bash
-sage -python -m uv run sagemath-mcp -- --transport streamable-http --host 0.0.0.0 --port 31415
+sage -python -m uv run sagemath-mcp -- --transport streamable-http --host 0.0.0.0 --port 8314
 codex mcp add sagemath-http --url http://127.0.0.1:8314/mcp
 ```
 

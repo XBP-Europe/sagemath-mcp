@@ -31,11 +31,11 @@ This exposes the server over stdio and is suitable for tools like Claude Desktop
 
 ### HTTP / Streamable Transport (recommended for streaming + cancellation)
 ```bash
-uv run sagemath-mcp -- --transport streamable-http --host 127.0.0.1 --port 31415
+uv run sagemath-mcp -- --transport streamable-http --host 127.0.0.1 --port 8314
 ```
 Inside Docker, prefer running through Sage to inherit the full runtime:
 ```bash
-sage -python -m uv run sagemath-mcp -- --transport streamable-http --host 0.0.0.0 --port 31415
+sage -python -m uv run sagemath-mcp -- --transport streamable-http --host 0.0.0.0 --port 8314
 ```
 The server advertises its MCP endpoint at `http://HOST:PORT/mcp`.
 

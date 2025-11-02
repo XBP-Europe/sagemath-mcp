@@ -7,14 +7,14 @@ SageMath MCP server.
 
 ```bash
 pip install sagemath-mcp
-sagemath-mcp -- --transport streamable-http --host 127.0.0.1 --port 31415
+sagemath-mcp -- --transport streamable-http --host 127.0.0.1 --port 8314
 ```
 
 Or with [uv](https://docs.astral.sh/uv/):
 
 ```bash
 uv tool install sagemath-mcp
-uvx sagemath-mcp -- --transport http --host 127.0.0.1 --port 31415
+uvx sagemath-mcp -- --transport http --host 127.0.0.1 --port 8314
 ```
 
 ### Docker Compose (all platforms)

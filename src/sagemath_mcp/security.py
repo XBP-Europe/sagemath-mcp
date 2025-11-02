@@ -99,6 +99,7 @@ class SecurityPolicy:
         "cmath",
         "sage",
         "sage.all",
+        "statistics",
     )
     allowed_import_prefixes: tuple[str, ...] = ("sage.",)
     log_violations: bool = True

@@ -1,0 +1,41 @@
+name: Feature request
+description: Suggest an idea to improve the SageMath MCP server.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing your idea! Help us understand the motivation and the desired outcome.
+  - type: input
+    id: title
+    attributes:
+      label: Summary
+      description: Short description of the feature.
+      placeholder: e.g., Add CLI flag to expose Prometheus metrics
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What challenge or user need does this feature address?
+      placeholder: Describe the user problem or workflow gap.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe the solution you envision. Include API changes, CLI flags, or UX if relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Mention any other approaches you evaluated.
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Links, mockups, related issues, or any supporting information.

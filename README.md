@@ -120,8 +120,8 @@ directly from this repository:
 
 ```bash
 helm install sagemath charts/sagemath-mcp \
---set image.repository=sagemath/sagemath-mcp \
---set image.tag=latest
+  --set image.repository=ghcr.io/csteinl/sagemath-mcp \
+  --set image.tag=latest
 ```
 
 Key values:
@@ -133,9 +133,8 @@ Key values:
 
 Review `values.yaml` for the full list of configurable knobs, including pull secrets, resource limits,
 and volume mounts. The chart enforces non-root execution (`runAsUser`/`runAsGroup` 1000, dropped
-capabilities) so the packaged image must support the `sage` user.
-Once the GHCR publish workflow lands, update `values.yaml` with the official `image.repository`
-default to mirror CI output (current value is a placeholder).
+capabilities) so the packaged image must support the `sage` user. The default image points to
+`ghcr.io/csteinl/sagemath-mcp`, published automatically by the release workflow.
 
 To connect from Claude Desktop, add the following configuration snippet to `claude_desktop_config.json`:
 

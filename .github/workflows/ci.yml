@@ -12,11 +12,21 @@ jobs:
       sage:
         image: sagemath/sagemath:latest
         options: --name sage-mcp
+    env:
+      HELM_VERSION: v3.15.2
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v2
       - name: Install dependencies
         run: uv pip install -e .[dev]
+      - name: Install Helm
+        run: |
+          curl -sSL https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz | tar -xz
+          sudo mv linux-amd64/helm /usr/local/bin/helm
+      - name: Helm lint
+        run: helm lint charts/sagemath-mcp
+      - name: Helm template
+        run: helm template test charts/sagemath-mcp
       - name: Lint
         run: make lint
       - name: Unit Tests
@@ -30,5 +40,11 @@ jobs:
           path: |
             integration.log
             integration-artifacts.tar.gz
+      - name: Docker Compose smoke test
+        run: |
+          docker compose up --build -d
+          export SAGEMATH_MCP_URL="http://127.0.0.1:31415/mcp"
+          uv run python scripts/exercise_mcp.py
+          docker compose down
       - name: Build artifacts
         run: make build

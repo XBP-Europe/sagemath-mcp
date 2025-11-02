@@ -1,0 +1,61 @@
+name: Bug report
+description: Report a problem with the SageMath MCP server.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug! Please provide as much detail as possible so we can reproduce the issue.
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: Briefly describe the problem.
+      placeholder: e.g., Structured evaluation crashes on matrix results
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the steps needed to reproduce the issue.
+      placeholder: |
+        1. Start the MCP server using ...
+        2. Run the following tool call ...
+        3. Observe that ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      placeholder: What actually happened? Include error messages, stack traces, or screenshots when possible.
+    validations:
+      required: true
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      description: Where did you observe the issue?
+      options:
+        - Local (pure Python worker)
+        - Local (Sage installed)
+        - Docker Compose
+        - Kubernetes / Helm chart
+        - Other (see details below)
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Additional details
+      description: |
+        Provide versions (Python, Sage, uv), OS info, or any other context that helps debugging.
+*** End Patch

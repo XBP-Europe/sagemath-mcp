@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  repository: ghcr.io/example/sagemath-mcp
+  repository: ghcr.io/csteinl/sagemath-mcp
   tag: latest
   pullPolicy: IfNotPresent
 

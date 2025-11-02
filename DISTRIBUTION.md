@@ -36,20 +36,19 @@ Provide PyPI credentials via environment variables or keyring as usual.
 
 ### Container Artifacts (GHCR)
 
-Once the release workflow publishes Docker images, authenticate and push using:
+The release workflow automatically builds and pushes Docker images to GHCR at
+`ghcr.io/csteinl/sagemath-mcp`. To pull locally:
 
 ```bash
-docker login ghcr.io
-docker build -t ghcr.io/<org>/sagemath-mcp:<version> .
-docker push ghcr.io/<org>/sagemath-mcp:<version>
+docker pull ghcr.io/csteinl/sagemath-mcp:latest
 ```
 
 Images inherit the upstream `sagemath/sagemath` base and run as the non-root `sage`
 user (UID/GID 1000). Ensure repository directories mounted into the container are
 writable by that user (`chown -R 1000:1000 .` before `docker run`/`docker compose up`).
 
-Helm deployments reference the same image via `charts/sagemath-mcp/values.yaml`. Update
-`image.repository` and `image.tag` to match the published artifact each release.
+Helm deployments reference the same image via `charts/sagemath-mcp/values.yaml`. Adjust
+`image.tag` in values or `--set image.tag=<version>` when installing a specific release.
 
 ## Verification After Install
 ```bash

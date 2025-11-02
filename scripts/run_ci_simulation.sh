@@ -68,9 +68,10 @@ from mcp.client.session_group import ClientSessionGroup, StreamableHttpParameter
 
 async def main():
     async with ClientSessionGroup() as group:
-        session, _ = await group.connect_to_server(
+        session = await group.connect_to_server(
             StreamableHttpParameters(url=os.environ["SAGEMATH_MCP_URL"])
         )
+        await session.initialize()
         metrics = await session.resource("resource://sagemath/monitoring/metrics")
         assert metrics, "No metrics returned"
         snapshot = metrics[0]

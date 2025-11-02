@@ -12,10 +12,10 @@
 - [x] Provide container image or documentation updates after automation wrap-up.
 - [x] Add configuration parsing tests (invalid env values for floats/ints/bools).
 - [x] Exercise `_evaluate_structured` error paths and helper tool fallbacks.
-- [ ] Build and publish a Docker image via CI (ghcr.io) alongside PyPI release.
+- [x] Build and publish a Docker image via CI (ghcr.io) alongside PyPI release.
 - [ ] Add CLI reference (arguments/help output) to docs and README.
 - [ ] Add integration test ensuring monitoring metrics capture timeout/cancellation cases from a real Sage run.
 - [x] Update Helm `values.yaml` defaults once the GHCR image is published.
-- [ ] Extend release workflow to push Helm chart artifacts and run `helm lint`/`helm template` for validation.
-- [ ] Add CI smoke tests that bring up `docker compose` services (pure-Python mode) and exercise `scripts/exercise_mcp.py`.
-- [ ] Add Dependabot (or Renovate) configuration for Python, GitHub Actions, and Docker dependencies.
+- [ ] Extend release workflow to push Helm chart artifacts and run `helm lint`/`helm template` for validation during release publish.
+- [x] Add CI smoke tests that bring up `docker compose` services (pure-Python mode) and exercise `scripts/exercise_mcp.py`.
+- [x] Add Dependabot (or Renovate) configuration for Python, GitHub Actions, and Docker dependencies.

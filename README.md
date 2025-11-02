@@ -97,6 +97,15 @@ This pulls the `sagemath/sagemath:latest` image (overridable via
 `SAGEMATH_MCP_DOCKER_IMAGE`) and launches a long-lived container named `sage-mcp`
 mounting the current repository at `/workspace`.
 
+Released images are published to `ghcr.io/csteinl/sagemath-mcp` and signed with Cosign.
+Verify a downloaded artifact with:
+
+```bash
+cosign verify ghcr.io/csteinl/sagemath-mcp:latest \
+  --certificate-identity "https://github.com/csteinl/sagemath-mcp/.github/workflows/release.yml@refs/tags/vX.Y.Z" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
+```
+
 ### Docker Compose
 
 To bootstrap a local SageMath MCP stack with a single command, use the provided

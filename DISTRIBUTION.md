@@ -50,6 +50,20 @@ writable by that user (`chown -R 1000:1000 .` before `docker run`/`docker compos
 Helm deployments reference the same image via `charts/sagemath-mcp/values.yaml`. Adjust
 `image.tag` in values or `--set image.tag=<version>` when installing a specific release.
 
+### Verifying container signatures
+
+All published images are signed with [Sigstore Cosign](https://docs.sigstore.dev/). Verify
+the signature using GitHub’s OIDC transparency log:
+
+```bash
+cosign verify ghcr.io/csteinl/sagemath-mcp:latest \
+  --certificate-identity="https://github.com/csteinl/sagemath-mcp/.github/workflows/release.yml@refs/tags/vX.Y.Z" \
+  --certificate-oidc-issuer="https://token.actions.githubusercontent.com"
+```
+
+Replace `vX.Y.Z` with the tagged release when verifying specific builds. Successful
+verification proves the image was built by the repository’s GitHub Actions workflow.
+
 ## Verification After Install
 ```bash
 uv pip install sagemath-mcp

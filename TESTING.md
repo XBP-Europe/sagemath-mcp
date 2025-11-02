@@ -37,6 +37,8 @@ CI runs `make all` (unit + integration targets) and captures logs in `integratio
 - Async tests use `@pytest.mark.asyncio`; avoid direct `asyncio.run` in tests.
 - `tests/test_config.py` exercises invalid environment overrides to guard the new non-root and timeout
   settings exposed through `SageSettings`.
+- CI smoke tests also hit `resource://sagemath/monitoring/metrics` via the docker-compose stack to
+  ensure observability endpoints remain healthy.
 
 ## Coverage Focus
 - Session lifecycle: `evaluate`, `reset`, `cancel`, idle culling, graceful shutdown.

@@ -45,6 +45,25 @@ jobs:
           docker compose up --build -d
           export SAGEMATH_MCP_URL="http://127.0.0.1:31415/mcp"
           uv run python scripts/exercise_mcp.py
+      - name: Verify monitoring metrics
+        run: |
+          export SAGEMATH_MCP_URL="http://127.0.0.1:31415/mcp"
+          uv run python - <<'PY'
+import asyncio
+import os
+from fastmcp import Client
+
+
+async def main():
+    client = Client(os.environ["SAGEMATH_MCP_URL"], transport="http")
+    metrics = await client.resource("resource://sagemath/monitoring/metrics")
+    assert metrics, "No metrics returned"
+    snapshot = metrics[0]
+    assert snapshot.attempts >= 1, "Expected at least one recorded attempt"
+
+
+asyncio.run(main())
+PY
           docker compose down
       - name: Build artifacts
         run: make build

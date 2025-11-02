@@ -44,6 +44,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - name: Log in to GHCR
@@ -60,12 +61,22 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
       - name: Build and push image
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+      - name: Sign container image
+        env:
+          COSIGN_YES: "true"
+        run: |
+          IMAGE="ghcr.io/${{ github.repository }}"
+          DIGEST="${{ steps.build.outputs.digest }}"
+          cosign sign "${IMAGE}@${DIGEST}"
 
   publish:
     needs: [build, docker]

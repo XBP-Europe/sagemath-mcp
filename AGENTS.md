@@ -5,6 +5,7 @@
 - `make sage-container` (script: `scripts/setup_sage_container.sh`) ensures the Sage runtime is available for integration work.
 - Keep `TODO.md` in sync with outstanding initiatives; the unchecked items at the bottom reflect the current priority queue.
 - `docker-compose.yml` spins up the Sage-backed MCP server locally; the Helm chart under `charts/sagemath-mcp` mirrors the deployment knobs for Kubernetes and enforces the non-root `sage` user (UID/GID 1000).
+- Release workflow publishes signed images to `ghcr.io/csteinl/sagemath-mcp`; verify with Cosign if you consume the container directly.
 
 ## Fast Commands
 - `make lint` → `uv run ruff check`
@@ -25,10 +26,9 @@
 - Keep distribution guidance current (`INSTALLATION.md`, `DISTRIBUTION.md`) and maintain cross-platform notes (Windows/macOS).
 
 ## Pending Focus Areas (from `TODO.md`)
-- Extend CI release flow to publish a Docker image (ghcr.io) alongside PyPI artifacts.
 - Document CLI arguments/help output in the primary docs.
 - Add an integration test that validates monitoring metrics during timeout/cancellation scenarios using real Sage.
-- Update Helm image defaults once the GHCR publication workflow is live.
+- Extend release workflow to package Helm artifacts and run templating during publish.
 
 ## Extra Tips
 - Use `cancel_sage_session` instead of force-stopping long Sage computations.

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if ! command -v uv >/dev/null 2>&1; then
+  echo "[pre-push] uv not found on PATH; skipping lint check." >&2
+  exit 0
+fi
+
+echo "[pre-push] Running uv run ruff check..."
+uv run ruff check

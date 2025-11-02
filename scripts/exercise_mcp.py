@@ -11,12 +11,16 @@ from mcp.client.session_group import ClientSessionGroup, StreamableHttpParameter
 URL = os.getenv("SAGEMATH_MCP_URL", "http://127.0.0.1:31415/mcp")
 
 
-async def _connect_with_retry(group: ClientSessionGroup) -> tuple:
-    """Attempt to connect with basic retry logic to handle startup delays."""
+async def _connect_with_retry(
+    group: ClientSessionGroup,
+) -> tuple:
+    """Attempt to connect and initialize with basic retry logic to handle startup delays."""
     last_error: Exception | None = None
     for _attempt in range(1, 11):
         try:
-            return await group.connect_to_server(StreamableHttpParameters(url=URL))
+            session = await group.connect_to_server(StreamableHttpParameters(url=URL))
+            initialize_result = await session.initialize()
+            return session, initialize_result
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # pragma: no cover - resilience helper
@@ -27,8 +31,7 @@ async def _connect_with_retry(group: ClientSessionGroup) -> tuple:
 
 async def _exercise(progress_cb: Callable[[float, float | None, str | None], None]) -> None:
     async with ClientSessionGroup() as group:
-        session = await _connect_with_retry(group)
-        initialize_result = await session.initialize()
+        session, initialize_result = await _connect_with_retry(group)
         server_info = initialize_result.serverInfo
         print(f"Connected to {server_info.name} (version={server_info.version})")
 

@@ -13,6 +13,10 @@ Thank you for your interest in improving the SageMath MCP server! This guide exp
    ```bash
    uv pip install -e .[dev]
    ```
+   Configure Git hooks so lint runs before every push:
+   ```bash
+   git config core.hooksPath .githooks
+   ```
 3. **Optional** – start the Sage container for integration tests:
    ```bash
    make sage-container

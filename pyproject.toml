@@ -1,0 +1,65 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sagemath-mcp"
+version = "0.1.0"
+description = "Model Context Protocol server that provides stateful SageMath computations."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastmcp>=2.13.0",
+    "pydantic>=2.8.0",
+    "anyio>=4.4.0",
+]
+authors = [
+    { name = "Your Name", email = "you@example.com" }
+]
+license = { text = "MIT" }
+
+[project.optional-dependencies]
+cli = [
+    "mcp[cli]>=0.2.0",
+]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.23.0",
+    "coverage>=7.6.0",
+    "ruff>=0.5.7",
+    "build>=1.2.1"
+]
+
+[project.scripts]
+sagemath-mcp = "sagemath_mcp.server:main"
+
+[tool.hatch.build]
+packages = ["src/sagemath_mcp"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/sagemath_mcp/py.typed" = "sagemath_mcp/py.typed"
+
+[tool.hatch.build.targets.sdist]
+include = ["src/sagemath_mcp/py.typed"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "UP", "ASYNC", "RUF", "I"]
+ignore = ["E203"]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+asyncio_default_test_loop_scope = "function"
+
+[tool.coverage.run]
+branch = true
+source = ["sagemath_mcp"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

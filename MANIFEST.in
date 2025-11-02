@@ -1,0 +1,2 @@
+include README.md USAGE.md TESTING.md AGENTS.md
+recursive-include scripts *.py

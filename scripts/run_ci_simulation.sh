@@ -63,6 +63,7 @@ if command -v docker-compose >/dev/null 2>&1; then
   uv run python scripts/exercise_mcp.py
   uv run python - <<'PY'
 import asyncio
+import json
 import os
 from fastmcp import Client
 
@@ -75,11 +76,11 @@ async def fetch_metrics(url: str, attempts: int = 10, delay: float = 3.0):
                 await client.call_tool("evaluate_sage", {"code": "1+1"})
                 metrics = await client.read_resource("resource://sagemath/monitoring/metrics")
                 assert metrics, "No metrics returned"
-                snapshot = metrics[0]
-                assert getattr(snapshot, "attempts", 0) >= 1, "Expected at least one recorded attempt"
-                attempts = getattr(snapshot, "attempts", "n/a")
-                successes = getattr(snapshot, "successes", "n/a")
+                payload = json.loads(metrics[0].text)[0]
+                attempts = payload.get("attempts", 0)
+                successes = payload.get("successes", 0)
                 print(f"[metrics] Received snapshot: attempts={attempts}, successes={successes}", flush=True)
+                assert attempts >= 1, "Expected at least one recorded attempt"
                 return
         except Exception as exc:
             last_error = exc

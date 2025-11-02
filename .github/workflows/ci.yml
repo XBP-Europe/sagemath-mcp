@@ -52,6 +52,7 @@ jobs:
           export SAGEMATH_MCP_URL="http://127.0.0.1:31415/mcp"
           uv run python - <<'PY'
           import asyncio
+          import json
           import os
           from fastmcp import Client
 
@@ -65,10 +66,10 @@ jobs:
                           await client.call_tool("evaluate_sage", {"code": "1+1"})
                           metrics = await client.read_resource("resource://sagemath/monitoring/metrics")
                           assert metrics, "No metrics returned"
-                          snapshot = metrics[0]
-                          assert getattr(snapshot, "attempts", 0) >= 1, "Expected at least one recorded attempt"
-                          attempts = getattr(snapshot, "attempts", "n/a")
-                          successes = getattr(snapshot, "successes", "n/a")
+                          payload = json.loads(metrics[0].text)[0]
+                          attempts = payload.get("attempts", 0)
+                          successes = payload.get("successes", 0)
+                          assert attempts >= 1, "Expected at least one recorded attempt"
                           print(f"[metrics] Received snapshot: attempts={attempts}, successes={successes}", flush=True)
                           return
                   except Exception as exc:
@@ -79,9 +80,6 @@ jobs:
 
 
           asyncio.run(fetch_metrics(os.environ["SAGEMATH_MCP_URL"]))
-
-
-          asyncio.run(main())
           PY
           docker compose down
       - name: Build artifacts

@@ -37,10 +37,10 @@ Provide PyPI credentials via environment variables or keyring as usual.
 ### Container Artifacts (GHCR)
 
 The release workflow automatically builds and pushes Docker images to GHCR at
-`ghcr.io/csteinl/sagemath-mcp`. To pull locally:
+`ghcr.io/xbp-europe/sagemath-mcp`. To pull locally:
 
 ```bash
-docker pull ghcr.io/csteinl/sagemath-mcp:latest
+docker pull ghcr.io/xbp-europe/sagemath-mcp:latest
 ```
 
 Images inherit the upstream `sagemath/sagemath` base and run as the non-root `sage`
@@ -56,8 +56,8 @@ All published images are signed with [Sigstore Cosign](https://docs.sigstore.dev
 the signature using GitHub’s OIDC transparency log:
 
 ```bash
-cosign verify ghcr.io/csteinl/sagemath-mcp:latest \
-  --certificate-identity="https://github.com/csteinl/sagemath-mcp/.github/workflows/release.yml@refs/tags/vX.Y.Z" \
+cosign verify ghcr.io/xbp-europe/sagemath-mcp:latest \
+  --certificate-identity="https://github.com/XBP-Europe/sagemath-mcp/.github/workflows/release.yml@refs/tags/vX.Y.Z" \
   --certificate-oidc-issuer="https://token.actions.githubusercontent.com"
 ```
 

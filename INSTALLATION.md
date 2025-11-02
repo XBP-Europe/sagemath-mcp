@@ -20,7 +20,7 @@ uvx sagemath-mcp -- --transport http --host 127.0.0.1 --port 31415
 ### Docker Compose (all platforms)
 
 ```bash
-git clone https://github.com/csteinl/sagemath-mcp.git
+git clone https://github.com/XBP-Europe/sagemath-mcp.git
 cd sagemath-mcp
 docker compose up --build
 ```

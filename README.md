@@ -1,6 +1,6 @@
 # SageMath MCP Server
 
-[![CI](https://github.com/csteinl/sagemath-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/csteinl/sagemath-mcp/actions/workflows/ci.yml)
+[![CI](https://github.com/XBP-Europe/sagemath-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/XBP-Europe/sagemath-mcp/actions/workflows/ci.yml)
 
 A Model Context Protocol (MCP) server that exposes stateful [SageMath](https://www.sagemath.org/) computations to LLM clients. The server uses [FastMCP](https://gofastmcp.com/) as the transport layer and maintains a dedicated SageMath session for each MCP conversation so variables, functions, and assumptions persist across tool calls.
 
@@ -97,12 +97,12 @@ This pulls the `sagemath/sagemath:latest` image (overridable via
 `SAGEMATH_MCP_DOCKER_IMAGE`) and launches a long-lived container named `sage-mcp`
 mounting the current repository at `/workspace`.
 
-Released images are published to `ghcr.io/csteinl/sagemath-mcp` and signed with Cosign.
+Released images are published to `ghcr.io/xbp-europe/sagemath-mcp` and signed with Cosign.
 Verify a downloaded artifact with:
 
 ```bash
-cosign verify ghcr.io/csteinl/sagemath-mcp:latest \
-  --certificate-identity "https://github.com/csteinl/sagemath-mcp/.github/workflows/release.yml@refs/tags/vX.Y.Z" \
+cosign verify ghcr.io/xbp-europe/sagemath-mcp:latest \
+  --certificate-identity "https://github.com/XBP-Europe/sagemath-mcp/.github/workflows/release.yml@refs/tags/vX.Y.Z" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
 ```
 
@@ -129,7 +129,7 @@ directly from this repository:
 
 ```bash
 helm install sagemath charts/sagemath-mcp \
-  --set image.repository=ghcr.io/csteinl/sagemath-mcp \
+  --set image.repository=ghcr.io/xbp-europe/sagemath-mcp \
   --set image.tag=latest
 ```
 
@@ -143,7 +143,7 @@ Key values:
 Review `values.yaml` for the full list of configurable knobs, including pull secrets, resource limits,
 and volume mounts. The chart enforces non-root execution (`runAsUser`/`runAsGroup` 1000, dropped
 capabilities) so the packaged image must support the `sage` user. The default image points to
-`ghcr.io/csteinl/sagemath-mcp`, published automatically by the release workflow.
+`ghcr.io/xbp-europe/sagemath-mcp`, published automatically by the release workflow.
 
 To connect from Claude Desktop, add the following configuration snippet to `claude_desktop_config.json`:
 

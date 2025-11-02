@@ -1,0 +1,9 @@
+# Default owners for every file in this repository
+* @csteinl
+
+# Documentation
+docs/ @csteinl
+*.md @csteinl
+
+# GitHub workflows
+.github/workflows/ @csteinl

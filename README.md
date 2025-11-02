@@ -307,6 +307,13 @@ sagemath-mcp/
 - Streaming partial outputs for long calculations.
 - Fine-grained resource templates exposing saved worksheets.
 
+## Contributing
+
+We welcome issues and pull requests! Review the [Code of Conduct](CODE_OF_CONDUCT.md) and
+[Contributing Guide](CONTRIBUTING.md) before opening a PR. For vulnerability disclosures,
+follow the steps in [SECURITY.md](SECURITY.md). Ownership defaults are defined in
+[.github/CODEOWNERS](.github/CODEOWNERS).
+
 ## License
 
 MIT

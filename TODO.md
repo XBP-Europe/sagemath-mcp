@@ -18,3 +18,4 @@
 - [ ] Update Helm `values.yaml` defaults once the GHCR image is published.
 - [ ] Extend release workflow to push Helm chart artifacts and run `helm lint`/`helm template` for validation.
 - [ ] Add CI smoke tests that bring up `docker compose` services (pure-Python mode) and exercise `scripts/exercise_mcp.py`.
+- [ ] Add Dependabot (or Renovate) configuration for Python, GitHub Actions, and Docker dependencies.

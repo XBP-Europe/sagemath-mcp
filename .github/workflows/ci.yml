@@ -49,7 +49,7 @@ jobs:
           uv run python scripts/exercise_mcp.py
       - name: Verify monitoring metrics
         run: |
-          export SAGEMATH_MCP_URL="http://127.0.0.1:31415/mcp"
+          export SAGEMATH_MCP_URL="http://127.0.0.1:8314/mcp"
           uv run python - <<'PY'
           import asyncio
           import json

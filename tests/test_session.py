@@ -103,3 +103,96 @@ def test_truncate_stdout():
         assert "output truncated" in truncated
     finally:
         server.SESSION_MANAGER.settings.max_stdout_chars = original_limit
+
+
+class _FakeWriter:
+    def __init__(self):
+        self.data = bytearray()
+        self.closed = False
+
+    def write(self, payload: bytes) -> None:
+        self.data.extend(payload)
+
+    async def drain(self) -> None:
+        return None
+
+    def close(self) -> None:
+        self.closed = True
+
+    async def wait_closed(self) -> None:
+        return None
+
+
+class _FakeReader:
+    async def readline(self) -> bytes:
+        return b""
+
+
+class _FakeProcess:
+    def __init__(self):
+        self.stdin = _FakeWriter()
+        self.stdout = _FakeReader()
+        self.stderr = None
+        self.returncode: int | None = None
+        self.pid = 1234
+        self.killed = False
+
+    async def wait(self) -> int:
+        self.returncode = 0
+        return 0
+
+    def kill(self) -> None:
+        self.killed = True
+        self.returncode = -9
+
+
+@pytest.mark.asyncio
+async def test_session_evaluate_handles_timeout(monkeypatch, python_settings):
+    from sagemath_mcp import session as session_module
+
+    session = SageSession("timeout", python_settings)
+    fake_process = _FakeProcess()
+
+    async def fake_ensure_started() -> None:
+        session._process = fake_process
+
+    monkeypatch.setattr(session, "ensure_started", fake_ensure_started)
+
+    restart_called = False
+
+    async def fake_restart_worker() -> None:
+        nonlocal restart_called
+        restart_called = True
+
+    monkeypatch.setattr(session, "_restart_worker", fake_restart_worker)
+
+    async def fake_wait_for(coro, timeout):
+        coro.close()
+        raise TimeoutError
+
+    monkeypatch.setattr(session_module.asyncio, "wait_for", fake_wait_for)
+
+    with pytest.raises(TimeoutError):
+        await session.evaluate("1 + 1", want_latex=False, capture_stdout=False)
+
+    assert restart_called is True
+
+
+@pytest.mark.asyncio
+async def test_session_shutdown_kills_on_timeout(monkeypatch, python_settings):
+    from sagemath_mcp import session as session_module
+
+    session = SageSession("shutdown", python_settings)
+    fake_process = _FakeProcess()
+    session._process = fake_process
+
+    async def fake_wait_for(coro, timeout):
+        coro.close()
+        raise TimeoutError
+
+    monkeypatch.setattr(session_module.asyncio, "wait_for", fake_wait_for)
+
+    await session.shutdown()
+
+    assert fake_process.killed is True
+    assert fake_process.stdin.closed is True

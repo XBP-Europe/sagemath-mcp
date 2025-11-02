@@ -1,0 +1,889 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="./">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Sage categories quickref" href="sage/categories/all.html" />
+
+    <!-- Generated with Sphinx 8.1.3 and Furo 2024.07.18 -->
+        <title>Category Framework</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a078f75a" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=613ab9ff" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/tabs.css?v=4c969af8" />
+    <link rel="stylesheet" type="text/css" href="../_static/plot_directive.css?v=7f9a90b1" />
+    <link rel="stylesheet" type="text/css" href="../_static/jupyter-sphinx.css?v=572af1d6" />
+    <link rel="stylesheet" type="text/css" href="../_static/thebelab.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=302659d7" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom-furo.css?v=d2ecc25a" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom-jupyter-sphinx.css?v=75860c6b" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom-codemirror-monokai.css?v=b5588f12" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom-tabs.css?v=8a724d73" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #eeffcc;
+  --color-code-foreground: black;
+  --color-brand-primary: #0f0fff;
+  --color-brand-content: #0f0fff;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #272822;
+  --color-code-foreground: #f8f8f2;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #272822;
+  --color-code-foreground: #f8f8f2;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="#"><div class="brand">Category Framework</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><div class="sidebar-scroll"><a class="sidebar-brand" href="../index.html">
+  
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo only-light" src="../_static/logo_sagemath_black.svg" alt="Light Logo"/>
+    <img class="sidebar-logo only-dark" src="../_static/logo_sagemath_white.svg" alt="Dark Logo"/>
+  </div>
+  
+      <span class="sidebar-brand-text">Version 10.6 Reference Manual</span>
+  
+</a><div class="select-wrapper">
+  <select id="versions-menu" onchange="changeVersion()">
+    <option value="" selected>other version</option>
+    <option value="https://doc-develop--sagemath.netlify.app">develop</option>
+  </select>
+</div><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-home">
+  <div class="sidebar-tree">
+    <ul><li class="toctree-l1">
+      <a class="reference internal" href="#">Home - Category Framework</a>
+    </li></ul>
+  </div>
+</div><div class="sidebar-tree">
+  <ul>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/all.html">Sage categories quickref</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/primer.html">Elements, parents, and categories in Sage: a primer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/category.html">Categories</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/category_with_axiom.html">Axioms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/functor.html">Functors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/tutorial.html">Implementing a new parent: a tutorial</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/map.html">Base class for maps</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/homset.html">Homsets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/morphism.html">Morphisms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/pushout.html">Coercion via construction functors</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/action.html">Group, ring, etc. actions on objects</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/additive_groups.html">Additive groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/additive_magmas.html">Additive magmas</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/additive_monoids.html">Additive monoids</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/additive_semigroups.html">Additive semigroups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/affine_weyl_groups.html">Affine Weyl groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/algebra_ideals.html">Algebra ideals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/algebra_modules.html">Algebra modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/algebras.html">Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/algebras_with_basis.html">Algebras With Basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/aperiodic_semigroups.html">Aperiodic semigroups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/associative_algebras.html">Associative algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/bialgebras.html">Bialgebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/bialgebras_with_basis.html">Bialgebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/bimodules.html">Bimodules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/classical_crystals.html">Classical Crystals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/coalgebras.html">Coalgebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/coalgebras_with_basis.html">Coalgebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/commutative_additive_groups.html">Commutative additive groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/commutative_additive_monoids.html">Commutative additive monoids</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/commutative_additive_semigroups.html">Commutative additive semigroups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/commutative_algebra_ideals.html">Commutative algebra ideals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/commutative_algebras.html">Commutative algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/commutative_ring_ideals.html">Commutative ring ideals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/commutative_rings.html">Commutative rings</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/complete_discrete_valuation.html">Complete Discrete Valuation Rings (CDVR) and Fields (CDVF)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/complex_reflection_groups.html">Complex reflection groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/complex_reflection_or_generalized_coxeter_groups.html">Common category for Generalized Coxeter Groups or Complex Reflection Groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/coxeter_group_algebras.html">Coxeter Group Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/coxeter_groups.html">Coxeter Groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/crystals.html">Crystals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/cw_complexes.html">CW Complexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/discrete_valuation.html">Discrete Valuation Rings (DVR) and Fields (DVF)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/distributive_magmas_and_additive_magmas.html">Distributive Magmas and Additive Magmas</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/division_rings.html">Division rings</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/domains.html">Domains</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/enumerated_sets.html">Enumerated sets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/euclidean_domains.html">Euclidean domains</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/fields.html">Fields</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/filtered_algebras.html">Filtered Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/filtered_algebras_with_basis.html">Filtered Algebras With Basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/filtered_modules.html">Filtered Modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/filtered_modules_with_basis.html">Filtered Modules With Basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_complex_reflection_groups.html">Finite Complex Reflection Groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_coxeter_groups.html">Finite Coxeter Groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_crystals.html">Finite Crystals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_dimensional_algebras_with_basis.html">Finite dimensional algebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_dimensional_bialgebras_with_basis.html">Finite dimensional bialgebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_dimensional_coalgebras_with_basis.html">Finite dimensional coalgebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_dimensional_graded_lie_algebras_with_basis.html">Finite Dimensional Graded Lie Algebras With Basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_dimensional_hopf_algebras_with_basis.html">Finite dimensional Hopf algebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_dimensional_lie_algebras_with_basis.html">Finite Dimensional Lie Algebras With Basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_dimensional_modules_with_basis.html">Finite dimensional modules with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_dimensional_nilpotent_lie_algebras_with_basis.html">Finite Dimensional Nilpotent Lie Algebras With Basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_dimensional_semisimple_algebras_with_basis.html">Finite dimensional semisimple algebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_enumerated_sets.html">Finite Enumerated Sets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_fields.html">Finite fields</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_groups.html">Finite groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_lattice_posets.html">Finite lattice posets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_monoids.html">Finite monoids</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_permutation_groups.html">Finite Permutation Groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_posets.html">Finite posets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_semigroups.html">Finite semigroups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_sets.html">Finite sets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_weyl_groups.html">Finite Weyl Groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finitely_generated_lambda_bracket_algebras.html">Finitely Generated Lambda bracket Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finitely_generated_lie_conformal_algebras.html">Finitely Generated Lie Conformal Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finitely_generated_magmas.html">Finitely generated magmas</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finitely_generated_semigroups.html">Finitely generated semigroups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/function_fields.html">Function fields</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/g_sets.html">G-Sets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/gcd_domains.html">Gcd domains</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/generalized_coxeter_groups.html">Generalized Coxeter Groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graded_algebras.html">Graded Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graded_algebras_with_basis.html">Graded algebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graded_bialgebras.html">Graded bialgebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graded_bialgebras_with_basis.html">Graded bialgebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graded_coalgebras.html">Graded Coalgebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graded_coalgebras_with_basis.html">Graded coalgebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graded_hopf_algebras.html">Graded Hopf algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graded_hopf_algebras_with_basis.html">Graded Hopf algebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graded_lie_algebras.html">Graded Lie Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graded_lie_algebras_with_basis.html">Graded Lie Algebras With Basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graded_lie_conformal_algebras.html">Graded Lie Conformal Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graded_modules.html">Graded modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graded_modules_with_basis.html">Graded modules with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graphs.html">Graphs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/group_algebras.html">Group Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/groupoid.html">Groupoid</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/groups.html">Groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/hecke_modules.html">Hecke modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/highest_weight_crystals.html">Highest Weight Crystals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/hopf_algebras.html">Hopf algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/hopf_algebras_with_basis.html">Hopf algebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/h_trivial_semigroups.html">H-trivial semigroups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/infinite_enumerated_sets.html">Infinite Enumerated Sets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/integral_domains.html">Integral domains</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/j_trivial_semigroups.html">J-trivial semigroups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/kac_moody_algebras.html">Kac-Moody Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/kahler_algebras.html">Kähler Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/lambda_bracket_algebras.html">Lambda Bracket Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/lambda_bracket_algebras_with_basis.html">Lambda Bracket Algebras With Basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/lattice_posets.html">Lattice posets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/left_modules.html">Left modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/lie_algebras.html">Lie Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/lie_algebras_with_basis.html">Lie Algebras With Basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/lie_conformal_algebras.html">Lie Conformal Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/lie_conformal_algebras_with_basis.html">Lie Conformal Algebras With Basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/lie_groups.html">Lie Groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/loop_crystals.html">Loop Crystals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/l_trivial_semigroups.html">L-trivial semigroups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/magmas.html">Magmas</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/magmas_and_additive_magmas.html">Magmas and Additive Magmas</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/magmatic_algebras.html">Non-unital non-associative algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/manifolds.html">Manifolds</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/matrix_algebras.html">Matrix algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/metric_spaces.html">Metric Spaces</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/modular_abelian_varieties.html">Modular abelian varieties</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/modules.html">Modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/modules_with_basis.html">Modules With Basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/monoid_algebras.html">Monoid algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/monoids.html">Monoids</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/number_fields.html">Number fields</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/objects.html">Objects</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/ore_modules.html">MISSING TITLE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/partially_ordered_monoids.html">Partially ordered monoids</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/permutation_groups.html">Permutation groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/pointed_sets.html">Pointed sets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/polyhedra.html">Polyhedral subsets of free ZZ, QQ or RR-modules.</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/posets.html">Posets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/principal_ideal_domains.html">Principal ideal domains</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/quotient_fields.html">Quotient fields</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/quantum_group_representations.html">Quantum Group Representations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/regular_crystals.html">Regular Crystals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/regular_supercrystals.html">Regular Supercrystals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/right_modules.html">Right modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/ring_ideals.html">Ring ideals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/rings.html">Rings</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/rngs.html">Rngs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/r_trivial_semigroups.html">R-trivial semigroups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/schemes.html">Schemes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/semigroups.html">Semigroups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/semirings.html">Semirings</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/semisimple_algebras.html">Semisimple Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/sets_cat.html">Sets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/sets_with_grading.html">Sets With a Grading</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/sets_with_partial_maps.html">SetsWithPartialMaps</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/shephard_groups.html">Shephard Groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/simplicial_complexes.html">Simplicial Complexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/simplicial_sets.html">Simplicial Sets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/super_algebras.html">Super Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/super_algebras_with_basis.html">Super algebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/super_hopf_algebras_with_basis.html">Super Hopf algebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/super_lie_conformal_algebras.html">Super Lie Conformal Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/super_modules.html">Super modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/super_modules_with_basis.html">Super modules with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/supercommutative_algebras.html">Supercommutative Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/supercrystals.html">Supercrystals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/topological_spaces.html">Topological Spaces</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/triangular_kac_moody_algebras.html">Kac-Moody Algebras With Triangular Decomposition Basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/unique_factorization_domains.html">Unique factorization domains</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/unital_algebras.html">Unital algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/vector_bundles.html">Vector Bundles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/vector_spaces.html">Vector Spaces</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/weyl_groups.html">Weyl Groups</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/facade_sets.html">Facade Sets</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/covariant_functorial_construction.html">Covariant Functorial Constructions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/cartesian_product.html">Cartesian Product Functorial Construction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/tensor.html">Tensor Product Functorial Construction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/signed_tensor.html">Signed Tensor Product Functorial Construction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/dual.html">Dual functorial construction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/algebra_functor.html">Group algebras and beyond: the Algebra functorial construction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/subquotients.html">Subquotient Functorial Construction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/quotients.html">Quotients Functorial Construction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/subobjects.html">Subobjects Functorial Construction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/isomorphic_objects.html">Isomorphic Objects Functorial Construction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/homsets.html">Homset categories</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/realizations.html">Realizations Covariant Functorial Construction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/with_realizations.html">With Realizations Covariant Functorial Construction</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/algebras_with_basis.html">Examples of algebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/commutative_additive_monoids.html">Examples of commutative additive monoids</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/commutative_additive_semigroups.html">Examples of commutative additive semigroups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/coxeter_groups.html">Examples of Coxeter groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/crystals.html">Example of a crystal</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/cw_complexes.html">Examples of CW complexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/facade_sets.html">Example of facade set</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/finite_coxeter_groups.html">Examples of finite Coxeter groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/finite_dimensional_algebras_with_basis.html">Example of a finite dimensional algebra with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/finite_dimensional_lie_algebras_with_basis.html">Examples of a finite dimensional Lie algebra with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/finite_enumerated_sets.html">Examples of finite enumerated sets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/finite_monoids.html">Examples of finite monoids</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/finite_semigroups.html">Examples of finite semigroups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/finite_weyl_groups.html">Examples of finite Weyl groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/graded_connected_hopf_algebras_with_basis.html">Examples of graded connected Hopf algebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/graded_modules_with_basis.html">Examples of graded modules with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/graphs.html">Examples of graphs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/hopf_algebras_with_basis.html">Examples of Hopf algebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/infinite_enumerated_sets.html">Examples of infinite enumerated sets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/lie_algebras.html">Examples of a Lie algebra</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/lie_algebras_with_basis.html">Examples of a Lie algebra with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/magmas.html">Examples of magmas</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/manifolds.html">Examples of manifolds</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/monoids.html">Examples of monoids</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/posets.html">Examples of posets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/semigroups.html">Examples of semigroups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/semigroups_cython.html">Examples of semigroups in cython</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/semirings.html">Examples of semirings</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/sets_cat.html">Examples of sets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/sets_with_grading.html">Example of a set with grading</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/with_realizations.html">Examples of parents endowed with multiple realizations</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/category_types.html">Specific category classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/category_singleton.html">Singleton categories</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/category_cy_helper.html">Fast functions for the category framework</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/coercion_methods.html">Coercion methods for categories</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/poor_man_map.html">Poor Man’s map</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="https://github.com/sagemath/sage/blob/develop/src/doc/en/reference/categories/index.rst" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div><div class="edit-this-page">
+  <a class="muted-link" href="https://github.com/sagemath/sage/edit/develop/src/doc/en/reference/categories/index.rst" title="Edit this page">
+    <svg><use href="#svg-pencil"></use></svg>
+    <span class="visually-hidden">Edit this page</span>
+  </a>
+</div><div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="category-framework">
+<h1>Category Framework<a class="headerlink" href="#category-framework" title="Link to this heading">¶</a></h1>
+<section id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Link to this heading">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/all.html">Sage categories quickref</a></li>
+</ul>
+</div>
+</section>
+<section id="the-sage-category-framework">
+<h2>The Sage Category Framework<a class="headerlink" href="#the-sage-category-framework" title="Link to this heading">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/primer.html">Elements, parents, and categories in Sage: a primer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/category.html">Categories</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/category_with_axiom.html">Axioms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/functor.html">Functors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/tutorial.html">Implementing a new parent: a tutorial</a></li>
+</ul>
+</div>
+</section>
+<section id="maps-and-morphisms">
+<h2>Maps and Morphisms<a class="headerlink" href="#maps-and-morphisms" title="Link to this heading">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/map.html">Base class for maps</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/homset.html">Homsets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/morphism.html">Morphisms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/pushout.html">Coercion via construction functors</a></li>
+</ul>
+</div>
+</section>
+<section id="individual-categories">
+<h2>Individual Categories<a class="headerlink" href="#individual-categories" title="Link to this heading">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/action.html">Group, ring, etc. actions on objects</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/additive_groups.html">Additive groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/additive_magmas.html">Additive magmas</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/additive_monoids.html">Additive monoids</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/additive_semigroups.html">Additive semigroups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/affine_weyl_groups.html">Affine Weyl groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/algebra_ideals.html">Algebra ideals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/algebra_modules.html">Algebra modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/algebras.html">Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/algebras_with_basis.html">Algebras With Basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/aperiodic_semigroups.html">Aperiodic semigroups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/associative_algebras.html">Associative algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/bialgebras.html">Bialgebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/bialgebras_with_basis.html">Bialgebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/bimodules.html">Bimodules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/classical_crystals.html">Classical Crystals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/coalgebras.html">Coalgebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/coalgebras_with_basis.html">Coalgebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/commutative_additive_groups.html">Commutative additive groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/commutative_additive_monoids.html">Commutative additive monoids</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/commutative_additive_semigroups.html">Commutative additive semigroups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/commutative_algebra_ideals.html">Commutative algebra ideals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/commutative_algebras.html">Commutative algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/commutative_ring_ideals.html">Commutative ring ideals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/commutative_rings.html">Commutative rings</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/complete_discrete_valuation.html">Complete Discrete Valuation Rings (CDVR) and Fields (CDVF)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/complex_reflection_groups.html">Complex reflection groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/complex_reflection_or_generalized_coxeter_groups.html">Common category for Generalized Coxeter Groups or Complex Reflection Groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/coxeter_group_algebras.html">Coxeter Group Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/coxeter_groups.html">Coxeter Groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/crystals.html">Crystals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/cw_complexes.html">CW Complexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/discrete_valuation.html">Discrete Valuation Rings (DVR) and Fields (DVF)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/distributive_magmas_and_additive_magmas.html">Distributive Magmas and Additive Magmas</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/division_rings.html">Division rings</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/domains.html">Domains</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/enumerated_sets.html">Enumerated sets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/euclidean_domains.html">Euclidean domains</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/fields.html">Fields</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/filtered_algebras.html">Filtered Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/filtered_algebras_with_basis.html">Filtered Algebras With Basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/filtered_modules.html">Filtered Modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/filtered_modules_with_basis.html">Filtered Modules With Basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_complex_reflection_groups.html">Finite Complex Reflection Groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_coxeter_groups.html">Finite Coxeter Groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_crystals.html">Finite Crystals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_dimensional_algebras_with_basis.html">Finite dimensional algebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_dimensional_bialgebras_with_basis.html">Finite dimensional bialgebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_dimensional_coalgebras_with_basis.html">Finite dimensional coalgebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_dimensional_graded_lie_algebras_with_basis.html">Finite Dimensional Graded Lie Algebras With Basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_dimensional_hopf_algebras_with_basis.html">Finite dimensional Hopf algebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_dimensional_lie_algebras_with_basis.html">Finite Dimensional Lie Algebras With Basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_dimensional_modules_with_basis.html">Finite dimensional modules with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_dimensional_nilpotent_lie_algebras_with_basis.html">Finite Dimensional Nilpotent Lie Algebras With Basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_dimensional_semisimple_algebras_with_basis.html">Finite dimensional semisimple algebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_enumerated_sets.html">Finite Enumerated Sets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_fields.html">Finite fields</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_groups.html">Finite groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_lattice_posets.html">Finite lattice posets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_monoids.html">Finite monoids</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_permutation_groups.html">Finite Permutation Groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_posets.html">Finite posets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_semigroups.html">Finite semigroups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_sets.html">Finite sets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finite_weyl_groups.html">Finite Weyl Groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finitely_generated_lambda_bracket_algebras.html">Finitely Generated Lambda bracket Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finitely_generated_lie_conformal_algebras.html">Finitely Generated Lie Conformal Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finitely_generated_magmas.html">Finitely generated magmas</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/finitely_generated_semigroups.html">Finitely generated semigroups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/function_fields.html">Function fields</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/g_sets.html">G-Sets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/gcd_domains.html">Gcd domains</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/generalized_coxeter_groups.html">Generalized Coxeter Groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graded_algebras.html">Graded Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graded_algebras_with_basis.html">Graded algebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graded_bialgebras.html">Graded bialgebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graded_bialgebras_with_basis.html">Graded bialgebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graded_coalgebras.html">Graded Coalgebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graded_coalgebras_with_basis.html">Graded coalgebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graded_hopf_algebras.html">Graded Hopf algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graded_hopf_algebras_with_basis.html">Graded Hopf algebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graded_lie_algebras.html">Graded Lie Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graded_lie_algebras_with_basis.html">Graded Lie Algebras With Basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graded_lie_conformal_algebras.html">Graded Lie Conformal Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graded_modules.html">Graded modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graded_modules_with_basis.html">Graded modules with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/graphs.html">Graphs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/group_algebras.html">Group Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/groupoid.html">Groupoid</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/groups.html">Groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/hecke_modules.html">Hecke modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/highest_weight_crystals.html">Highest Weight Crystals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/hopf_algebras.html">Hopf algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/hopf_algebras_with_basis.html">Hopf algebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/h_trivial_semigroups.html">H-trivial semigroups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/infinite_enumerated_sets.html">Infinite Enumerated Sets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/integral_domains.html">Integral domains</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/j_trivial_semigroups.html">J-trivial semigroups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/kac_moody_algebras.html">Kac-Moody Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/kahler_algebras.html">Kähler Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/lambda_bracket_algebras.html">Lambda Bracket Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/lambda_bracket_algebras_with_basis.html">Lambda Bracket Algebras With Basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/lattice_posets.html">Lattice posets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/left_modules.html">Left modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/lie_algebras.html">Lie Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/lie_algebras_with_basis.html">Lie Algebras With Basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/lie_conformal_algebras.html">Lie Conformal Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/lie_conformal_algebras_with_basis.html">Lie Conformal Algebras With Basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/lie_groups.html">Lie Groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/loop_crystals.html">Loop Crystals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/l_trivial_semigroups.html">L-trivial semigroups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/magmas.html">Magmas</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/magmas_and_additive_magmas.html">Magmas and Additive Magmas</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/magmatic_algebras.html">Non-unital non-associative algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/manifolds.html">Manifolds</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/matrix_algebras.html">Matrix algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/metric_spaces.html">Metric Spaces</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/modular_abelian_varieties.html">Modular abelian varieties</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/modules.html">Modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/modules_with_basis.html">Modules With Basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/monoid_algebras.html">Monoid algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/monoids.html">Monoids</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/number_fields.html">Number fields</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/objects.html">Objects</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/ore_modules.html">MISSING TITLE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/partially_ordered_monoids.html">Partially ordered monoids</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/permutation_groups.html">Permutation groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/pointed_sets.html">Pointed sets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/polyhedra.html">Polyhedral subsets of free ZZ, QQ or RR-modules.</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/posets.html">Posets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/principal_ideal_domains.html">Principal ideal domains</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/quotient_fields.html">Quotient fields</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/quantum_group_representations.html">Quantum Group Representations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/regular_crystals.html">Regular Crystals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/regular_supercrystals.html">Regular Supercrystals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/right_modules.html">Right modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/ring_ideals.html">Ring ideals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/rings.html">Rings</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/rngs.html">Rngs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/r_trivial_semigroups.html">R-trivial semigroups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/schemes.html">Schemes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/semigroups.html">Semigroups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/semirings.html">Semirings</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/semisimple_algebras.html">Semisimple Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/sets_cat.html">Sets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/sets_with_grading.html">Sets With a Grading</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/sets_with_partial_maps.html">SetsWithPartialMaps</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/shephard_groups.html">Shephard Groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/simplicial_complexes.html">Simplicial Complexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/simplicial_sets.html">Simplicial Sets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/super_algebras.html">Super Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/super_algebras_with_basis.html">Super algebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/super_hopf_algebras_with_basis.html">Super Hopf algebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/super_lie_conformal_algebras.html">Super Lie Conformal Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/super_modules.html">Super modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/super_modules_with_basis.html">Super modules with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/supercommutative_algebras.html">Supercommutative Algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/supercrystals.html">Supercrystals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/topological_spaces.html">Topological Spaces</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/triangular_kac_moody_algebras.html">Kac-Moody Algebras With Triangular Decomposition Basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/unique_factorization_domains.html">Unique factorization domains</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/unital_algebras.html">Unital algebras</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/vector_bundles.html">Vector Bundles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/vector_spaces.html">Vector Spaces</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/weyl_groups.html">Weyl Groups</a></li>
+</ul>
+</div>
+<section id="technical-categories">
+<h3>Technical Categories<a class="headerlink" href="#technical-categories" title="Link to this heading">¶</a></h3>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/facade_sets.html">Facade Sets</a></li>
+</ul>
+</div>
+</section>
+</section>
+<section id="functorial-constructions">
+<h2>Functorial constructions<a class="headerlink" href="#functorial-constructions" title="Link to this heading">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/covariant_functorial_construction.html">Covariant Functorial Constructions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/cartesian_product.html">Cartesian Product Functorial Construction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/tensor.html">Tensor Product Functorial Construction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/signed_tensor.html">Signed Tensor Product Functorial Construction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/dual.html">Dual functorial construction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/algebra_functor.html">Group algebras and beyond: the Algebra functorial construction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/subquotients.html">Subquotient Functorial Construction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/quotients.html">Quotients Functorial Construction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/subobjects.html">Subobjects Functorial Construction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/isomorphic_objects.html">Isomorphic Objects Functorial Construction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/homsets.html">Homset categories</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/realizations.html">Realizations Covariant Functorial Construction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/with_realizations.html">With Realizations Covariant Functorial Construction</a></li>
+</ul>
+</div>
+</section>
+<section id="examples-of-parents-using-categories">
+<h2>Examples of parents using categories<a class="headerlink" href="#examples-of-parents-using-categories" title="Link to this heading">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/algebras_with_basis.html">Examples of algebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/commutative_additive_monoids.html">Examples of commutative additive monoids</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/commutative_additive_semigroups.html">Examples of commutative additive semigroups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/coxeter_groups.html">Examples of Coxeter groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/crystals.html">Example of a crystal</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/cw_complexes.html">Examples of CW complexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/facade_sets.html">Example of facade set</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/finite_coxeter_groups.html">Examples of finite Coxeter groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/finite_dimensional_algebras_with_basis.html">Example of a finite dimensional algebra with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/finite_dimensional_lie_algebras_with_basis.html">Examples of a finite dimensional Lie algebra with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/finite_enumerated_sets.html">Examples of finite enumerated sets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/finite_monoids.html">Examples of finite monoids</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/finite_semigroups.html">Examples of finite semigroups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/finite_weyl_groups.html">Examples of finite Weyl groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/graded_connected_hopf_algebras_with_basis.html">Examples of graded connected Hopf algebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/graded_modules_with_basis.html">Examples of graded modules with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/graphs.html">Examples of graphs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/hopf_algebras_with_basis.html">Examples of Hopf algebras with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/infinite_enumerated_sets.html">Examples of infinite enumerated sets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/lie_algebras.html">Examples of a Lie algebra</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/lie_algebras_with_basis.html">Examples of a Lie algebra with basis</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/magmas.html">Examples of magmas</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/manifolds.html">Examples of manifolds</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/monoids.html">Examples of monoids</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/posets.html">Examples of posets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/semigroups.html">Examples of semigroups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/semigroups_cython.html">Examples of semigroups in cython</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/semirings.html">Examples of semirings</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/sets_cat.html">Examples of sets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/sets_with_grading.html">Example of a set with grading</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/examples/with_realizations.html">Examples of parents endowed with multiple realizations</a></li>
+</ul>
+</div>
+</section>
+<section id="internals">
+<h2>Internals<a class="headerlink" href="#internals" title="Link to this heading">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/category_types.html">Specific category classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/category_singleton.html">Singleton categories</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/category_cy_helper.html">Fast functions for the category framework</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/coercion_methods.html">Coercion methods for categories</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/poor_man_map.html">Poor Man’s map</a></li>
+</ul>
+</div>
+</section>
+</section>
+<section id="indices-and-tables">
+<h1>Indices and Tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p><a class="reference external" href="../genindex.html">Index</a></p></li>
+<li><p><a class="reference external" href="../py-modindex.html">Module Index</a></p></li>
+<li><p><a class="reference external" href="../search.html">Search Page</a></p></li>
+</ul>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+</div></div>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="sage/categories/all.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Sage categories quickref</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2005--2025, The Sage Development Team
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Category Framework</a><ul>
+<li><a class="reference internal" href="#introduction">Introduction</a></li>
+<li><a class="reference internal" href="#the-sage-category-framework">The Sage Category Framework</a></li>
+<li><a class="reference internal" href="#maps-and-morphisms">Maps and Morphisms</a></li>
+<li><a class="reference internal" href="#individual-categories">Individual Categories</a><ul>
+<li><a class="reference internal" href="#technical-categories">Technical Categories</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#functorial-constructions">Functorial constructions</a></li>
+<li><a class="reference internal" href="#examples-of-parents-using-categories">Examples of parents using categories</a></li>
+<li><a class="reference internal" href="#internals">Internals</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#indices-and-tables">Indices and Tables</a></li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=e9bf40f3"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=5fa4622c"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=8e571dd6"></script>
+    <script src="../_static/tabs.js?v=3ee01567"></script>
+    <script src="../_static/thebelab-helper.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@^1.0.1/dist/embed-amd.js"></script>
+    <script>window.MathJax = {"tex": {"macros": {"ZZ": "\\Bold{Z}", "NN": "\\Bold{N}", "RR": "\\Bold{R}", "CC": "\\Bold{C}", "QQ": "\\Bold{Q}", "QQbar": "\\overline{\\QQ}", "GF": ["\\Bold{F}_{#1}", 1], "Zp": ["\\Bold{Z}_{#1}", 1], "Qp": ["\\Bold{Q}_{#1}", 1], "Zmod": ["\\ZZ/#1\\ZZ", 1], "CDF": "\\Bold{C}", "CIF": "\\Bold{C}", "CLF": "\\Bold{C}", "RDF": "\\Bold{R}", "RIF": "\\Bold{I} \\Bold{R}", "RLF": "\\Bold{R}", "SL": "\\mathrm{SL}", "PSL": "\\mathrm{PSL}", "lcm": "\\mathop{\\operatorname{lcm}}", "dist": "\\mathrm{dist}", "Bold": ["\\mathbf{#1}", 1]}, "inlineMath": [["$", "$"], ["\\(", "\\)"]], "maxBuffer": 51200, "autoload": {"color": [], "colorv2": ["color"]}}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <script src="../_static/jupyter-sphinx-furo.js?v=24b7fe9d"></script>
+    </body>
+</html>

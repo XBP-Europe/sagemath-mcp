@@ -1,0 +1,1569 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="./">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="The coercion model" href="sage/structure/coerce.html" />
+
+    <!-- Generated with Sphinx 8.1.3 and Furo 2024.07.18 -->
+        <title>Coercion</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a078f75a" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=613ab9ff" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/tabs.css?v=4c969af8" />
+    <link rel="stylesheet" type="text/css" href="../_static/plot_directive.css?v=7f9a90b1" />
+    <link rel="stylesheet" type="text/css" href="../_static/jupyter-sphinx.css?v=572af1d6" />
+    <link rel="stylesheet" type="text/css" href="../_static/thebelab.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=302659d7" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom-furo.css?v=d2ecc25a" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom-jupyter-sphinx.css?v=75860c6b" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom-codemirror-monokai.css?v=b5588f12" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom-tabs.css?v=8a724d73" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #eeffcc;
+  --color-code-foreground: black;
+  --color-brand-primary: #0f0fff;
+  --color-brand-content: #0f0fff;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #272822;
+  --color-code-foreground: #f8f8f2;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #272822;
+  --color-code-foreground: #f8f8f2;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="#"><div class="brand">Coercion</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><div class="sidebar-scroll"><a class="sidebar-brand" href="../index.html">
+  
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo only-light" src="../_static/logo_sagemath_black.svg" alt="Light Logo"/>
+    <img class="sidebar-logo only-dark" src="../_static/logo_sagemath_white.svg" alt="Dark Logo"/>
+  </div>
+  
+      <span class="sidebar-brand-text">Version 10.6 Reference Manual</span>
+  
+</a><div class="select-wrapper">
+  <select id="versions-menu" onchange="changeVersion()">
+    <option value="" selected>other version</option>
+    <option value="https://doc-develop--sagemath.netlify.app">develop</option>
+  </select>
+</div><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-home">
+  <div class="sidebar-tree">
+    <ul><li class="toctree-l1">
+      <a class="reference internal" href="#">Home - Coercion</a>
+    </li></ul>
+  </div>
+</div><div class="sidebar-tree">
+  <ul>
+<li class="toctree-l1"><a class="reference internal" href="sage/structure/coerce.html">The coercion model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/structure/coerce_actions.html">Coerce actions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/structure/coerce_maps.html">Coerce maps</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/pushout.html">Coercion via construction functors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/action.html">Group, ring, etc. actions on objects</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/structure/coerce_dict.html">Containers for storing coercion data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/structure/coerce_exceptions.html">Exceptions raised by the coercion model</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="https://github.com/sagemath/sage/blob/develop/src/doc/en/reference/coercion/index.rst" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div><div class="edit-this-page">
+  <a class="muted-link" href="https://github.com/sagemath/sage/edit/develop/src/doc/en/reference/coercion/index.rst" title="Edit this page">
+    <svg><use href="#svg-pencil"></use></svg>
+    <span class="visually-hidden">Edit this page</span>
+  </a>
+</div><div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="coercion">
+<h1>Coercion<a class="headerlink" href="#coercion" title="Link to this heading">¶</a></h1>
+<section id="preliminaries">
+<h2>Preliminaries<a class="headerlink" href="#preliminaries" title="Link to this heading">¶</a></h2>
+<section id="what-is-coercion-all-about">
+<h3>What is coercion all about?<a class="headerlink" href="#what-is-coercion-all-about" title="Link to this heading">¶</a></h3>
+<p><em>The primary goal of coercion is to be able to transparently do arithmetic,
+comparisons, etc. between elements of distinct sets.</em></p>
+<p class="with-sage-tab with-python-tab">As a concrete example, when one writes <span class="math notranslate nohighlight">\(1 + 1/2\)</span> one wants to perform
+arithmetic on the operands as rational numbers, despite the left being
+an integer. This makes sense given the obvious and natural inclusion
+of the integers into the rational numbers. The goal of the coercion
+system is to facilitate this (and more complicated arithmetic) without
+having to explicitly map everything over into the same domain, and at
+the same time being strict enough to not resolve ambiguity or accept
+nonsense. Here are some examples:</p>
+<div class="tab-set docutils container">
+<input checked="True" class="tab-input" id="tab-set--0-input--1" name="tab-set--0" type="radio"><label class="tab-label" for="tab-set--0-input--1">Sage</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">sage:</span> <span class="mi">1</span> <span class="o">+</span> <span class="mi">1</span><span class="o">/</span><span class="mi">2</span>
+<span class="go">3/2</span>
+<span class="gp">sage:</span> <span class="n">R</span><span class="o">.&lt;</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="o">&gt;</span> <span class="o">=</span> <span class="n">ZZ</span><span class="p">[]</span>
+<span class="gp">sage:</span> <span class="n">R</span>
+<span class="go">Multivariate Polynomial Ring in x, y over Integer Ring</span>
+<span class="gp">sage:</span> <span class="n">parent</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="go">Multivariate Polynomial Ring in x, y over Integer Ring</span>
+<span class="gp">sage:</span> <span class="n">parent</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="mi">3</span><span class="p">)</span>
+<span class="go">Rational Field</span>
+<span class="gp">sage:</span> <span class="n">x</span><span class="o">+</span><span class="mi">1</span><span class="o">/</span><span class="mi">3</span>
+<span class="go">x + 1/3</span>
+<span class="gp">sage:</span> <span class="n">parent</span><span class="p">(</span><span class="n">x</span><span class="o">+</span><span class="mi">1</span><span class="o">/</span><span class="mi">3</span><span class="p">)</span>
+<span class="go">Multivariate Polynomial Ring in x, y over Rational Field</span>
+
+<span class="gp">sage:</span> <span class="n">GF</span><span class="p">(</span><span class="mi">5</span><span class="p">)(</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">CC</span><span class="p">(</span><span class="n">I</span><span class="p">)</span>
+<span class="go">Traceback (most recent call last):</span>
+<span class="gp">...</span>
+<span class="go">TypeError: unsupported operand parent(s) for +: &#39;Finite Field of size 5&#39; and &#39;Complex Field with 53 bits of precision&#39;</span>
+</pre></div>
+</div>
+</div>
+<input class="tab-input" id="tab-set--0-input--2" name="tab-set--0" type="radio"><label class="tab-label" for="tab-set--0-input--2">Python</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt;</span> <span class="kn">from</span> <span class="nn">sage.all</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="go">3/2</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">R</span> <span class="o">=</span> <span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x, y&#39;</span><span class="p">];</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,)</span> <span class="o">=</span> <span class="n">R</span><span class="o">.</span><span class="n">_first_ngens</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">R</span>
+<span class="go">Multivariate Polynomial Ring in x, y over Integer Ring</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">parent</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="go">Multivariate Polynomial Ring in x, y over Integer Ring</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">parent</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+<span class="go">Rational Field</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">x</span><span class="o">+</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+<span class="go">x + 1/3</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">parent</span><span class="p">(</span><span class="n">x</span><span class="o">+</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+<span class="go">Multivariate Polynomial Ring in x, y over Rational Field</span>
+
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">GF</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">5</span><span class="p">))(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span> <span class="o">+</span> <span class="n">CC</span><span class="p">(</span><span class="n">I</span><span class="p">)</span>
+<span class="go">Traceback (most recent call last):</span>
+<span class="gp">...</span>
+<span class="go">TypeError: unsupported operand parent(s) for +: &#39;Finite Field of size 5&#39; and &#39;Complex Field with 53 bits of precision&#39;</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="parents-and-elements">
+<h3>Parents and Elements<a class="headerlink" href="#parents-and-elements" title="Link to this heading">¶</a></h3>
+<p class="with-sage-tab with-python-tab">Parents are objects in concrete categories, and Elements are their
+members. Parents are first-class objects.  Most things in Sage are
+either parents or have a parent. Typically whenever one sees the word
+<em>Parent</em> one can think <em>Set</em>. Here are some examples:</p>
+<div class="tab-set docutils container">
+<input checked="True" class="tab-input" id="tab-set--1-input--1" name="tab-set--1" type="radio"><label class="tab-label" for="tab-set--1-input--1">Sage</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">sage:</span> <span class="n">parent</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="go">Integer Ring</span>
+<span class="gp">sage:</span> <span class="n">parent</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="ow">is</span> <span class="n">ZZ</span>
+<span class="go">True</span>
+<span class="gp">sage:</span> <span class="n">ZZ</span>
+<span class="go">Integer Ring</span>
+<span class="gp">sage:</span> <span class="n">parent</span><span class="p">(</span><span class="mf">1.50000000000000000000000000000000000</span><span class="p">)</span>
+<span class="go">Real Field with 120 bits of precision</span>
+<span class="gp">sage:</span> <span class="n">parent</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="go">Symbolic Ring</span>
+<span class="gp">sage:</span> <span class="n">x</span><span class="o">^</span><span class="n">sin</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="go">x^sin(x)</span>
+<span class="gp">sage:</span> <span class="n">R</span><span class="o">.&lt;</span><span class="n">t</span><span class="o">&gt;</span> <span class="o">=</span> <span class="n">Qp</span><span class="p">(</span><span class="mi">5</span><span class="p">)[]</span>
+<span class="gp">sage:</span> <span class="n">f</span> <span class="o">=</span> <span class="n">t</span><span class="o">^</span><span class="mi">3</span><span class="o">-</span><span class="mi">5</span><span class="p">;</span> <span class="n">f</span>
+<span class="go">(1 + O(5^20))*t^3 + 4*5 + 4*5^2 + 4*5^3 + 4*5^4 + 4*5^5 + 4*5^6 + 4*5^7 + 4*5^8 + 4*5^9 + 4*5^10 + 4*5^11 + 4*5^12 + 4*5^13 + 4*5^14 + 4*5^15 + 4*5^16 + 4*5^17 + 4*5^18 + 4*5^19 + 4*5^20 + O(5^21)</span>
+<span class="gp">sage:</span> <span class="n">parent</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+<span class="go">Univariate Polynomial Ring in t over 5-adic Field with capped relative precision 20</span>
+<span class="gp">sage:</span> <span class="n">f</span> <span class="o">=</span> <span class="n">EllipticCurve</span><span class="p">(</span><span class="s1">&#39;37a&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">lseries</span><span class="p">()</span><span class="o">.</span><span class="n">taylor_series</span><span class="p">(</span><span class="mi">10</span><span class="p">);</span> <span class="n">f</span>  <span class="c1"># abs tol 1e-14</span>
+<span class="go">0.997997869801216 + 0.00140712894524925*z - 0.000498127610960097*z^2 + 0.000118835596665956*z^3 - 0.0000215906522442708*z^4 + (3.20363155418421e-6)*z^5 + O(z^6)  # 32-bit</span>
+<span class="go">0.997997869801216 + 0.00140712894524925*z - 0.000498127610960097*z^2 + 0.000118835596665956*z^3 - 0.0000215906522442708*z^4 + (3.20363155418427e-6)*z^5 + O(z^6)  # 64-bit</span>
+<span class="gp">sage:</span> <span class="n">parent</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+<span class="go">Power Series Ring in z over Complex Field with 53 bits of precision</span>
+</pre></div>
+</div>
+</div>
+<input class="tab-input" id="tab-set--1-input--2" name="tab-set--1" type="radio"><label class="tab-label" for="tab-set--1-input--2">Python</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt;</span> <span class="kn">from</span> <span class="nn">sage.all</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">parent</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+<span class="go">Integer Ring</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">parent</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span> <span class="ow">is</span> <span class="n">ZZ</span>
+<span class="go">True</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">ZZ</span>
+<span class="go">Integer Ring</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">parent</span><span class="p">(</span><span class="n">RealNumber</span><span class="p">(</span><span class="s1">&#39;1.50000000000000000000000000000000000&#39;</span><span class="p">))</span>
+<span class="go">Real Field with 120 bits of precision</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">parent</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="go">Symbolic Ring</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">x</span><span class="o">**</span><span class="n">sin</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="go">x^sin(x)</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">R</span> <span class="o">=</span> <span class="n">Qp</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">5</span><span class="p">))[</span><span class="s1">&#39;t&#39;</span><span class="p">];</span> <span class="p">(</span><span class="n">t</span><span class="p">,)</span> <span class="o">=</span> <span class="n">R</span><span class="o">.</span><span class="n">_first_ngens</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">f</span> <span class="o">=</span> <span class="n">t</span><span class="o">**</span><span class="n">Integer</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="o">-</span><span class="n">Integer</span><span class="p">(</span><span class="mi">5</span><span class="p">);</span> <span class="n">f</span>
+<span class="go">(1 + O(5^20))*t^3 + 4*5 + 4*5^2 + 4*5^3 + 4*5^4 + 4*5^5 + 4*5^6 + 4*5^7 + 4*5^8 + 4*5^9 + 4*5^10 + 4*5^11 + 4*5^12 + 4*5^13 + 4*5^14 + 4*5^15 + 4*5^16 + 4*5^17 + 4*5^18 + 4*5^19 + 4*5^20 + O(5^21)</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">parent</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+<span class="go">Univariate Polynomial Ring in t over 5-adic Field with capped relative precision 20</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">f</span> <span class="o">=</span> <span class="n">EllipticCurve</span><span class="p">(</span><span class="s1">&#39;37a&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">lseries</span><span class="p">()</span><span class="o">.</span><span class="n">taylor_series</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">10</span><span class="p">));</span> <span class="n">f</span>  <span class="c1"># abs tol 1e-14</span>
+<span class="go">0.997997869801216 + 0.00140712894524925*z - 0.000498127610960097*z^2 + 0.000118835596665956*z^3 - 0.0000215906522442708*z^4 + (3.20363155418421e-6)*z^5 + O(z^6)  # 32-bit</span>
+<span class="go">0.997997869801216 + 0.00140712894524925*z - 0.000498127610960097*z^2 + 0.000118835596665956*z^3 - 0.0000215906522442708*z^4 + (3.20363155418427e-6)*z^5 + O(z^6)  # 64-bit</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">parent</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+<span class="go">Power Series Ring in z over Complex Field with 53 bits of precision</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p class="with-sage-tab with-python-tab">There is an important distinction between Parents and types:</p>
+<div class="tab-set docutils container">
+<input checked="True" class="tab-input" id="tab-set--2-input--1" name="tab-set--2" type="radio"><label class="tab-label" for="tab-set--2-input--1">Sage</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">sage:</span> <span class="n">a</span> <span class="o">=</span> <span class="n">GF</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">random_element</span><span class="p">()</span>
+<span class="gp">sage:</span> <span class="n">b</span> <span class="o">=</span> <span class="n">GF</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span><span class="o">.</span><span class="n">random_element</span><span class="p">()</span>
+<span class="gp">sage:</span> <span class="nb">type</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+<span class="go">&lt;class &#39;sage.rings.finite_rings.integer_mod.IntegerMod_int&#39;&gt;</span>
+<span class="gp">sage:</span> <span class="nb">type</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+<span class="go">&lt;class &#39;sage.rings.finite_rings.integer_mod.IntegerMod_int&#39;&gt;</span>
+<span class="gp">sage:</span> <span class="nb">type</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">==</span> <span class="nb">type</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+<span class="go">True</span>
+<span class="gp">sage:</span> <span class="n">parent</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+<span class="go">Finite Field of size 5</span>
+<span class="gp">sage:</span> <span class="n">parent</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">==</span> <span class="n">parent</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+<span class="go">False</span>
+</pre></div>
+</div>
+</div>
+<input class="tab-input" id="tab-set--2-input--2" name="tab-set--2" type="radio"><label class="tab-label" for="tab-set--2-input--2">Python</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt;</span> <span class="kn">from</span> <span class="nn">sage.all</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">a</span> <span class="o">=</span> <span class="n">GF</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span><span class="o">.</span><span class="n">random_element</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">b</span> <span class="o">=</span> <span class="n">GF</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">7</span><span class="p">))</span><span class="o">.</span><span class="n">random_element</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="nb">type</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+<span class="go">&lt;class &#39;sage.rings.finite_rings.integer_mod.IntegerMod_int&#39;&gt;</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="nb">type</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+<span class="go">&lt;class &#39;sage.rings.finite_rings.integer_mod.IntegerMod_int&#39;&gt;</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="nb">type</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">==</span> <span class="nb">type</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+<span class="go">True</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">parent</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+<span class="go">Finite Field of size 5</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">parent</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">==</span> <span class="n">parent</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+<span class="go">False</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p class="with-sage-tab with-python-tab">However, non-Sage objects do not really have parents, but we still want
+to be able to reason with them, so their type is used instead:</p>
+<div class="tab-set docutils container">
+<input checked="True" class="tab-input" id="tab-set--3-input--1" name="tab-set--3" type="radio"><label class="tab-label" for="tab-set--3-input--1">Sage</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">sage:</span> <span class="n">a</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+<span class="gp">sage:</span> <span class="n">parent</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+<span class="go">&lt;... &#39;int&#39;&gt;</span>
+</pre></div>
+</div>
+</div>
+<input class="tab-input" id="tab-set--3-input--2" name="tab-set--3" type="radio"><label class="tab-label" for="tab-set--3-input--2">Python</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt;</span> <span class="kn">from</span> <span class="nn">sage.all</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">a</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">10</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">parent</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+<span class="go">&lt;... &#39;int&#39;&gt;</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>In fact, under the hood, a special kind of parent “The set of all
+Python objects of class T” is used in these cases.</p>
+<p class="with-sage-tab with-python-tab">Note that parents are <strong>not</strong> always as tight as possible.</p>
+<div class="tab-set docutils container">
+<input checked="True" class="tab-input" id="tab-set--4-input--1" name="tab-set--4" type="radio"><label class="tab-label" for="tab-set--4-input--1">Sage</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">sage:</span> <span class="n">parent</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+<span class="go">Rational Field</span>
+<span class="gp">sage:</span> <span class="n">parent</span><span class="p">(</span><span class="mi">2</span><span class="o">/</span><span class="mi">1</span><span class="p">)</span>
+<span class="go">Rational Field</span>
+</pre></div>
+</div>
+</div>
+<input class="tab-input" id="tab-set--4-input--2" name="tab-set--4" type="radio"><label class="tab-label" for="tab-set--4-input--2">Python</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt;</span> <span class="kn">from</span> <span class="nn">sage.all</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">parent</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+<span class="go">Rational Field</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">parent</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+<span class="go">Rational Field</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="maps-between-parents">
+<h3>Maps between Parents<a class="headerlink" href="#maps-between-parents" title="Link to this heading">¶</a></h3>
+<p>Many parents come with maps to and from other parents.</p>
+<p class="with-sage-tab with-python-tab">Sage makes a distinction between being able to <strong>convert</strong> between
+various parents, and <strong>coerce</strong> between them. Conversion is explicit
+and tries to make sense of an object in the target domain if at all
+possible. It is invoked by calling:</p>
+<div class="tab-set docutils container">
+<input checked="True" class="tab-input" id="tab-set--5-input--1" name="tab-set--5" type="radio"><label class="tab-label" for="tab-set--5-input--1">Sage</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">sage:</span> <span class="n">ZZ</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+<span class="go">5</span>
+<span class="gp">sage:</span> <span class="n">ZZ</span><span class="p">(</span><span class="mi">10</span><span class="o">/</span><span class="mi">5</span><span class="p">)</span>
+<span class="go">2</span>
+<span class="gp">sage:</span> <span class="n">QQ</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+<span class="go">10</span>
+<span class="gp">sage:</span> <span class="n">parent</span><span class="p">(</span><span class="n">QQ</span><span class="p">(</span><span class="mi">10</span><span class="p">))</span>
+<span class="go">Rational Field</span>
+<span class="gp">sage:</span> <span class="n">a</span> <span class="o">=</span> <span class="n">GF</span><span class="p">(</span><span class="mi">5</span><span class="p">)(</span><span class="mi">2</span><span class="p">);</span> <span class="n">a</span>
+<span class="go">2</span>
+<span class="gp">sage:</span> <span class="n">parent</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+<span class="go">Finite Field of size 5</span>
+<span class="gp">sage:</span> <span class="n">parent</span><span class="p">(</span><span class="n">ZZ</span><span class="p">(</span><span class="n">a</span><span class="p">))</span>
+<span class="go">Integer Ring</span>
+<span class="gp">sage:</span> <span class="n">GF</span><span class="p">(</span><span class="mi">71</span><span class="p">)(</span><span class="mi">1</span><span class="o">/</span><span class="mi">5</span><span class="p">)</span>
+<span class="go">57</span>
+<span class="gp">sage:</span> <span class="n">ZZ</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+<span class="go">Traceback (most recent call last):</span>
+<span class="gp">...</span>
+<span class="go">TypeError: no conversion of this rational to integer</span>
+</pre></div>
+</div>
+</div>
+<input class="tab-input" id="tab-set--5-input--2" name="tab-set--5" type="radio"><label class="tab-label" for="tab-set--5-input--2">Python</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt;</span> <span class="kn">from</span> <span class="nn">sage.all</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">ZZ</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span>
+<span class="go">5</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">ZZ</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span>
+<span class="go">2</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">QQ</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">10</span><span class="p">))</span>
+<span class="go">10</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">parent</span><span class="p">(</span><span class="n">QQ</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">10</span><span class="p">)))</span>
+<span class="go">Rational Field</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">a</span> <span class="o">=</span> <span class="n">GF</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">5</span><span class="p">))(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">2</span><span class="p">));</span> <span class="n">a</span>
+<span class="go">2</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">parent</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+<span class="go">Finite Field of size 5</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">parent</span><span class="p">(</span><span class="n">ZZ</span><span class="p">(</span><span class="n">a</span><span class="p">))</span>
+<span class="go">Integer Ring</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">GF</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">71</span><span class="p">))(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span>
+<span class="go">57</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">ZZ</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+<span class="go">Traceback (most recent call last):</span>
+<span class="gp">...</span>
+<span class="go">TypeError: no conversion of this rational to integer</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p class="with-sage-tab with-python-tab">Conversions need not be canonical (they may for example involve a
+choice of lift) or even make sense mathematically (e.g. constructions
+of some kind).</p>
+<div class="tab-set docutils container">
+<input checked="True" class="tab-input" id="tab-set--6-input--1" name="tab-set--6" type="radio"><label class="tab-label" for="tab-set--6-input--1">Sage</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">sage:</span> <span class="n">ZZ</span><span class="p">(</span><span class="s2">&quot;123&quot;</span><span class="p">)</span>
+<span class="go">123</span>
+<span class="gp">sage:</span> <span class="n">ZZ</span><span class="p">(</span><span class="n">GF</span><span class="p">(</span><span class="mi">5</span><span class="p">)(</span><span class="mi">14</span><span class="p">))</span>
+<span class="go">4</span>
+<span class="gp">sage:</span> <span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]([</span><span class="mi">4</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">])</span>
+<span class="go">x^3 + 2*x^2 + 3*x + 4</span>
+<span class="gp">sage:</span> <span class="n">a</span> <span class="o">=</span> <span class="n">Qp</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">)(</span><span class="mi">1</span><span class="o">/</span><span class="mi">3</span><span class="p">);</span> <span class="n">a</span>
+<span class="go">2 + 3*5 + 5^2 + 3*5^3 + 5^4 + 3*5^5 + 5^6 + 3*5^7 + 5^8 + 3*5^9 + O(5^10)</span>
+<span class="gp">sage:</span> <span class="n">ZZ</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+<span class="go">6510417</span>
+</pre></div>
+</div>
+</div>
+<input class="tab-input" id="tab-set--6-input--2" name="tab-set--6" type="radio"><label class="tab-label" for="tab-set--6-input--2">Python</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt;</span> <span class="kn">from</span> <span class="nn">sage.all</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">ZZ</span><span class="p">(</span><span class="s2">&quot;123&quot;</span><span class="p">)</span>
+<span class="go">123</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">ZZ</span><span class="p">(</span><span class="n">GF</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">5</span><span class="p">))(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">14</span><span class="p">)))</span>
+<span class="go">4</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]([</span><span class="n">Integer</span><span class="p">(</span><span class="mi">4</span><span class="p">),</span><span class="n">Integer</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span><span class="n">Integer</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)])</span>
+<span class="go">x^3 + 2*x^2 + 3*x + 4</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">a</span> <span class="o">=</span> <span class="n">Qp</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">5</span><span class="p">),</span> <span class="n">Integer</span><span class="p">(</span><span class="mi">10</span><span class="p">))(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">3</span><span class="p">));</span> <span class="n">a</span>
+<span class="go">2 + 3*5 + 5^2 + 3*5^3 + 5^4 + 3*5^5 + 5^6 + 3*5^7 + 5^8 + 3*5^9 + O(5^10)</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">ZZ</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+<span class="go">6510417</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>On the other hand, Sage has the notion of a <strong>coercion</strong>, which is a
+canonical morphism (occasionally up to a conventional choice made by
+developers) between parents. A coercion from one parent to another
+<strong>must</strong> be defined on the whole domain, and always succeeds. As it
+may be invoked implicitly, it should be obvious and natural (in both
+the mathematically rigorous and colloquial sense of the word). Up to
+inescapable rounding issues that arise with inexact representations,
+these coercion morphisms should all commute.  In particular, if there
+are coercion maps <span class="math notranslate nohighlight">\(A \to B\)</span> and <span class="math notranslate nohighlight">\(B \to A\)</span>, then their composites
+must be the identity maps.</p>
+<p class="with-sage-tab with-python-tab">Coercions can be discovered via the <a class="reference external" href="../structure/sage/structure/parent.html#sage.structure.parent.Parent.has_coerce_map_from" title="(in Parents and Elements v10.6)"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Parent.has_coerce_map_from()</span></code></a>
+method, and if needed explicitly invoked with the
+<a class="reference external" href="../structure/sage/structure/parent.html#sage.structure.parent.Parent.coerce" title="(in Parents and Elements v10.6)"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Parent.coerce()</span></code></a> method:</p>
+<div class="tab-set docutils container">
+<input checked="True" class="tab-input" id="tab-set--7-input--1" name="tab-set--7" type="radio"><label class="tab-label" for="tab-set--7-input--1">Sage</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">sage:</span> <span class="n">QQ</span><span class="o">.</span><span class="n">has_coerce_map_from</span><span class="p">(</span><span class="n">ZZ</span><span class="p">)</span>
+<span class="go">True</span>
+<span class="gp">sage:</span> <span class="n">QQ</span><span class="o">.</span><span class="n">has_coerce_map_from</span><span class="p">(</span><span class="n">RR</span><span class="p">)</span>
+<span class="go">False</span>
+<span class="gp">sage:</span> <span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">has_coerce_map_from</span><span class="p">(</span><span class="n">QQ</span><span class="p">)</span>
+<span class="go">False</span>
+<span class="gp">sage:</span> <span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">has_coerce_map_from</span><span class="p">(</span><span class="n">ZZ</span><span class="p">)</span>
+<span class="go">True</span>
+<span class="gp">sage:</span> <span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">coerce</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+<span class="go">5</span>
+<span class="gp">sage:</span> <span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">coerce</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span><span class="p">()</span>
+<span class="go">Univariate Polynomial Ring in x over Integer Ring</span>
+<span class="gp">sage:</span> <span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">coerce</span><span class="p">(</span><span class="mi">5</span><span class="o">/</span><span class="mi">1</span><span class="p">)</span>
+<span class="go">Traceback (most recent call last):</span>
+<span class="gp">...</span>
+<span class="go">TypeError: no canonical coercion from Rational Field to Univariate Polynomial Ring in x over Integer Ring</span>
+</pre></div>
+</div>
+</div>
+<input class="tab-input" id="tab-set--7-input--2" name="tab-set--7" type="radio"><label class="tab-label" for="tab-set--7-input--2">Python</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt;</span> <span class="kn">from</span> <span class="nn">sage.all</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">QQ</span><span class="o">.</span><span class="n">has_coerce_map_from</span><span class="p">(</span><span class="n">ZZ</span><span class="p">)</span>
+<span class="go">True</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">QQ</span><span class="o">.</span><span class="n">has_coerce_map_from</span><span class="p">(</span><span class="n">RR</span><span class="p">)</span>
+<span class="go">False</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">has_coerce_map_from</span><span class="p">(</span><span class="n">QQ</span><span class="p">)</span>
+<span class="go">False</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">has_coerce_map_from</span><span class="p">(</span><span class="n">ZZ</span><span class="p">)</span>
+<span class="go">True</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">coerce</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span>
+<span class="go">5</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">coerce</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span><span class="o">.</span><span class="n">parent</span><span class="p">()</span>
+<span class="go">Univariate Polynomial Ring in x over Integer Ring</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">coerce</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+<span class="go">Traceback (most recent call last):</span>
+<span class="gp">...</span>
+<span class="go">TypeError: no canonical coercion from Rational Field to Univariate Polynomial Ring in x over Integer Ring</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="basic-arithmetic-rules">
+<h2>Basic Arithmetic Rules<a class="headerlink" href="#basic-arithmetic-rules" title="Link to this heading">¶</a></h2>
+<p>Suppose we want to add two element, a and b, whose parents are A and B
+respectively. When we type <code class="docutils literal notranslate"><span class="pre">a+b</span></code> then</p>
+<ol class="arabic simple">
+<li><p>If A <code class="docutils literal notranslate"><span class="pre">is</span></code> B, call a._add_(b)</p></li>
+<li><p>If there is a coercion <span class="math notranslate nohighlight">\(\phi: B \rightarrow A\)</span>, call a._add_( <span class="math notranslate nohighlight">\(\phi\)</span> (b))</p></li>
+<li><p>If there is a coercion <span class="math notranslate nohighlight">\(\phi: A \rightarrow B\)</span>, call <span class="math notranslate nohighlight">\(\phi\)</span> (a)._add_(b)</p></li>
+<li><p>Look for <span class="math notranslate nohighlight">\(Z\)</span> such that there is a coercion <span class="math notranslate nohighlight">\(\phi_A: A \rightarrow Z\)</span> and
+<span class="math notranslate nohighlight">\(\phi_B: B \rightarrow Z\)</span>, call <span class="math notranslate nohighlight">\(\phi_A\)</span> (a)._add_( <span class="math notranslate nohighlight">\(\phi_B\)</span> (b))</p></li>
+</ol>
+<p>These rules are evaluated in order; therefore if there are coercions
+in both directions, then the parent of a._add_b is A – the parent
+of the left-hand operand is used in such cases.</p>
+<p class="with-sage-tab with-python-tab">The same rules are used for subtraction, multiplication, and
+division. This logic is embedded in a coercion model object, which can
+be obtained and queried.</p>
+<div class="tab-set docutils container">
+<input checked="True" class="tab-input" id="tab-set--8-input--1" name="tab-set--8" type="radio"><label class="tab-label" for="tab-set--8-input--1">Sage</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">sage:</span> <span class="n">parent</span><span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="mi">1</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+<span class="go">Rational Field</span>
+<span class="gp">sage:</span> <span class="n">cm</span> <span class="o">=</span> <span class="n">coercion_model</span><span class="p">;</span> <span class="n">cm</span>
+<span class="go">&lt;sage.structure.coerce.CoercionModel object at ...&gt;</span>
+<span class="gp">sage:</span> <span class="n">cm</span><span class="o">.</span><span class="n">explain</span><span class="p">(</span><span class="n">ZZ</span><span class="p">,</span> <span class="n">QQ</span><span class="p">)</span>
+<span class="go">Coercion on left operand via</span>
+<span class="go">   Natural morphism:</span>
+<span class="go">     From: Integer Ring</span>
+<span class="go">     To:   Rational Field</span>
+<span class="go">Arithmetic performed after coercions.</span>
+<span class="go">Result lives in Rational Field</span>
+<span class="go">Rational Field</span>
+
+<span class="gp">sage:</span> <span class="n">cm</span><span class="o">.</span><span class="n">explain</span><span class="p">(</span><span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span><span class="s1">&#39;y&#39;</span><span class="p">],</span> <span class="n">QQ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">])</span>
+<span class="go">Coercion on left operand via</span>
+<span class="go">   Coercion map:</span>
+<span class="go">     From: Multivariate Polynomial Ring in x, y over Integer Ring</span>
+<span class="go">     To:   Multivariate Polynomial Ring in x, y over Rational Field</span>
+<span class="go">Coercion on right operand via</span>
+<span class="go">   Coercion map:</span>
+<span class="go">     From: Univariate Polynomial Ring in x over Rational Field</span>
+<span class="go">     To:   Multivariate Polynomial Ring in x, y over Rational Field</span>
+<span class="go">Arithmetic performed after coercions.</span>
+<span class="go">Result lives in Multivariate Polynomial Ring in x, y over Rational Field</span>
+<span class="go">Multivariate Polynomial Ring in x, y over Rational Field</span>
+</pre></div>
+</div>
+</div>
+<input class="tab-input" id="tab-set--8-input--2" name="tab-set--8" type="radio"><label class="tab-label" for="tab-set--8-input--2">Python</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt;</span> <span class="kn">from</span> <span class="nn">sage.all</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">parent</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+<span class="go">Rational Field</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">cm</span> <span class="o">=</span> <span class="n">coercion_model</span><span class="p">;</span> <span class="n">cm</span>
+<span class="go">&lt;sage.structure.coerce.CoercionModel object at ...&gt;</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">cm</span><span class="o">.</span><span class="n">explain</span><span class="p">(</span><span class="n">ZZ</span><span class="p">,</span> <span class="n">QQ</span><span class="p">)</span>
+<span class="go">Coercion on left operand via</span>
+<span class="go">   Natural morphism:</span>
+<span class="go">     From: Integer Ring</span>
+<span class="go">     To:   Rational Field</span>
+<span class="go">Arithmetic performed after coercions.</span>
+<span class="go">Result lives in Rational Field</span>
+<span class="go">Rational Field</span>
+
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">cm</span><span class="o">.</span><span class="n">explain</span><span class="p">(</span><span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span><span class="s1">&#39;y&#39;</span><span class="p">],</span> <span class="n">QQ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">])</span>
+<span class="go">Coercion on left operand via</span>
+<span class="go">   Coercion map:</span>
+<span class="go">     From: Multivariate Polynomial Ring in x, y over Integer Ring</span>
+<span class="go">     To:   Multivariate Polynomial Ring in x, y over Rational Field</span>
+<span class="go">Coercion on right operand via</span>
+<span class="go">   Coercion map:</span>
+<span class="go">     From: Univariate Polynomial Ring in x over Rational Field</span>
+<span class="go">     To:   Multivariate Polynomial Ring in x, y over Rational Field</span>
+<span class="go">Arithmetic performed after coercions.</span>
+<span class="go">Result lives in Multivariate Polynomial Ring in x, y over Rational Field</span>
+<span class="go">Multivariate Polynomial Ring in x, y over Rational Field</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>The coercion model can be used directly for any binary operation
+(callable taking two arguments).</p>
+<div class="tab-set docutils container">
+<input checked="True" class="tab-input" id="tab-set--9-input--1" name="tab-set--9" type="radio"><label class="tab-label" for="tab-set--9-input--1">Sage</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">sage:</span> <span class="n">cm</span><span class="o">.</span><span class="n">bin_op</span><span class="p">(</span><span class="mi">77</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="n">gcd</span><span class="p">)</span>
+<span class="go">1</span>
+</pre></div>
+</div>
+</div>
+<input class="tab-input" id="tab-set--9-input--2" name="tab-set--9" type="radio"><label class="tab-label" for="tab-set--9-input--2">Python</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt;</span> <span class="kn">from</span> <span class="nn">sage.all</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">cm</span><span class="o">.</span><span class="n">bin_op</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">77</span><span class="p">),</span> <span class="n">Integer</span><span class="p">(</span><span class="mi">9</span><span class="p">),</span> <span class="n">gcd</span><span class="p">)</span>
+<span class="go">1</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>There are also <strong>actions</strong> in the sense that a field <span class="math notranslate nohighlight">\(K\)</span> acts on a
+module over <span class="math notranslate nohighlight">\(K\)</span>, or a permutation group acts on a set. These are
+discovered between steps 1 and 2 above.</p>
+<div class="tab-set docutils container">
+<input checked="True" class="tab-input" id="tab-set--10-input--1" name="tab-set--10" type="radio"><label class="tab-label" for="tab-set--10-input--1">Sage</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">sage:</span> <span class="n">cm</span><span class="o">.</span><span class="n">explain</span><span class="p">(</span><span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="n">ZZ</span><span class="p">,</span> <span class="n">operator</span><span class="o">.</span><span class="n">mul</span><span class="p">)</span>
+<span class="go">Action discovered.</span>
+<span class="go">   Right scalar multiplication by Integer Ring on Univariate Polynomial Ring in x over Integer Ring</span>
+<span class="go">Result lives in Univariate Polynomial Ring in x over Integer Ring</span>
+<span class="go">Univariate Polynomial Ring in x over Integer Ring</span>
+
+<span class="gp">sage:</span> <span class="n">cm</span><span class="o">.</span><span class="n">explain</span><span class="p">(</span><span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="n">ZZ</span><span class="p">,</span> <span class="n">operator</span><span class="o">.</span><span class="n">truediv</span><span class="p">)</span>
+<span class="go">Action discovered.</span>
+<span class="go">   Right inverse action by Rational Field on Univariate Polynomial Ring in x over Integer Ring</span>
+<span class="go">   with precomposition on right by Natural morphism:</span>
+<span class="go">     From: Integer Ring</span>
+<span class="go">     To:   Rational Field</span>
+<span class="go">Result lives in Univariate Polynomial Ring in x over Rational Field</span>
+<span class="go">Univariate Polynomial Ring in x over Rational Field</span>
+
+<span class="gp">sage:</span> <span class="n">f</span> <span class="o">=</span> <span class="n">QQ</span><span class="o">.</span><span class="n">coerce_map_from</span><span class="p">(</span><span class="n">ZZ</span><span class="p">)</span>
+<span class="gp">sage:</span> <span class="n">f</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span><span class="p">()</span>
+<span class="go">Rational Field</span>
+</pre></div>
+</div>
+</div>
+<input class="tab-input" id="tab-set--10-input--2" name="tab-set--10" type="radio"><label class="tab-label" for="tab-set--10-input--2">Python</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt;</span> <span class="kn">from</span> <span class="nn">sage.all</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">cm</span><span class="o">.</span><span class="n">explain</span><span class="p">(</span><span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="n">ZZ</span><span class="p">,</span> <span class="n">operator</span><span class="o">.</span><span class="n">mul</span><span class="p">)</span>
+<span class="go">Action discovered.</span>
+<span class="go">   Right scalar multiplication by Integer Ring on Univariate Polynomial Ring in x over Integer Ring</span>
+<span class="go">Result lives in Univariate Polynomial Ring in x over Integer Ring</span>
+<span class="go">Univariate Polynomial Ring in x over Integer Ring</span>
+
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">cm</span><span class="o">.</span><span class="n">explain</span><span class="p">(</span><span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="n">ZZ</span><span class="p">,</span> <span class="n">operator</span><span class="o">.</span><span class="n">truediv</span><span class="p">)</span>
+<span class="go">Action discovered.</span>
+<span class="go">   Right inverse action by Rational Field on Univariate Polynomial Ring in x over Integer Ring</span>
+<span class="go">   with precomposition on right by Natural morphism:</span>
+<span class="go">     From: Integer Ring</span>
+<span class="go">     To:   Rational Field</span>
+<span class="go">Result lives in Univariate Polynomial Ring in x over Rational Field</span>
+<span class="go">Univariate Polynomial Ring in x over Rational Field</span>
+
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">f</span> <span class="o">=</span> <span class="n">QQ</span><span class="o">.</span><span class="n">coerce_map_from</span><span class="p">(</span><span class="n">ZZ</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">f</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span><span class="o">.</span><span class="n">parent</span><span class="p">()</span>
+<span class="go">Rational Field</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p class="with-sage-tab with-python-tab">Note that by <a class="extlink-issue reference external" href="https://github.com/sagemath/sage/issues/14711">Issue #14711</a> Sage’s coercion system uses maps with weak
+references to the domain. Such maps should only be used internally, and so a
+copy should be used instead (unless one knows what one is doing):</p>
+<div class="tab-set docutils container">
+<input checked="True" class="tab-input" id="tab-set--11-input--1" name="tab-set--11" type="radio"><label class="tab-label" for="tab-set--11-input--1">Sage</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">sage:</span> <span class="n">QQ</span><span class="o">.</span><span class="n">_internal_coerce_map_from</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+<span class="go">(map internal to coercion system -- copy before use)</span>
+<span class="go">Native morphism:</span>
+<span class="go">  From: Set of Python objects of class &#39;int&#39;</span>
+<span class="go">  To:   Rational Field</span>
+<span class="gp">sage:</span> <span class="n">copy</span><span class="p">(</span><span class="n">QQ</span><span class="o">.</span><span class="n">_internal_coerce_map_from</span><span class="p">(</span><span class="nb">int</span><span class="p">))</span>
+<span class="go">Native morphism:</span>
+<span class="go">  From: Set of Python objects of class &#39;int&#39;</span>
+<span class="go">  To:   Rational Field</span>
+</pre></div>
+</div>
+</div>
+<input class="tab-input" id="tab-set--11-input--2" name="tab-set--11" type="radio"><label class="tab-label" for="tab-set--11-input--2">Python</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt;</span> <span class="kn">from</span> <span class="nn">sage.all</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">QQ</span><span class="o">.</span><span class="n">_internal_coerce_map_from</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+<span class="go">(map internal to coercion system -- copy before use)</span>
+<span class="go">Native morphism:</span>
+<span class="go">  From: Set of Python objects of class &#39;int&#39;</span>
+<span class="go">  To:   Rational Field</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">copy</span><span class="p">(</span><span class="n">QQ</span><span class="o">.</span><span class="n">_internal_coerce_map_from</span><span class="p">(</span><span class="nb">int</span><span class="p">))</span>
+<span class="go">Native morphism:</span>
+<span class="go">  From: Set of Python objects of class &#39;int&#39;</span>
+<span class="go">  To:   Rational Field</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p class="with-sage-tab with-python-tab">Note that the user-visible method (without underscore) automates this copy:</p>
+<div class="tab-set docutils container">
+<input checked="True" class="tab-input" id="tab-set--12-input--1" name="tab-set--12" type="radio"><label class="tab-label" for="tab-set--12-input--1">Sage</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">sage:</span> <span class="n">copy</span><span class="p">(</span><span class="n">QQ</span><span class="o">.</span><span class="n">coerce_map_from</span><span class="p">(</span><span class="nb">int</span><span class="p">))</span>
+<span class="go">Native morphism:</span>
+<span class="go">  From: Set of Python objects of class &#39;int&#39;</span>
+<span class="go">  To:   Rational Field</span>
+</pre></div>
+</div>
+</div>
+<input class="tab-input" id="tab-set--12-input--2" name="tab-set--12" type="radio"><label class="tab-label" for="tab-set--12-input--2">Python</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt;</span> <span class="kn">from</span> <span class="nn">sage.all</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">copy</span><span class="p">(</span><span class="n">QQ</span><span class="o">.</span><span class="n">coerce_map_from</span><span class="p">(</span><span class="nb">int</span><span class="p">))</span>
+<span class="go">Native morphism:</span>
+<span class="go">  From: Set of Python objects of class &#39;int&#39;</span>
+<span class="go">  To:   Rational Field</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p class="with-sage-tab with-python-tab"></p>
+<div class="tab-set docutils container">
+<input checked="True" class="tab-input" id="tab-set--13-input--1" name="tab-set--13" type="radio"><label class="tab-label" for="tab-set--13-input--1">Sage</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">sage:</span> <span class="n">QQ</span><span class="o">.</span><span class="n">has_coerce_map_from</span><span class="p">(</span><span class="n">RR</span><span class="p">)</span>
+<span class="go">False</span>
+<span class="gp">sage:</span> <span class="n">QQ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">get_action</span><span class="p">(</span><span class="n">QQ</span><span class="p">)</span>
+<span class="go">Right scalar multiplication by Rational Field on Univariate Polynomial Ring in x over Rational Field</span>
+<span class="gp">sage:</span> <span class="n">QQ2</span> <span class="o">=</span> <span class="n">QQ</span><span class="o">^</span><span class="mi">2</span>
+<span class="gp">sage:</span> <span class="p">(</span><span class="n">QQ2</span><span class="p">)</span><span class="o">.</span><span class="n">get_action</span><span class="p">(</span><span class="n">QQ</span><span class="p">)</span>
+<span class="go">Right scalar multiplication by Rational Field on Vector space of dimension 2 over Rational Field</span>
+<span class="gp">sage:</span> <span class="n">QQ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">get_action</span><span class="p">(</span><span class="n">RR</span><span class="p">)</span>
+<span class="go">Right scalar multiplication by Real Field with 53 bits of precision on Univariate Polynomial Ring in x over Rational Field</span>
+</pre></div>
+</div>
+</div>
+<input class="tab-input" id="tab-set--13-input--2" name="tab-set--13" type="radio"><label class="tab-label" for="tab-set--13-input--2">Python</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt;</span> <span class="kn">from</span> <span class="nn">sage.all</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">QQ</span><span class="o">.</span><span class="n">has_coerce_map_from</span><span class="p">(</span><span class="n">RR</span><span class="p">)</span>
+<span class="go">False</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">QQ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">get_action</span><span class="p">(</span><span class="n">QQ</span><span class="p">)</span>
+<span class="go">Right scalar multiplication by Rational Field on Univariate Polynomial Ring in x over Rational Field</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">QQ2</span> <span class="o">=</span> <span class="n">QQ</span><span class="o">**</span><span class="n">Integer</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="p">(</span><span class="n">QQ2</span><span class="p">)</span><span class="o">.</span><span class="n">get_action</span><span class="p">(</span><span class="n">QQ</span><span class="p">)</span>
+<span class="go">Right scalar multiplication by Rational Field on Vector space of dimension 2 over Rational Field</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">QQ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">get_action</span><span class="p">(</span><span class="n">RR</span><span class="p">)</span>
+<span class="go">Right scalar multiplication by Real Field with 53 bits of precision on Univariate Polynomial Ring in x over Rational Field</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="how-to-implement">
+<h2>How to Implement<a class="headerlink" href="#how-to-implement" title="Link to this heading">¶</a></h2>
+<section id="methods-to-implement">
+<h3>Methods to implement<a class="headerlink" href="#methods-to-implement" title="Link to this heading">¶</a></h3>
+<ul>
+<li><p>Arithmetic on Elements: <code class="docutils literal notranslate"><span class="pre">_add_</span></code>, <code class="docutils literal notranslate"><span class="pre">_sub_</span></code>, <code class="docutils literal notranslate"><span class="pre">_mul_</span></code>, <code class="docutils literal notranslate"><span class="pre">_div_</span></code></p>
+<p>This is where the binary arithmetic operators should be
+implemented. Unlike Python’s <code class="docutils literal notranslate"><span class="pre">__add__</span></code>, both operands are
+<em>guaranteed</em> to have the same Parent at this point.</p>
+</li>
+<li><p>Coercion for Parents: <code class="docutils literal notranslate"><span class="pre">_coerce_map_from_</span></code></p>
+<p>Given two parents R and S, <code class="docutils literal notranslate"><span class="pre">R._coerce_map_from_(S)</span></code> is called to
+determine if there is a coercion <span class="math notranslate nohighlight">\(\phi: S \rightarrow R\)</span>.  Note that
+the function is called on the potential codomain.  To indicate that
+there is no coercion from S to R (self), return <code class="docutils literal notranslate"><span class="pre">False</span></code> or
+<code class="docutils literal notranslate"><span class="pre">None</span></code>. This is the default behavior.  If there is a coercion,
+return <code class="docutils literal notranslate"><span class="pre">True</span></code> (in which case a morphism using
+<code class="docutils literal notranslate"><span class="pre">R._element_constructor_</span></code> will be created) or an actual
+<a class="reference external" href="../categories/sage/categories/morphism.html#sage.categories.morphism.Morphism" title="(in Category Framework v10.6)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Morphism</span></code></a> object with S as the domain and R as the codomain.</p>
+</li>
+<li><p>Actions for Parents: <code class="docutils literal notranslate"><span class="pre">_get_action_</span></code> or <code class="docutils literal notranslate"><span class="pre">_rmul_</span></code>, <code class="docutils literal notranslate"><span class="pre">_lmul_</span></code>, <code class="docutils literal notranslate"><span class="pre">_act_on_</span></code>, <code class="docutils literal notranslate"><span class="pre">_acted_upon_</span></code></p>
+<p>Suppose one wants R to act on S. Some examples of this could be
+<span class="math notranslate nohighlight">\(R = \QQ\)</span>, <span class="math notranslate nohighlight">\(S = \QQ[x]\)</span> or <span class="math notranslate nohighlight">\(R = {\rm Gal}(S/\QQ)\)</span>
+where <span class="math notranslate nohighlight">\(S\)</span>  is a number field. There are several ways to implement this:</p>
+<ul class="simple">
+<li><p>If <span class="math notranslate nohighlight">\(R\)</span> is the base of <span class="math notranslate nohighlight">\(S\)</span> (as in the first example), simply
+implement <code class="docutils literal notranslate"><span class="pre">_rmul_</span></code> and/or <code class="docutils literal notranslate"><span class="pre">_lmul_</span></code> on the Elements of <span class="math notranslate nohighlight">\(S\)</span>.
+In this case <code class="docutils literal notranslate"><span class="pre">r</span> <span class="pre">*</span> <span class="pre">s</span></code> gets handled as <code class="docutils literal notranslate"><span class="pre">s._rmul_(r)</span></code> and
+<code class="docutils literal notranslate"><span class="pre">s</span> <span class="pre">*</span> <span class="pre">r</span></code> as <code class="docutils literal notranslate"><span class="pre">s._lmul_(r)</span></code>. The argument to <code class="docutils literal notranslate"><span class="pre">_rmul_</span></code>
+and <code class="docutils literal notranslate"><span class="pre">_lmul_</span></code> are <em>guaranteed</em> to be Elements of the base of
+<span class="math notranslate nohighlight">\(S\)</span> (with coercion happening beforehand if necessary).</p></li>
+<li><p>If <span class="math notranslate nohighlight">\(R\)</span> acts on <span class="math notranslate nohighlight">\(S\)</span>, one can define the methods
+<code class="docutils literal notranslate"><span class="pre">_act_on_</span></code> on Elements of <span class="math notranslate nohighlight">\(R\)</span> or <code class="docutils literal notranslate"><span class="pre">_acted_upon_</span></code> on Elements of <span class="math notranslate nohighlight">\(S\)</span>. In
+this case <code class="docutils literal notranslate"><span class="pre">r</span> <span class="pre">*</span> <span class="pre">s</span></code> gets handled as <code class="docutils literal notranslate"><span class="pre">r._act_on_(s,</span> <span class="pre">True)</span></code> or
+<code class="docutils literal notranslate"><span class="pre">s._acted_upon_(r,</span> <span class="pre">False)</span></code> and <code class="docutils literal notranslate"><span class="pre">s</span> <span class="pre">*</span> <span class="pre">r</span></code> as <code class="docutils literal notranslate"><span class="pre">r._act_on_(s,</span> <span class="pre">False)</span></code> or
+<code class="docutils literal notranslate"><span class="pre">s._acted_upon_(r,</span> <span class="pre">True)</span></code>. There is no constraint on the type or parents
+of objects passed to these methods; raise a <a class="reference external" href="https://docs.python.org/library/exceptions.html#TypeError" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">TypeError</span></code></a> or <a class="reference external" href="https://docs.python.org/library/exceptions.html#ValueError" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ValueError</span></code></a>
+if the wrong kind of object is passed in to indicate the action is not
+appropriate here.</p></li>
+<li><p>If either <span class="math notranslate nohighlight">\(R\)</span> acts on <span class="math notranslate nohighlight">\(S\)</span> <em>or</em> <span class="math notranslate nohighlight">\(S\)</span> acts on <span class="math notranslate nohighlight">\(R\)</span>, one may implement
+<code class="docutils literal notranslate"><span class="pre">R._get_action_</span></code> to return an actual
+<a class="reference internal" href="sage/categories/action.html#sage.categories.action.Action" title="sage.categories.action.Action"><code class="xref py py-class docutils literal notranslate"><span class="pre">Action</span></code></a> object to be used. This is how
+non-multiplicative actions must be implemented, and is the most powerful
+and complete way to do things.</p></li>
+</ul>
+<p>It should be noted that for the first way to work, elements of <span class="math notranslate nohighlight">\(S\)</span> are
+required to be ModuleElements. This requirement is likely to be lifted in the
+future.</p>
+</li>
+<li><p>Element conversion/construction for Parents: use <code class="docutils literal notranslate"><span class="pre">_element_constructor_</span></code> <strong>not</strong> <code class="docutils literal notranslate"><span class="pre">__call__</span></code></p>
+<p>The <a class="reference external" href="../structure/sage/structure/parent.html#sage.structure.parent.Parent.__call__" title="(in Parents and Elements v10.6)"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Parent.__call__()</span></code></a> method dispatches to
+<code class="docutils literal notranslate"><span class="pre">_element_constructor_</span></code>. When someone writes <code class="docutils literal notranslate"><span class="pre">R(x,</span> <span class="pre">...)</span></code>, this is
+the method that eventually gets called in most cases.  See the
+documentation on the <code class="docutils literal notranslate"><span class="pre">__call__</span></code> method below.</p>
+</li>
+</ul>
+<p>Parents may also call the <code class="docutils literal notranslate"><span class="pre">self._populate_coercion_lists_</span></code> method in
+their <code class="docutils literal notranslate"><span class="pre">__init__</span></code> functions to pass any callable for use instead of
+<code class="docutils literal notranslate"><span class="pre">_element_constructor_</span></code>, provide a list of Parents with coercions to
+self (as an alternative to implementing <code class="docutils literal notranslate"><span class="pre">_coerce_map_from_</span></code>),
+provide special construction methods (like <code class="docutils literal notranslate"><span class="pre">_integer_</span></code> for ZZ),
+etc. This also allows one to specify a single coercion embedding <em>out</em>
+of self (whereas the rest of the coercion functions all specify maps
+<em>into</em> self). There is extensive documentation in the docstring of the
+<code class="docutils literal notranslate"><span class="pre">_populate_coercion_lists_</span></code> method.</p>
+</section>
+<section id="example">
+<h3>Example<a class="headerlink" href="#example" title="Link to this heading">¶</a></h3>
+<p class="with-sage-tab with-python-tab">Sometimes a simple example is worth a thousand words. Here is a
+minimal example of setting up a simple Ring that handles coercion. (It
+is easy to imagine much more sophisticated and powerful localizations,
+but that would obscure the main points being made here.)</p>
+<div class="tab-set docutils container">
+<input checked="True" class="tab-input" id="tab-set--14-input--1" name="tab-set--14" type="radio"><label class="tab-label" for="tab-set--14-input--1">Sage</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">sage:</span> <span class="kn">from</span> <span class="nn">sage.structure.richcmp</span> <span class="kn">import</span> <span class="n">richcmp</span>
+<span class="gp">sage:</span> <span class="kn">from</span> <span class="nn">sage.structure.element</span> <span class="kn">import</span> <span class="n">Element</span>
+
+<span class="gp">sage:</span> <span class="k">class</span> <span class="nc">MyLocalization</span><span class="p">(</span><span class="n">Parent</span><span class="p">):</span>
+<span class="gp">....:</span>     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">primes</span><span class="p">):</span>
+<span class="gp">....:</span><span class="w">         </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="gp">....:</span><span class="sd">         Localization of `\ZZ` away from primes.</span>
+<span class="gp">....:</span><span class="sd">         &quot;&quot;&quot;</span>
+<span class="gp">....:</span>         <span class="n">Parent</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">base</span><span class="o">=</span><span class="n">ZZ</span><span class="p">,</span> <span class="n">category</span><span class="o">=</span><span class="n">Rings</span><span class="p">()</span><span class="o">.</span><span class="n">Commutative</span><span class="p">())</span>
+<span class="gp">....:</span>         <span class="bp">self</span><span class="o">.</span><span class="n">_primes</span> <span class="o">=</span> <span class="n">primes</span>
+<span class="gp">....:</span>         <span class="bp">self</span><span class="o">.</span><span class="n">_populate_coercion_lists_</span><span class="p">()</span>
+<span class="gp">....:</span>
+<span class="gp">....:</span>     <span class="k">def</span> <span class="nf">_repr_</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="gp">....:</span><span class="w">         </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="gp">....:</span><span class="sd">         How to print ``self``.</span>
+<span class="gp">....:</span><span class="sd">         &quot;&quot;&quot;</span>
+<span class="gp">....:</span>         <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> localized at </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_primes</span><span class="p">)</span>
+<span class="gp">....:</span>
+<span class="gp">....:</span>     <span class="k">def</span> <span class="nf">_element_constructor_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="gp">....:</span><span class="w">         </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="gp">....:</span><span class="sd">         Make sure ``x`` is a valid member of ``self``, and return the constructed element.</span>
+<span class="gp">....:</span><span class="sd">         &quot;&quot;&quot;</span>
+<span class="gp">....:</span>         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">MyLocalizationElement</span><span class="p">):</span>
+<span class="gp">....:</span>             <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">_value</span>
+<span class="gp">....:</span>         <span class="k">else</span><span class="p">:</span>
+<span class="gp">....:</span>             <span class="n">x</span> <span class="o">=</span> <span class="n">QQ</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="gp">....:</span>         <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">x</span><span class="o">.</span><span class="n">denominator</span><span class="p">()</span><span class="o">.</span><span class="n">factor</span><span class="p">():</span>
+<span class="gp">....:</span>             <span class="k">if</span> <span class="n">p</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_primes</span><span class="p">:</span>
+<span class="gp">....:</span>                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;not integral at </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">p</span><span class="p">)</span>
+<span class="gp">....:</span>         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">element_class</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+<span class="gp">....:</span>
+<span class="gp">....:</span>     <span class="k">def</span> <span class="nf">_an_element_</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="gp">....:</span>         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">element_class</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span>
+<span class="gp">....:</span>
+<span class="gp">....:</span>     <span class="k">def</span> <span class="nf">_coerce_map_from_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">S</span><span class="p">):</span>
+<span class="gp">....:</span>         <span class="s2">&quot;&quot;&quot;</span>
+<span class="gp">....:</span><span class="s2">         The only things that coerce into this ring are:</span>
+<span class="gp">....:</span>
+<span class="gp">....:</span>         <span class="o">-</span> <span class="n">the</span> <span class="n">integer</span> <span class="n">ring</span>
+<span class="gp">....:</span>
+<span class="gp">....:</span>         <span class="o">-</span> <span class="n">other</span> <span class="n">localizations</span> <span class="n">away</span> <span class="kn">from</span> <span class="nn">fewer</span> <span class="n">primes</span>
+<span class="gp">....:</span>         <span class="s2">&quot;&quot;&quot;</span>
+<span class="gp">....:</span><span class="s2">         if S is ZZ:</span>
+<span class="gp">....:</span><span class="s2">             return True</span>
+<span class="gp">....:</span><span class="s2">         if isinstance(S, MyLocalization):</span>
+<span class="gp">....:</span><span class="s2">             return all(p in self._primes for p in S._primes)</span>
+
+<span class="gp">sage:</span> <span class="k">class</span> <span class="nc">MyLocalizationElement</span><span class="p">(</span><span class="n">Element</span><span class="p">):</span>
+<span class="gp">....:</span>
+<span class="gp">....:</span>     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parent</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="gp">....:</span>         <span class="n">Element</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parent</span><span class="p">)</span>
+<span class="gp">....:</span>         <span class="bp">self</span><span class="o">.</span><span class="n">_value</span> <span class="o">=</span> <span class="n">x</span>
+<span class="gp">....:</span>
+<span class="gp">....:</span>     <span class="c1"># We are just printing out this way to make it easy to see what&#39;s going on in the examples.</span>
+<span class="gp">....:</span>
+<span class="gp">....:</span>     <span class="k">def</span> <span class="nf">_repr_</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="gp">....:</span>         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;LocalElt(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_value</span><span class="si">}</span><span class="s2">)&quot;</span>
+<span class="gp">....:</span>
+<span class="gp">....:</span>     <span class="c1"># Now define addition, subtraction and multiplication of elements.</span>
+<span class="gp">....:</span>     <span class="c1"># Note that self and right always have the same parent.</span>
+<span class="gp">....:</span>
+<span class="gp">....:</span>     <span class="k">def</span> <span class="nf">_add_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">right</span><span class="p">):</span>
+<span class="gp">....:</span>         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">()(</span><span class="bp">self</span><span class="o">.</span><span class="n">_value</span> <span class="o">+</span> <span class="n">right</span><span class="o">.</span><span class="n">_value</span><span class="p">)</span>
+<span class="gp">....:</span>
+<span class="gp">....:</span>     <span class="k">def</span> <span class="nf">_sub_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">right</span><span class="p">):</span>
+<span class="gp">....:</span>         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">()(</span><span class="bp">self</span><span class="o">.</span><span class="n">_value</span> <span class="o">-</span> <span class="n">right</span><span class="o">.</span><span class="n">_value</span><span class="p">)</span>
+<span class="gp">....:</span>
+<span class="gp">....:</span>     <span class="k">def</span> <span class="nf">_mul_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">right</span><span class="p">):</span>
+<span class="gp">....:</span>         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">()(</span><span class="bp">self</span><span class="o">.</span><span class="n">_value</span> <span class="o">*</span> <span class="n">right</span><span class="o">.</span><span class="n">_value</span><span class="p">)</span>
+<span class="gp">....:</span>
+<span class="gp">....:</span>     <span class="c1"># The basering was set to ZZ, so c is guaranteed to be in ZZ</span>
+<span class="gp">....:</span>
+<span class="gp">....:</span>     <span class="k">def</span> <span class="nf">_rmul_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">):</span>
+<span class="gp">....:</span>         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">()(</span><span class="n">c</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_value</span><span class="p">)</span>
+<span class="gp">....:</span>
+<span class="gp">....:</span>     <span class="k">def</span> <span class="nf">_lmul_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">):</span>
+<span class="gp">....:</span>         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">()(</span><span class="bp">self</span><span class="o">.</span><span class="n">_value</span> <span class="o">*</span> <span class="n">c</span><span class="p">)</span>
+<span class="gp">....:</span>
+<span class="gp">....:</span>     <span class="k">def</span> <span class="nf">_richcmp_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+<span class="gp">....:</span>         <span class="k">return</span> <span class="n">richcmp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_value</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">_value</span><span class="p">,</span> <span class="n">op</span><span class="p">)</span>
+
+<span class="gp">sage:</span> <span class="n">MyLocalization</span><span class="o">.</span><span class="n">element_class</span> <span class="o">=</span> <span class="n">MyLocalizationElement</span>
+</pre></div>
+</div>
+</div>
+<input class="tab-input" id="tab-set--14-input--2" name="tab-set--14" type="radio"><label class="tab-label" for="tab-set--14-input--2">Python</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt;</span> <span class="kn">from</span> <span class="nn">sage.all</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="kn">from</span> <span class="nn">sage.structure.richcmp</span> <span class="kn">import</span> <span class="n">richcmp</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="kn">from</span> <span class="nn">sage.structure.element</span> <span class="kn">import</span> <span class="n">Element</span>
+
+<span class="gp">&gt;&gt;&gt;</span> <span class="k">class</span> <span class="nc">MyLocalization</span><span class="p">(</span><span class="n">Parent</span><span class="p">):</span>
+<span class="gp">...</span>     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">primes</span><span class="p">):</span>
+<span class="gp">...</span><span class="w">         </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="gp">...</span><span class="sd">         Localization of `\ZZ` away from primes.</span>
+<span class="gp">...</span><span class="sd">         &quot;&quot;&quot;</span>
+<span class="gp">...</span>         <span class="n">Parent</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">base</span><span class="o">=</span><span class="n">ZZ</span><span class="p">,</span> <span class="n">category</span><span class="o">=</span><span class="n">Rings</span><span class="p">()</span><span class="o">.</span><span class="n">Commutative</span><span class="p">())</span>
+<span class="gp">...</span>         <span class="bp">self</span><span class="o">.</span><span class="n">_primes</span> <span class="o">=</span> <span class="n">primes</span>
+<span class="gp">...</span>         <span class="bp">self</span><span class="o">.</span><span class="n">_populate_coercion_lists_</span><span class="p">()</span>
+<span class="gp">....:</span>
+<span class="gp">&gt;&gt;&gt;</span>     <span class="k">def</span> <span class="nf">_repr_</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="gp">...</span><span class="w">         </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="gp">...</span><span class="sd">         How to print ``self``.</span>
+<span class="gp">...</span><span class="sd">         &quot;&quot;&quot;</span>
+<span class="gp">...</span>         <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> localized at </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_primes</span><span class="p">)</span>
+<span class="gp">....:</span>
+<span class="gp">&gt;&gt;&gt;</span>     <span class="k">def</span> <span class="nf">_element_constructor_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="gp">...</span><span class="w">         </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="gp">...</span><span class="sd">         Make sure ``x`` is a valid member of ``self``, and return the constructed element.</span>
+<span class="gp">...</span><span class="sd">         &quot;&quot;&quot;</span>
+<span class="gp">...</span>         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">MyLocalizationElement</span><span class="p">):</span>
+<span class="gp">...</span>             <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">_value</span>
+<span class="gp">...</span>         <span class="k">else</span><span class="p">:</span>
+<span class="gp">...</span>             <span class="n">x</span> <span class="o">=</span> <span class="n">QQ</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="gp">...</span>         <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">x</span><span class="o">.</span><span class="n">denominator</span><span class="p">()</span><span class="o">.</span><span class="n">factor</span><span class="p">():</span>
+<span class="gp">...</span>             <span class="k">if</span> <span class="n">p</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_primes</span><span class="p">:</span>
+<span class="gp">...</span>                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;not integral at </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">p</span><span class="p">)</span>
+<span class="gp">...</span>         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">element_class</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+<span class="gp">....:</span>
+<span class="gp">&gt;&gt;&gt;</span>     <span class="k">def</span> <span class="nf">_an_element_</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="gp">...</span>         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">element_class</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Integer</span><span class="p">(</span><span class="mi">6</span><span class="p">))</span>
+<span class="gp">....:</span>
+<span class="gp">&gt;&gt;&gt;</span>     <span class="k">def</span> <span class="nf">_coerce_map_from_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">S</span><span class="p">):</span>
+<span class="gp">...</span>         <span class="s2">&quot;&quot;&quot;</span>
+<span class="gp">...</span><span class="s2">         The only things that coerce into this ring are:</span>
+<span class="gp">....:</span>
+<span class="gp">&gt;&gt;&gt;</span>         <span class="o">-</span> <span class="n">the</span> <span class="n">integer</span> <span class="n">ring</span>
+<span class="gp">....:</span>
+<span class="gp">&gt;&gt;&gt;</span>         <span class="o">-</span> <span class="n">other</span> <span class="n">localizations</span> <span class="n">away</span> <span class="kn">from</span> <span class="nn">fewer</span> <span class="n">primes</span>
+<span class="gp">...</span>         <span class="s2">&quot;&quot;&quot;</span>
+<span class="gp">...</span><span class="s2">         if S is ZZ:</span>
+<span class="gp">...</span><span class="s2">             return True</span>
+<span class="gp">...</span><span class="s2">         if isinstance(S, MyLocalization):</span>
+<span class="gp">...</span><span class="s2">             return all(p in self._primes for p in S._primes)</span>
+
+<span class="gp">&gt;&gt;&gt;</span> <span class="k">class</span> <span class="nc">MyLocalizationElement</span><span class="p">(</span><span class="n">Element</span><span class="p">):</span>
+<span class="gp">....:</span>
+<span class="gp">&gt;&gt;&gt;</span>     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parent</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="gp">...</span>         <span class="n">Element</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parent</span><span class="p">)</span>
+<span class="gp">...</span>         <span class="bp">self</span><span class="o">.</span><span class="n">_value</span> <span class="o">=</span> <span class="n">x</span>
+<span class="gp">....:</span>
+<span class="gp">&gt;&gt;&gt;</span>     <span class="c1"># We are just printing out this way to make it easy to see what&#39;s going on in the examples.</span>
+<span class="gp">....:</span>
+<span class="gp">&gt;&gt;&gt;</span>     <span class="k">def</span> <span class="nf">_repr_</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="gp">...</span>         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;LocalElt(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_value</span><span class="si">}</span><span class="s2">)&quot;</span>
+<span class="gp">....:</span>
+<span class="gp">&gt;&gt;&gt;</span>     <span class="c1"># Now define addition, subtraction and multiplication of elements.</span>
+<span class="gp">...</span>     <span class="c1"># Note that self and right always have the same parent.</span>
+<span class="gp">....:</span>
+<span class="gp">&gt;&gt;&gt;</span>     <span class="k">def</span> <span class="nf">_add_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">right</span><span class="p">):</span>
+<span class="gp">...</span>         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">()(</span><span class="bp">self</span><span class="o">.</span><span class="n">_value</span> <span class="o">+</span> <span class="n">right</span><span class="o">.</span><span class="n">_value</span><span class="p">)</span>
+<span class="gp">....:</span>
+<span class="gp">&gt;&gt;&gt;</span>     <span class="k">def</span> <span class="nf">_sub_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">right</span><span class="p">):</span>
+<span class="gp">...</span>         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">()(</span><span class="bp">self</span><span class="o">.</span><span class="n">_value</span> <span class="o">-</span> <span class="n">right</span><span class="o">.</span><span class="n">_value</span><span class="p">)</span>
+<span class="gp">....:</span>
+<span class="gp">&gt;&gt;&gt;</span>     <span class="k">def</span> <span class="nf">_mul_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">right</span><span class="p">):</span>
+<span class="gp">...</span>         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">()(</span><span class="bp">self</span><span class="o">.</span><span class="n">_value</span> <span class="o">*</span> <span class="n">right</span><span class="o">.</span><span class="n">_value</span><span class="p">)</span>
+<span class="gp">....:</span>
+<span class="gp">&gt;&gt;&gt;</span>     <span class="c1"># The basering was set to ZZ, so c is guaranteed to be in ZZ</span>
+<span class="gp">....:</span>
+<span class="gp">&gt;&gt;&gt;</span>     <span class="k">def</span> <span class="nf">_rmul_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">):</span>
+<span class="gp">...</span>         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">()(</span><span class="n">c</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_value</span><span class="p">)</span>
+<span class="gp">....:</span>
+<span class="gp">&gt;&gt;&gt;</span>     <span class="k">def</span> <span class="nf">_lmul_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">):</span>
+<span class="gp">...</span>         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="p">()(</span><span class="bp">self</span><span class="o">.</span><span class="n">_value</span> <span class="o">*</span> <span class="n">c</span><span class="p">)</span>
+<span class="gp">....:</span>
+<span class="gp">&gt;&gt;&gt;</span>     <span class="k">def</span> <span class="nf">_richcmp_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+<span class="gp">...</span>         <span class="k">return</span> <span class="n">richcmp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_value</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">_value</span><span class="p">,</span> <span class="n">op</span><span class="p">)</span>
+
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">MyLocalization</span><span class="o">.</span><span class="n">element_class</span> <span class="o">=</span> <span class="n">MyLocalizationElement</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>That’s all there is to it. Now we can test it out:</p>
+<div class="tab-set docutils container">
+<input checked="True" class="tab-input" id="tab-set--15-input--1" name="tab-set--15" type="radio"><label class="tab-label" for="tab-set--15-input--1">Sage</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">sage:</span> <span class="n">TestSuite</span><span class="p">(</span><span class="n">R</span><span class="p">)</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">skip</span><span class="o">=</span><span class="s2">&quot;_test_pickling&quot;</span><span class="p">)</span>
+<span class="gp">sage:</span> <span class="n">R</span> <span class="o">=</span> <span class="n">MyLocalization</span><span class="p">([</span><span class="mi">2</span><span class="p">]);</span> <span class="n">R</span>
+<span class="go">Integer Ring localized at [2]</span>
+<span class="gp">sage:</span> <span class="n">R</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="go">LocalElt(1)</span>
+<span class="gp">sage:</span> <span class="n">R</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+<span class="go">LocalElt(1/2)</span>
+<span class="gp">sage:</span> <span class="n">R</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="mi">3</span><span class="p">)</span>
+<span class="go">Traceback (most recent call last):</span>
+<span class="gp">...</span>
+<span class="go">ValueError: not integral at 3</span>
+
+<span class="gp">sage:</span> <span class="n">R</span><span class="o">.</span><span class="n">coerce</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="go">LocalElt(1)</span>
+<span class="gp">sage:</span> <span class="n">R</span><span class="o">.</span><span class="n">coerce</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="mi">4</span><span class="p">)</span>
+<span class="go">Traceback (most recent call last):</span>
+<span class="gp">...</span>
+<span class="go">TypeError: no canonical coercion from Rational Field to Integer Ring localized at [2]</span>
+
+<span class="gp">sage:</span> <span class="n">R</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">R</span><span class="p">(</span><span class="mi">3</span><span class="o">/</span><span class="mi">4</span><span class="p">)</span>
+<span class="go">LocalElt(5/4)</span>
+<span class="gp">sage:</span> <span class="n">R</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="mi">5</span>
+<span class="go">LocalElt(11/2)</span>
+<span class="gp">sage:</span> <span class="mi">5</span> <span class="o">+</span> <span class="n">R</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+<span class="go">LocalElt(11/2)</span>
+<span class="gp">sage:</span> <span class="n">R</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="o">/</span><span class="mi">7</span>
+<span class="go">Traceback (most recent call last):</span>
+<span class="gp">...</span>
+<span class="go">TypeError: unsupported operand parent(s) for +: &#39;Integer Ring localized at [2]&#39; and &#39;Rational Field&#39;</span>
+<span class="gp">sage:</span> <span class="n">R</span><span class="p">(</span><span class="mi">3</span><span class="o">/</span><span class="mi">4</span><span class="p">)</span> <span class="o">*</span> <span class="mi">7</span>
+<span class="go">LocalElt(21/4)</span>
+
+<span class="gp">sage:</span> <span class="n">cm</span> <span class="o">=</span> <span class="n">sage</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">get_coercion_model</span><span class="p">()</span>
+<span class="gp">sage:</span> <span class="n">cm</span><span class="o">.</span><span class="n">explain</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">ZZ</span><span class="p">,</span> <span class="n">operator</span><span class="o">.</span><span class="n">add</span><span class="p">)</span>
+<span class="go">Coercion on right operand via</span>
+<span class="go">   Coercion map:</span>
+<span class="go">     From: Integer Ring</span>
+<span class="go">     To:   Integer Ring localized at [2]</span>
+<span class="go">Arithmetic performed after coercions.</span>
+<span class="go">Result lives in Integer Ring localized at [2]</span>
+<span class="go">Integer Ring localized at [2]</span>
+
+<span class="gp">sage:</span> <span class="n">cm</span><span class="o">.</span><span class="n">explain</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">ZZ</span><span class="p">,</span> <span class="n">operator</span><span class="o">.</span><span class="n">mul</span><span class="p">)</span>
+<span class="go">Coercion on right operand via</span>
+<span class="go">    Coercion map:</span>
+<span class="go">      From: Integer Ring</span>
+<span class="go">      To:   Integer Ring localized at [2]</span>
+<span class="go">Arithmetic performed after coercions.</span>
+<span class="go">Result lives in Integer Ring localized at [2]</span>
+<span class="go">Integer Ring localized at [2]</span>
+
+<span class="gp">sage:</span> <span class="n">R6</span> <span class="o">=</span> <span class="n">MyLocalization</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">]);</span> <span class="n">R6</span>
+<span class="go">Integer Ring localized at [2, 3]</span>
+<span class="gp">sage:</span> <span class="n">R6</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="mi">3</span><span class="p">)</span> <span class="o">-</span> <span class="n">R</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+<span class="go">LocalElt(-1/6)</span>
+<span class="gp">sage:</span> <span class="n">parent</span><span class="p">(</span><span class="n">R6</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="mi">3</span><span class="p">)</span> <span class="o">-</span> <span class="n">R</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="mi">2</span><span class="p">))</span>
+<span class="go">Integer Ring localized at [2, 3]</span>
+
+<span class="gp">sage:</span> <span class="n">R</span><span class="o">.</span><span class="n">has_coerce_map_from</span><span class="p">(</span><span class="n">ZZ</span><span class="p">)</span>
+<span class="go">True</span>
+<span class="gp">sage:</span> <span class="n">R</span><span class="o">.</span><span class="n">coerce_map_from</span><span class="p">(</span><span class="n">ZZ</span><span class="p">)</span>
+<span class="go">Coercion map:</span>
+<span class="go"> From: Integer Ring</span>
+<span class="go"> To:   Integer Ring localized at [2]</span>
+
+<span class="gp">sage:</span> <span class="n">R6</span><span class="o">.</span><span class="n">coerce_map_from</span><span class="p">(</span><span class="n">R</span><span class="p">)</span>
+<span class="go">Coercion map:</span>
+<span class="go"> From: Integer Ring localized at [2]</span>
+<span class="go"> To:   Integer Ring localized at [2, 3]</span>
+
+<span class="gp">sage:</span> <span class="n">R6</span><span class="o">.</span><span class="n">coerce</span><span class="p">(</span><span class="n">R</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="mi">2</span><span class="p">))</span>
+<span class="go">LocalElt(1/2)</span>
+
+<span class="gp">sage:</span> <span class="n">cm</span><span class="o">.</span><span class="n">explain</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">R6</span><span class="p">,</span> <span class="n">operator</span><span class="o">.</span><span class="n">mul</span><span class="p">)</span>
+<span class="go">Coercion on left operand via</span>
+<span class="go">   Coercion map:</span>
+<span class="go">     From: Integer Ring localized at [2]</span>
+<span class="go">     To:   Integer Ring localized at [2, 3]</span>
+<span class="go">Arithmetic performed after coercions.</span>
+<span class="go">Result lives in Integer Ring localized at [2, 3]</span>
+<span class="go">Integer Ring localized at [2, 3]</span>
+</pre></div>
+</div>
+</div>
+<input class="tab-input" id="tab-set--15-input--2" name="tab-set--15" type="radio"><label class="tab-label" for="tab-set--15-input--2">Python</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt;</span> <span class="kn">from</span> <span class="nn">sage.all</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">TestSuite</span><span class="p">(</span><span class="n">R</span><span class="p">)</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">skip</span><span class="o">=</span><span class="s2">&quot;_test_pickling&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">R</span> <span class="o">=</span> <span class="n">MyLocalization</span><span class="p">([</span><span class="n">Integer</span><span class="p">(</span><span class="mi">2</span><span class="p">)]);</span> <span class="n">R</span>
+<span class="go">Integer Ring localized at [2]</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">R</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+<span class="go">LocalElt(1)</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">R</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+<span class="go">LocalElt(1/2)</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">R</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+<span class="go">Traceback (most recent call last):</span>
+<span class="gp">...</span>
+<span class="go">ValueError: not integral at 3</span>
+
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">R</span><span class="o">.</span><span class="n">coerce</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+<span class="go">LocalElt(1)</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">R</span><span class="o">.</span><span class="n">coerce</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
+<span class="go">Traceback (most recent call last):</span>
+<span class="gp">...</span>
+<span class="go">TypeError: no canonical coercion from Rational Field to Integer Ring localized at [2]</span>
+
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">R</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span> <span class="o">+</span> <span class="n">R</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
+<span class="go">LocalElt(5/4)</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">R</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span> <span class="o">+</span> <span class="n">Integer</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+<span class="go">LocalElt(11/2)</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">Integer</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span> <span class="o">+</span> <span class="n">R</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+<span class="go">LocalElt(11/2)</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">R</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span> <span class="o">+</span> <span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span>
+<span class="go">Traceback (most recent call last):</span>
+<span class="gp">...</span>
+<span class="go">TypeError: unsupported operand parent(s) for +: &#39;Integer Ring localized at [2]&#39; and &#39;Rational Field&#39;</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">R</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span> <span class="o">*</span> <span class="n">Integer</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span>
+<span class="go">LocalElt(21/4)</span>
+
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">cm</span> <span class="o">=</span> <span class="n">sage</span><span class="o">.</span><span class="n">structure</span><span class="o">.</span><span class="n">element</span><span class="o">.</span><span class="n">get_coercion_model</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">cm</span><span class="o">.</span><span class="n">explain</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">ZZ</span><span class="p">,</span> <span class="n">operator</span><span class="o">.</span><span class="n">add</span><span class="p">)</span>
+<span class="go">Coercion on right operand via</span>
+<span class="go">   Coercion map:</span>
+<span class="go">     From: Integer Ring</span>
+<span class="go">     To:   Integer Ring localized at [2]</span>
+<span class="go">Arithmetic performed after coercions.</span>
+<span class="go">Result lives in Integer Ring localized at [2]</span>
+<span class="go">Integer Ring localized at [2]</span>
+
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">cm</span><span class="o">.</span><span class="n">explain</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">ZZ</span><span class="p">,</span> <span class="n">operator</span><span class="o">.</span><span class="n">mul</span><span class="p">)</span>
+<span class="go">Coercion on right operand via</span>
+<span class="go">    Coercion map:</span>
+<span class="go">      From: Integer Ring</span>
+<span class="go">      To:   Integer Ring localized at [2]</span>
+<span class="go">Arithmetic performed after coercions.</span>
+<span class="go">Result lives in Integer Ring localized at [2]</span>
+<span class="go">Integer Ring localized at [2]</span>
+
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">R6</span> <span class="o">=</span> <span class="n">MyLocalization</span><span class="p">([</span><span class="n">Integer</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span><span class="n">Integer</span><span class="p">(</span><span class="mi">3</span><span class="p">)]);</span> <span class="n">R6</span>
+<span class="go">Integer Ring localized at [2, 3]</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">R6</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span> <span class="o">-</span> <span class="n">R</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+<span class="go">LocalElt(-1/6)</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">parent</span><span class="p">(</span><span class="n">R6</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span> <span class="o">-</span> <span class="n">R</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">2</span><span class="p">)))</span>
+<span class="go">Integer Ring localized at [2, 3]</span>
+
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">R</span><span class="o">.</span><span class="n">has_coerce_map_from</span><span class="p">(</span><span class="n">ZZ</span><span class="p">)</span>
+<span class="go">True</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">R</span><span class="o">.</span><span class="n">coerce_map_from</span><span class="p">(</span><span class="n">ZZ</span><span class="p">)</span>
+<span class="go">Coercion map:</span>
+<span class="go"> From: Integer Ring</span>
+<span class="go"> To:   Integer Ring localized at [2]</span>
+
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">R6</span><span class="o">.</span><span class="n">coerce_map_from</span><span class="p">(</span><span class="n">R</span><span class="p">)</span>
+<span class="go">Coercion map:</span>
+<span class="go"> From: Integer Ring localized at [2]</span>
+<span class="go"> To:   Integer Ring localized at [2, 3]</span>
+
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">R6</span><span class="o">.</span><span class="n">coerce</span><span class="p">(</span><span class="n">R</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="n">Integer</span><span class="p">(</span><span class="mi">2</span><span class="p">)))</span>
+<span class="go">LocalElt(1/2)</span>
+
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">cm</span><span class="o">.</span><span class="n">explain</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">R6</span><span class="p">,</span> <span class="n">operator</span><span class="o">.</span><span class="n">mul</span><span class="p">)</span>
+<span class="go">Coercion on left operand via</span>
+<span class="go">   Coercion map:</span>
+<span class="go">     From: Integer Ring localized at [2]</span>
+<span class="go">     To:   Integer Ring localized at [2, 3]</span>
+<span class="go">Arithmetic performed after coercions.</span>
+<span class="go">Result lives in Integer Ring localized at [2, 3]</span>
+<span class="go">Integer Ring localized at [2, 3]</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="provided-methods">
+<h3>Provided Methods<a class="headerlink" href="#provided-methods" title="Link to this heading">¶</a></h3>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">__call__</span></code></p>
+<p>This provides a consistent interface for element construction. In
+particular, it makes sure that conversion always gives the same
+result as coercion, if a coercion exists. (This used to be violated
+for some Rings in Sage as the code for conversion and coercion got
+edited separately.) Let R be a Parent and assume the user types
+R(x), where x has parent X.  Roughly speaking, the following occurs:</p>
+<ol class="arabic simple">
+<li><p>If X <code class="docutils literal notranslate"><span class="pre">is</span></code> R, return x (*)</p></li>
+<li><p>If there is a coercion <span class="math notranslate nohighlight">\(f: X \rightarrow R\)</span>, return <span class="math notranslate nohighlight">\(f(x)\)</span></p></li>
+<li><p>If there is a coercion <span class="math notranslate nohighlight">\(f: R \rightarrow X\)</span>, try to return <span class="math notranslate nohighlight">\({f^{-1}}(x)\)</span></p></li>
+<li><p>Return <code class="docutils literal notranslate"><span class="pre">R._element_constructor_(x)</span></code> (**)</p></li>
+</ol>
+<p>Keywords and extra arguments are passed on. The result of all this logic is cached.</p>
+<p>(*) Unless there is a “copy” keyword like R(x, copy=False)</p>
+<p>(**) Technically, a generic morphism is created from X to R, which
+may use magic methods like <code class="docutils literal notranslate"><span class="pre">_integer_</span></code> or other data provided by
+<code class="docutils literal notranslate"><span class="pre">_populate_coercion_lists_</span></code>.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">coerce</span></code></p>
+<p>Coerces elements into self, raising a type error if there is no
+coercion map.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">coerce_map_from,</span> <span class="pre">convert_map_from</span></code></p>
+<p>Returns an actual <code class="docutils literal notranslate"><span class="pre">Morphism</span></code> object to coerce/convert from
+another Parent to self. Barring direct construction of elements of
+R, <code class="docutils literal notranslate"><span class="pre">R.convert_map_from(S)</span></code> will provide a callable Python object
+which is the fastest way to convert elements of S to elements of
+R.  From Cython, it can be invoked via the cdef <code class="docutils literal notranslate"><span class="pre">_call_</span></code> method.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">has_coerce_map_from</span></code></p>
+<p>Returns <code class="docutils literal notranslate"><span class="pre">True</span></code> or <code class="docutils literal notranslate"><span class="pre">False</span></code> depending on whether or not there is
+a coercion.  <code class="docutils literal notranslate"><span class="pre">R.has_coerce_map_from(S)</span></code> is shorthand for
+<code class="docutils literal notranslate"><span class="pre">R.coerce_map_from(S)</span> <span class="pre">is</span> <span class="pre">not</span> <span class="pre">None</span></code></p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_action</span></code></p>
+<p>This will unwind all the <code class="docutils literal notranslate"><span class="pre">_get_action_,</span> <span class="pre">_rmul_,</span> <span class="pre">_lmul_,</span> <span class="pre">_act_on_,</span> <span class="pre">_acted_upon_,</span> <span class="pre">...</span></code>
+methods to provide an actual <code class="docutils literal notranslate"><span class="pre">Action</span></code> object, if one exists.</p>
+</li>
+</ul>
+</section>
+</section>
+<section id="discovering-new-parents">
+<h2>Discovering new parents<a class="headerlink" href="#discovering-new-parents" title="Link to this heading">¶</a></h2>
+<p class="with-sage-tab with-python-tab">New parents are discovered using an algorithm in
+sage/category/pushout.py.  The fundamental idea is that most Parents
+in Sage are constructed from simpler objects via various functors.
+These are accessed via the <code class="xref py py-meth docutils literal notranslate"><span class="pre">construction()</span></code> method, which returns a
+(simpler) Parent along with a functor with which one can create self.</p>
+<div class="tab-set docutils container">
+<input checked="True" class="tab-input" id="tab-set--16-input--1" name="tab-set--16" type="radio"><label class="tab-label" for="tab-set--16-input--1">Sage</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">sage:</span> <span class="n">CC</span><span class="o">.</span><span class="n">construction</span><span class="p">()</span>
+<span class="go">(AlgebraicClosureFunctor, Real Field with 53 bits of precision)</span>
+<span class="gp">sage:</span> <span class="n">RR</span><span class="o">.</span><span class="n">construction</span><span class="p">()</span>
+<span class="go">(Completion[+Infinity, prec=53], Rational Field)</span>
+<span class="gp">sage:</span> <span class="n">QQ</span><span class="o">.</span><span class="n">construction</span><span class="p">()</span>
+<span class="go">(FractionField, Integer Ring)</span>
+<span class="gp">sage:</span> <span class="n">ZZ</span><span class="o">.</span><span class="n">construction</span><span class="p">()</span>  <span class="c1"># None</span>
+
+<span class="gp">sage:</span> <span class="n">Zp</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">construction</span><span class="p">()</span>
+<span class="go">(Completion[5, prec=20], Integer Ring)</span>
+<span class="gp">sage:</span> <span class="n">QQ</span><span class="o">.</span><span class="n">completion</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="p">{})</span>
+<span class="go">5-adic Field with capped relative precision 100</span>
+<span class="gp">sage:</span> <span class="n">c</span><span class="p">,</span> <span class="n">R</span> <span class="o">=</span> <span class="n">RR</span><span class="o">.</span><span class="n">construction</span><span class="p">()</span>
+<span class="gp">sage:</span> <span class="n">a</span> <span class="o">=</span> <span class="n">CC</span><span class="o">.</span><span class="n">construction</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+<span class="gp">sage:</span> <span class="n">a</span><span class="o">.</span><span class="n">commutes</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+<span class="go">False</span>
+<span class="gp">sage:</span> <span class="n">RR</span> <span class="o">==</span> <span class="n">c</span><span class="p">(</span><span class="n">QQ</span><span class="p">)</span>
+<span class="go">True</span>
+
+<span class="gp">sage:</span> <span class="n">sage</span><span class="o">.</span><span class="n">categories</span><span class="o">.</span><span class="n">pushout</span><span class="o">.</span><span class="n">construction_tower</span><span class="p">(</span><span class="n">Frac</span><span class="p">(</span><span class="n">CDF</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]))</span>
+<span class="go">[(None,</span>
+<span class="go">  Fraction Field of Univariate Polynomial Ring in x over Complex Double Field),</span>
+<span class="go"> (FractionField, Univariate Polynomial Ring in x over Complex Double Field),</span>
+<span class="go"> (Poly[x], Complex Double Field),</span>
+<span class="go"> (AlgebraicClosureFunctor, Real Double Field),</span>
+<span class="go"> (Completion[+Infinity, prec=53], Rational Field),</span>
+<span class="go"> (FractionField, Integer Ring)]</span>
+</pre></div>
+</div>
+</div>
+<input class="tab-input" id="tab-set--16-input--2" name="tab-set--16" type="radio"><label class="tab-label" for="tab-set--16-input--2">Python</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt;</span> <span class="kn">from</span> <span class="nn">sage.all</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">CC</span><span class="o">.</span><span class="n">construction</span><span class="p">()</span>
+<span class="go">(AlgebraicClosureFunctor, Real Field with 53 bits of precision)</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">RR</span><span class="o">.</span><span class="n">construction</span><span class="p">()</span>
+<span class="go">(Completion[+Infinity, prec=53], Rational Field)</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">QQ</span><span class="o">.</span><span class="n">construction</span><span class="p">()</span>
+<span class="go">(FractionField, Integer Ring)</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">ZZ</span><span class="o">.</span><span class="n">construction</span><span class="p">()</span>  <span class="c1"># None</span>
+
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">Zp</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span><span class="o">.</span><span class="n">construction</span><span class="p">()</span>
+<span class="go">(Completion[5, prec=20], Integer Ring)</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">QQ</span><span class="o">.</span><span class="n">completion</span><span class="p">(</span><span class="n">Integer</span><span class="p">(</span><span class="mi">5</span><span class="p">),</span> <span class="n">Integer</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span> <span class="p">{})</span>
+<span class="go">5-adic Field with capped relative precision 100</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">c</span><span class="p">,</span> <span class="n">R</span> <span class="o">=</span> <span class="n">RR</span><span class="o">.</span><span class="n">construction</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">a</span> <span class="o">=</span> <span class="n">CC</span><span class="o">.</span><span class="n">construction</span><span class="p">()[</span><span class="n">Integer</span><span class="p">(</span><span class="mi">0</span><span class="p">)]</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">a</span><span class="o">.</span><span class="n">commutes</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+<span class="go">False</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">RR</span> <span class="o">==</span> <span class="n">c</span><span class="p">(</span><span class="n">QQ</span><span class="p">)</span>
+<span class="go">True</span>
+
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">sage</span><span class="o">.</span><span class="n">categories</span><span class="o">.</span><span class="n">pushout</span><span class="o">.</span><span class="n">construction_tower</span><span class="p">(</span><span class="n">Frac</span><span class="p">(</span><span class="n">CDF</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]))</span>
+<span class="go">[(None,</span>
+<span class="go">  Fraction Field of Univariate Polynomial Ring in x over Complex Double Field),</span>
+<span class="go"> (FractionField, Univariate Polynomial Ring in x over Complex Double Field),</span>
+<span class="go"> (Poly[x], Complex Double Field),</span>
+<span class="go"> (AlgebraicClosureFunctor, Real Double Field),</span>
+<span class="go"> (Completion[+Infinity, prec=53], Rational Field),</span>
+<span class="go"> (FractionField, Integer Ring)]</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p class="with-sage-tab with-python-tab">Given Parents R and S, such that there is no coercion either from R to
+S or from S to R, one can find a common Z with coercions
+<span class="math notranslate nohighlight">\(R \rightarrow Z\)</span> and <span class="math notranslate nohighlight">\(S \rightarrow Z\)</span> by considering the sequence of
+construction functors to get from a common ancestor to both R and S.
+We then use a <em>heuristic</em> algorithm to interleave these constructors
+in an attempt to arrive at a suitable Z (if one exists). For example:</p>
+<div class="tab-set docutils container">
+<input checked="True" class="tab-input" id="tab-set--17-input--1" name="tab-set--17" type="radio"><label class="tab-label" for="tab-set--17-input--1">Sage</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">sage:</span> <span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">construction</span><span class="p">()</span>
+<span class="go">(Poly[x], Integer Ring)</span>
+<span class="gp">sage:</span> <span class="n">QQ</span><span class="o">.</span><span class="n">construction</span><span class="p">()</span>
+<span class="go">(FractionField, Integer Ring)</span>
+<span class="gp">sage:</span> <span class="n">sage</span><span class="o">.</span><span class="n">categories</span><span class="o">.</span><span class="n">pushout</span><span class="o">.</span><span class="n">pushout</span><span class="p">(</span><span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="n">QQ</span><span class="p">)</span>
+<span class="go">Univariate Polynomial Ring in x over Rational Field</span>
+<span class="gp">sage:</span> <span class="n">sage</span><span class="o">.</span><span class="n">categories</span><span class="o">.</span><span class="n">pushout</span><span class="o">.</span><span class="n">pushout</span><span class="p">(</span><span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="n">QQ</span><span class="p">)</span><span class="o">.</span><span class="n">construction</span><span class="p">()</span>
+<span class="go">(Poly[x], Rational Field)</span>
+</pre></div>
+</div>
+</div>
+<input class="tab-input" id="tab-set--17-input--2" name="tab-set--17" type="radio"><label class="tab-label" for="tab-set--17-input--2">Python</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt;</span> <span class="kn">from</span> <span class="nn">sage.all</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">construction</span><span class="p">()</span>
+<span class="go">(Poly[x], Integer Ring)</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">QQ</span><span class="o">.</span><span class="n">construction</span><span class="p">()</span>
+<span class="go">(FractionField, Integer Ring)</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">sage</span><span class="o">.</span><span class="n">categories</span><span class="o">.</span><span class="n">pushout</span><span class="o">.</span><span class="n">pushout</span><span class="p">(</span><span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="n">QQ</span><span class="p">)</span>
+<span class="go">Univariate Polynomial Ring in x over Rational Field</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">sage</span><span class="o">.</span><span class="n">categories</span><span class="o">.</span><span class="n">pushout</span><span class="o">.</span><span class="n">pushout</span><span class="p">(</span><span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="n">QQ</span><span class="p">)</span><span class="o">.</span><span class="n">construction</span><span class="p">()</span>
+<span class="go">(Poly[x], Rational Field)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p class="with-sage-tab with-python-tab">The common ancestor is <span class="math notranslate nohighlight">\(Z\)</span> and our options for Z are
+<span class="math notranslate nohighlight">\(\mathrm{Frac}(\ZZ[x])\)</span> or <span class="math notranslate nohighlight">\(\mathrm{Frac}(\ZZ)[x]\)</span>.
+In Sage we choose the later, treating the fraction
+field functor as binding “more tightly” than the polynomial functor,
+as most people agree that <span class="math notranslate nohighlight">\(\QQ[x]\)</span> is the more natural choice. The same
+procedure is applied to more complicated Parents, returning a new
+Parent if one can be unambiguously determined.</p>
+<div class="tab-set docutils container">
+<input checked="True" class="tab-input" id="tab-set--18-input--1" name="tab-set--18" type="radio"><label class="tab-label" for="tab-set--18-input--1">Sage</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">sage:</span> <span class="n">sage</span><span class="o">.</span><span class="n">categories</span><span class="o">.</span><span class="n">pushout</span><span class="o">.</span><span class="n">pushout</span><span class="p">(</span><span class="n">Frac</span><span class="p">(</span><span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x,y,z&#39;</span><span class="p">]),</span> <span class="n">QQ</span><span class="p">[</span><span class="s1">&#39;z, t&#39;</span><span class="p">])</span>
+<span class="go">Univariate Polynomial Ring in t over Fraction Field of Multivariate Polynomial Ring in x, y, z over Rational Field</span>
+</pre></div>
+</div>
+</div>
+<input class="tab-input" id="tab-set--18-input--2" name="tab-set--18" type="radio"><label class="tab-label" for="tab-set--18-input--2">Python</label><div class="tab-content docutils container">
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt;</span> <span class="kn">from</span> <span class="nn">sage.all</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="gp">&gt;&gt;&gt;</span> <span class="n">sage</span><span class="o">.</span><span class="n">categories</span><span class="o">.</span><span class="n">pushout</span><span class="o">.</span><span class="n">pushout</span><span class="p">(</span><span class="n">Frac</span><span class="p">(</span><span class="n">ZZ</span><span class="p">[</span><span class="s1">&#39;x,y,z&#39;</span><span class="p">]),</span> <span class="n">QQ</span><span class="p">[</span><span class="s1">&#39;z, t&#39;</span><span class="p">])</span>
+<span class="go">Univariate Polynomial Ring in t over Fraction Field of Multivariate Polynomial Ring in x, y, z over Rational Field</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="modules">
+<h2>Modules<a class="headerlink" href="#modules" title="Link to this heading">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sage/structure/coerce.html">The coercion model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/structure/coerce_actions.html">Coerce actions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/structure/coerce_maps.html">Coerce maps</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/pushout.html">Coercion via construction functors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/categories/action.html">Group, ring, etc. actions on objects</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/structure/coerce_dict.html">Containers for storing coercion data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/structure/coerce_exceptions.html">Exceptions raised by the coercion model</a></li>
+</ul>
+</div>
+</section>
+</section>
+<section id="indices-and-tables">
+<h1>Indices and Tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p><a class="reference external" href="../genindex.html">Index</a></p></li>
+<li><p><a class="reference external" href="../py-modindex.html">Module Index</a></p></li>
+<li><p><a class="reference external" href="../search.html">Search Page</a></p></li>
+</ul>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+</div></div>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="sage/structure/coerce.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">The coercion model</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2005--2025, The Sage Development Team
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Coercion</a><ul>
+<li><a class="reference internal" href="#preliminaries">Preliminaries</a><ul>
+<li><a class="reference internal" href="#what-is-coercion-all-about">What is coercion all about?</a></li>
+<li><a class="reference internal" href="#parents-and-elements">Parents and Elements</a></li>
+<li><a class="reference internal" href="#maps-between-parents">Maps between Parents</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#basic-arithmetic-rules">Basic Arithmetic Rules</a></li>
+<li><a class="reference internal" href="#how-to-implement">How to Implement</a><ul>
+<li><a class="reference internal" href="#methods-to-implement">Methods to implement</a></li>
+<li><a class="reference internal" href="#example">Example</a></li>
+<li><a class="reference internal" href="#provided-methods">Provided Methods</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#discovering-new-parents">Discovering new parents</a></li>
+<li><a class="reference internal" href="#modules">Modules</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#indices-and-tables">Indices and Tables</a></li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=e9bf40f3"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=5fa4622c"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=8e571dd6"></script>
+    <script src="../_static/tabs.js?v=3ee01567"></script>
+    <script src="../_static/thebelab-helper.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@^1.0.1/dist/embed-amd.js"></script>
+    <script>window.MathJax = {"tex": {"macros": {"ZZ": "\\Bold{Z}", "NN": "\\Bold{N}", "RR": "\\Bold{R}", "CC": "\\Bold{C}", "QQ": "\\Bold{Q}", "QQbar": "\\overline{\\QQ}", "GF": ["\\Bold{F}_{#1}", 1], "Zp": ["\\Bold{Z}_{#1}", 1], "Qp": ["\\Bold{Q}_{#1}", 1], "Zmod": ["\\ZZ/#1\\ZZ", 1], "CDF": "\\Bold{C}", "CIF": "\\Bold{C}", "CLF": "\\Bold{C}", "RDF": "\\Bold{R}", "RIF": "\\Bold{I} \\Bold{R}", "RLF": "\\Bold{R}", "SL": "\\mathrm{SL}", "PSL": "\\mathrm{PSL}", "lcm": "\\mathop{\\operatorname{lcm}}", "dist": "\\mathrm{dist}", "Bold": ["\\mathbf{#1}", 1]}, "inlineMath": [["$", "$"], ["\\(", "\\)"]], "maxBuffer": 51200, "autoload": {"color": [], "colorv2": ["color"]}}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <script src="../_static/jupyter-sphinx-furo.js?v=24b7fe9d"></script>
+    </body>
+</html>

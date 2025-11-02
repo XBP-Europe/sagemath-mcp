@@ -1,0 +1,1017 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="./">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" />
+
+    <!-- Generated with Sphinx 8.1.3 and Furo 2024.07.18 -->
+        <title>History and License</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a078f75a" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=613ab9ff" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/tabs.css?v=4c969af8" />
+    <link rel="stylesheet" type="text/css" href="../_static/plot_directive.css?v=7f9a90b1" />
+    <link rel="stylesheet" type="text/css" href="../_static/jupyter-sphinx.css?v=572af1d6" />
+    <link rel="stylesheet" type="text/css" href="../_static/thebelab.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=302659d7" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom-furo.css?v=d2ecc25a" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom-jupyter-sphinx.css?v=75860c6b" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom-codemirror-monokai.css?v=b5588f12" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom-tabs.css?v=8a724d73" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #eeffcc;
+  --color-code-foreground: black;
+  --color-brand-primary: #0f0fff;
+  --color-brand-content: #0f0fff;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #272822;
+  --color-code-foreground: #f8f8f2;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #272822;
+  --color-code-foreground: #f8f8f2;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="#"><div class="brand">History and License</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><div class="sidebar-scroll"><a class="sidebar-brand" href="../index.html">
+  
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo only-light" src="../_static/logo_sagemath_black.svg" alt="Light Logo"/>
+    <img class="sidebar-logo only-dark" src="../_static/logo_sagemath_white.svg" alt="Dark Logo"/>
+  </div>
+  
+      <span class="sidebar-brand-text">Version 10.6 Reference Manual</span>
+  
+</a><div class="select-wrapper">
+  <select id="versions-menu" onchange="changeVersion()">
+    <option value="" selected>other version</option>
+    <option value="https://doc-develop--sagemath.netlify.app">develop</option>
+  </select>
+</div><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-home">
+  <div class="sidebar-tree">
+    <ul><li class="toctree-l1">
+      <a class="reference internal" href="#">Home - History and License</a>
+    </li></ul>
+  </div>
+</div><div class="sidebar-tree">
+  
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="https://github.com/sagemath/sage/blob/develop/src/doc/en/reference/history_and_license/index.rst" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div><div class="edit-this-page">
+  <a class="muted-link" href="https://github.com/sagemath/sage/edit/develop/src/doc/en/reference/history_and_license/index.rst" title="Edit this page">
+    <svg><use href="#svg-pencil"></use></svg>
+    <span class="visually-hidden">Edit this page</span>
+  </a>
+</div><div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="history-and-license">
+<h1>History and License<a class="headerlink" href="#history-and-license" title="Link to this heading">¶</a></h1>
+<p>Sage was initially created by William Stein in 2004–2005, using
+Python, IPython, PARI, SWIG, Pyrex, NTL, and GMP.  These programs
+are all open source and released under the GPL or a GPL-compatible
+license.</p>
+<p>The whole Sage software distribution is licensed under the General
+Public License, version 3.  All original Sage code (not in external
+packages) is distributed under the terms of the GNU General Public
+License, either version 2 of the License, or (at your option) any later
+version.</p>
+<p>All documentation is released under the <a class="reference external" href="https://creativecommons.org/licenses/by-sa/3.0/legalcode">Creative Commons 3.0 BY-SA
+license</a>.</p>
+<div class="highlight-ipycon notranslate"><div class="highlight"><pre><span></span><span class="go">GNU GENERAL PUBLIC LICENSE</span>
+<span class="go">Version 3, 29 June 2007</span>
+
+<span class="go">Copyright (C) 2007 Free Software Foundation, Inc. &lt;http://fsf.org/&gt;</span>
+<span class="go">Everyone is permitted to copy and distribute verbatim copies</span>
+<span class="go">of this license document, but changing it is not allowed.</span>
+
+<span class="go">Preamble</span>
+
+<span class="go">The GNU General Public License is a free, copyleft license for</span>
+<span class="go">software and other kinds of works.</span>
+
+<span class="go">The licenses for most software and other practical works are designed</span>
+<span class="go">to take away your freedom to share and change the works.  By contrast,</span>
+<span class="go">the GNU General Public License is intended to guarantee your freedom to</span>
+<span class="go">share and change all versions of a program--to make sure it remains free</span>
+<span class="go">software for all its users.  We, the Free Software Foundation, use the</span>
+<span class="go">GNU General Public License for most of our software; it applies also to</span>
+<span class="go">any other work released this way by its authors.  You can apply it to</span>
+<span class="go">your programs, too.</span>
+
+<span class="go">When we speak of free software, we are referring to freedom, not</span>
+<span class="go">price.  Our General Public Licenses are designed to make sure that you</span>
+<span class="go">have the freedom to distribute copies of free software (and charge for</span>
+<span class="go">them if you wish), that you receive source code or can get it if you</span>
+<span class="go">want it, that you can change the software or use pieces of it in new</span>
+<span class="go">free programs, and that you know you can do these things.</span>
+
+<span class="go">To protect your rights, we need to prevent others from denying you</span>
+<span class="go">these rights or asking you to surrender the rights.  Therefore, you have</span>
+<span class="go">certain responsibilities if you distribute copies of the software, or if</span>
+<span class="go">you modify it: responsibilities to respect the freedom of others.</span>
+
+<span class="go">For example, if you distribute copies of such a program, whether</span>
+<span class="go">gratis or for a fee, you must pass on to the recipients the same</span>
+<span class="go">freedoms that you received.  You must make sure that they, too, receive</span>
+<span class="go">or can get the source code.  And you must show them these terms so they</span>
+<span class="go">know their rights.</span>
+
+<span class="go">Developers that use the GNU GPL protect your rights with two steps:</span>
+<span class="go">(1) assert copyright on the software, and (2) offer you this License</span>
+<span class="go">giving you legal permission to copy, distribute and/or modify it.</span>
+
+<span class="go">For the developers&#39; and authors&#39; protection, the GPL clearly explains</span>
+<span class="go">that there is no warranty for this free software.  For both users&#39; and</span>
+<span class="go">authors&#39; sake, the GPL requires that modified versions be marked as</span>
+<span class="go">changed, so that their problems will not be attributed erroneously to</span>
+<span class="go">authors of previous versions.</span>
+
+<span class="go">Some devices are designed to deny users access to install or run</span>
+<span class="go">modified versions of the software inside them, although the manufacturer</span>
+<span class="go">can do so.  This is fundamentally incompatible with the aim of</span>
+<span class="go">protecting users&#39; freedom to change the software.  The systematic</span>
+<span class="go">pattern of such abuse occurs in the area of products for individuals to</span>
+<span class="go">use, which is precisely where it is most unacceptable.  Therefore, we</span>
+<span class="go">have designed this version of the GPL to prohibit the practice for those</span>
+<span class="go">products.  If such problems arise substantially in other domains, we</span>
+<span class="go">stand ready to extend this provision to those domains in future versions</span>
+<span class="go">of the GPL, as needed to protect the freedom of users.</span>
+
+<span class="go">Finally, every program is threatened constantly by software patents.</span>
+<span class="go">States should not allow patents to restrict development and use of</span>
+<span class="go">software on general-purpose computers, but in those that do, we wish to</span>
+<span class="go">avoid the special danger that patents applied to a free program could</span>
+<span class="go">make it effectively proprietary.  To prevent this, the GPL assures that</span>
+<span class="go">patents cannot be used to render the program non-free.</span>
+
+<span class="go">The precise terms and conditions for copying, distribution and</span>
+<span class="go">modification follow.</span>
+
+<span class="go">TERMS AND CONDITIONS</span>
+
+<span class="go">0. Definitions.</span>
+
+<span class="go">&quot;This License&quot; refers to version 3 of the GNU General Public License.</span>
+
+<span class="go">&quot;Copyright&quot; also means copyright-like laws that apply to other kinds of</span>
+<span class="go">works, such as semiconductor masks.</span>
+
+<span class="go">&quot;The Program&quot; refers to any copyrightable work licensed under this</span>
+<span class="go">License.  Each licensee is addressed as &quot;you&quot;.  &quot;Licensees&quot; and</span>
+<span class="go">&quot;recipients&quot; may be individuals or organizations.</span>
+
+<span class="go">To &quot;modify&quot; a work means to copy from or adapt all or part of the work</span>
+<span class="go">in a fashion requiring copyright permission, other than the making of an</span>
+<span class="go">exact copy.  The resulting work is called a &quot;modified version&quot; of the</span>
+<span class="go">earlier work or a work &quot;based on&quot; the earlier work.</span>
+
+<span class="go">A &quot;covered work&quot; means either the unmodified Program or a work based</span>
+<span class="go">on the Program.</span>
+
+<span class="go">To &quot;propagate&quot; a work means to do anything with it that, without</span>
+<span class="go">permission, would make you directly or secondarily liable for</span>
+<span class="go">infringement under applicable copyright law, except executing it on a</span>
+<span class="go">computer or modifying a private copy.  Propagation includes copying,</span>
+<span class="go">distribution (with or without modification), making available to the</span>
+<span class="go">public, and in some countries other activities as well.</span>
+
+<span class="go">To &quot;convey&quot; a work means any kind of propagation that enables other</span>
+<span class="go">parties to make or receive copies.  Mere interaction with a user through</span>
+<span class="go">a computer network, with no transfer of a copy, is not conveying.</span>
+
+<span class="go">An interactive user interface displays &quot;Appropriate Legal Notices&quot;</span>
+<span class="go">to the extent that it includes a convenient and prominently visible</span>
+<span class="go">feature that (1) displays an appropriate copyright notice, and (2)</span>
+<span class="go">tells the user that there is no warranty for the work (except to the</span>
+<span class="go">extent that warranties are provided), that licensees may convey the</span>
+<span class="go">work under this License, and how to view a copy of this License.  If</span>
+<span class="go">the interface presents a list of user commands or options, such as a</span>
+<span class="go">menu, a prominent item in the list meets this criterion.</span>
+
+<span class="go">1. Source Code.</span>
+
+<span class="go">The &quot;source code&quot; for a work means the preferred form of the work</span>
+<span class="go">for making modifications to it.  &quot;Object code&quot; means any non-source</span>
+<span class="go">form of a work.</span>
+
+<span class="go">A &quot;Standard Interface&quot; means an interface that either is an official</span>
+<span class="go">standard defined by a recognized standards body, or, in the case of</span>
+<span class="go">interfaces specified for a particular programming language, one that</span>
+<span class="go">is widely used among developers working in that language.</span>
+
+<span class="go">The &quot;System Libraries&quot; of an executable work include anything, other</span>
+<span class="go">than the work as a whole, that (a) is included in the normal form of</span>
+<span class="go">packaging a Major Component, but which is not part of that Major</span>
+<span class="go">Component, and (b) serves only to enable use of the work with that</span>
+<span class="go">Major Component, or to implement a Standard Interface for which an</span>
+<span class="go">implementation is available to the public in source code form.  A</span>
+<span class="go">&quot;Major Component&quot;, in this context, means a major essential component</span>
+<span class="go">(kernel, window system, and so on) of the specific operating system</span>
+<span class="go">(if any) on which the executable work runs, or a compiler used to</span>
+<span class="go">produce the work, or an object code interpreter used to run it.</span>
+
+<span class="go">The &quot;Corresponding Source&quot; for a work in object code form means all</span>
+<span class="go">the source code needed to generate, install, and (for an executable</span>
+<span class="go">work) run the object code and to modify the work, including scripts to</span>
+<span class="go">control those activities.  However, it does not include the work&#39;s</span>
+<span class="go">System Libraries, or general-purpose tools or generally available free</span>
+<span class="go">programs which are used unmodified in performing those activities but</span>
+<span class="go">which are not part of the work.  For example, Corresponding Source</span>
+<span class="go">includes interface definition files associated with source files for</span>
+<span class="go">the work, and the source code for shared libraries and dynamically</span>
+<span class="go">linked subprograms that the work is specifically designed to require,</span>
+<span class="go">such as by intimate data communication or control flow between those</span>
+<span class="go">subprograms and other parts of the work.</span>
+
+<span class="go">The Corresponding Source need not include anything that users</span>
+<span class="go">can regenerate automatically from other parts of the Corresponding</span>
+<span class="go">Source.</span>
+
+<span class="go">The Corresponding Source for a work in source code form is that</span>
+<span class="go">same work.</span>
+
+<span class="go">2. Basic Permissions.</span>
+
+<span class="go">All rights granted under this License are granted for the term of</span>
+<span class="go">copyright on the Program, and are irrevocable provided the stated</span>
+<span class="go">conditions are met.  This License explicitly affirms your unlimited</span>
+<span class="go">permission to run the unmodified Program.  The output from running a</span>
+<span class="go">covered work is covered by this License only if the output, given its</span>
+<span class="go">content, constitutes a covered work.  This License acknowledges your</span>
+<span class="go">rights of fair use or other equivalent, as provided by copyright law.</span>
+
+<span class="go">You may make, run and propagate covered works that you do not</span>
+<span class="go">convey, without conditions so long as your license otherwise remains</span>
+<span class="go">in force.  You may convey covered works to others for the sole purpose</span>
+<span class="go">of having them make modifications exclusively for you, or provide you</span>
+<span class="go">with facilities for running those works, provided that you comply with</span>
+<span class="go">the terms of this License in conveying all material for which you do</span>
+<span class="go">not control copyright.  Those thus making or running the covered works</span>
+<span class="go">for you must do so exclusively on your behalf, under your direction</span>
+<span class="go">and control, on terms that prohibit them from making any copies of</span>
+<span class="go">your copyrighted material outside their relationship with you.</span>
+
+<span class="go">Conveying under any other circumstances is permitted solely under</span>
+<span class="go">the conditions stated below.  Sublicensing is not allowed; section 10</span>
+<span class="go">makes it unnecessary.</span>
+
+<span class="go">3. Protecting Users&#39; Legal Rights From Anti-Circumvention Law.</span>
+
+<span class="go">No covered work shall be deemed part of an effective technological</span>
+<span class="go">measure under any applicable law fulfilling obligations under article</span>
+<span class="go">11 of the WIPO copyright treaty adopted on 20 December 1996, or</span>
+<span class="go">similar laws prohibiting or restricting circumvention of such</span>
+<span class="go">measures.</span>
+
+<span class="go">When you convey a covered work, you waive any legal power to forbid</span>
+<span class="go">circumvention of technological measures to the extent such circumvention</span>
+<span class="go">is effected by exercising rights under this License with respect to</span>
+<span class="go">the covered work, and you disclaim any intention to limit operation or</span>
+<span class="go">modification of the work as a means of enforcing, against the work&#39;s</span>
+<span class="go">users, your or third parties&#39; legal rights to forbid circumvention of</span>
+<span class="go">technological measures.</span>
+
+<span class="go">4. Conveying Verbatim Copies.</span>
+
+<span class="go">You may convey verbatim copies of the Program&#39;s source code as you</span>
+<span class="go">receive it, in any medium, provided that you conspicuously and</span>
+<span class="go">appropriately publish on each copy an appropriate copyright notice;</span>
+<span class="go">keep intact all notices stating that this License and any</span>
+<span class="go">non-permissive terms added in accord with section 7 apply to the code;</span>
+<span class="go">keep intact all notices of the absence of any warranty; and give all</span>
+<span class="go">recipients a copy of this License along with the Program.</span>
+
+<span class="go">You may charge any price or no price for each copy that you convey,</span>
+<span class="go">and you may offer support or warranty protection for a fee.</span>
+
+<span class="go">5. Conveying Modified Source Versions.</span>
+
+<span class="go">You may convey a work based on the Program, or the modifications to</span>
+<span class="go">produce it from the Program, in the form of source code under the</span>
+<span class="go">terms of section 4, provided that you also meet all of these conditions:</span>
+
+<span class="go">a) The work must carry prominent notices stating that you modified</span>
+<span class="go">it, and giving a relevant date.</span>
+
+<span class="go">b) The work must carry prominent notices stating that it is</span>
+<span class="go">released under this License and any conditions added under section</span>
+<span class="go">7.  This requirement modifies the requirement in section 4 to</span>
+<span class="go">&quot;keep intact all notices&quot;.</span>
+
+<span class="go">c) You must license the entire work, as a whole, under this</span>
+<span class="go">License to anyone who comes into possession of a copy.  This</span>
+<span class="go">License will therefore apply, along with any applicable section 7</span>
+<span class="go">additional terms, to the whole of the work, and all its parts,</span>
+<span class="go">regardless of how they are packaged.  This License gives no</span>
+<span class="go">permission to license the work in any other way, but it does not</span>
+<span class="go">invalidate such permission if you have separately received it.</span>
+
+<span class="go">d) If the work has interactive user interfaces, each must display</span>
+<span class="go">Appropriate Legal Notices; however, if the Program has interactive</span>
+<span class="go">interfaces that do not display Appropriate Legal Notices, your</span>
+<span class="go">work need not make them do so.</span>
+
+<span class="go">A compilation of a covered work with other separate and independent</span>
+<span class="go">works, which are not by their nature extensions of the covered work,</span>
+<span class="go">and which are not combined with it such as to form a larger program,</span>
+<span class="go">in or on a volume of a storage or distribution medium, is called an</span>
+<span class="go">&quot;aggregate&quot; if the compilation and its resulting copyright are not</span>
+<span class="go">used to limit the access or legal rights of the compilation&#39;s users</span>
+<span class="go">beyond what the individual works permit.  Inclusion of a covered work</span>
+<span class="go">in an aggregate does not cause this License to apply to the other</span>
+<span class="go">parts of the aggregate.</span>
+
+<span class="go">6. Conveying Non-Source Forms.</span>
+
+<span class="go">You may convey a covered work in object code form under the terms</span>
+<span class="go">of sections 4 and 5, provided that you also convey the</span>
+<span class="go">machine-readable Corresponding Source under the terms of this License,</span>
+<span class="go">in one of these ways:</span>
+
+<span class="go">a) Convey the object code in, or embodied in, a physical product</span>
+<span class="go">(including a physical distribution medium), accompanied by the</span>
+<span class="go">Corresponding Source fixed on a durable physical medium</span>
+<span class="go">customarily used for software interchange.</span>
+
+<span class="go">b) Convey the object code in, or embodied in, a physical product</span>
+<span class="go">(including a physical distribution medium), accompanied by a</span>
+<span class="go">written offer, valid for at least three years and valid for as</span>
+<span class="go">long as you offer spare parts or customer support for that product</span>
+<span class="go">model, to give anyone who possesses the object code either (1) a</span>
+<span class="go">copy of the Corresponding Source for all the software in the</span>
+<span class="go">product that is covered by this License, on a durable physical</span>
+<span class="go">medium customarily used for software interchange, for a price no</span>
+<span class="go">more than your reasonable cost of physically performing this</span>
+<span class="go">conveying of source, or (2) access to copy the</span>
+<span class="go">Corresponding Source from a network server at no charge.</span>
+
+<span class="go">c) Convey individual copies of the object code with a copy of the</span>
+<span class="go">written offer to provide the Corresponding Source.  This</span>
+<span class="go">alternative is allowed only occasionally and noncommercially, and</span>
+<span class="go">only if you received the object code with such an offer, in accord</span>
+<span class="go">with subsection 6b.</span>
+
+<span class="go">d) Convey the object code by offering access from a designated</span>
+<span class="go">place (gratis or for a charge), and offer equivalent access to the</span>
+<span class="go">Corresponding Source in the same way through the same place at no</span>
+<span class="go">further charge.  You need not require recipients to copy the</span>
+<span class="go">Corresponding Source along with the object code.  If the place to</span>
+<span class="go">copy the object code is a network server, the Corresponding Source</span>
+<span class="go">may be on a different server (operated by you or a third party)</span>
+<span class="go">that supports equivalent copying facilities, provided you maintain</span>
+<span class="go">clear directions next to the object code saying where to find the</span>
+<span class="go">Corresponding Source.  Regardless of what server hosts the</span>
+<span class="go">Corresponding Source, you remain obligated to ensure that it is</span>
+<span class="go">available for as long as needed to satisfy these requirements.</span>
+
+<span class="go">e) Convey the object code using peer-to-peer transmission, provided</span>
+<span class="go">you inform other peers where the object code and Corresponding</span>
+<span class="go">Source of the work are being offered to the general public at no</span>
+<span class="go">charge under subsection 6d.</span>
+
+<span class="go">A separable portion of the object code, whose source code is excluded</span>
+<span class="go">from the Corresponding Source as a System Library, need not be</span>
+<span class="go">included in conveying the object code work.</span>
+
+<span class="go">A &quot;User Product&quot; is either (1) a &quot;consumer product&quot;, which means any</span>
+<span class="go">tangible personal property which is normally used for personal, family,</span>
+<span class="go">or household purposes, or (2) anything designed or sold for incorporation</span>
+<span class="go">into a dwelling.  In determining whether a product is a consumer product,</span>
+<span class="go">doubtful cases shall be resolved in favor of coverage.  For a particular</span>
+<span class="go">product received by a particular user, &quot;normally used&quot; refers to a</span>
+<span class="go">typical or common use of that class of product, regardless of the status</span>
+<span class="go">of the particular user or of the way in which the particular user</span>
+<span class="go">actually uses, or expects or is expected to use, the product.  A product</span>
+<span class="go">is a consumer product regardless of whether the product has substantial</span>
+<span class="go">commercial, industrial or non-consumer uses, unless such uses represent</span>
+<span class="go">the only significant mode of use of the product.</span>
+
+<span class="go">&quot;Installation Information&quot; for a User Product means any methods,</span>
+<span class="go">procedures, authorization keys, or other information required to install</span>
+<span class="go">and execute modified versions of a covered work in that User Product from</span>
+<span class="go">a modified version of its Corresponding Source.  The information must</span>
+<span class="go">suffice to ensure that the continued functioning of the modified object</span>
+<span class="go">code is in no case prevented or interfered with solely because</span>
+<span class="go">modification has been made.</span>
+
+<span class="go">If you convey an object code work under this section in, or with, or</span>
+<span class="go">specifically for use in, a User Product, and the conveying occurs as</span>
+<span class="go">part of a transaction in which the right of possession and use of the</span>
+<span class="go">User Product is transferred to the recipient in perpetuity or for a</span>
+<span class="go">fixed term (regardless of how the transaction is characterized), the</span>
+<span class="go">Corresponding Source conveyed under this section must be accompanied</span>
+<span class="go">by the Installation Information.  But this requirement does not apply</span>
+<span class="go">if neither you nor any third party retains the ability to install</span>
+<span class="go">modified object code on the User Product (for example, the work has</span>
+<span class="go">been installed in ROM).</span>
+
+<span class="go">The requirement to provide Installation Information does not include a</span>
+<span class="go">requirement to continue to provide support service, warranty, or updates</span>
+<span class="go">for a work that has been modified or installed by the recipient, or for</span>
+<span class="go">the User Product in which it has been modified or installed.  Access to a</span>
+<span class="go">network may be denied when the modification itself materially and</span>
+<span class="go">adversely affects the operation of the network or violates the rules and</span>
+<span class="go">protocols for communication across the network.</span>
+
+<span class="go">Corresponding Source conveyed, and Installation Information provided,</span>
+<span class="go">in accord with this section must be in a format that is publicly</span>
+<span class="go">documented (and with an implementation available to the public in</span>
+<span class="go">source code form), and must require no special password or key for</span>
+<span class="go">unpacking, reading or copying.</span>
+
+<span class="go">7. Additional Terms.</span>
+
+<span class="go">&quot;Additional permissions&quot; are terms that supplement the terms of this</span>
+<span class="go">License by making exceptions from one or more of its conditions.</span>
+<span class="go">Additional permissions that are applicable to the entire Program shall</span>
+<span class="go">be treated as though they were included in this License, to the extent</span>
+<span class="go">that they are valid under applicable law.  If additional permissions</span>
+<span class="go">apply only to part of the Program, that part may be used separately</span>
+<span class="go">under those permissions, but the entire Program remains governed by</span>
+<span class="go">this License without regard to the additional permissions.</span>
+
+<span class="go">When you convey a copy of a covered work, you may at your option</span>
+<span class="go">remove any additional permissions from that copy, or from any part of</span>
+<span class="go">it.  (Additional permissions may be written to require their own</span>
+<span class="go">removal in certain cases when you modify the work.)  You may place</span>
+<span class="go">additional permissions on material, added by you to a covered work,</span>
+<span class="go">for which you have or can give appropriate copyright permission.</span>
+
+<span class="go">Notwithstanding any other provision of this License, for material you</span>
+<span class="go">add to a covered work, you may (if authorized by the copyright holders of</span>
+<span class="go">that material) supplement the terms of this License with terms:</span>
+
+<span class="go">a) Disclaiming warranty or limiting liability differently from the</span>
+<span class="go">terms of sections 15 and 16 of this License; or</span>
+
+<span class="go">b) Requiring preservation of specified reasonable legal notices or</span>
+<span class="go">author attributions in that material or in the Appropriate Legal</span>
+<span class="go">Notices displayed by works containing it; or</span>
+
+<span class="go">c) Prohibiting misrepresentation of the origin of that material, or</span>
+<span class="go">requiring that modified versions of such material be marked in</span>
+<span class="go">reasonable ways as different from the original version; or</span>
+
+<span class="go">d) Limiting the use for publicity purposes of names of licensors or</span>
+<span class="go">authors of the material; or</span>
+
+<span class="go">e) Declining to grant rights under trademark law for use of some</span>
+<span class="go">trade names, trademarks, or service marks; or</span>
+
+<span class="go">f) Requiring indemnification of licensors and authors of that</span>
+<span class="go">material by anyone who conveys the material (or modified versions of</span>
+<span class="go">it) with contractual assumptions of liability to the recipient, for</span>
+<span class="go">any liability that these contractual assumptions directly impose on</span>
+<span class="go">those licensors and authors.</span>
+
+<span class="go">All other non-permissive additional terms are considered &quot;further</span>
+<span class="go">restrictions&quot; within the meaning of section 10.  If the Program as you</span>
+<span class="go">received it, or any part of it, contains a notice stating that it is</span>
+<span class="go">governed by this License along with a term that is a further</span>
+<span class="go">restriction, you may remove that term.  If a license document contains</span>
+<span class="go">a further restriction but permits relicensing or conveying under this</span>
+<span class="go">License, you may add to a covered work material governed by the terms</span>
+<span class="go">of that license document, provided that the further restriction does</span>
+<span class="go">not survive such relicensing or conveying.</span>
+
+<span class="go">If you add terms to a covered work in accord with this section, you</span>
+<span class="go">must place, in the relevant source files, a statement of the</span>
+<span class="go">additional terms that apply to those files, or a notice indicating</span>
+<span class="go">where to find the applicable terms.</span>
+
+<span class="go">Additional terms, permissive or non-permissive, may be stated in the</span>
+<span class="go">form of a separately written license, or stated as exceptions;</span>
+<span class="go">the above requirements apply either way.</span>
+
+<span class="go">8. Termination.</span>
+
+<span class="go">You may not propagate or modify a covered work except as expressly</span>
+<span class="go">provided under this License.  Any attempt otherwise to propagate or</span>
+<span class="go">modify it is void, and will automatically terminate your rights under</span>
+<span class="go">this License (including any patent licenses granted under the third</span>
+<span class="go">paragraph of section 11).</span>
+
+<span class="go">However, if you cease all violation of this License, then your</span>
+<span class="go">license from a particular copyright holder is reinstated (a)</span>
+<span class="go">provisionally, unless and until the copyright holder explicitly and</span>
+<span class="go">finally terminates your license, and (b) permanently, if the copyright</span>
+<span class="go">holder fails to notify you of the violation by some reasonable means</span>
+<span class="go">prior to 60 days after the cessation.</span>
+
+<span class="go">Moreover, your license from a particular copyright holder is</span>
+<span class="go">reinstated permanently if the copyright holder notifies you of the</span>
+<span class="go">violation by some reasonable means, this is the first time you have</span>
+<span class="go">received notice of violation of this License (for any work) from that</span>
+<span class="go">copyright holder, and you cure the violation prior to 30 days after</span>
+<span class="go">your receipt of the notice.</span>
+
+<span class="go">Termination of your rights under this section does not terminate the</span>
+<span class="go">licenses of parties who have received copies or rights from you under</span>
+<span class="go">this License.  If your rights have been terminated and not permanently</span>
+<span class="go">reinstated, you do not qualify to receive new licenses for the same</span>
+<span class="go">material under section 10.</span>
+
+<span class="go">9. Acceptance Not Required for Having Copies.</span>
+
+<span class="go">You are not required to accept this License in order to receive or</span>
+<span class="go">run a copy of the Program.  Ancillary propagation of a covered work</span>
+<span class="go">occurring solely as a consequence of using peer-to-peer transmission</span>
+<span class="go">to receive a copy likewise does not require acceptance.  However,</span>
+<span class="go">nothing other than this License grants you permission to propagate or</span>
+<span class="go">modify any covered work.  These actions infringe copyright if you do</span>
+<span class="go">not accept this License.  Therefore, by modifying or propagating a</span>
+<span class="go">covered work, you indicate your acceptance of this License to do so.</span>
+
+<span class="go">10. Automatic Licensing of Downstream Recipients.</span>
+
+<span class="go">Each time you convey a covered work, the recipient automatically</span>
+<span class="go">receives a license from the original licensors, to run, modify and</span>
+<span class="go">propagate that work, subject to this License.  You are not responsible</span>
+<span class="go">for enforcing compliance by third parties with this License.</span>
+
+<span class="go">An &quot;entity transaction&quot; is a transaction transferring control of an</span>
+<span class="go">organization, or substantially all assets of one, or subdividing an</span>
+<span class="go">organization, or merging organizations.  If propagation of a covered</span>
+<span class="go">work results from an entity transaction, each party to that</span>
+<span class="go">transaction who receives a copy of the work also receives whatever</span>
+<span class="go">licenses to the work the party&#39;s predecessor in interest had or could</span>
+<span class="go">give under the previous paragraph, plus a right to possession of the</span>
+<span class="go">Corresponding Source of the work from the predecessor in interest, if</span>
+<span class="go">the predecessor has it or can get it with reasonable efforts.</span>
+
+<span class="go">You may not impose any further restrictions on the exercise of the</span>
+<span class="go">rights granted or affirmed under this License.  For example, you may</span>
+<span class="go">not impose a license fee, royalty, or other charge for exercise of</span>
+<span class="go">rights granted under this License, and you may not initiate litigation</span>
+<span class="go">(including a cross-claim or counterclaim in a lawsuit) alleging that</span>
+<span class="go">any patent claim is infringed by making, using, selling, offering for</span>
+<span class="go">sale, or importing the Program or any portion of it.</span>
+
+<span class="go">11. Patents.</span>
+
+<span class="go">A &quot;contributor&quot; is a copyright holder who authorizes use under this</span>
+<span class="go">License of the Program or a work on which the Program is based.  The</span>
+<span class="go">work thus licensed is called the contributor&#39;s &quot;contributor version&quot;.</span>
+
+<span class="go">A contributor&#39;s &quot;essential patent claims&quot; are all patent claims</span>
+<span class="go">owned or controlled by the contributor, whether already acquired or</span>
+<span class="go">hereafter acquired, that would be infringed by some manner, permitted</span>
+<span class="go">by this License, of making, using, or selling its contributor version,</span>
+<span class="go">but do not include claims that would be infringed only as a</span>
+<span class="go">consequence of further modification of the contributor version.  For</span>
+<span class="go">purposes of this definition, &quot;control&quot; includes the right to grant</span>
+<span class="go">patent sublicenses in a manner consistent with the requirements of</span>
+<span class="go">this License.</span>
+
+<span class="go">Each contributor grants you a non-exclusive, worldwide, royalty-free</span>
+<span class="go">patent license under the contributor&#39;s essential patent claims, to</span>
+<span class="go">make, use, sell, offer for sale, import and otherwise run, modify and</span>
+<span class="go">propagate the contents of its contributor version.</span>
+
+<span class="go">In the following three paragraphs, a &quot;patent license&quot; is any express</span>
+<span class="go">agreement or commitment, however denominated, not to enforce a patent</span>
+<span class="go">(such as an express permission to practice a patent or covenant not to</span>
+<span class="go">sue for patent infringement).  To &quot;grant&quot; such a patent license to a</span>
+<span class="go">party means to make such an agreement or commitment not to enforce a</span>
+<span class="go">patent against the party.</span>
+
+<span class="go">If you convey a covered work, knowingly relying on a patent license,</span>
+<span class="go">and the Corresponding Source of the work is not available for anyone</span>
+<span class="go">to copy, free of charge and under the terms of this License, through a</span>
+<span class="go">publicly available network server or other readily accessible means,</span>
+<span class="go">then you must either (1) cause the Corresponding Source to be so</span>
+<span class="go">available, or (2) arrange to deprive yourself of the benefit of the</span>
+<span class="go">patent license for this particular work, or (3) arrange, in a manner</span>
+<span class="go">consistent with the requirements of this License, to extend the patent</span>
+<span class="go">license to downstream recipients.  &quot;Knowingly relying&quot; means you have</span>
+<span class="go">actual knowledge that, but for the patent license, your conveying the</span>
+<span class="go">covered work in a country, or your recipient&#39;s use of the covered work</span>
+<span class="go">in a country, would infringe one or more identifiable patents in that</span>
+<span class="go">country that you have reason to believe are valid.</span>
+
+<span class="go">If, pursuant to or in connection with a single transaction or</span>
+<span class="go">arrangement, you convey, or propagate by procuring conveyance of, a</span>
+<span class="go">covered work, and grant a patent license to some of the parties</span>
+<span class="go">receiving the covered work authorizing them to use, propagate, modify</span>
+<span class="go">or convey a specific copy of the covered work, then the patent license</span>
+<span class="go">you grant is automatically extended to all recipients of the covered</span>
+<span class="go">work and works based on it.</span>
+
+<span class="go">A patent license is &quot;discriminatory&quot; if it does not include within</span>
+<span class="go">the scope of its coverage, prohibits the exercise of, or is</span>
+<span class="go">conditioned on the non-exercise of one or more of the rights that are</span>
+<span class="go">specifically granted under this License.  You may not convey a covered</span>
+<span class="go">work if you are a party to an arrangement with a third party that is</span>
+<span class="go">in the business of distributing software, under which you make payment</span>
+<span class="go">to the third party based on the extent of your activity of conveying</span>
+<span class="go">the work, and under which the third party grants, to any of the</span>
+<span class="go">parties who would receive the covered work from you, a discriminatory</span>
+<span class="go">patent license (a) in connection with copies of the covered work</span>
+<span class="go">conveyed by you (or copies made from those copies), or (b) primarily</span>
+<span class="go">for and in connection with specific products or compilations that</span>
+<span class="go">contain the covered work, unless you entered into that arrangement,</span>
+<span class="go">or that patent license was granted, prior to 28 March 2007.</span>
+
+<span class="go">Nothing in this License shall be construed as excluding or limiting</span>
+<span class="go">any implied license or other defenses to infringement that may</span>
+<span class="go">otherwise be available to you under applicable patent law.</span>
+
+<span class="go">12. No Surrender of Others&#39; Freedom.</span>
+
+<span class="go">If conditions are imposed on you (whether by court order, agreement or</span>
+<span class="go">otherwise) that contradict the conditions of this License, they do not</span>
+<span class="go">excuse you from the conditions of this License.  If you cannot convey a</span>
+<span class="go">covered work so as to satisfy simultaneously your obligations under this</span>
+<span class="go">License and any other pertinent obligations, then as a consequence you may</span>
+<span class="go">not convey it at all.  For example, if you agree to terms that obligate you</span>
+<span class="go">to collect a royalty for further conveying from those to whom you convey</span>
+<span class="go">the Program, the only way you could satisfy both those terms and this</span>
+<span class="go">License would be to refrain entirely from conveying the Program.</span>
+
+<span class="go">13. Use with the GNU Affero General Public License.</span>
+
+<span class="go">Notwithstanding any other provision of this License, you have</span>
+<span class="go">permission to link or combine any covered work with a work licensed</span>
+<span class="go">under version 3 of the GNU Affero General Public License into a single</span>
+<span class="go">combined work, and to convey the resulting work.  The terms of this</span>
+<span class="go">License will continue to apply to the part which is the covered work,</span>
+<span class="go">but the special requirements of the GNU Affero General Public License,</span>
+<span class="go">section 13, concerning interaction through a network will apply to the</span>
+<span class="go">combination as such.</span>
+
+<span class="go">14. Revised Versions of this License.</span>
+
+<span class="go">The Free Software Foundation may publish revised and/or new versions of</span>
+<span class="go">the GNU General Public License from time to time.  Such new versions will</span>
+<span class="go">be similar in spirit to the present version, but may differ in detail to</span>
+<span class="go">address new problems or concerns.</span>
+
+<span class="go">Each version is given a distinguishing version number.  If the</span>
+<span class="go">Program specifies that a certain numbered version of the GNU General</span>
+<span class="go">Public License &quot;or any later version&quot; applies to it, you have the</span>
+<span class="go">option of following the terms and conditions either of that numbered</span>
+<span class="go">version or of any later version published by the Free Software</span>
+<span class="go">Foundation.  If the Program does not specify a version number of the</span>
+<span class="go">GNU General Public License, you may choose any version ever published</span>
+<span class="go">by the Free Software Foundation.</span>
+
+<span class="go">If the Program specifies that a proxy can decide which future</span>
+<span class="go">versions of the GNU General Public License can be used, that proxy&#39;s</span>
+<span class="go">public statement of acceptance of a version permanently authorizes you</span>
+<span class="go">to choose that version for the Program.</span>
+
+<span class="go">Later license versions may give you additional or different</span>
+<span class="go">permissions.  However, no additional obligations are imposed on any</span>
+<span class="go">author or copyright holder as a result of your choosing to follow a</span>
+<span class="go">later version.</span>
+
+<span class="go">15. Disclaimer of Warranty.</span>
+
+<span class="go">THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY</span>
+<span class="go">APPLICABLE LAW.  EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT</span>
+<span class="go">HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM &quot;AS IS&quot; WITHOUT WARRANTY</span>
+<span class="go">OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO,</span>
+<span class="go">THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR</span>
+<span class="go">PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM</span>
+<span class="go">IS WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF</span>
+<span class="go">ALL NECESSARY SERVICING, REPAIR OR CORRECTION.</span>
+
+<span class="go">16. Limitation of Liability.</span>
+
+<span class="go">IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING</span>
+<span class="go">WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MODIFIES AND/OR CONVEYS</span>
+<span class="go">THE PROGRAM AS PERMITTED ABOVE, BE LIABLE TO YOU FOR DAMAGES, INCLUDING ANY</span>
+<span class="go">GENERAL, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THE</span>
+<span class="go">USE OR INABILITY TO USE THE PROGRAM (INCLUDING BUT NOT LIMITED TO LOSS OF</span>
+<span class="go">DATA OR DATA BEING RENDERED INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD</span>
+<span class="go">PARTIES OR A FAILURE OF THE PROGRAM TO OPERATE WITH ANY OTHER PROGRAMS),</span>
+<span class="go">EVEN IF SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF</span>
+<span class="go">SUCH DAMAGES.</span>
+
+<span class="go">17. Interpretation of Sections 15 and 16.</span>
+
+<span class="go">If the disclaimer of warranty and limitation of liability provided</span>
+<span class="go">above cannot be given local legal effect according to their terms,</span>
+<span class="go">reviewing courts shall apply local law that most closely approximates</span>
+<span class="go">an absolute waiver of all civil liability in connection with the</span>
+<span class="go">Program, unless a warranty or assumption of liability accompanies a</span>
+<span class="go">copy of the Program in return for a fee.</span>
+
+<span class="go">END OF TERMS AND CONDITIONS</span>
+
+<span class="go">How to Apply These Terms to Your New Programs</span>
+
+<span class="go">If you develop a new program, and you want it to be of the greatest</span>
+<span class="go">possible use to the public, the best way to achieve this is to make it</span>
+<span class="go">free software which everyone can redistribute and change under these terms.</span>
+
+<span class="go">To do so, attach the following notices to the program.  It is safest</span>
+<span class="go">to attach them to the start of each source file to most effectively</span>
+<span class="go">state the exclusion of warranty; and each file should have at least</span>
+<span class="go">the &quot;copyright&quot; line and a pointer to where the full notice is found.</span>
+
+<span class="go">&lt;one line to give the program&#39;s name and a brief idea of what it does.&gt;</span>
+<span class="go">Copyright (C) &lt;year&gt;  &lt;name of author&gt;</span>
+
+<span class="go">This program is free software: you can redistribute it and/or modify</span>
+<span class="go">it under the terms of the GNU General Public License as published by</span>
+<span class="go">the Free Software Foundation, either version 3 of the License, or</span>
+<span class="go">(at your option) any later version.</span>
+
+<span class="go">This program is distributed in the hope that it will be useful,</span>
+<span class="go">but WITHOUT ANY WARRANTY; without even the implied warranty of</span>
+<span class="go">MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the</span>
+<span class="go">GNU General Public License for more details.</span>
+
+<span class="go">You should have received a copy of the GNU General Public License</span>
+<span class="go">along with this program.  If not, see &lt;http://www.gnu.org/licenses/&gt;.</span>
+
+<span class="go">Also add information on how to contact you by electronic and paper mail.</span>
+
+<span class="go">If the program does terminal interaction, make it output a short</span>
+<span class="go">notice like this when it starts in an interactive mode:</span>
+
+<span class="go">&lt;program&gt;  Copyright (C) &lt;year&gt;  &lt;name of author&gt;</span>
+<span class="go">This program comes with ABSOLUTELY NO WARRANTY; for details type `show w&#39;.</span>
+<span class="go">This is free software, and you are welcome to redistribute it</span>
+<span class="go">under certain conditions; type `show c&#39; for details.</span>
+
+<span class="go">The hypothetical commands `show w&#39; and `show c&#39; should show the appropriate</span>
+<span class="go">parts of the General Public License.  Of course, your program&#39;s commands</span>
+<span class="go">might be different; for a GUI interface, you would use an &quot;about box&quot;.</span>
+
+<span class="go">You should also get your employer (if you work as a programmer) or school,</span>
+<span class="go">if any, to sign a &quot;copyright disclaimer&quot; for the program, if necessary.</span>
+<span class="go">For more information on this, and how to apply and follow the GNU GPL, see</span>
+<span class="go">&lt;http://www.gnu.org/licenses/&gt;.</span>
+
+<span class="go">The GNU General Public License does not permit incorporating your program</span>
+<span class="go">into proprietary programs.  If your program is a subroutine library, you</span>
+<span class="go">may consider it more useful to permit linking proprietary applications with</span>
+<span class="go">the library.  If this is what you want to do, use the GNU Lesser General</span>
+<span class="go">Public License instead of this License.  But first, please read</span>
+<span class="go">&lt;http://www.gnu.org/philosophy/why-not-lgpl.html&gt;.</span>
+</pre></div>
+</div>
+</section>
+<section id="indices-and-tables">
+<h1>Indices and Tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p><a class="reference external" href="../genindex.html">Index</a></p></li>
+<li><p><a class="reference external" href="../py-modindex.html">Module Index</a></p></li>
+<li><p><a class="reference external" href="../search.html">Search Page</a></p></li>
+</ul>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+</div></div>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2005--2025, The Sage Development Team
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=e9bf40f3"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=5fa4622c"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=8e571dd6"></script>
+    <script src="../_static/tabs.js?v=3ee01567"></script>
+    <script src="../_static/thebelab-helper.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@^1.0.1/dist/embed-amd.js"></script>
+    <script>window.MathJax = {"tex": {"macros": {"ZZ": "\\Bold{Z}", "NN": "\\Bold{N}", "RR": "\\Bold{R}", "CC": "\\Bold{C}", "QQ": "\\Bold{Q}", "QQbar": "\\overline{\\QQ}", "GF": ["\\Bold{F}_{#1}", 1], "Zp": ["\\Bold{Z}_{#1}", 1], "Qp": ["\\Bold{Q}_{#1}", 1], "Zmod": ["\\ZZ/#1\\ZZ", 1], "CDF": "\\Bold{C}", "CIF": "\\Bold{C}", "CLF": "\\Bold{C}", "RDF": "\\Bold{R}", "RIF": "\\Bold{I} \\Bold{R}", "RLF": "\\Bold{R}", "SL": "\\mathrm{SL}", "PSL": "\\mathrm{PSL}", "lcm": "\\mathop{\\operatorname{lcm}}", "dist": "\\mathrm{dist}", "Bold": ["\\mathbf{#1}", 1]}, "inlineMath": [["$", "$"], ["\\(", "\\)"]], "maxBuffer": 51200, "autoload": {"color": [], "colorv2": ["color"]}}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <script src="../_static/jupyter-sphinx-furo.js?v=24b7fe9d"></script>
+    </body>
+</html>

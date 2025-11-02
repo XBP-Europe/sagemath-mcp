@@ -1,0 +1,35 @@
+<!-- Source: https://doc.sagemath.org/html/en/reference/genindex.html -->
+
+# Index
+
+[**Symbols**](genindex-Symbols.html)
+| [**\_**](genindex-_.html)
+| [**A**](genindex-A.html)
+| [**B**](genindex-B.html)
+| [**C**](genindex-C.html)
+| [**D**](genindex-D.html)
+| [**E**](genindex-E.html)
+| [**F**](genindex-F.html)
+| [**G**](genindex-G.html)
+| [**H**](genindex-H.html)
+| [**I**](genindex-I.html)
+| [**J**](genindex-J.html)
+| [**K**](genindex-K.html)
+| [**L**](genindex-L.html)
+| [**M**](genindex-M.html)
+| [**N**](genindex-N.html)
+| [**O**](genindex-O.html)
+| [**P**](genindex-P.html)
+| [**Q**](genindex-Q.html)
+| [**R**](genindex-R.html)
+| [**S**](genindex-S.html)
+| [**T**](genindex-T.html)
+| [**U**](genindex-U.html)
+| [**V**](genindex-V.html)
+| [**W**](genindex-W.html)
+| [**X**](genindex-X.html)
+| [**Y**](genindex-Y.html)
+| [**Z**](genindex-Z.html)
+
+[**Full index on one page**
+(can be huge)](genindex-all.html)

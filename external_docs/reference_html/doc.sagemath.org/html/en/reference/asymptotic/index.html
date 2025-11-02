@@ -1,0 +1,846 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="./">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Asymptotic Ring" href="sage/rings/asymptotic/asymptotic_ring.html" />
+
+    <!-- Generated with Sphinx 8.1.3 and Furo 2024.07.18 -->
+        <title>Asymptotic Expansions</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a078f75a" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=613ab9ff" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/tabs.css?v=4c969af8" />
+    <link rel="stylesheet" type="text/css" href="../_static/plot_directive.css?v=7f9a90b1" />
+    <link rel="stylesheet" type="text/css" href="../_static/jupyter-sphinx.css?v=572af1d6" />
+    <link rel="stylesheet" type="text/css" href="../_static/thebelab.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=302659d7" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom-furo.css?v=d2ecc25a" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom-jupyter-sphinx.css?v=75860c6b" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom-codemirror-monokai.css?v=b5588f12" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom-tabs.css?v=8a724d73" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #eeffcc;
+  --color-code-foreground: black;
+  --color-brand-primary: #0f0fff;
+  --color-brand-content: #0f0fff;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #272822;
+  --color-code-foreground: #f8f8f2;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #272822;
+  --color-code-foreground: #f8f8f2;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="#"><div class="brand">Asymptotic Expansions</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><div class="sidebar-scroll"><a class="sidebar-brand" href="../index.html">
+  
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo only-light" src="../_static/logo_sagemath_black.svg" alt="Light Logo"/>
+    <img class="sidebar-logo only-dark" src="../_static/logo_sagemath_white.svg" alt="Dark Logo"/>
+  </div>
+  
+      <span class="sidebar-brand-text">Version 10.6 Reference Manual</span>
+  
+</a><div class="select-wrapper">
+  <select id="versions-menu" onchange="changeVersion()">
+    <option value="" selected>other version</option>
+    <option value="https://doc-develop--sagemath.netlify.app">develop</option>
+  </select>
+</div><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-home">
+  <div class="sidebar-tree">
+    <ul><li class="toctree-l1">
+      <a class="reference internal" href="#">Home - Asymptotic Expansions</a>
+    </li></ul>
+  </div>
+</div><div class="sidebar-tree">
+  <ul>
+<li class="toctree-l1"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html">Asymptotic Ring</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_expansion_generators.html">Common Asymptotic Expansions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html">(Asymptotic) Growth Groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/rings/asymptotic/growth_group_cartesian.html">Cartesian Products of Growth Groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html">(Asymptotic) Term Monoids</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/rings/asymptotic/misc.html">Asymptotic Expansions — Miscellaneous</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html">Asymptotics of Multivariate Generating Series</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="https://github.com/sagemath/sage/blob/develop/src/doc/en/reference/asymptotic/index.rst" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div><div class="edit-this-page">
+  <a class="muted-link" href="https://github.com/sagemath/sage/edit/develop/src/doc/en/reference/asymptotic/index.rst" title="Edit this page">
+    <svg><use href="#svg-pencil"></use></svg>
+    <span class="visually-hidden">Edit this page</span>
+  </a>
+</div><div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="asymptotic-expansions">
+<h1>Asymptotic Expansions<a class="headerlink" href="#asymptotic-expansions" title="Link to this heading">¶</a></h1>
+<section id="the-asymptotic-ring">
+<h2>The Asymptotic Ring<a class="headerlink" href="#the-asymptotic-ring" title="Link to this heading">¶</a></h2>
+<p>The asymptotic ring, as well as its main documentation is contained in
+the module</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html"><span class="doc">Asymptotic Ring</span></a>.</p></li>
+</ul>
+</section>
+<section id="asymptotic-expansion-generators">
+<h2>Asymptotic Expansion Generators<a class="headerlink" href="#asymptotic-expansion-generators" title="Link to this heading">¶</a></h2>
+<p>Some common asymptotic expansions can be generated in</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="sage/rings/asymptotic/asymptotic_expansion_generators.html"><span class="doc">Common Asymptotic Expansions</span></a>.</p></li>
+</ul>
+</section>
+<section id="supplements">
+<h2>Supplements<a class="headerlink" href="#supplements" title="Link to this heading">¶</a></h2>
+<p>Behind the scenes of working with asymptotic expressions a couple of
+additional classes and tools turn up. For instance the growth of each
+summand is managed in growth groups, see below.</p>
+<section id="growth-groups">
+<h3>Growth Groups<a class="headerlink" href="#growth-groups" title="Link to this heading">¶</a></h3>
+<p>The growth of a summand of an asymptotic expression is managed in</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="sage/rings/asymptotic/growth_group.html"><span class="doc">(Asymptotic) Growth Groups</span></a> and</p></li>
+<li><p><a class="reference internal" href="sage/rings/asymptotic/growth_group_cartesian.html"><span class="doc">Cartesian Products of Growth Groups</span></a>.</p></li>
+</ul>
+</section>
+<section id="term-monoids">
+<h3>Term Monoids<a class="headerlink" href="#term-monoids" title="Link to this heading">¶</a></h3>
+<p>A summand of an asymptotic expression is basically a term out of the following monoid:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html"><span class="doc">(Asymptotic) Term Monoids</span></a>.</p></li>
+</ul>
+</section>
+<section id="miscellaneous">
+<h3>Miscellaneous<a class="headerlink" href="#miscellaneous" title="Link to this heading">¶</a></h3>
+<p>Various useful functions and tools are collected in</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="sage/rings/asymptotic/misc.html"><span class="doc">Asymptotic Expansions — Miscellaneous</span></a>.</p></li>
+</ul>
+</section>
+</section>
+<section id="asymptotic-expansions-table-of-contents">
+<h2>Asymptotic Expansions — Table of Contents<a class="headerlink" href="#asymptotic-expansions-table-of-contents" title="Link to this heading">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html">Asymptotic Ring</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#informal-definition">(Informal) Definition</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#growth-groups-and-elements">Growth Groups and Elements</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#introductory-examples">Introductory Examples</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#two-rings">Two Rings</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#a-univariate-asymptotic-ring">A Univariate Asymptotic Ring</a></li>
+<li class="toctree-l4"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#a-multivariate-asymptotic-ring">A Multivariate Asymptotic Ring</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#arithmetical-operations">Arithmetical Operations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#the-ring-operations-plus-and-times">The Ring Operations Plus and Times</a></li>
+<li class="toctree-l4"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#division">Division</a></li>
+<li class="toctree-l4"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#powers-exponentials-and-logarithms">Powers, Exponentials and Logarithms</a></li>
+<li class="toctree-l4"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#multivariate-arithmetic">Multivariate Arithmetic</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#more-examples">More Examples</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#the-mathematical-constant-e-as-a-limit">The mathematical constant e as a limit</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#selected-technical-details">Selected Technical Details</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#coercions-and-functorial-constructions">Coercions and Functorial Constructions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#data-structures">Data Structures</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#various">Various</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#classes-and-methods">Classes and Methods</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticExpansion"><code class="docutils literal notranslate"><span class="pre">AsymptoticExpansion</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticExpansion.B"><code class="docutils literal notranslate"><span class="pre">B()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticExpansion.O"><code class="docutils literal notranslate"><span class="pre">O()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticExpansion.compare_with_values"><code class="docutils literal notranslate"><span class="pre">compare_with_values()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticExpansion.error_part"><code class="docutils literal notranslate"><span class="pre">error_part()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticExpansion.exact_part"><code class="docutils literal notranslate"><span class="pre">exact_part()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticExpansion.exp"><code class="docutils literal notranslate"><span class="pre">exp()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticExpansion.factorial"><code class="docutils literal notranslate"><span class="pre">factorial()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticExpansion.has_same_summands"><code class="docutils literal notranslate"><span class="pre">has_same_summands()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticExpansion.invert"><code class="docutils literal notranslate"><span class="pre">invert()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticExpansion.is_exact"><code class="docutils literal notranslate"><span class="pre">is_exact()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticExpansion.is_little_o_of_one"><code class="docutils literal notranslate"><span class="pre">is_little_o_of_one()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticExpansion.limit"><code class="docutils literal notranslate"><span class="pre">limit()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticExpansion.log"><code class="docutils literal notranslate"><span class="pre">log()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticExpansion.map_coefficients"><code class="docutils literal notranslate"><span class="pre">map_coefficients()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticExpansion.monomial_coefficient"><code class="docutils literal notranslate"><span class="pre">monomial_coefficient()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticExpansion.plot_comparison"><code class="docutils literal notranslate"><span class="pre">plot_comparison()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticExpansion.pow"><code class="docutils literal notranslate"><span class="pre">pow()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticExpansion.rpow"><code class="docutils literal notranslate"><span class="pre">rpow()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticExpansion.show"><code class="docutils literal notranslate"><span class="pre">show()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticExpansion.sqrt"><code class="docutils literal notranslate"><span class="pre">sqrt()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticExpansion.subs"><code class="docutils literal notranslate"><span class="pre">subs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticExpansion.summands"><code class="docutils literal notranslate"><span class="pre">summands</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticExpansion.symbolic_expression"><code class="docutils literal notranslate"><span class="pre">symbolic_expression()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticExpansion.truncate"><code class="docutils literal notranslate"><span class="pre">truncate()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticExpansion.variable_names"><code class="docutils literal notranslate"><span class="pre">variable_names()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticRing"><code class="docutils literal notranslate"><span class="pre">AsymptoticRing</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticRing.B"><code class="docutils literal notranslate"><span class="pre">B()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticRing.Element"><code class="docutils literal notranslate"><span class="pre">Element</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticRing.change_parameter"><code class="docutils literal notranslate"><span class="pre">change_parameter()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticRing.coefficient_ring"><code class="docutils literal notranslate"><span class="pre">coefficient_ring</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticRing.coefficients_of_generating_function"><code class="docutils literal notranslate"><span class="pre">coefficients_of_generating_function()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticRing.construction"><code class="docutils literal notranslate"><span class="pre">construction()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticRing.create_summand"><code class="docutils literal notranslate"><span class="pre">create_summand()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticRing.default_prec"><code class="docutils literal notranslate"><span class="pre">default_prec</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticRing.gen"><code class="docutils literal notranslate"><span class="pre">gen()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticRing.gens"><code class="docutils literal notranslate"><span class="pre">gens()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticRing.growth_group"><code class="docutils literal notranslate"><span class="pre">growth_group</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticRing.ngens"><code class="docutils literal notranslate"><span class="pre">ngens()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticRing.some_elements"><code class="docutils literal notranslate"><span class="pre">some_elements()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticRing.term_monoid"><code class="docutils literal notranslate"><span class="pre">term_monoid()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticRing.term_monoid_factory"><code class="docutils literal notranslate"><span class="pre">term_monoid_factory</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticRing.variable_names"><code class="docutils literal notranslate"><span class="pre">variable_names()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticRingFunctor"><code class="docutils literal notranslate"><span class="pre">AsymptoticRingFunctor</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticRingFunctor.merge"><code class="docutils literal notranslate"><span class="pre">merge()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.AsymptoticRingFunctor.rank"><code class="docutils literal notranslate"><span class="pre">rank</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_ring.html#sage.rings.asymptotic.asymptotic_ring.NoConvergenceError"><code class="docutils literal notranslate"><span class="pre">NoConvergenceError</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_expansion_generators.html">Common Asymptotic Expansions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_expansion_generators.html#classes-and-methods">Classes and Methods</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_expansion_generators.html#sage.rings.asymptotic.asymptotic_expansion_generators.AsymptoticExpansionGenerators"><code class="docutils literal notranslate"><span class="pre">AsymptoticExpansionGenerators</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_expansion_generators.html#sage.rings.asymptotic.asymptotic_expansion_generators.AsymptoticExpansionGenerators.Binomial_kn_over_n"><code class="docutils literal notranslate"><span class="pre">Binomial_kn_over_n()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_expansion_generators.html#sage.rings.asymptotic.asymptotic_expansion_generators.AsymptoticExpansionGenerators.HarmonicNumber"><code class="docutils literal notranslate"><span class="pre">HarmonicNumber()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_expansion_generators.html#sage.rings.asymptotic.asymptotic_expansion_generators.AsymptoticExpansionGenerators.ImplicitExpansion"><code class="docutils literal notranslate"><span class="pre">ImplicitExpansion()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_expansion_generators.html#sage.rings.asymptotic.asymptotic_expansion_generators.AsymptoticExpansionGenerators.ImplicitExpansionPeriodicPart"><code class="docutils literal notranslate"><span class="pre">ImplicitExpansionPeriodicPart()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_expansion_generators.html#sage.rings.asymptotic.asymptotic_expansion_generators.AsymptoticExpansionGenerators.InverseFunctionAnalysis"><code class="docutils literal notranslate"><span class="pre">InverseFunctionAnalysis()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_expansion_generators.html#sage.rings.asymptotic.asymptotic_expansion_generators.AsymptoticExpansionGenerators.SingularityAnalysis"><code class="docutils literal notranslate"><span class="pre">SingularityAnalysis()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_expansion_generators.html#sage.rings.asymptotic.asymptotic_expansion_generators.AsymptoticExpansionGenerators.Stirling"><code class="docutils literal notranslate"><span class="pre">Stirling()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_expansion_generators.html#sage.rings.asymptotic.asymptotic_expansion_generators.AsymptoticExpansionGenerators.log_Stirling"><code class="docutils literal notranslate"><span class="pre">log_Stirling()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotic_expansion_generators.html#sage.rings.asymptotic.asymptotic_expansion_generators.asymptotic_expansions"><code class="docutils literal notranslate"><span class="pre">asymptotic_expansions</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html">(Asymptotic) Growth Groups</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#description-of-growth-groups">Description of Growth Groups</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#creating-a-growth-group">Creating a Growth Group</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#some-examples">Some Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#classes-and-methods">Classes and Methods</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.AbstractGrowthGroupFunctor"><code class="docutils literal notranslate"><span class="pre">AbstractGrowthGroupFunctor</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.AbstractGrowthGroupFunctor.merge"><code class="docutils literal notranslate"><span class="pre">merge()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.AbstractGrowthGroupFunctor.rank"><code class="docutils literal notranslate"><span class="pre">rank</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.DecreasingGrowthElementError"><code class="docutils literal notranslate"><span class="pre">DecreasingGrowthElementError</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.ExponentialGrowthElement"><code class="docutils literal notranslate"><span class="pre">ExponentialGrowthElement</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.ExponentialGrowthElement.base"><code class="docutils literal notranslate"><span class="pre">base</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.ExponentialGrowthGroup"><code class="docutils literal notranslate"><span class="pre">ExponentialGrowthGroup</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.ExponentialGrowthGroup.DivisionRings"><code class="docutils literal notranslate"><span class="pre">DivisionRings</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.ExponentialGrowthGroup.Element"><code class="docutils literal notranslate"><span class="pre">Element</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.ExponentialGrowthGroup.Groups"><code class="docutils literal notranslate"><span class="pre">Groups</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.ExponentialGrowthGroup.Magmas"><code class="docutils literal notranslate"><span class="pre">Magmas</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.ExponentialGrowthGroup.Posets"><code class="docutils literal notranslate"><span class="pre">Posets</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.ExponentialGrowthGroup.Sets"><code class="docutils literal notranslate"><span class="pre">Sets</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.ExponentialGrowthGroup.construction"><code class="docutils literal notranslate"><span class="pre">construction()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.ExponentialGrowthGroup.factory"><code class="docutils literal notranslate"><span class="pre">factory()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.ExponentialGrowthGroup.gens"><code class="docutils literal notranslate"><span class="pre">gens()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.ExponentialGrowthGroup.non_growth_group"><code class="docutils literal notranslate"><span class="pre">non_growth_group()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.ExponentialGrowthGroup.some_elements"><code class="docutils literal notranslate"><span class="pre">some_elements()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.ExponentialGrowthGroupFunctor"><code class="docutils literal notranslate"><span class="pre">ExponentialGrowthGroupFunctor</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.ExponentialNonGrowthElement"><code class="docutils literal notranslate"><span class="pre">ExponentialNonGrowthElement</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.ExponentialNonGrowthGroup"><code class="docutils literal notranslate"><span class="pre">ExponentialNonGrowthGroup</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.ExponentialNonGrowthGroup.Element"><code class="docutils literal notranslate"><span class="pre">Element</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.ExponentialNonGrowthGroup.construction"><code class="docutils literal notranslate"><span class="pre">construction()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.ExponentialNonGrowthGroupFunctor"><code class="docutils literal notranslate"><span class="pre">ExponentialNonGrowthGroupFunctor</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GenericGrowthElement"><code class="docutils literal notranslate"><span class="pre">GenericGrowthElement</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GenericGrowthElement.factors"><code class="docutils literal notranslate"><span class="pre">factors()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GenericGrowthElement.is_lt_one"><code class="docutils literal notranslate"><span class="pre">is_lt_one()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GenericGrowthElement.log"><code class="docutils literal notranslate"><span class="pre">log()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GenericGrowthElement.log_factor"><code class="docutils literal notranslate"><span class="pre">log_factor()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GenericGrowthElement.rpow"><code class="docutils literal notranslate"><span class="pre">rpow()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GenericGrowthElement.variable_names"><code class="docutils literal notranslate"><span class="pre">variable_names()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GenericGrowthGroup"><code class="docutils literal notranslate"><span class="pre">GenericGrowthGroup</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GenericGrowthGroup.AdditiveMagmas"><code class="docutils literal notranslate"><span class="pre">AdditiveMagmas</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GenericGrowthGroup.CartesianProduct"><code class="docutils literal notranslate"><span class="pre">CartesianProduct</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GenericGrowthGroup.Element"><code class="docutils literal notranslate"><span class="pre">Element</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GenericGrowthGroup.Magmas"><code class="docutils literal notranslate"><span class="pre">Magmas</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GenericGrowthGroup.Posets"><code class="docutils literal notranslate"><span class="pre">Posets</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GenericGrowthGroup.Sets"><code class="docutils literal notranslate"><span class="pre">Sets</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GenericGrowthGroup.extended_by_non_growth_group"><code class="docutils literal notranslate"><span class="pre">extended_by_non_growth_group()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GenericGrowthGroup.gen"><code class="docutils literal notranslate"><span class="pre">gen()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GenericGrowthGroup.gens"><code class="docutils literal notranslate"><span class="pre">gens()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GenericGrowthGroup.gens_monomial"><code class="docutils literal notranslate"><span class="pre">gens_monomial()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GenericGrowthGroup.is_compatible"><code class="docutils literal notranslate"><span class="pre">is_compatible()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GenericGrowthGroup.le"><code class="docutils literal notranslate"><span class="pre">le()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GenericGrowthGroup.ngens"><code class="docutils literal notranslate"><span class="pre">ngens()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GenericGrowthGroup.non_growth_group"><code class="docutils literal notranslate"><span class="pre">non_growth_group()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GenericGrowthGroup.some_elements"><code class="docutils literal notranslate"><span class="pre">some_elements()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GenericGrowthGroup.variable_names"><code class="docutils literal notranslate"><span class="pre">variable_names()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GenericNonGrowthElement"><code class="docutils literal notranslate"><span class="pre">GenericNonGrowthElement</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GenericNonGrowthGroup"><code class="docutils literal notranslate"><span class="pre">GenericNonGrowthGroup</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GrowthGroup"><code class="docutils literal notranslate"><span class="pre">GrowthGroup</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GrowthGroupFactor"><code class="docutils literal notranslate"><span class="pre">GrowthGroupFactor</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GrowthGroupFactor.base"><code class="docutils literal notranslate"><span class="pre">base</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GrowthGroupFactor.cls"><code class="docutils literal notranslate"><span class="pre">cls</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GrowthGroupFactor.extend_by_non_growth_group"><code class="docutils literal notranslate"><span class="pre">extend_by_non_growth_group</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GrowthGroupFactor.var"><code class="docutils literal notranslate"><span class="pre">var</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GrowthGroupFactory"><code class="docutils literal notranslate"><span class="pre">GrowthGroupFactory</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GrowthGroupFactory.create_key_and_extra_args"><code class="docutils literal notranslate"><span class="pre">create_key_and_extra_args()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.GrowthGroupFactory.create_object"><code class="docutils literal notranslate"><span class="pre">create_object()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.MonomialGrowthElement"><code class="docutils literal notranslate"><span class="pre">MonomialGrowthElement</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.MonomialGrowthElement.exponent"><code class="docutils literal notranslate"><span class="pre">exponent</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.MonomialGrowthGroup"><code class="docutils literal notranslate"><span class="pre">MonomialGrowthGroup</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.MonomialGrowthGroup.AdditiveMagmas"><code class="docutils literal notranslate"><span class="pre">AdditiveMagmas</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.MonomialGrowthGroup.Element"><code class="docutils literal notranslate"><span class="pre">Element</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.MonomialGrowthGroup.Magmas"><code class="docutils literal notranslate"><span class="pre">Magmas</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.MonomialGrowthGroup.Posets"><code class="docutils literal notranslate"><span class="pre">Posets</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.MonomialGrowthGroup.Sets"><code class="docutils literal notranslate"><span class="pre">Sets</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.MonomialGrowthGroup.construction"><code class="docutils literal notranslate"><span class="pre">construction()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.MonomialGrowthGroup.factory"><code class="docutils literal notranslate"><span class="pre">factory()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.MonomialGrowthGroup.gens_logarithmic"><code class="docutils literal notranslate"><span class="pre">gens_logarithmic()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.MonomialGrowthGroup.gens_monomial"><code class="docutils literal notranslate"><span class="pre">gens_monomial()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.MonomialGrowthGroup.non_growth_group"><code class="docutils literal notranslate"><span class="pre">non_growth_group()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.MonomialGrowthGroupFunctor"><code class="docutils literal notranslate"><span class="pre">MonomialGrowthGroupFunctor</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.MonomialNonGrowthElement"><code class="docutils literal notranslate"><span class="pre">MonomialNonGrowthElement</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.MonomialNonGrowthGroup"><code class="docutils literal notranslate"><span class="pre">MonomialNonGrowthGroup</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.MonomialNonGrowthGroup.Element"><code class="docutils literal notranslate"><span class="pre">Element</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.MonomialNonGrowthGroup.construction"><code class="docutils literal notranslate"><span class="pre">construction()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.MonomialNonGrowthGroupFunctor"><code class="docutils literal notranslate"><span class="pre">MonomialNonGrowthGroupFunctor</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.PartialConversionElement"><code class="docutils literal notranslate"><span class="pre">PartialConversionElement</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.PartialConversionElement.is_compatible"><code class="docutils literal notranslate"><span class="pre">is_compatible()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.PartialConversionElement.split"><code class="docutils literal notranslate"><span class="pre">split()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.PartialConversionValueError"><code class="docutils literal notranslate"><span class="pre">PartialConversionValueError</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.Variable"><code class="docutils literal notranslate"><span class="pre">Variable</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.Variable.extract_variable_names"><code class="docutils literal notranslate"><span class="pre">extract_variable_names()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.Variable.is_monomial"><code class="docutils literal notranslate"><span class="pre">is_monomial()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group.html#sage.rings.asymptotic.growth_group.Variable.variable_names"><code class="docutils literal notranslate"><span class="pre">variable_names()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="sage/rings/asymptotic/growth_group_cartesian.html">Cartesian Products of Growth Groups</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group_cartesian.html#classes-and-methods">Classes and Methods</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group_cartesian.html#sage.rings.asymptotic.growth_group_cartesian.CartesianProductFactory"><code class="docutils literal notranslate"><span class="pre">CartesianProductFactory</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group_cartesian.html#sage.rings.asymptotic.growth_group_cartesian.CartesianProductFactory.create_key_and_extra_args"><code class="docutils literal notranslate"><span class="pre">create_key_and_extra_args()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group_cartesian.html#sage.rings.asymptotic.growth_group_cartesian.CartesianProductFactory.create_object"><code class="docutils literal notranslate"><span class="pre">create_object()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group_cartesian.html#sage.rings.asymptotic.growth_group_cartesian.GenericProduct"><code class="docutils literal notranslate"><span class="pre">GenericProduct</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group_cartesian.html#sage.rings.asymptotic.growth_group_cartesian.GenericProduct.CartesianProduct"><code class="docutils literal notranslate"><span class="pre">CartesianProduct</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group_cartesian.html#sage.rings.asymptotic.growth_group_cartesian.GenericProduct.Element"><code class="docutils literal notranslate"><span class="pre">Element</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="sage/rings/asymptotic/growth_group_cartesian.html#sage.rings.asymptotic.growth_group_cartesian.GenericProduct.Element.exp"><code class="docutils literal notranslate"><span class="pre">exp()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="sage/rings/asymptotic/growth_group_cartesian.html#sage.rings.asymptotic.growth_group_cartesian.GenericProduct.Element.factors"><code class="docutils literal notranslate"><span class="pre">factors()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="sage/rings/asymptotic/growth_group_cartesian.html#sage.rings.asymptotic.growth_group_cartesian.GenericProduct.Element.is_lt_one"><code class="docutils literal notranslate"><span class="pre">is_lt_one()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="sage/rings/asymptotic/growth_group_cartesian.html#sage.rings.asymptotic.growth_group_cartesian.GenericProduct.Element.log"><code class="docutils literal notranslate"><span class="pre">log()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="sage/rings/asymptotic/growth_group_cartesian.html#sage.rings.asymptotic.growth_group_cartesian.GenericProduct.Element.log_factor"><code class="docutils literal notranslate"><span class="pre">log_factor()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="sage/rings/asymptotic/growth_group_cartesian.html#sage.rings.asymptotic.growth_group_cartesian.GenericProduct.Element.rpow"><code class="docutils literal notranslate"><span class="pre">rpow()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="sage/rings/asymptotic/growth_group_cartesian.html#sage.rings.asymptotic.growth_group_cartesian.GenericProduct.Element.variable_names"><code class="docutils literal notranslate"><span class="pre">variable_names()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group_cartesian.html#sage.rings.asymptotic.growth_group_cartesian.GenericProduct.cartesian_injection"><code class="docutils literal notranslate"><span class="pre">cartesian_injection()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group_cartesian.html#sage.rings.asymptotic.growth_group_cartesian.GenericProduct.gens_monomial"><code class="docutils literal notranslate"><span class="pre">gens_monomial()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group_cartesian.html#sage.rings.asymptotic.growth_group_cartesian.GenericProduct.some_elements"><code class="docutils literal notranslate"><span class="pre">some_elements()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group_cartesian.html#sage.rings.asymptotic.growth_group_cartesian.GenericProduct.variable_names"><code class="docutils literal notranslate"><span class="pre">variable_names()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group_cartesian.html#sage.rings.asymptotic.growth_group_cartesian.MultivariateProduct"><code class="docutils literal notranslate"><span class="pre">MultivariateProduct</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group_cartesian.html#sage.rings.asymptotic.growth_group_cartesian.MultivariateProduct.CartesianProduct"><code class="docutils literal notranslate"><span class="pre">CartesianProduct</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/growth_group_cartesian.html#sage.rings.asymptotic.growth_group_cartesian.UnivariateProduct"><code class="docutils literal notranslate"><span class="pre">UnivariateProduct</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/growth_group_cartesian.html#sage.rings.asymptotic.growth_group_cartesian.UnivariateProduct.CartesianProduct"><code class="docutils literal notranslate"><span class="pre">CartesianProduct</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html">(Asymptotic) Term Monoids</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#absorption-of-asymptotic-terms">Absorption of Asymptotic Terms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#comparison">Comparison</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#various">Various</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#classes-and-methods">Classes and Methods</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.BTerm"><code class="docutils literal notranslate"><span class="pre">BTerm</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.BTerm.can_absorb"><code class="docutils literal notranslate"><span class="pre">can_absorb()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.BTerm.construction"><code class="docutils literal notranslate"><span class="pre">construction()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.BTermMonoid"><code class="docutils literal notranslate"><span class="pre">BTermMonoid</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.BTermMonoid.Element"><code class="docutils literal notranslate"><span class="pre">Element</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.BTermMonoid.some_elements"><code class="docutils literal notranslate"><span class="pre">some_elements()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.DefaultTermMonoidFactory"><code class="docutils literal notranslate"><span class="pre">DefaultTermMonoidFactory</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.ExactTerm"><code class="docutils literal notranslate"><span class="pre">ExactTerm</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.ExactTerm.can_absorb"><code class="docutils literal notranslate"><span class="pre">can_absorb()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.ExactTerm.is_constant"><code class="docutils literal notranslate"><span class="pre">is_constant()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.ExactTerm.is_exact"><code class="docutils literal notranslate"><span class="pre">is_exact()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.ExactTerm.is_little_o_of_one"><code class="docutils literal notranslate"><span class="pre">is_little_o_of_one()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.ExactTerm.log_term"><code class="docutils literal notranslate"><span class="pre">log_term()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.ExactTerm.rpow"><code class="docutils literal notranslate"><span class="pre">rpow()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.ExactTermMonoid"><code class="docutils literal notranslate"><span class="pre">ExactTermMonoid</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.ExactTermMonoid.Element"><code class="docutils literal notranslate"><span class="pre">Element</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.GenericTerm"><code class="docutils literal notranslate"><span class="pre">GenericTerm</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.GenericTerm.absorb"><code class="docutils literal notranslate"><span class="pre">absorb()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.GenericTerm.can_absorb"><code class="docutils literal notranslate"><span class="pre">can_absorb()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.GenericTerm.construction"><code class="docutils literal notranslate"><span class="pre">construction()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.GenericTerm.is_constant"><code class="docutils literal notranslate"><span class="pre">is_constant()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.GenericTerm.is_exact"><code class="docutils literal notranslate"><span class="pre">is_exact()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.GenericTerm.is_little_o_of_one"><code class="docutils literal notranslate"><span class="pre">is_little_o_of_one()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.GenericTerm.log_term"><code class="docutils literal notranslate"><span class="pre">log_term()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.GenericTerm.rpow"><code class="docutils literal notranslate"><span class="pre">rpow()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.GenericTerm.variable_names"><code class="docutils literal notranslate"><span class="pre">variable_names()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.GenericTermMonoid"><code class="docutils literal notranslate"><span class="pre">GenericTermMonoid</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.GenericTermMonoid.Element"><code class="docutils literal notranslate"><span class="pre">Element</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.GenericTermMonoid.change_parameter"><code class="docutils literal notranslate"><span class="pre">change_parameter()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.GenericTermMonoid.coefficient_ring"><code class="docutils literal notranslate"><span class="pre">coefficient_ring</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.GenericTermMonoid.from_construction"><code class="docutils literal notranslate"><span class="pre">from_construction()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.GenericTermMonoid.growth_group"><code class="docutils literal notranslate"><span class="pre">growth_group</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.GenericTermMonoid.le"><code class="docutils literal notranslate"><span class="pre">le()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.GenericTermMonoid.some_elements"><code class="docutils literal notranslate"><span class="pre">some_elements()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.GenericTermMonoid.term_monoid"><code class="docutils literal notranslate"><span class="pre">term_monoid()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.GenericTermMonoid.term_monoid_factory"><code class="docutils literal notranslate"><span class="pre">term_monoid_factory</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.OTerm"><code class="docutils literal notranslate"><span class="pre">OTerm</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.OTerm.can_absorb"><code class="docutils literal notranslate"><span class="pre">can_absorb()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.OTerm.is_little_o_of_one"><code class="docutils literal notranslate"><span class="pre">is_little_o_of_one()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.OTerm.log_term"><code class="docutils literal notranslate"><span class="pre">log_term()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.OTerm.rpow"><code class="docutils literal notranslate"><span class="pre">rpow()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.OTermMonoid"><code class="docutils literal notranslate"><span class="pre">OTermMonoid</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.OTermMonoid.Element"><code class="docutils literal notranslate"><span class="pre">Element</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.TermMonoidFactory"><code class="docutils literal notranslate"><span class="pre">TermMonoidFactory</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.TermMonoidFactory.create_key_and_extra_args"><code class="docutils literal notranslate"><span class="pre">create_key_and_extra_args()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.TermMonoidFactory.create_object"><code class="docutils literal notranslate"><span class="pre">create_object()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.TermWithCoefficient"><code class="docutils literal notranslate"><span class="pre">TermWithCoefficient</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.TermWithCoefficient.construction"><code class="docutils literal notranslate"><span class="pre">construction()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.TermWithCoefficientMonoid"><code class="docutils literal notranslate"><span class="pre">TermWithCoefficientMonoid</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.TermWithCoefficientMonoid.Element"><code class="docutils literal notranslate"><span class="pre">Element</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.TermWithCoefficientMonoid.some_elements"><code class="docutils literal notranslate"><span class="pre">some_elements()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.ZeroCoefficientError"><code class="docutils literal notranslate"><span class="pre">ZeroCoefficientError</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.absorption"><code class="docutils literal notranslate"><span class="pre">absorption()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/term_monoid.html#sage.rings.asymptotic.term_monoid.can_absorb"><code class="docutils literal notranslate"><span class="pre">can_absorb()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="sage/rings/asymptotic/misc.html">Asymptotic Expansions — Miscellaneous</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/misc.html#functions-classes-and-methods">Functions, Classes and Methods</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/misc.html#sage.rings.asymptotic.misc.Locals"><code class="docutils literal notranslate"><span class="pre">Locals</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/misc.html#sage.rings.asymptotic.misc.Locals.default_locals"><code class="docutils literal notranslate"><span class="pre">default_locals()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/misc.html#sage.rings.asymptotic.misc.NotImplementedBZero"><code class="docutils literal notranslate"><span class="pre">NotImplementedBZero</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/misc.html#sage.rings.asymptotic.misc.NotImplementedOZero"><code class="docutils literal notranslate"><span class="pre">NotImplementedOZero</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/misc.html#sage.rings.asymptotic.misc.WithLocals"><code class="docutils literal notranslate"><span class="pre">WithLocals</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/misc.html#sage.rings.asymptotic.misc.WithLocals.locals"><code class="docutils literal notranslate"><span class="pre">locals()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/misc.html#sage.rings.asymptotic.misc.bidirectional_merge_overlapping"><code class="docutils literal notranslate"><span class="pre">bidirectional_merge_overlapping()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/misc.html#sage.rings.asymptotic.misc.bidirectional_merge_sorted"><code class="docutils literal notranslate"><span class="pre">bidirectional_merge_sorted()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/misc.html#sage.rings.asymptotic.misc.combine_exceptions"><code class="docutils literal notranslate"><span class="pre">combine_exceptions()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/misc.html#sage.rings.asymptotic.misc.log_string"><code class="docutils literal notranslate"><span class="pre">log_string()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/misc.html#sage.rings.asymptotic.misc.parent_to_repr_short"><code class="docutils literal notranslate"><span class="pre">parent_to_repr_short()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/misc.html#sage.rings.asymptotic.misc.repr_op"><code class="docutils literal notranslate"><span class="pre">repr_op()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/misc.html#sage.rings.asymptotic.misc.repr_short_to_parent"><code class="docutils literal notranslate"><span class="pre">repr_short_to_parent()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/misc.html#sage.rings.asymptotic.misc.split_str_by_op"><code class="docutils literal notranslate"><span class="pre">split_str_by_op()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/misc.html#sage.rings.asymptotic.misc.strip_symbolic"><code class="docutils literal notranslate"><span class="pre">strip_symbolic()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/misc.html#sage.rings.asymptotic.misc.substitute_raise_exception"><code class="docutils literal notranslate"><span class="pre">substitute_raise_exception()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/misc.html#sage.rings.asymptotic.misc.transform_category"><code class="docutils literal notranslate"><span class="pre">transform_category()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html">Asymptotics of Multivariate Generating Series</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#introductory-examples">Introductory Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#various">Various</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#classes-and-methods">Classes and Methods</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator"><code class="docutils literal notranslate"><span class="pre">FractionWithFactoredDenominator</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator.algebraic_dependence_certificate"><code class="docutils literal notranslate"><span class="pre">algebraic_dependence_certificate()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator.algebraic_dependence_decomposition"><code class="docutils literal notranslate"><span class="pre">algebraic_dependence_decomposition()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator.asymptotic_decomposition"><code class="docutils literal notranslate"><span class="pre">asymptotic_decomposition()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator.asymptotics"><code class="docutils literal notranslate"><span class="pre">asymptotics()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator.asymptotics_multiple"><code class="docutils literal notranslate"><span class="pre">asymptotics_multiple()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator.asymptotics_smooth"><code class="docutils literal notranslate"><span class="pre">asymptotics_smooth()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator.cohomology_decomposition"><code class="docutils literal notranslate"><span class="pre">cohomology_decomposition()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator.critical_cone"><code class="docutils literal notranslate"><span class="pre">critical_cone()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator.denominator"><code class="docutils literal notranslate"><span class="pre">denominator()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator.denominator_factored"><code class="docutils literal notranslate"><span class="pre">denominator_factored()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator.denominator_ring"><code class="docutils literal notranslate"><span class="pre">denominator_ring</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator.dimension"><code class="docutils literal notranslate"><span class="pre">dimension()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator.grads"><code class="docutils literal notranslate"><span class="pre">grads()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator.is_convenient_multiple_point"><code class="docutils literal notranslate"><span class="pre">is_convenient_multiple_point()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator.leinartas_decomposition"><code class="docutils literal notranslate"><span class="pre">leinartas_decomposition()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator.log_grads"><code class="docutils literal notranslate"><span class="pre">log_grads()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator.maclaurin_coefficients"><code class="docutils literal notranslate"><span class="pre">maclaurin_coefficients()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator.nullstellensatz_certificate"><code class="docutils literal notranslate"><span class="pre">nullstellensatz_certificate()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator.nullstellensatz_decomposition"><code class="docutils literal notranslate"><span class="pre">nullstellensatz_decomposition()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator.numerator"><code class="docutils literal notranslate"><span class="pre">numerator()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator.numerator_ring"><code class="docutils literal notranslate"><span class="pre">numerator_ring</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator.quotient"><code class="docutils literal notranslate"><span class="pre">quotient()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator.relative_error"><code class="docutils literal notranslate"><span class="pre">relative_error()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator.singular_ideal"><code class="docutils literal notranslate"><span class="pre">singular_ideal()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator.smooth_critical_ideal"><code class="docutils literal notranslate"><span class="pre">smooth_critical_ideal()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominator.univariate_decomposition"><code class="docutils literal notranslate"><span class="pre">univariate_decomposition()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominatorRing"><code class="docutils literal notranslate"><span class="pre">FractionWithFactoredDenominatorRing</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominatorRing.Element"><code class="docutils literal notranslate"><span class="pre">Element</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominatorRing.base_ring"><code class="docutils literal notranslate"><span class="pre">base_ring()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominatorSum"><code class="docutils literal notranslate"><span class="pre">FractionWithFactoredDenominatorSum</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominatorSum.denominator_ring"><code class="docutils literal notranslate"><span class="pre">denominator_ring</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominatorSum.sum"><code class="docutils literal notranslate"><span class="pre">sum()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.FractionWithFactoredDenominatorSum.whole_and_parts"><code class="docutils literal notranslate"><span class="pre">whole_and_parts()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.coerce_point"><code class="docutils literal notranslate"><span class="pre">coerce_point()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.diff_all"><code class="docutils literal notranslate"><span class="pre">diff_all()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.diff_op"><code class="docutils literal notranslate"><span class="pre">diff_op()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.diff_op_simple"><code class="docutils literal notranslate"><span class="pre">diff_op_simple()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.diff_prod"><code class="docutils literal notranslate"><span class="pre">diff_prod()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.diff_seq"><code class="docutils literal notranslate"><span class="pre">diff_seq()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.direction"><code class="docutils literal notranslate"><span class="pre">direction()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.permutation_sign"><code class="docutils literal notranslate"><span class="pre">permutation_sign()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage/rings/asymptotic/asymptotics_multivariate_generating_functions.html#sage.rings.asymptotic.asymptotics_multivariate_generating_functions.subs_all"><code class="docutils literal notranslate"><span class="pre">subs_all()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+</section>
+<section id="indices-and-tables">
+<h1>Indices and Tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p><a class="reference external" href="../genindex.html">Index</a></p></li>
+<li><p><a class="reference external" href="../py-modindex.html">Module Index</a></p></li>
+<li><p><a class="reference external" href="../search.html">Search Page</a></p></li>
+</ul>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+</div></div>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="sage/rings/asymptotic/asymptotic_ring.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Asymptotic Ring</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2005--2025, The Sage Development Team
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Asymptotic Expansions</a><ul>
+<li><a class="reference internal" href="#the-asymptotic-ring">The Asymptotic Ring</a></li>
+<li><a class="reference internal" href="#asymptotic-expansion-generators">Asymptotic Expansion Generators</a></li>
+<li><a class="reference internal" href="#supplements">Supplements</a><ul>
+<li><a class="reference internal" href="#growth-groups">Growth Groups</a></li>
+<li><a class="reference internal" href="#term-monoids">Term Monoids</a></li>
+<li><a class="reference internal" href="#miscellaneous">Miscellaneous</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#asymptotic-expansions-table-of-contents">Asymptotic Expansions — Table of Contents</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#indices-and-tables">Indices and Tables</a></li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=e9bf40f3"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=5fa4622c"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=8e571dd6"></script>
+    <script src="../_static/tabs.js?v=3ee01567"></script>
+    <script src="../_static/thebelab-helper.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@^1.0.1/dist/embed-amd.js"></script>
+    <script>window.MathJax = {"tex": {"macros": {"ZZ": "\\Bold{Z}", "NN": "\\Bold{N}", "RR": "\\Bold{R}", "CC": "\\Bold{C}", "QQ": "\\Bold{Q}", "QQbar": "\\overline{\\QQ}", "GF": ["\\Bold{F}_{#1}", 1], "Zp": ["\\Bold{Z}_{#1}", 1], "Qp": ["\\Bold{Q}_{#1}", 1], "Zmod": ["\\ZZ/#1\\ZZ", 1], "CDF": "\\Bold{C}", "CIF": "\\Bold{C}", "CLF": "\\Bold{C}", "RDF": "\\Bold{R}", "RIF": "\\Bold{I} \\Bold{R}", "RLF": "\\Bold{R}", "SL": "\\mathrm{SL}", "PSL": "\\mathrm{PSL}", "lcm": "\\mathop{\\operatorname{lcm}}", "dist": "\\mathrm{dist}", "Bold": ["\\mathbf{#1}", 1]}, "inlineMath": [["$", "$"], ["\\(", "\\)"]], "maxBuffer": 51200, "autoload": {"color": [], "colorv2": ["color"]}}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <script src="../_static/jupyter-sphinx-furo.js?v=24b7fe9d"></script>
+    </body>
+</html>

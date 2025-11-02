@@ -277,6 +277,33 @@ async def test_monitoring_resource_tracks_metrics(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_solve_equation(monkeypatch):
+    session = StubSession("['x == 1']")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.solve_equation.fn("x^2 - 1 = 0", ctx=ctx)
+    assert result == {"solutions": ["x == 1"]}
+
+
+@pytest.mark.asyncio
+async def test_differentiate_expression(monkeypatch):
+    session = StubSession("'2*x'")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.differentiate_expression.fn("x^2", ctx=ctx)
+    assert result == {"derivative": "2*x"}
+
+
+@pytest.mark.asyncio
+async def test_integrate_expression(monkeypatch):
+    session = StubSession("'x^3/3'")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.integrate_expression.fn("x^2", ctx=ctx)
+    assert result == {"integral": "x^3/3"}
+
+
+@pytest.mark.asyncio
 async def test_llm_stateful_average_workflow(monkeypatch):
     from sagemath_mcp.config import SageSettings
 

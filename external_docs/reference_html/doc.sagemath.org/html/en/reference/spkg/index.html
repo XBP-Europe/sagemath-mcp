@@ -1,0 +1,1384 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="./">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Testing for features of the environment at runtime" href="sage/features.html" />
+
+    <!-- Generated with Sphinx 8.1.3 and Furo 2024.07.18 -->
+        <title>Packages and Features</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a078f75a" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=613ab9ff" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/tabs.css?v=4c969af8" />
+    <link rel="stylesheet" type="text/css" href="../_static/plot_directive.css?v=7f9a90b1" />
+    <link rel="stylesheet" type="text/css" href="../_static/jupyter-sphinx.css?v=572af1d6" />
+    <link rel="stylesheet" type="text/css" href="../_static/thebelab.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=302659d7" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom-furo.css?v=d2ecc25a" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom-jupyter-sphinx.css?v=75860c6b" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom-codemirror-monokai.css?v=b5588f12" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom-tabs.css?v=8a724d73" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #eeffcc;
+  --color-code-foreground: black;
+  --color-brand-primary: #0f0fff;
+  --color-brand-content: #0f0fff;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #272822;
+  --color-code-foreground: #f8f8f2;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #272822;
+  --color-code-foreground: #f8f8f2;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="#"><div class="brand">Packages and Features</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><div class="sidebar-scroll"><a class="sidebar-brand" href="../index.html">
+  
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo only-light" src="../_static/logo_sagemath_black.svg" alt="Light Logo"/>
+    <img class="sidebar-logo only-dark" src="../_static/logo_sagemath_white.svg" alt="Dark Logo"/>
+  </div>
+  
+      <span class="sidebar-brand-text">Version 10.6 Reference Manual</span>
+  
+</a><div class="select-wrapper">
+  <select id="versions-menu" onchange="changeVersion()">
+    <option value="" selected>other version</option>
+    <option value="https://doc-develop--sagemath.netlify.app">develop</option>
+  </select>
+</div><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-home">
+  <div class="sidebar-tree">
+    <ul><li class="toctree-l1">
+      <a class="reference internal" href="#">Home - Packages and Features</a>
+    </li></ul>
+  </div>
+</div><div class="sidebar-tree">
+  <ul>
+<li class="toctree-l1"><a class="reference internal" href="sage/features.html">Testing for features of the environment at runtime</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/join_feature.html">Join features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/all.html">Enumeration of all defined features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/sagemath.html">Features for testing the presence of Python modules in the Sage library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/pkg_systems.html">Features for testing the presence of package systems <code class="docutils literal notranslate"><span class="pre">sage_spkg</span></code>, <code class="docutils literal notranslate"><span class="pre">conda</span></code>, <code class="docutils literal notranslate"><span class="pre">pip</span></code>, <code class="docutils literal notranslate"><span class="pre">debian</span></code>, <code class="docutils literal notranslate"><span class="pre">fedora</span></code> etc.</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/bliss.html">Features for testing the presence of <code class="docutils literal notranslate"><span class="pre">bliss</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/csdp.html">Feature for testing the presence of <code class="docutils literal notranslate"><span class="pre">csdp</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/databases.html">Features for testing the presence of various databases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/dvipng.html">Feature for testing the presence of <code class="docutils literal notranslate"><span class="pre">dvipng</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/ffmpeg.html">Feature for testing the presence of <code class="docutils literal notranslate"><span class="pre">ffmpeg</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/four_ti_2.html">Features for testing the presence of <code class="docutils literal notranslate"><span class="pre">4ti2</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/gap.html">Features for testing the presence of the SageMath interfaces to <code class="docutils literal notranslate"><span class="pre">gap</span></code> and of GAP packages</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/graph_generators.html">Features for testing the presence of graph generator programs <code class="docutils literal notranslate"><span class="pre">benzene</span></code>, <code class="docutils literal notranslate"><span class="pre">buckygen</span></code>, <code class="docutils literal notranslate"><span class="pre">plantri</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/graphviz.html">Features for testing the presence of <code class="docutils literal notranslate"><span class="pre">graphviz</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/imagemagick.html">Feature for testing the presence of <code class="docutils literal notranslate"><span class="pre">imagemagick</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/interfaces.html">Features for testing whether interpreter interfaces to <code class="docutils literal notranslate"><span class="pre">magma</span></code>, <code class="docutils literal notranslate"><span class="pre">maple</span></code>, <code class="docutils literal notranslate"><span class="pre">mathematica</span></code> etc. are functional</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/internet.html">Feature for testing if the Internet is available</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/kenzo.html">Feature for testing the presence of <code class="docutils literal notranslate"><span class="pre">kenzo</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/latex.html">Features for testing the presence of <code class="docutils literal notranslate"><span class="pre">latex</span></code> and equivalent programs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/latte.html">Features for testing the presence of <code class="docutils literal notranslate"><span class="pre">latte_int</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/lrs.html">Feature for testing the presence of <code class="docutils literal notranslate"><span class="pre">lrslib</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/mcqd.html">Features for testing the presence of <code class="docutils literal notranslate"><span class="pre">mcqd</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/meataxe.html">Feature for testing the presence of <code class="docutils literal notranslate"><span class="pre">meataxe</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/mip_backends.html">Features for testing the presence of <code class="xref py py-class docutils literal notranslate"><span class="pre">MixedIntegerLinearProgram</span></code> backends</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/normaliz.html">Feature for testing the presence of <code class="docutils literal notranslate"><span class="pre">pynormaliz</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/pandoc.html">Feature for testing the presence of <code class="docutils literal notranslate"><span class="pre">pandoc</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/pdf2svg.html">Feature for testing the presence of <code class="docutils literal notranslate"><span class="pre">pdf2svg</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/polymake.html">Feature for testing the presence of <code class="docutils literal notranslate"><span class="pre">jupymake</span></code>, the Python interface to polymake</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/rubiks.html">Features for testing the presence of <code class="docutils literal notranslate"><span class="pre">rubiks</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/tdlib.html">Features for testing the presence of <code class="docutils literal notranslate"><span class="pre">tdlib</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/topcom.html">Features for testing the presence of topcom executables</a></li>
+</ul>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="index_alph.html">Details of external packages</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle navigation of Details of external packages</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="4ti2.html">4ti2: Algebraic, geometric and combinatorial problems on linear spaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_bootstrap.html">_bootstrap: Represents system packages required for running the top-level bootstrap script</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_develop.html">_develop: Represents system packages recommended for development</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_prereq.html">_prereq: Represents system packages required for installing SageMath from source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_recommended.html">_recommended: Represents system packages recommended for additional functionality</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_sagemath.html">_sagemath: Downstream package of Sage in distributions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="admcycles.html">admcycles: Computation in the tautological ring of the moduli space of curves</a></li>
+<li class="toctree-l2"><a class="reference internal" href="alabaster.html">alabaster: Default theme for the Sphinx documentation system</a></li>
+<li class="toctree-l2"><a class="reference internal" href="anyio.html">anyio: High level compatibility layer for multiple asynchronous event loop implementations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="appdirs.html">appdirs: Small Python module for determining appropriate platform-specific dirs, e.g. a “user data dir”</a></li>
+<li class="toctree-l2"><a class="reference internal" href="appnope.html">appnope: Disable App Nap on macOS &gt;= 10.9</a></li>
+<li class="toctree-l2"><a class="reference internal" href="argon2_cffi.html">argon2_cffi: The secure Argon2 password hashing algorithm</a></li>
+<li class="toctree-l2"><a class="reference internal" href="argon2_cffi_bindings.html">argon2_cffi_bindings: Low-level CFFI bindings for Argon2</a></li>
+<li class="toctree-l2"><a class="reference internal" href="arrow.html">arrow: Better dates &amp; times for Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="asttokens.html">asttokens: Annotate AST trees with source code positions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="async_lru.html">async_lru: Simple LRU cache for asyncio</a></li>
+<li class="toctree-l2"><a class="reference internal" href="attrs.html">attrs: Decorator for Python classes with attributes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="auditwheel_or_delocate.html">auditwheel_or_delocate: Repair wheels on Linux or macOS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="awali.html">awali: Computation of/with finite state machines</a></li>
+<li class="toctree-l2"><a class="reference internal" href="babel.html">babel: Internationalization utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="barvinok.html">barvinok: Projections of integer point sets of parametric polytopes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="beautifulsoup4.html">beautifulsoup4: Screen-scraping library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="beniget.html">beniget: Extract semantic information about static Python code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="benzene.html">benzene: Generate fusenes and benzenoids with a given number of faces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="biopython.html">biopython: Tools for computational molecular biology</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bleach.html">bleach: An HTML-sanitizing tool</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bliss.html">bliss: Computing automorphism groups and canonical forms of graphs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="boost_cropped.html">boost_cropped: Portable C++ libraries (subset needed for Sage)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brial.html">brial: Boolean Ring Algebra implementation using binary decision diagrams</a></li>
+<li class="toctree-l2"><a class="reference internal" href="buckygen.html">buckygen: Efficient generation of nonisomorphic fullerenes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bzip2.html">bzip2: High-quality data compressor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cachetools.html">cachetools: Extensible memoizing collections and decorators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="calver.html">calver: Setuptools extension for CalVer package versions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cbc.html">cbc: COIN-OR branch and cut solver for mixed-integer programs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ccache.html">ccache: A compiler cache</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cddlib.html">cddlib: Double description method for polyhedral representation conversion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="certifi.html">certifi: Python package for providing Mozilla’s CA Bundle</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cffi.html">cffi: Foreign Function Interface for Python calling C code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="chardet.html">chardet: Universal encoding detector for Python 3</a></li>
+<li class="toctree-l2"><a class="reference internal" href="charset_normalizer.html">charset_normalizer: The Real First Universal Charset Detector. Open, modern and actively maintained alternative to Chardet.</a></li>
+<li class="toctree-l2"><a class="reference internal" href="clarabel.html">clarabel: Clarabel Conic Interior Point Solver for Rust / Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cliquer.html">cliquer: Routines for clique searching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cmake.html">cmake: A cross-platform build system generator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cocoalib.html">cocoalib: Computations in commutative algebra</a></li>
+<li class="toctree-l2"><a class="reference internal" href="colorama.html">colorama: Cross-platform colored terminal text</a></li>
+<li class="toctree-l2"><a class="reference internal" href="comm.html">comm: Jupyter Python Comm implementation, for usage in ipykernel, xeus-python etc.</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configure.html">configure: Files of the Sage distribution that are autogenerated in the bootstrapping phase</a></li>
+<li class="toctree-l2"><a class="reference internal" href="contourpy.html">contourpy: Python library for calculating contours of 2D quadrilateral grids</a></li>
+<li class="toctree-l2"><a class="reference internal" href="conway_polynomials.html">conway_polynomials: Python interface to Frank Lübeck’s Conway polynomial database</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coxeter3.html">coxeter3: Library for Coxeter groups, Bruhat ordering, Kazhdan-Lusztig polynomials</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cppy.html">cppy: C++ headers for C extension development</a></li>
+<li class="toctree-l2"><a class="reference internal" href="csdp.html">csdp: Solver for semidefinite programs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cunningham_tables.html">cunningham_tables: List of the prime numbers occuring in the Cunningham table</a></li>
+<li class="toctree-l2"><a class="reference internal" href="curl.html">curl: Multiprotocol data transfer library and utility</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cvxopt.html">cvxopt: Python software for convex optimization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cvxpy.html">cvxpy: Domain-specific language for modeling convex optimization problems in Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cycler.html">cycler: Composable cycles</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cylp.html">cylp: Python interface for CLP, CBC, and CGL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cypari.html">cypari2: Python interface to the number theory library libpari</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cysignals.html">cysignals: Interrupt and signal handling for Cython</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cython.html">cython: C-Extensions for Python, an optimizing static compiler</a></li>
+<li class="toctree-l2"><a class="reference internal" href="d3js.html">d3js: JavaScript library for manipulating documents based on data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="database_cremona_ellcurve.html">database_cremona_ellcurve: Database of elliptic curves</a></li>
+<li class="toctree-l2"><a class="reference internal" href="database_cubic_hecke.html">database_cubic_hecke: Ivan Marin’s representations of the cubic Hecke algebra</a></li>
+<li class="toctree-l2"><a class="reference internal" href="database_jones_numfield.html">database_jones_numfield: Table of number fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="database_knotinfo.html">database_knotinfo: Content of the KnotInfo and LinkInfo databases as lists of dictionaries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="database_kohel.html">database_kohel: Database of modular and Hilbert polynomials</a></li>
+<li class="toctree-l2"><a class="reference internal" href="database_mutation_class.html">database_mutation_class: Database of exceptional mutation classes of quivers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="database_odlyzko_zeta.html">database_odlyzko_zeta: Table of zeros of the Riemann zeta function</a></li>
+<li class="toctree-l2"><a class="reference internal" href="database_stein_watkins.html">database_stein_watkins: Database of elliptic curves (full version)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="database_stein_watkins_mini.html">database_stein_watkins_mini: Database of elliptic curves (small version)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="database_symbolic_data.html">database_symbolic_data: Database from the SymbolicData project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dateutil.html">dateutil: Extensions to the standard Python module datetime</a></li>
+<li class="toctree-l2"><a class="reference internal" href="debugpy.html">debugpy: Implementation of the Debug Adapter Protocol for Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="decorator.html">decorator: Python library providing decorators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="deformation.html">deformation: Count points on hypersurfaces using the deformation method</a></li>
+<li class="toctree-l2"><a class="reference internal" href="defusedxml.html">defusedxml: Addresses vulnerabilities of XML parsers and XML libraries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="distlib.html">distlib: Distribution utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="docutils.html">docutils: Processing plaintext documentation into useful formats, such as HTML or LaTeX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dot2tex.html">dot2tex: Create PGF/TikZ commands from Graphviz output</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dsdp.html">dsdp: Semidefinite programming solver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="e_antic.html">e_antic: Real embedded number fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ecl.html">ecl: An implementation of the Common Lisp language</a></li>
+<li class="toctree-l2"><a class="reference internal" href="eclib.html">eclib: Enumerating and computing with elliptic curves defined over the rational numbers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ecm.html">ecm: Elliptic curve method for integer factorization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ecos_python.html">ecos_python: Embedded Cone Solver (Python wrapper)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="editables.html">editables: Editable installations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="elliptic_curves.html">elliptic_curves: Databases of elliptic curves</a></li>
+<li class="toctree-l2"><a class="reference internal" href="entrypoints.html">entrypoints: Discover and load entry points from installed Python packages</a></li>
+<li class="toctree-l2"><a class="reference internal" href="exceptiongroup.html">exceptiongroup: Backport of PEP 654 (exception groups)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="execnet.html">execnet: Rapid multi-Python deployment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="executing.html">executing: Get the currently executing AST node of a frame, and other information</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fastjsonschema.html">fastjsonschema: Fastest Python implementation of JSON schema</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fflas_ffpack.html">fflas_ffpack: Dense linear algebra over word-size finite fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ffmpeg.html">ffmpeg: ffmpeg video converter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="filelock.html">filelock: Platform independent file lock</a></li>
+<li class="toctree-l2"><a class="reference internal" href="flint.html">flint: Fast Library for Number Theory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="flit_core.html">flit_core: Distribution-building parts of Flit. See flit package for more information</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fonttools.html">fonttools: Tools to manipulate font files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fplll.html">fplll: Lattice algorithms, including LLL with floating-point orthogonalization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fpylll.html">fpylll: Python interface for FPLLL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fqdn.html">fqdn: Validates fully-qualified domain names against RFC 1123, so that they are acceptable to modern bowsers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="free_fonts.html">free_fonts: a free family of scalable outline fonts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="freetype.html">freetype: A free, high-quality, and portable font engine</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fricas.html">fricas: A general purpose computer algebra system</a></li>
+<li class="toctree-l2"><a class="reference internal" href="frobby.html">frobby: Computations on monomial ideals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="furo.html">furo: A clean customizable Sphinx documentation theme</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gap.html">gap: Groups, Algorithms, Programming - a system for computational discrete algebra</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gap3.html">gap3: A minimal distribution of GAP 3 containing packages that have no equivalent in GAP 4</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gap_jupyter.html">gap_jupyter: Jupyter kernel for GAP</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gap_packages.html">gap_packages: A collection of GAP packages</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gast.html">gast: Python AST that abstracts the underlying Python version</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gc.html">gc: The Boehm-Demers-Weiser conservative garbage collector</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gcc.html">gcc: The GNU Compiler Collection or other suitable C and C++ compilers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gdb.html">gdb: The GNU Project debugger</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gengetopt.html">gengetopt: getopt_long parser generator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gf2x.html">gf2x: Fast arithmetic in GF(2)[x] and searching for irreducible/primitive trinomials</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gfan.html">gfan: Groebner fans and tropical varieties</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gfortran.html">gfortran: Fortran compiler from the GNU Compiler Collection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="giac.html">giac: A general purpose computer algebra system</a></li>
+<li class="toctree-l2"><a class="reference internal" href="git.html">git: Version control system</a></li>
+<li class="toctree-l2"><a class="reference internal" href="github_cli.html">github_cli: Command-line interface for GitHub</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gitpython.html">gitpython: GitPython is a python library used to interact with Git repositories</a></li>
+<li class="toctree-l2"><a class="reference internal" href="givaro.html">givaro: C++ library for arithmetic and algebraic computations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="glpk.html">glpk: GNU Linear Programming Kit</a></li>
+<li class="toctree-l2"><a class="reference internal" href="glucose.html">glucose: A SAT solver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gmp.html">gmp: Library for arbitrary precision arithmetic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gmpy2.html">gmpy2: Python interface to GMP/MPIR, MPFR, and MPC</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gnulib.html">gnulib: Modules imported from Gnulib</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gnumake_tokenpool.html">gnumake_tokenpool: Jobclient and jobserver for the GNU make tokenpool protocol</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gp2c.html">gp2c: A compiler for translating GP routines to C</a></li>
+<li class="toctree-l2"><a class="reference internal" href="graphs.html">graphs: A database of combinatorial graphs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="graphviz.html">graphviz: Graph visualization software</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gsl.html">gsl: The GNU Scientific Library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="h11.html">h11: A pure-Python, bring-your-own-I/O implementation of HTTP/1.1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hatchling.html">hatchling: Modern, extensible Python build backend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="httpcore.html">httpcore: Minimal low-level HTTP client</a></li>
+<li class="toctree-l2"><a class="reference internal" href="httpx.html">httpx: The next generation HTTP client.</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hypothesis.html">hypothesis: A library for property-based testing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="iconv.html">iconv: Library for language/country-dependent character encodings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="idna.html">idna: Internationalized Domain Names in Applications (IDNA)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="igraph.html">igraph: A library for creating and manipulating graphs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="imagemagick.html">imagemagick: A collection of tools and libraries for many image file formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="imagesize.html">imagesize: Getting image size from png/jpeg/jpeg2000/gif file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="iml.html">iml: Integer Matrix Library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="importlib_metadata.html">importlib_metadata: Library to access the metadata for a Python package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="importlib_resources.html">importlib_resources: Read resources from Python packages</a></li>
+<li class="toctree-l2"><a class="reference internal" href="info.html">info: stand-alone Info documentation reader</a></li>
+<li class="toctree-l2"><a class="reference internal" href="iniconfig.html">iniconfig: Brain-dead simple config-ini parsing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ipykernel.html">ipykernel: IPython Kernel for Jupyter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ipympl.html">ipympl: Matplotlib Jupyter Extension</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ipython.html">ipython: Interactive computing environment with an enhanced interactive Python shell</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ipython_genutils.html">ipython_genutils: Vestigial utilities from IPython</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ipywidgets.html">ipywidgets: Interactive HTML widgets for Jupyter notebooks and the IPython kernel</a></li>
+<li class="toctree-l2"><a class="reference internal" href="isl.html">isl: Sets and relations of integer points bounded by affine constraints</a></li>
+<li class="toctree-l2"><a class="reference internal" href="isoduration.html">isoduration: Operations with ISO 8601 durations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="jedi.html">jedi: Static analysis tool providing IDE support for Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="jinja2.html">jinja2: General purpose template engine for Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="jmol.html">jmol: Java viewer for chemical structures in 3D</a></li>
+<li class="toctree-l2"><a class="reference internal" href="json5.html">json5: Python implementation of the JSON5 data format</a></li>
+<li class="toctree-l2"><a class="reference internal" href="jsonpointer.html">jsonpointer: Identify specific nodes in a JSON document (RFC 6901)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="jsonschema.html">jsonschema: Python implementation of JSON Schema</a></li>
+<li class="toctree-l2"><a class="reference internal" href="jsonschema_specifications.html">jsonschema_specifications: The JSON Schema meta-schemas and vocabularies, exposed as a Registry</a></li>
+<li class="toctree-l2"><a class="reference internal" href="jupymake.html">jupymake: A Python wrapper for the polymake shell</a></li>
+<li class="toctree-l2"><a class="reference internal" href="jupyter_client.html">jupyter_client: Jupyter protocol implementation and client libraries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="jupyter_core.html">jupyter_core: Jupyter core package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="jupyter_events.html">jupyter_events: Jupyter Event System library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="jupyter_jsmol.html">jupyter_jsmol: JSmol viewer widget for Jupyter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="jupyter_lsp.html">jupyter_lsp: Multi-Language Server WebSocket proxy for Jupyter Notebook/Lab server</a></li>
+<li class="toctree-l2"><a class="reference internal" href="jupyter_server.html">jupyter_server: The backend (core services, APIs, REST endpoints) to Jupyter web applications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="jupyter_server_terminals.html">jupyter_server_terminals: A Jupyter Server Extension Providing Terminals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="jupyter_sphinx.html">jupyter_sphinx: Jupyter Sphinx Extension</a></li>
+<li class="toctree-l2"><a class="reference internal" href="jupyterlab.html">jupyterlab: JupyterLab computational environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="jupyterlab_mathjax2.html">jupyterlab_mathjax2: A MathJax Typesetting provider for JupyterLab 4 and above</a></li>
+<li class="toctree-l2"><a class="reference internal" href="jupyterlab_pygments.html">jupyterlab_pygments: Pygments theme using JupyterLab CSS variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="jupyterlab_server.html">jupyterlab_server: Set of server components for JupyterLab and JupyterLab like applications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="jupyterlab_widgets.html">jupyterlab_widgets: Jupyter interactive widgets for JupyterLab</a></li>
+<li class="toctree-l2"><a class="reference internal" href="kenzo.html">kenzo: Construct topological spaces and compute homology groups</a></li>
+<li class="toctree-l2"><a class="reference internal" href="kissat.html">kissat: SAT solver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="kiwisolver.html">kiwisolver: Fast implementation of the Cassowary constraint solver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="latte_int.html">latte_int: Count lattice points, compute volumes, and integrate over convex polytopes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lcalc.html">lcalc: L-function calculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="libatomic_ops.html">libatomic_ops: Access hardware-provided atomic memory update operations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="libbraiding.html">libbraiding: Computing with braids</a></li>
+<li class="toctree-l2"><a class="reference internal" href="libffi.html">libffi: A portable foreign-function interface library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="libgd.html">libgd: Dynamic graphics generation tool</a></li>
+<li class="toctree-l2"><a class="reference internal" href="libgraphviz.html">libgraphviz: Graph visualization software (callable library)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="libhomfly.html">libhomfly: Compute the homfly polynomial of knots and links</a></li>
+<li class="toctree-l2"><a class="reference internal" href="libjpeg.html">libjpeg: JPEG image support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="liblzma.html">liblzma: General-purpose data compression software</a></li>
+<li class="toctree-l2"><a class="reference internal" href="libnauty.html">libnauty: Find automorphism groups of graphs, generate non-isomorphic graphs (callable library)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="libogg.html">libogg: Library for the Ogg multimedia container format</a></li>
+<li class="toctree-l2"><a class="reference internal" href="libpng.html">libpng: Bitmap image support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="libsemigroups.html">libsemigroups: Library for semigroups and monoids</a></li>
+<li class="toctree-l2"><a class="reference internal" href="libxml2.html">libxml2: XML parser and toolkit</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lidia.html">lidia: A library for computational number theory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lie.html">lie: Library for the representation theory of complex semisimple Lie groups and algebras</a></li>
+<li class="toctree-l2"><a class="reference internal" href="linbox.html">linbox: Linear algebra with dense, sparse, structured matrices over the integers and finite fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="llvm.html">llvm: The LLVM Compiler Infrastructure, including the Clang C/C++/Objective-C compiler</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lrcalc.html">lrcalc: Littlewood-Richardson calculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lrcalc_python.html">lrcalc_python: Littlewood-Richardson calculator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lrslib.html">lrslib: Reverse search algorithm for vertex enumeration and convex hull problems</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m4ri.html">m4ri: fast arithmetic with dense matrices over GF(2)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="m4rie.html">m4rie: Arithmetic with dense matrices over GF(2^e)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="markupsafe.html">markupsafe: Safely add untrusted strings to HTML/XML markup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mathics.html">mathics: General-purpose computer algebra system</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mathjax.html">mathjax: A JavaScript library for displaying mathematical formulas</a></li>
+<li class="toctree-l2"><a class="reference internal" href="matplotlib.html">matplotlib: Python 2D plotting library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="matplotlib_inline.html">matplotlib_inline: Inline Matplotlib backend for Jupyter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="matroid_database.html">matroid_database: Python interface to matroid database</a></li>
+<li class="toctree-l2"><a class="reference internal" href="maxima.html">maxima: System for manipulating symbolic and numerical expressions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mcqd.html">mcqd: An exact algorithm for finding a maximum clique in an undirected graph</a></li>
+<li class="toctree-l2"><a class="reference internal" href="meataxe.html">meataxe: Library for computing with modular representations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="memory_allocator.html">memory_allocator: An extension class to allocate memory easily with Cython</a></li>
+<li class="toctree-l2"><a class="reference internal" href="meson.html">meson: A high performance build system</a></li>
+<li class="toctree-l2"><a class="reference internal" href="meson_python.html">meson_python: Meson Python build backend (PEP 517)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mistune.html">mistune: Sane and fast Markdown parser with useful plugins and renderers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modular_resolution.html">modular_resolution: Modular cohomology rings of finite groups</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mpc.html">mpc: Arithmetic of complex numbers with arbitrarily high precision and correct rounding</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mpfi.html">mpfi: Multiple precision interval arithmetic library based on MPFR</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mpfr.html">mpfr: Multiple-precision floating-point computations with correct rounding</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mpfrcx.html">mpfrcx: Arithmetic of univariate polynomials over arbitrary precision real or complex numbers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mpmath.html">mpmath: Pure Python library for multiprecision floating-point arithmetic</a></li>
+<li class="toctree-l2"><a class="reference internal" href="msolve.html">msolve: Multivariate polynomial system solver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nauty.html">nauty: Find automorphism groups of graphs, generate non-isomorphic graphs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nbclient.html">nbclient: Client library for executing notebooks. Formerly nbconvert’s ExecutePreprocessor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nbconvert.html">nbconvert: Converting Jupyter Notebooks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nbformat.html">nbformat: The Jupyter Notebook format</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ncurses.html">ncurses: Classic terminal output library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nest_asyncio.html">nest_asyncio: Patch asyncio to allow nested event loops</a></li>
+<li class="toctree-l2"><a class="reference internal" href="networkx.html">networkx: Python package for complex networks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nibabel.html">nibabel: Access a multitude of neuroimaging data formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ninja_build.html">ninja_build: A build system with a focus on speed</a></li>
+<li class="toctree-l2"><a class="reference internal" href="normaliz.html">normaliz: Computations in affine monoids, vector configurations, lattice polytopes, and rational cones</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebook.html">notebook: Jupyter notebook, a web-based notebook environment for interactive computing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notebook_shim.html">notebook_shim: A shim layer for notebook traits and config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="notedown.html">notedown: Create IPython notebooks from markdown</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ntl.html">ntl: A library for doing number theory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="numpy.html">numpy: Package for scientific computing with Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="onetbb.html">onetbb: oneAPI Threading Building Blocks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="openblas.html">openblas: An optimized implementation of BLAS (Basic Linear Algebra Subprograms)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="openssl.html">openssl: Implementation of the SSL and TLS protocols</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ore_algebra.html">ore_algebra: Ore algebra</a></li>
+<li class="toctree-l2"><a class="reference internal" href="osqp_python.html">osqp_python: The Operator Splitting QP Solver (Python wrapper)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="overrides.html">overrides: Decorator to automatically detect mismatch when overriding a method</a></li>
+<li class="toctree-l2"><a class="reference internal" href="p_group_cohomology.html">p_group_cohomology: Modular cohomology rings of finite groups</a></li>
+<li class="toctree-l2"><a class="reference internal" href="packaging.html">packaging: Core utilities for Python packages</a></li>
+<li class="toctree-l2"><a class="reference internal" href="palp.html">palp: A package for Analyzing Lattice Polytopes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pandoc.html">pandoc: A document converter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pandoc_attributes.html">pandoc_attributes: A parser and generator for pandoc block attributes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pandocfilters.html">pandocfilters: A Python module for writing pandoc filters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="papilo.html">papilo: Parallel presolve for integer and linear optimization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pari.html">pari: Computer algebra system for fast computations in number theory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pari_elldata.html">pari_elldata: PARI data package for elliptic curves</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pari_galdata.html">pari_galdata: PARI data package needed to compute Galois groups in degrees 8 through 11</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pari_galpol.html">pari_galpol: PARI data package for polynomials defining Galois extensions of the rationals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pari_jupyter.html">pari_jupyter: Jupyter kernel for PARI/GP</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pari_nftables.html">pari_nftables: PARI data package for number fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pari_seadata.html">pari_seadata: PARI data package needed by ellap for large primes (full version)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pari_seadata_small.html">pari_seadata_small: PARI data package needed by ellap for large primes (small version)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parso.html">parso: Python Parser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="patch.html">patch: Applies diffs and patches to files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="patchelf.html">patchelf: A small utility to modify the dynamic linker and RPATH of ELF executables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pathspec.html">pathspec: Utility library for gitignore style pattern matching of file paths</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pdf2svg.html">pdf2svg: PDF to SVG convertor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="perl_cpan_polymake_prereq.html">perl_cpan_polymake_prereq: Represents all Perl packages that are prerequisites for polymake</a></li>
+<li class="toctree-l2"><a class="reference internal" href="perl_mongodb.html">perl_mongodb: A prerequisite for polymake’s PolyDB feature</a></li>
+<li class="toctree-l2"><a class="reference internal" href="perl_term_readline_gnu.html">perl_term_readline_gnu: Perl extension for the GNU Readline/History libraries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pexpect.html">pexpect: Python module for controlling and automating other programs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="phitigra.html">phitigra: Graph editor for SageMath/Jupyter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pickleshare.html">pickleshare: A ‘shelve’ like datastore with concurrency support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pillow.html">pillow: Python Imaging Library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pip.html">pip: Tool for installing and managing Python packages</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pkgconf.html">pkgconf: An implementation of the pkg-config spec</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pkgconfig.html">pkgconfig: Python interface to pkg-config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="planarity.html">planarity: Planarity-related graph algorithms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="plantri.html">plantri: Generate non-isomorphic sphere-embdedded graphs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="platformdirs.html">platformdirs: Small Python package for determining appropriate platform-specific dirs, e.g. a “user data dir”</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pluggy.html">pluggy: Plugin and hook calling mechanisms for python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ply.html">ply: Python Lex &amp; Yacc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="polylib.html">polylib: Operations on unions of polyhedra</a></li>
+<li class="toctree-l2"><a class="reference internal" href="polymake.html">polymake: Computations with polyhedra, fans, simplicial complexes, matroids, graphs, tropical hypersurfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="polytopes_db.html">polytopes_db: Databases of 2- and 3-dimensional reflexive polytopes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="polytopes_db_4d.html">polytopes_db_4d: Database of 4-dimensional reflexive polytopes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ppl.html">ppl: Parma Polyhedra Library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pplpy.html">pplpy: Python interface to the Parma Polyhedra Library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pplpy_doc.html">pplpy_doc: Python interface to the Parma Polyhedra Library (documentation)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="primecount.html">primecount: Algorithms for counting primes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="primecountpy.html">primecountpy: Cython interface for C++ primecount library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="primesieve.html">primesieve: CLI program and C/C++ library for generating primes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="prometheus_client.html">prometheus_client: Python client for the systems monitoring and alerting toolkit Prometheus</a></li>
+<li class="toctree-l2"><a class="reference internal" href="prompt_toolkit.html">prompt_toolkit: Interactive command lines for Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="psutil.html">psutil: Cross-platform lib for process and system monitoring in Python.</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ptyprocess.html">ptyprocess: Python interaction with subprocesses in a pseudoterminal</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pure_eval.html">pure_eval: Safely evaluate AST nodes without side effects</a></li>
+<li class="toctree-l2"><a class="reference internal" href="py.html">py: Library with cross-python path, ini-parsing, io, code, log facilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pybind11.html">pybind11: Create Python bindings to C++ code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pybtex.html">pybtex: A BibTeX-compatible bibliography processor in Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pycosat.html">pycosat: SAT solver picosat with Python bindings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pycparser.html">pycparser: Parser of the C language in Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pycryptosat.html">pycryptosat: Python module of cryptominisat</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pygments.html">pygments: Generic syntax highlighter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pygraphviz.html">pygraphviz: Python interface to Graphviz</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pynormaliz.html">pynormaliz: Python bindings for the normaliz library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pyparsing.html">pyparsing: A Python parsing module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pyppeteer.html">pyppeteer: Headless chrome/chromium automation library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pyproject_api.html">pyproject_api: API to interact with the python pyproject.toml based projects</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pyproject_hooks.html">pyproject_hooks: Wrappers to call pyproject.toml-based build backend hooks.</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pyproject_metadata.html">pyproject_metadata: PEP 621 metadata parsing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pyrsistent.html">pyrsistent: Persistent data structures in Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pyscipopt.html">pyscipopt: Python interface and modeling environment for SCIP</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pysingular.html">pysingular: A basic Python interface to Singular</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pytest.html">pytest: Simple powerful testing with Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pytest_mock.html">pytest_mock: Thin-wrapper around the mock package for easier use with pytest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pytest_xdist.html">pytest_xdist: Pytest xdist plugin for distributed testing, most importantly across multiple CPUs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="python3.html">python3: The Python programming language</a></li>
+<li class="toctree-l2"><a class="reference internal" href="python_build.html">python_build: A simple, correct PEP517 package builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="python_flint.html">python_flint: Bindings for FLINT and Arb</a></li>
+<li class="toctree-l2"><a class="reference internal" href="python_igraph.html">python_igraph: Python bindings for igraph</a></li>
+<li class="toctree-l2"><a class="reference internal" href="python_json_logger.html">python_json_logger: Python library adding a json log formatter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pythran.html">pythran: Ahead of Time compiler for numeric kernels</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pytz.html">pytz: Timezone definitions for Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pytz_deprecation_shim.html">pytz_deprecation_shim: Shims to make deprecation of pytz easier</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pyx.html">pyx: Generate PostScript, PDF, and SVG files in Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pyyaml.html">pyyaml: YAML parser and emitter for Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pyzmq.html">pyzmq: Python bindings for the zeromq networking library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="qdldl_python.html">qdldl_python: QDLDL, a free LDL factorization routine (Python wrapper)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="qepcad.html">qepcad: Quantifier elimination by partial cylindrical algebraic decomposition</a></li>
+<li class="toctree-l2"><a class="reference internal" href="qhull.html">qhull: Compute convex hulls, Delaunay triangulations, Voronoi diagrams</a></li>
+<li class="toctree-l2"><a class="reference internal" href="r.html">r: A free software environment for statistical computing and graphics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="r_jupyter.html">r_jupyter: Jupyter kernel for R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="readline.html">readline: Command line editing library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="referencing.html">referencing: JSON Referencing + Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="requests.html">requests: An HTTP library for Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rfc3339_validator.html">rfc3339_validator: A pure python RFC3339 validator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rfc3986_validator.html">rfc3986_validator: Pure python rfc3986 validator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rpy2.html">rpy2: Python interface to R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rst2ipynb.html">rst2ipynb: Convert reStructuredText files to Jupyter notebooks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rubiks.html">rubiks: Programs for Rubik’s cube</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rw.html">rw: Compute rank-width and rank-decompositions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="saclib.html">saclib: Computations with real algebraic numbers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage_conf.html">sage_conf: Configuration module for the SageMath library (distributable version)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage_docbuild.html">sage_docbuild: Build system of the Sage documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage_flatsurf.html">sage_flatsurf: Flat surfaces in SageMath</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage_numerical_backends_coin.html">sage_numerical_backends_coin: COIN-OR backend for Sage MixedIntegerLinearProgram</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage_numerical_backends_cplex.html">sage_numerical_backends_cplex: Cplex backend for Sage MixedIntegerLinearProgram</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage_numerical_backends_gurobi.html">sage_numerical_backends_gurobi: Gurobi backend for Sage MixedIntegerLinearProgram</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage_setup.html">sage-setup: Build system of the SageMath library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sage_sws2rst.html">sage_sws2rst: Translate legacy Sage worksheet files (.sws) to reStructuredText (.rst) files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sagemath_bliss.html">sagemath_bliss: Graph (iso/auto)morphisms with bliss</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sagemath_categories.html">sagemath_categories: Sage categories and basic rings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sagemath_coxeter3.html">sagemath_coxeter3: Coxeter groups, Bruhat ordering, Kazhdan-Lusztig polynomials with coxeter3</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sagemath_doc_html.html">sagemath_doc_html: SageMath documentation in HTML format</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sagemath_doc_pdf.html">sagemath_doc_pdf: SageMath documentation in PDF format</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sagemath_environment.html">sagemath_environment: System and software environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sagemath_giac.html">sagemath_giac: Giac integration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sagemath_mcqd.html">sagemath_mcqd: Finding maximum cliques with mcqd</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sagemath_meataxe.html">sagemath_meataxe: Matrices over small finite fields with meataxe</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sagemath_objects.html">sagemath_objects: Sage objects, elements, parents, categories, coercion, metaclasses</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sagemath_repl.html">sagemath_repl: IPython kernel, Sage preparser, doctester</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sagemath_sirocco.html">sagemath_sirocco: Certified root continuation with sirocco</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sagemath_tdlib.html">sagemath_tdlib: Tree decompositions with tdlib</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sagenb_export.html">sagenb_export: Convert legacy SageNB notebooks to Jupyter notebooks and other formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sagetex.html">sagetex: Embed code, results of computations, and plots from Sage into LaTeX documents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sbcl.html">sbcl: a lisp compiler and runtime system</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scip.html">scip: Mixed integer programming solver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scip_sdp.html">scip_sdp: Mixed integer semidefinite programming plugin for SCIP</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scipy.html">scipy: Scientific tools for Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scs.html">scs: Splitting conic solver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="send2trash.html">send2trash: Send file to trash natively under Mac OS X, Windows and Linux</a></li>
+<li class="toctree-l2"><a class="reference internal" href="setuptools.html">setuptools: Build system for Python packages</a></li>
+<li class="toctree-l2"><a class="reference internal" href="setuptools_scm.html">setuptools_scm: Python build system extension to obtain package version from version control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="singular.html">singular: Computer algebra system for polynomial computations, algebraic geometry, singularity theory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="singular_jupyter.html">singular_jupyter: Jupyter kernel for Singular</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sirocco.html">sirocco: Compute topologically certified root continuation of bivariate polynomials</a></li>
+<li class="toctree-l2"><a class="reference internal" href="six.html">six: Python 2 and 3 compatibility utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="slabbe.html">slabbe: Sébastien Labbé’s Research code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snappy.html">snappy: Topology and geometry of 3-manifolds, with a focus on hyperbolic structures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sniffio.html">sniffio: Sniff out which async library your code is running under</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snowballstemmer.html">snowballstemmer: Stemmer algorithms for natural language processing in Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="soplex.html">soplex: Linear optimization solver using the revised simplex method</a></li>
+<li class="toctree-l2"><a class="reference internal" href="soupsieve.html">soupsieve: Modern CSS selector implementation for Beautiful Soup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sphinx.html">sphinx: Python documentation generator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sphinx_basic_ng.html">sphinx_basic_ng: Modern skeleton for Sphinx themes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sphinx_copybutton.html">sphinx_copybutton: Add a copy button to each of your code cells</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sphinx_inline_tabs.html">sphinx_inline_tabs: Add inline tabbed content to your Sphinx documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sphinxcontrib_applehelp.html">sphinxcontrib_applehelp: Sphinx extension which outputs Apple help book</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sphinxcontrib_devhelp.html">sphinxcontrib_devhelp: Sphinx extension which outputs Devhelp documents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sphinxcontrib_htmlhelp.html">sphinxcontrib_htmlhelp: Sphinx extension which outputs HTML help book</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sphinxcontrib_jsmath.html">sphinxcontrib_jsmath: Sphinx extension which renders display math in HTML via JavaScript</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sphinxcontrib_qthelp.html">sphinxcontrib_qthelp: Sphinx extension which outputs QtHelp documents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sphinxcontrib_serializinghtml.html">sphinxcontrib_serializinghtml: Sphinx extension which outputs serialized HTML files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sphinxcontrib_websupport.html">sphinxcontrib_websupport: Sphinx API for Web apps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sqlalchemy.html">sqlalchemy: A database abstraction library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sqlite.html">sqlite: An SQL database engine</a></li>
+<li class="toctree-l2"><a class="reference internal" href="stack_data.html">stack_data: Extract data from python stack frames and tracebacks for informative displays</a></li>
+<li class="toctree-l2"><a class="reference internal" href="suitesparse.html">suitesparse: A suite of sparse matrix software</a></li>
+<li class="toctree-l2"><a class="reference internal" href="surf.html">surf: Visualization of algebraic curves, algebraic surfaces and hyperplane sections of surfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="surface_dynamics.html">surface_dynamics: dynamics on surfaces (measured foliations, interval exchange transformation, Teichmüller flow, etc)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="symengine.html">symengine: A C++ symbolic manipulation library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="symengine_py.html">symengine_py: Python wrappers for SymEngine</a></li>
+<li class="toctree-l2"><a class="reference internal" href="symmetrica.html">symmetrica: Library for representation theory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sympow.html">sympow: Computes special values of symmetric power elliptic curve L-functions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sympy.html">sympy: Python library for symbolic mathematics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tachyon.html">tachyon: A ray tracing system</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tdlib.html">tdlib: Algorithms for computing tree decompositions of graphs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="terminado.html">terminado: Tornado websocket backend for the term.js Javascript terminal emulator library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="texlive.html">texlive: A comprehensive TeX system</a></li>
+<li class="toctree-l2"><a class="reference internal" href="texlive_luatex.html">texlive_luatex: LuaTeX packages</a></li>
+<li class="toctree-l2"><a class="reference internal" href="texttable.html">texttable: Python module for creating simple ASCII tables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="threejs.html">threejs: JavaScript library to display 3D graphics in the browser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tides.html">tides: Integration of ODEs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tinycss2.html">tinycss2: A tiny CSS parser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tomli.html">tomli: A lil’ TOML parser</a></li>
+<li class="toctree-l2"><a class="reference internal" href="topcom.html">topcom: Compute triangulations of point configurations and oriented matroids</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tornado.html">tornado: Python web framework and asynchronous networking library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tox.html">tox: tox is a generic virtualenv management and test command line tool</a></li>
+<li class="toctree-l2"><a class="reference internal" href="traitlets.html">traitlets: Traitlets Python configuration system</a></li>
+<li class="toctree-l2"><a class="reference internal" href="trove_classifiers.html">trove_classifiers: Canonical source for classifiers on PyPI (pypi.org)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="types_python_dateutil.html">types_python_dateutil: Typing stubs for python-dateutil</a></li>
+<li class="toctree-l2"><a class="reference internal" href="typing_extensions.html">typing_extensions: Backported and Experimental Type Hints for Python 3.8+</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tzdata.html">tzdata: Provider of IANA time zone data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tzlocal.html">tzlocal: Python timezone information for the local timezone</a></li>
+<li class="toctree-l2"><a class="reference internal" href="uri_template.html">uri_template: RFC 6570 URI Template Processor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="urllib3.html">urllib3: HTTP library with thread-safe connection pooling, file post, and more</a></li>
+<li class="toctree-l2"><a class="reference internal" href="valgrind.html">valgrind: Memory error detector, call graph generator, runtime profiler</a></li>
+<li class="toctree-l2"><a class="reference internal" href="virtualenv.html">virtualenv: Virtual Python Environment builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="wcwidth.html">wcwidth: Measures the displayed width of unicode strings in a terminal</a></li>
+<li class="toctree-l2"><a class="reference internal" href="webcolors.html">webcolors: Library for working with the color formats defined by HTML and CSS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="webencodings.html">webencodings: Character encoding aliases for legacy web content</a></li>
+<li class="toctree-l2"><a class="reference internal" href="websocket_client.html">websocket_client: WebSocket client for Python with low level API options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="wheel.html">wheel: A built-package format for Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="widgetsnbextension.html">widgetsnbextension: Jupyter interactive widgets for Jupyter Notebook</a></li>
+<li class="toctree-l2"><a class="reference internal" href="xindy.html">xindy: a general-purpose index processor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="xz.html">xz: General-purpose data compression software</a></li>
+<li class="toctree-l2"><a class="reference internal" href="zeromq.html">zeromq: A modern networking library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="zipp.html">zipp: A pathlib-compatible zipfile object wrapper</a></li>
+<li class="toctree-l2"><a class="reference internal" href="zlib.html">zlib: Data compression library</a></li>
+</ul>
+</li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="https://github.com/sagemath/sage/blob/develop/src/doc/en/reference/spkg/index.rst" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div><div class="edit-this-page">
+  <a class="muted-link" href="https://github.com/sagemath/sage/edit/develop/src/doc/en/reference/spkg/index.rst" title="Edit this page">
+    <svg><use href="#svg-pencil"></use></svg>
+    <span class="visually-hidden">Edit this page</span>
+  </a>
+</div><div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="packages-and-features">
+<span id="spkg"></span><h1>Packages and Features<a class="headerlink" href="#packages-and-features" title="Link to this heading">¶</a></h1>
+<section id="standard-packages">
+<h2>Standard Packages<a class="headerlink" href="#standard-packages" title="Link to this heading">¶</a></h2>
+<p>The Sage distribution includes most programs and libraries on which
+Sage depends.  It installs them automatically if it does not find
+equivalent system packages.</p>
+<section id="mathematics">
+<h3>Mathematics<a class="headerlink" href="#mathematics" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><a class="reference internal" href="brial.html#spkg-brial"><span class="std std-ref">brial: Boolean Ring Algebra implementation using binary decision diagrams</span></a></p></li>
+<li><p><a class="reference internal" href="cddlib.html#spkg-cddlib"><span class="std std-ref">cddlib: Double description method for polyhedral representation conversion</span></a></p></li>
+<li><p><a class="reference internal" href="cliquer.html#spkg-cliquer"><span class="std std-ref">cliquer: Routines for clique searching</span></a></p></li>
+<li><p><a class="reference internal" href="conway_polynomials.html#spkg-conway-polynomials"><span class="std std-ref">conway_polynomials: Python interface to Frank Lübeck’s Conway polynomial database</span></a></p></li>
+<li><p><a class="reference internal" href="cvxopt.html#spkg-cvxopt"><span class="std std-ref">cvxopt: Python software for convex optimization</span></a></p></li>
+<li><p><a class="reference internal" href="cypari.html#spkg-cypari"><span class="std std-ref">cypari2: Python interface to the number theory library libpari</span></a></p></li>
+<li><p><a class="reference internal" href="eclib.html#spkg-eclib"><span class="std std-ref">eclib: Enumerating and computing with elliptic curves defined over the rational numbers</span></a></p></li>
+<li><p><a class="reference internal" href="ecm.html#spkg-ecm"><span class="std std-ref">ecm: Elliptic curve method for integer factorization</span></a></p></li>
+<li><p><a class="reference internal" href="elliptic_curves.html#spkg-elliptic-curves"><span class="std std-ref">elliptic_curves: Databases of elliptic curves</span></a></p></li>
+<li><p><a class="reference internal" href="fflas_ffpack.html#spkg-fflas-ffpack"><span class="std std-ref">fflas_ffpack: Dense linear algebra over word-size finite fields</span></a></p></li>
+<li><p><a class="reference internal" href="flint.html#spkg-flint"><span class="std std-ref">flint: Fast Library for Number Theory</span></a></p></li>
+<li><p><a class="reference internal" href="fplll.html#spkg-fplll"><span class="std std-ref">fplll: Lattice algorithms, including LLL with floating-point orthogonalization</span></a></p></li>
+<li><p><a class="reference internal" href="fpylll.html#spkg-fpylll"><span class="std std-ref">fpylll: Python interface for FPLLL</span></a></p></li>
+<li><p><a class="reference internal" href="gap.html#spkg-gap"><span class="std std-ref">gap: Groups, Algorithms, Programming - a system for computational discrete algebra</span></a></p></li>
+<li><p><a class="reference internal" href="gf2x.html#spkg-gf2x"><span class="std std-ref">gf2x: Fast arithmetic in GF(2)[x] and searching for irreducible/primitive trinomials</span></a></p></li>
+<li><p><a class="reference internal" href="gfan.html#spkg-gfan"><span class="std std-ref">gfan: Groebner fans and tropical varieties</span></a></p></li>
+<li><p><a class="reference internal" href="givaro.html#spkg-givaro"><span class="std std-ref">givaro: C++ library for arithmetic and algebraic computations</span></a></p></li>
+<li><p><a class="reference internal" href="glpk.html#spkg-glpk"><span class="std std-ref">glpk: GNU Linear Programming Kit</span></a></p></li>
+<li><p><a class="reference internal" href="gmp.html#spkg-gmp"><span class="std std-ref">gmp: Library for arbitrary precision arithmetic</span></a></p></li>
+<li><p><a class="reference internal" href="gmpy2.html#spkg-gmpy2"><span class="std std-ref">gmpy2: Python interface to GMP/MPIR, MPFR, and MPC</span></a></p></li>
+<li><p><a class="reference internal" href="graphs.html#spkg-graphs"><span class="std std-ref">graphs: A database of combinatorial graphs</span></a></p></li>
+<li><p><a class="reference internal" href="gsl.html#spkg-gsl"><span class="std std-ref">gsl: The GNU Scientific Library</span></a></p></li>
+<li><p><a class="reference internal" href="iml.html#spkg-iml"><span class="std std-ref">iml: Integer Matrix Library</span></a></p></li>
+<li><p><a class="reference internal" href="lcalc.html#spkg-lcalc"><span class="std std-ref">lcalc: L-function calculator</span></a></p></li>
+<li><p><a class="reference internal" href="libbraiding.html#spkg-libbraiding"><span class="std std-ref">libbraiding: Computing with braids</span></a></p></li>
+<li><p><a class="reference internal" href="libhomfly.html#spkg-libhomfly"><span class="std std-ref">libhomfly: Compute the homfly polynomial of knots and links</span></a></p></li>
+<li><p><a class="reference internal" href="linbox.html#spkg-linbox"><span class="std std-ref">linbox: Linear algebra with dense, sparse, structured matrices over the integers and finite fields</span></a></p></li>
+<li><p><a class="reference internal" href="lrcalc.html#spkg-lrcalc"><span class="std std-ref">lrcalc: Littlewood-Richardson calculator</span></a></p></li>
+<li><p><a class="reference internal" href="lrcalc_python.html#spkg-lrcalc-python"><span class="std std-ref">lrcalc_python: Littlewood-Richardson calculator</span></a></p></li>
+<li><p><a class="reference internal" href="m4ri.html#spkg-m4ri"><span class="std std-ref">m4ri: fast arithmetic with dense matrices over GF(2)</span></a></p></li>
+<li><p><a class="reference internal" href="m4rie.html#spkg-m4rie"><span class="std std-ref">m4rie: Arithmetic with dense matrices over GF(2^e)</span></a></p></li>
+<li><p><a class="reference internal" href="maxima.html#spkg-maxima"><span class="std std-ref">maxima: System for manipulating symbolic and numerical expressions</span></a></p></li>
+<li><p><a class="reference internal" href="mpc.html#spkg-mpc"><span class="std std-ref">mpc: Arithmetic of complex numbers with arbitrarily high precision and correct rounding</span></a></p></li>
+<li><p><a class="reference internal" href="mpfi.html#spkg-mpfi"><span class="std std-ref">mpfi: Multiple precision interval arithmetic library based on MPFR</span></a></p></li>
+<li><p><a class="reference internal" href="mpfr.html#spkg-mpfr"><span class="std std-ref">mpfr: Multiple-precision floating-point computations with correct rounding</span></a></p></li>
+<li><p><a class="reference internal" href="mpmath.html#spkg-mpmath"><span class="std std-ref">mpmath: Pure Python library for multiprecision floating-point arithmetic</span></a></p></li>
+<li><p><a class="reference internal" href="nauty.html#spkg-nauty"><span class="std std-ref">nauty: Find automorphism groups of graphs, generate non-isomorphic graphs</span></a></p></li>
+<li><p><a class="reference internal" href="networkx.html#spkg-networkx"><span class="std std-ref">networkx: Python package for complex networks</span></a></p></li>
+<li><p><a class="reference internal" href="ntl.html#spkg-ntl"><span class="std std-ref">ntl: A library for doing number theory</span></a></p></li>
+<li><p><a class="reference internal" href="numpy.html#spkg-numpy"><span class="std std-ref">numpy: Package for scientific computing with Python</span></a></p></li>
+<li><p><a class="reference internal" href="openblas.html#spkg-openblas"><span class="std std-ref">openblas: An optimized implementation of BLAS (Basic Linear Algebra Subprograms)</span></a></p></li>
+<li><p><a class="reference internal" href="palp.html#spkg-palp"><span class="std std-ref">palp: A package for Analyzing Lattice Polytopes</span></a></p></li>
+<li><p><a class="reference internal" href="pari.html#spkg-pari"><span class="std std-ref">pari: Computer algebra system for fast computations in number theory</span></a></p></li>
+<li><p><a class="reference internal" href="pari_galdata.html#spkg-pari-galdata"><span class="std std-ref">pari_galdata: PARI data package needed to compute Galois groups in degrees 8 through 11</span></a></p></li>
+<li><p><a class="reference internal" href="pari_seadata_small.html#spkg-pari-seadata-small"><span class="std std-ref">pari_seadata_small: PARI data package needed by ellap for large primes (small version)</span></a></p></li>
+<li><p><a class="reference internal" href="planarity.html#spkg-planarity"><span class="std std-ref">planarity: Planarity-related graph algorithms</span></a></p></li>
+<li><p><a class="reference internal" href="polytopes_db.html#spkg-polytopes-db"><span class="std std-ref">polytopes_db: Databases of 2- and 3-dimensional reflexive polytopes</span></a></p></li>
+<li><p><a class="reference internal" href="ppl.html#spkg-ppl"><span class="std std-ref">ppl: Parma Polyhedra Library</span></a></p></li>
+<li><p><a class="reference internal" href="pplpy.html#spkg-pplpy"><span class="std std-ref">pplpy: Python interface to the Parma Polyhedra Library</span></a></p></li>
+<li><p><a class="reference internal" href="primecount.html#spkg-primecount"><span class="std std-ref">primecount: Algorithms for counting primes</span></a></p></li>
+<li><p><a class="reference internal" href="primecountpy.html#spkg-primecountpy"><span class="std std-ref">primecountpy: Cython interface for C++ primecount library</span></a></p></li>
+<li><p><a class="reference internal" href="primesieve.html#spkg-primesieve"><span class="std std-ref">primesieve: CLI program and C/C++ library for generating primes</span></a></p></li>
+<li><p><a class="reference internal" href="qhull.html#spkg-qhull"><span class="std std-ref">qhull: Compute convex hulls, Delaunay triangulations, Voronoi diagrams</span></a></p></li>
+<li><p><a class="reference internal" href="rpy2.html#spkg-rpy2"><span class="std std-ref">rpy2: Python interface to R</span></a></p></li>
+<li><p><a class="reference internal" href="rw.html#spkg-rw"><span class="std std-ref">rw: Compute rank-width and rank-decompositions</span></a></p></li>
+<li><p><a class="reference internal" href="scipy.html#spkg-scipy"><span class="std std-ref">scipy: Scientific tools for Python</span></a></p></li>
+<li><p><a class="reference internal" href="singular.html#spkg-singular"><span class="std std-ref">singular: Computer algebra system for polynomial computations, algebraic geometry, singularity theory</span></a></p></li>
+<li><p><a class="reference internal" href="suitesparse.html#spkg-suitesparse"><span class="std std-ref">suitesparse: A suite of sparse matrix software</span></a></p></li>
+<li><p><a class="reference internal" href="symmetrica.html#spkg-symmetrica"><span class="std std-ref">symmetrica: Library for representation theory</span></a></p></li>
+<li><p><a class="reference internal" href="sympow.html#spkg-sympow"><span class="std std-ref">sympow: Computes special values of symmetric power elliptic curve L-functions</span></a></p></li>
+<li><p><a class="reference internal" href="sympy.html#spkg-sympy"><span class="std std-ref">sympy: Python library for symbolic mathematics</span></a></p></li>
+</ul>
+</section>
+<section id="front-end-graphics-document-preparation">
+<h3>Front-end, graphics, document preparation<a class="headerlink" href="#front-end-graphics-document-preparation" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><a class="reference internal" href="ipympl.html#spkg-ipympl"><span class="std std-ref">ipympl: Matplotlib Jupyter Extension</span></a></p></li>
+<li><p><a class="reference internal" href="ipython.html#spkg-ipython"><span class="std std-ref">ipython: Interactive computing environment with an enhanced interactive Python shell</span></a></p></li>
+<li><p><a class="reference internal" href="ipywidgets.html#spkg-ipywidgets"><span class="std std-ref">ipywidgets: Interactive HTML widgets for Jupyter notebooks and the IPython kernel</span></a></p></li>
+<li><p><a class="reference internal" href="jupyterlab.html#spkg-jupyterlab"><span class="std std-ref">jupyterlab: JupyterLab computational environment</span></a></p></li>
+<li><p><a class="reference internal" href="jupyterlab_widgets.html#spkg-jupyterlab-widgets"><span class="std std-ref">jupyterlab_widgets: Jupyter interactive widgets for JupyterLab</span></a></p></li>
+<li><p><a class="reference internal" href="matplotlib.html#spkg-matplotlib"><span class="std std-ref">matplotlib: Python 2D plotting library</span></a></p></li>
+<li><p><a class="reference internal" href="matplotlib_inline.html#spkg-matplotlib-inline"><span class="std std-ref">matplotlib_inline: Inline Matplotlib backend for Jupyter</span></a></p></li>
+<li><p><a class="reference internal" href="nbconvert.html#spkg-nbconvert"><span class="std std-ref">nbconvert: Converting Jupyter Notebooks</span></a></p></li>
+<li><p><a class="reference internal" href="notebook.html#spkg-notebook"><span class="std std-ref">notebook: Jupyter notebook, a web-based notebook environment for interactive computing</span></a></p></li>
+<li><p><a class="reference internal" href="sagenb_export.html#spkg-sagenb-export"><span class="std std-ref">sagenb_export: Convert legacy SageNB notebooks to Jupyter notebooks and other formats</span></a></p></li>
+<li><p><a class="reference internal" href="sagetex.html#spkg-sagetex"><span class="std std-ref">sagetex: Embed code, results of computations, and plots from Sage into LaTeX documents</span></a></p></li>
+<li><p><a class="reference internal" href="tachyon.html#spkg-tachyon"><span class="std std-ref">tachyon: A ray tracing system</span></a></p></li>
+<li><p><a class="reference internal" href="threejs.html#spkg-threejs"><span class="std std-ref">threejs: JavaScript library to display 3D graphics in the browser</span></a></p></li>
+</ul>
+</section>
+<section id="other-dependencies">
+<h3>Other dependencies<a class="headerlink" href="#other-dependencies" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><a class="reference internal" href="_prereq.html#spkg-prereq"><span class="std std-ref">_prereq: Represents system packages required for installing SageMath from source</span></a></p></li>
+<li><p><a class="reference internal" href="alabaster.html#spkg-alabaster"><span class="std std-ref">alabaster: Default theme for the Sphinx documentation system</span></a></p></li>
+<li><p><a class="reference internal" href="anyio.html#spkg-anyio"><span class="std std-ref">anyio: High level compatibility layer for multiple asynchronous event loop implementations</span></a></p></li>
+<li><p><a class="reference internal" href="appdirs.html#spkg-appdirs"><span class="std std-ref">appdirs: Small Python module for determining appropriate platform-specific dirs, e.g. a “user data dir”</span></a></p></li>
+<li><p><a class="reference internal" href="appnope.html#spkg-appnope"><span class="std std-ref">appnope: Disable App Nap on macOS &gt;= 10.9</span></a></p></li>
+<li><p><a class="reference internal" href="argon2_cffi.html#spkg-argon2-cffi"><span class="std std-ref">argon2_cffi: The secure Argon2 password hashing algorithm</span></a></p></li>
+<li><p><a class="reference internal" href="argon2_cffi_bindings.html#spkg-argon2-cffi-bindings"><span class="std std-ref">argon2_cffi_bindings: Low-level CFFI bindings for Argon2</span></a></p></li>
+<li><p><a class="reference internal" href="arrow.html#spkg-arrow"><span class="std std-ref">arrow: Better dates &amp; times for Python</span></a></p></li>
+<li><p><a class="reference internal" href="asttokens.html#spkg-asttokens"><span class="std std-ref">asttokens: Annotate AST trees with source code positions</span></a></p></li>
+<li><p><a class="reference internal" href="async_lru.html#spkg-async-lru"><span class="std std-ref">async_lru: Simple LRU cache for asyncio</span></a></p></li>
+<li><p><a class="reference internal" href="attrs.html#spkg-attrs"><span class="std std-ref">attrs: Decorator for Python classes with attributes</span></a></p></li>
+<li><p><a class="reference internal" href="babel.html#spkg-babel"><span class="std std-ref">babel: Internationalization utilities</span></a></p></li>
+<li><p><a class="reference internal" href="beautifulsoup4.html#spkg-beautifulsoup4"><span class="std std-ref">beautifulsoup4: Screen-scraping library</span></a></p></li>
+<li><p><a class="reference internal" href="beniget.html#spkg-beniget"><span class="std std-ref">beniget: Extract semantic information about static Python code</span></a></p></li>
+<li><p><a class="reference internal" href="bleach.html#spkg-bleach"><span class="std std-ref">bleach: An HTML-sanitizing tool</span></a></p></li>
+<li><p><a class="reference internal" href="boost_cropped.html#spkg-boost-cropped"><span class="std std-ref">boost_cropped: Portable C++ libraries (subset needed for Sage)</span></a></p></li>
+<li><p><a class="reference internal" href="bzip2.html#spkg-bzip2"><span class="std std-ref">bzip2: High-quality data compressor</span></a></p></li>
+<li><p><a class="reference internal" href="cachetools.html#spkg-cachetools"><span class="std std-ref">cachetools: Extensible memoizing collections and decorators</span></a></p></li>
+<li><p><a class="reference internal" href="calver.html#spkg-calver"><span class="std std-ref">calver: Setuptools extension for CalVer package versions</span></a></p></li>
+<li><p><a class="reference internal" href="certifi.html#spkg-certifi"><span class="std std-ref">certifi: Python package for providing Mozilla’s CA Bundle</span></a></p></li>
+<li><p><a class="reference internal" href="cffi.html#spkg-cffi"><span class="std std-ref">cffi: Foreign Function Interface for Python calling C code</span></a></p></li>
+<li><p><a class="reference internal" href="chardet.html#spkg-chardet"><span class="std std-ref">chardet: Universal encoding detector for Python 3</span></a></p></li>
+<li><p><a class="reference internal" href="charset_normalizer.html#spkg-charset-normalizer"><span class="std std-ref">charset_normalizer: The Real First Universal Charset Detector. Open, modern and actively maintained alternative to Chardet.</span></a></p></li>
+<li><p><a class="reference internal" href="cmake.html#spkg-cmake"><span class="std std-ref">cmake: A cross-platform build system generator</span></a></p></li>
+<li><p><a class="reference internal" href="colorama.html#spkg-colorama"><span class="std std-ref">colorama: Cross-platform colored terminal text</span></a></p></li>
+<li><p><a class="reference internal" href="comm.html#spkg-comm"><span class="std std-ref">comm: Jupyter Python Comm implementation, for usage in ipykernel, xeus-python etc.</span></a></p></li>
+<li><p><a class="reference internal" href="contourpy.html#spkg-contourpy"><span class="std std-ref">contourpy: Python library for calculating contours of 2D quadrilateral grids</span></a></p></li>
+<li><p><a class="reference internal" href="cppy.html#spkg-cppy"><span class="std std-ref">cppy: C++ headers for C extension development</span></a></p></li>
+<li><p><a class="reference internal" href="curl.html#spkg-curl"><span class="std std-ref">curl: Multiprotocol data transfer library and utility</span></a></p></li>
+<li><p><a class="reference internal" href="cycler.html#spkg-cycler"><span class="std std-ref">cycler: Composable cycles</span></a></p></li>
+<li><p><a class="reference internal" href="cysignals.html#spkg-cysignals"><span class="std std-ref">cysignals: Interrupt and signal handling for Cython</span></a></p></li>
+<li><p><a class="reference internal" href="cython.html#spkg-cython"><span class="std std-ref">cython: C-Extensions for Python, an optimizing static compiler</span></a></p></li>
+<li><p><a class="reference internal" href="dateutil.html#spkg-dateutil"><span class="std std-ref">dateutil: Extensions to the standard Python module datetime</span></a></p></li>
+<li><p><a class="reference internal" href="debugpy.html#spkg-debugpy"><span class="std std-ref">debugpy: Implementation of the Debug Adapter Protocol for Python</span></a></p></li>
+<li><p><a class="reference internal" href="decorator.html#spkg-decorator"><span class="std std-ref">decorator: Python library providing decorators</span></a></p></li>
+<li><p><a class="reference internal" href="defusedxml.html#spkg-defusedxml"><span class="std std-ref">defusedxml: Addresses vulnerabilities of XML parsers and XML libraries</span></a></p></li>
+<li><p><a class="reference internal" href="distlib.html#spkg-distlib"><span class="std std-ref">distlib: Distribution utilities</span></a></p></li>
+<li><p><a class="reference internal" href="docutils.html#spkg-docutils"><span class="std std-ref">docutils: Processing plaintext documentation into useful formats, such as HTML or LaTeX</span></a></p></li>
+<li><p><a class="reference internal" href="ecl.html#spkg-ecl"><span class="std std-ref">ecl: An implementation of the Common Lisp language</span></a></p></li>
+<li><p><a class="reference internal" href="editables.html#spkg-editables"><span class="std std-ref">editables: Editable installations</span></a></p></li>
+<li><p><a class="reference internal" href="entrypoints.html#spkg-entrypoints"><span class="std std-ref">entrypoints: Discover and load entry points from installed Python packages</span></a></p></li>
+<li><p><a class="reference internal" href="exceptiongroup.html#spkg-exceptiongroup"><span class="std std-ref">exceptiongroup: Backport of PEP 654 (exception groups)</span></a></p></li>
+<li><p><a class="reference internal" href="execnet.html#spkg-execnet"><span class="std std-ref">execnet: Rapid multi-Python deployment</span></a></p></li>
+<li><p><a class="reference internal" href="executing.html#spkg-executing"><span class="std std-ref">executing: Get the currently executing AST node of a frame, and other information</span></a></p></li>
+<li><p><a class="reference internal" href="fastjsonschema.html#spkg-fastjsonschema"><span class="std std-ref">fastjsonschema: Fastest Python implementation of JSON schema</span></a></p></li>
+<li><p><a class="reference internal" href="filelock.html#spkg-filelock"><span class="std std-ref">filelock: Platform independent file lock</span></a></p></li>
+<li><p><a class="reference internal" href="flit_core.html#spkg-flit-core"><span class="std std-ref">flit_core: Distribution-building parts of Flit. See flit package for more information</span></a></p></li>
+<li><p><a class="reference internal" href="fonttools.html#spkg-fonttools"><span class="std std-ref">fonttools: Tools to manipulate font files</span></a></p></li>
+<li><p><a class="reference internal" href="fqdn.html#spkg-fqdn"><span class="std std-ref">fqdn: Validates fully-qualified domain names against RFC 1123, so that they are acceptable to modern bowsers</span></a></p></li>
+<li><p><a class="reference internal" href="freetype.html#spkg-freetype"><span class="std std-ref">freetype: A free, high-quality, and portable font engine</span></a></p></li>
+<li><p><a class="reference internal" href="furo.html#spkg-furo"><span class="std std-ref">furo: A clean customizable Sphinx documentation theme</span></a></p></li>
+<li><p><a class="reference internal" href="gast.html#spkg-gast"><span class="std std-ref">gast: Python AST that abstracts the underlying Python version</span></a></p></li>
+<li><p><a class="reference internal" href="gc.html#spkg-gc"><span class="std std-ref">gc: The Boehm-Demers-Weiser conservative garbage collector</span></a></p></li>
+<li><p><a class="reference internal" href="gcc.html#spkg-gcc"><span class="std std-ref">gcc: The GNU Compiler Collection or other suitable C and C++ compilers</span></a></p></li>
+<li><p><a class="reference internal" href="gengetopt.html#spkg-gengetopt"><span class="std std-ref">gengetopt: getopt_long parser generator</span></a></p></li>
+<li><p><a class="reference internal" href="gfortran.html#spkg-gfortran"><span class="std std-ref">gfortran: Fortran compiler from the GNU Compiler Collection</span></a></p></li>
+<li><p><a class="reference internal" href="gnulib.html#spkg-gnulib"><span class="std std-ref">gnulib: Modules imported from Gnulib</span></a></p></li>
+<li><p><a class="reference internal" href="gnumake_tokenpool.html#spkg-gnumake-tokenpool"><span class="std std-ref">gnumake_tokenpool: Jobclient and jobserver for the GNU make tokenpool protocol</span></a></p></li>
+<li><p><a class="reference internal" href="h11.html#spkg-h11"><span class="std std-ref">h11: A pure-Python, bring-your-own-I/O implementation of HTTP/1.1</span></a></p></li>
+<li><p><a class="reference internal" href="hatchling.html#spkg-hatchling"><span class="std std-ref">hatchling: Modern, extensible Python build backend</span></a></p></li>
+<li><p><a class="reference internal" href="httpcore.html#spkg-httpcore"><span class="std std-ref">httpcore: Minimal low-level HTTP client</span></a></p></li>
+<li><p><a class="reference internal" href="httpx.html#spkg-httpx"><span class="std std-ref">httpx: The next generation HTTP client.</span></a></p></li>
+<li><p><a class="reference internal" href="iconv.html#spkg-iconv"><span class="std std-ref">iconv: Library for language/country-dependent character encodings</span></a></p></li>
+<li><p><a class="reference internal" href="idna.html#spkg-idna"><span class="std std-ref">idna: Internationalized Domain Names in Applications (IDNA)</span></a></p></li>
+<li><p><a class="reference internal" href="imagesize.html#spkg-imagesize"><span class="std std-ref">imagesize: Getting image size from png/jpeg/jpeg2000/gif file</span></a></p></li>
+<li><p><a class="reference internal" href="importlib_metadata.html#spkg-importlib-metadata"><span class="std std-ref">importlib_metadata: Library to access the metadata for a Python package</span></a></p></li>
+<li><p><a class="reference internal" href="importlib_resources.html#spkg-importlib-resources"><span class="std std-ref">importlib_resources: Read resources from Python packages</span></a></p></li>
+<li><p><a class="reference internal" href="info.html#spkg-info"><span class="std std-ref">info: stand-alone Info documentation reader</span></a></p></li>
+<li><p><a class="reference internal" href="iniconfig.html#spkg-iniconfig"><span class="std std-ref">iniconfig: Brain-dead simple config-ini parsing</span></a></p></li>
+<li><p><a class="reference internal" href="ipykernel.html#spkg-ipykernel"><span class="std std-ref">ipykernel: IPython Kernel for Jupyter</span></a></p></li>
+<li><p><a class="reference internal" href="ipython_genutils.html#spkg-ipython-genutils"><span class="std std-ref">ipython_genutils: Vestigial utilities from IPython</span></a></p></li>
+<li><p><a class="reference internal" href="isoduration.html#spkg-isoduration"><span class="std std-ref">isoduration: Operations with ISO 8601 durations</span></a></p></li>
+<li><p><a class="reference internal" href="jedi.html#spkg-jedi"><span class="std std-ref">jedi: Static analysis tool providing IDE support for Python</span></a></p></li>
+<li><p><a class="reference internal" href="jinja2.html#spkg-jinja2"><span class="std std-ref">jinja2: General purpose template engine for Python</span></a></p></li>
+<li><p><a class="reference internal" href="json5.html#spkg-json5"><span class="std std-ref">json5: Python implementation of the JSON5 data format</span></a></p></li>
+<li><p><a class="reference internal" href="jsonpointer.html#spkg-jsonpointer"><span class="std std-ref">jsonpointer: Identify specific nodes in a JSON document (RFC 6901)</span></a></p></li>
+<li><p><a class="reference internal" href="jsonschema.html#spkg-jsonschema"><span class="std std-ref">jsonschema: Python implementation of JSON Schema</span></a></p></li>
+<li><p><a class="reference internal" href="jsonschema_specifications.html#spkg-jsonschema-specifications"><span class="std std-ref">jsonschema_specifications: The JSON Schema meta-schemas and vocabularies, exposed as a Registry</span></a></p></li>
+<li><p><a class="reference internal" href="jupyter_client.html#spkg-jupyter-client"><span class="std std-ref">jupyter_client: Jupyter protocol implementation and client libraries</span></a></p></li>
+<li><p><a class="reference internal" href="jupyter_core.html#spkg-jupyter-core"><span class="std std-ref">jupyter_core: Jupyter core package</span></a></p></li>
+<li><p><a class="reference internal" href="jupyter_events.html#spkg-jupyter-events"><span class="std std-ref">jupyter_events: Jupyter Event System library</span></a></p></li>
+<li><p><a class="reference internal" href="jupyter_lsp.html#spkg-jupyter-lsp"><span class="std std-ref">jupyter_lsp: Multi-Language Server WebSocket proxy for Jupyter Notebook/Lab server</span></a></p></li>
+<li><p><a class="reference internal" href="jupyter_server.html#spkg-jupyter-server"><span class="std std-ref">jupyter_server: The backend (core services, APIs, REST endpoints) to Jupyter web applications</span></a></p></li>
+<li><p><a class="reference internal" href="jupyter_server_terminals.html#spkg-jupyter-server-terminals"><span class="std std-ref">jupyter_server_terminals: A Jupyter Server Extension Providing Terminals</span></a></p></li>
+<li><p><a class="reference internal" href="jupyter_sphinx.html#spkg-jupyter-sphinx"><span class="std std-ref">jupyter_sphinx: Jupyter Sphinx Extension</span></a></p></li>
+<li><p><a class="reference internal" href="jupyterlab_mathjax2.html#spkg-jupyterlab-mathjax2"><span class="std std-ref">jupyterlab_mathjax2: A MathJax Typesetting provider for JupyterLab 4 and above</span></a></p></li>
+<li><p><a class="reference internal" href="jupyterlab_pygments.html#spkg-jupyterlab-pygments"><span class="std std-ref">jupyterlab_pygments: Pygments theme using JupyterLab CSS variables</span></a></p></li>
+<li><p><a class="reference internal" href="jupyterlab_server.html#spkg-jupyterlab-server"><span class="std std-ref">jupyterlab_server: Set of server components for JupyterLab and JupyterLab like applications</span></a></p></li>
+<li><p><a class="reference internal" href="kiwisolver.html#spkg-kiwisolver"><span class="std std-ref">kiwisolver: Fast implementation of the Cassowary constraint solver</span></a></p></li>
+<li><p><a class="reference internal" href="libatomic_ops.html#spkg-libatomic-ops"><span class="std std-ref">libatomic_ops: Access hardware-provided atomic memory update operations</span></a></p></li>
+<li><p><a class="reference internal" href="libffi.html#spkg-libffi"><span class="std std-ref">libffi: A portable foreign-function interface library</span></a></p></li>
+<li><p><a class="reference internal" href="libgd.html#spkg-libgd"><span class="std std-ref">libgd: Dynamic graphics generation tool</span></a></p></li>
+<li><p><a class="reference internal" href="liblzma.html#spkg-liblzma"><span class="std std-ref">liblzma: General-purpose data compression software</span></a></p></li>
+<li><p><a class="reference internal" href="libpng.html#spkg-libpng"><span class="std std-ref">libpng: Bitmap image support</span></a></p></li>
+<li><p><a class="reference internal" href="markupsafe.html#spkg-markupsafe"><span class="std std-ref">markupsafe: Safely add untrusted strings to HTML/XML markup</span></a></p></li>
+<li><p><a class="reference internal" href="mathjax.html#spkg-mathjax"><span class="std std-ref">mathjax: A JavaScript library for displaying mathematical formulas</span></a></p></li>
+<li><p><a class="reference internal" href="memory_allocator.html#spkg-memory-allocator"><span class="std std-ref">memory_allocator: An extension class to allocate memory easily with Cython</span></a></p></li>
+<li><p><a class="reference internal" href="meson.html#spkg-meson"><span class="std std-ref">meson: A high performance build system</span></a></p></li>
+<li><p><a class="reference internal" href="meson_python.html#spkg-meson-python"><span class="std std-ref">meson_python: Meson Python build backend (PEP 517)</span></a></p></li>
+<li><p><a class="reference internal" href="mistune.html#spkg-mistune"><span class="std std-ref">mistune: Sane and fast Markdown parser with useful plugins and renderers</span></a></p></li>
+<li><p><a class="reference internal" href="nbclient.html#spkg-nbclient"><span class="std std-ref">nbclient: Client library for executing notebooks. Formerly nbconvert’s ExecutePreprocessor</span></a></p></li>
+<li><p><a class="reference internal" href="nbformat.html#spkg-nbformat"><span class="std std-ref">nbformat: The Jupyter Notebook format</span></a></p></li>
+<li><p><a class="reference internal" href="ncurses.html#spkg-ncurses"><span class="std std-ref">ncurses: Classic terminal output library</span></a></p></li>
+<li><p><a class="reference internal" href="nest_asyncio.html#spkg-nest-asyncio"><span class="std std-ref">nest_asyncio: Patch asyncio to allow nested event loops</span></a></p></li>
+<li><p><a class="reference internal" href="ninja_build.html#spkg-ninja-build"><span class="std std-ref">ninja_build: A build system with a focus on speed</span></a></p></li>
+<li><p><a class="reference internal" href="notebook_shim.html#spkg-notebook-shim"><span class="std std-ref">notebook_shim: A shim layer for notebook traits and config</span></a></p></li>
+<li><p><a class="reference internal" href="openssl.html#spkg-openssl"><span class="std std-ref">openssl: Implementation of the SSL and TLS protocols</span></a></p></li>
+<li><p><a class="reference internal" href="overrides.html#spkg-overrides"><span class="std std-ref">overrides: Decorator to automatically detect mismatch when overriding a method</span></a></p></li>
+<li><p><a class="reference internal" href="packaging.html#spkg-packaging"><span class="std std-ref">packaging: Core utilities for Python packages</span></a></p></li>
+<li><p><a class="reference internal" href="pandocfilters.html#spkg-pandocfilters"><span class="std std-ref">pandocfilters: A Python module for writing pandoc filters</span></a></p></li>
+<li><p><a class="reference internal" href="parso.html#spkg-parso"><span class="std std-ref">parso: Python Parser</span></a></p></li>
+<li><p><a class="reference internal" href="patch.html#spkg-patch"><span class="std std-ref">patch: Applies diffs and patches to files</span></a></p></li>
+<li><p><a class="reference internal" href="patchelf.html#spkg-patchelf"><span class="std std-ref">patchelf: A small utility to modify the dynamic linker and RPATH of ELF executables</span></a></p></li>
+<li><p><a class="reference internal" href="pathspec.html#spkg-pathspec"><span class="std std-ref">pathspec: Utility library for gitignore style pattern matching of file paths</span></a></p></li>
+<li><p><a class="reference internal" href="pexpect.html#spkg-pexpect"><span class="std std-ref">pexpect: Python module for controlling and automating other programs</span></a></p></li>
+<li><p><a class="reference internal" href="pickleshare.html#spkg-pickleshare"><span class="std std-ref">pickleshare: A ‘shelve’ like datastore with concurrency support</span></a></p></li>
+<li><p><a class="reference internal" href="pillow.html#spkg-pillow"><span class="std std-ref">pillow: Python Imaging Library</span></a></p></li>
+<li><p><a class="reference internal" href="pip.html#spkg-pip"><span class="std std-ref">pip: Tool for installing and managing Python packages</span></a></p></li>
+<li><p><a class="reference internal" href="pkgconf.html#spkg-pkgconf"><span class="std std-ref">pkgconf: An implementation of the pkg-config spec</span></a></p></li>
+<li><p><a class="reference internal" href="pkgconfig.html#spkg-pkgconfig"><span class="std std-ref">pkgconfig: Python interface to pkg-config</span></a></p></li>
+<li><p><a class="reference internal" href="platformdirs.html#spkg-platformdirs"><span class="std std-ref">platformdirs: Small Python package for determining appropriate platform-specific dirs, e.g. a “user data dir”</span></a></p></li>
+<li><p><a class="reference internal" href="pluggy.html#spkg-pluggy"><span class="std std-ref">pluggy: Plugin and hook calling mechanisms for python</span></a></p></li>
+<li><p><a class="reference internal" href="ply.html#spkg-ply"><span class="std std-ref">ply: Python Lex &amp; Yacc</span></a></p></li>
+<li><p><a class="reference internal" href="pplpy_doc.html#spkg-pplpy-doc"><span class="std std-ref">pplpy_doc: Python interface to the Parma Polyhedra Library (documentation)</span></a></p></li>
+<li><p><a class="reference internal" href="prometheus_client.html#spkg-prometheus-client"><span class="std std-ref">prometheus_client: Python client for the systems monitoring and alerting toolkit Prometheus</span></a></p></li>
+<li><p><a class="reference internal" href="prompt_toolkit.html#spkg-prompt-toolkit"><span class="std std-ref">prompt_toolkit: Interactive command lines for Python</span></a></p></li>
+<li><p><a class="reference internal" href="psutil.html#spkg-psutil"><span class="std std-ref">psutil: Cross-platform lib for process and system monitoring in Python.</span></a></p></li>
+<li><p><a class="reference internal" href="ptyprocess.html#spkg-ptyprocess"><span class="std std-ref">ptyprocess: Python interaction with subprocesses in a pseudoterminal</span></a></p></li>
+<li><p><a class="reference internal" href="pure_eval.html#spkg-pure-eval"><span class="std std-ref">pure_eval: Safely evaluate AST nodes without side effects</span></a></p></li>
+<li><p><a class="reference internal" href="py.html#spkg-py"><span class="std std-ref">py: Library with cross-python path, ini-parsing, io, code, log facilities</span></a></p></li>
+<li><p><a class="reference internal" href="pybind11.html#spkg-pybind11"><span class="std std-ref">pybind11: Create Python bindings to C++ code</span></a></p></li>
+<li><p><a class="reference internal" href="pycparser.html#spkg-pycparser"><span class="std std-ref">pycparser: Parser of the C language in Python</span></a></p></li>
+<li><p><a class="reference internal" href="pygments.html#spkg-pygments"><span class="std std-ref">pygments: Generic syntax highlighter</span></a></p></li>
+<li><p><a class="reference internal" href="pyparsing.html#spkg-pyparsing"><span class="std std-ref">pyparsing: A Python parsing module</span></a></p></li>
+<li><p><a class="reference internal" href="pyproject_api.html#spkg-pyproject-api"><span class="std std-ref">pyproject_api: API to interact with the python pyproject.toml based projects</span></a></p></li>
+<li><p><a class="reference internal" href="pyproject_hooks.html#spkg-pyproject-hooks"><span class="std std-ref">pyproject_hooks: Wrappers to call pyproject.toml-based build backend hooks.</span></a></p></li>
+<li><p><a class="reference internal" href="pyproject_metadata.html#spkg-pyproject-metadata"><span class="std std-ref">pyproject_metadata: PEP 621 metadata parsing</span></a></p></li>
+<li><p><a class="reference internal" href="pyrsistent.html#spkg-pyrsistent"><span class="std std-ref">pyrsistent: Persistent data structures in Python</span></a></p></li>
+<li><p><a class="reference internal" href="pytest.html#spkg-pytest"><span class="std std-ref">pytest: Simple powerful testing with Python</span></a></p></li>
+<li><p><a class="reference internal" href="pytest_mock.html#spkg-pytest-mock"><span class="std std-ref">pytest_mock: Thin-wrapper around the mock package for easier use with pytest</span></a></p></li>
+<li><p><a class="reference internal" href="pytest_xdist.html#spkg-pytest-xdist"><span class="std std-ref">pytest_xdist: Pytest xdist plugin for distributed testing, most importantly across multiple CPUs</span></a></p></li>
+<li><p><a class="reference internal" href="python3.html#spkg-python3"><span class="std std-ref">python3: The Python programming language</span></a></p></li>
+<li><p><a class="reference internal" href="python_build.html#spkg-python-build"><span class="std std-ref">python_build: A simple, correct PEP517 package builder</span></a></p></li>
+<li><p><a class="reference internal" href="python_json_logger.html#spkg-python-json-logger"><span class="std std-ref">python_json_logger: Python library adding a json log formatter</span></a></p></li>
+<li><p><a class="reference internal" href="pythran.html#spkg-pythran"><span class="std std-ref">pythran: Ahead of Time compiler for numeric kernels</span></a></p></li>
+<li><p><a class="reference internal" href="pytz.html#spkg-pytz"><span class="std std-ref">pytz: Timezone definitions for Python</span></a></p></li>
+<li><p><a class="reference internal" href="pytz_deprecation_shim.html#spkg-pytz-deprecation-shim"><span class="std std-ref">pytz_deprecation_shim: Shims to make deprecation of pytz easier</span></a></p></li>
+<li><p><a class="reference internal" href="pyyaml.html#spkg-pyyaml"><span class="std std-ref">pyyaml: YAML parser and emitter for Python</span></a></p></li>
+<li><p><a class="reference internal" href="pyzmq.html#spkg-pyzmq"><span class="std std-ref">pyzmq: Python bindings for the zeromq networking library</span></a></p></li>
+<li><p><a class="reference internal" href="readline.html#spkg-readline"><span class="std std-ref">readline: Command line editing library</span></a></p></li>
+<li><p><a class="reference internal" href="referencing.html#spkg-referencing"><span class="std std-ref">referencing: JSON Referencing + Python</span></a></p></li>
+<li><p><a class="reference internal" href="requests.html#spkg-requests"><span class="std std-ref">requests: An HTTP library for Python</span></a></p></li>
+<li><p><a class="reference internal" href="rfc3339_validator.html#spkg-rfc3339-validator"><span class="std std-ref">rfc3339_validator: A pure python RFC3339 validator</span></a></p></li>
+<li><p><a class="reference internal" href="rfc3986_validator.html#spkg-rfc3986-validator"><span class="std std-ref">rfc3986_validator: Pure python rfc3986 validator</span></a></p></li>
+<li><p><a class="reference internal" href="sage_conf.html#spkg-sage-conf"><span class="std std-ref">sage_conf: Configuration module for the SageMath library (distributable version)</span></a></p></li>
+<li><p><a class="reference internal" href="sage_docbuild.html#spkg-sage-docbuild"><span class="std std-ref">sage_docbuild: Build system of the Sage documentation</span></a></p></li>
+<li><p><a class="reference internal" href="sage_setup.html#spkg-sage-setup"><span class="std std-ref">sage-setup: Build system of the SageMath library</span></a></p></li>
+<li><p><a class="reference internal" href="send2trash.html#spkg-send2trash"><span class="std std-ref">send2trash: Send file to trash natively under Mac OS X, Windows and Linux</span></a></p></li>
+<li><p><a class="reference internal" href="setuptools.html#spkg-setuptools"><span class="std std-ref">setuptools: Build system for Python packages</span></a></p></li>
+<li><p><a class="reference internal" href="setuptools_scm.html#spkg-setuptools-scm"><span class="std std-ref">setuptools_scm: Python build system extension to obtain package version from version control</span></a></p></li>
+<li><p><a class="reference internal" href="six.html#spkg-six"><span class="std std-ref">six: Python 2 and 3 compatibility utilities</span></a></p></li>
+<li><p><a class="reference internal" href="sniffio.html#spkg-sniffio"><span class="std std-ref">sniffio: Sniff out which async library your code is running under</span></a></p></li>
+<li><p><a class="reference internal" href="snowballstemmer.html#spkg-snowballstemmer"><span class="std std-ref">snowballstemmer: Stemmer algorithms for natural language processing in Python</span></a></p></li>
+<li><p><a class="reference internal" href="soupsieve.html#spkg-soupsieve"><span class="std std-ref">soupsieve: Modern CSS selector implementation for Beautiful Soup</span></a></p></li>
+<li><p><a class="reference internal" href="sphinx.html#spkg-sphinx"><span class="std std-ref">sphinx: Python documentation generator</span></a></p></li>
+<li><p><a class="reference internal" href="sphinx_basic_ng.html#spkg-sphinx-basic-ng"><span class="std std-ref">sphinx_basic_ng: Modern skeleton for Sphinx themes</span></a></p></li>
+<li><p><a class="reference internal" href="sphinx_copybutton.html#spkg-sphinx-copybutton"><span class="std std-ref">sphinx_copybutton: Add a copy button to each of your code cells</span></a></p></li>
+<li><p><a class="reference internal" href="sphinx_inline_tabs.html#spkg-sphinx-inline-tabs"><span class="std std-ref">sphinx_inline_tabs: Add inline tabbed content to your Sphinx documentation</span></a></p></li>
+<li><p><a class="reference internal" href="sphinxcontrib_applehelp.html#spkg-sphinxcontrib-applehelp"><span class="std std-ref">sphinxcontrib_applehelp: Sphinx extension which outputs Apple help book</span></a></p></li>
+<li><p><a class="reference internal" href="sphinxcontrib_devhelp.html#spkg-sphinxcontrib-devhelp"><span class="std std-ref">sphinxcontrib_devhelp: Sphinx extension which outputs Devhelp documents</span></a></p></li>
+<li><p><a class="reference internal" href="sphinxcontrib_htmlhelp.html#spkg-sphinxcontrib-htmlhelp"><span class="std std-ref">sphinxcontrib_htmlhelp: Sphinx extension which outputs HTML help book</span></a></p></li>
+<li><p><a class="reference internal" href="sphinxcontrib_jsmath.html#spkg-sphinxcontrib-jsmath"><span class="std std-ref">sphinxcontrib_jsmath: Sphinx extension which renders display math in HTML via JavaScript</span></a></p></li>
+<li><p><a class="reference internal" href="sphinxcontrib_qthelp.html#spkg-sphinxcontrib-qthelp"><span class="std std-ref">sphinxcontrib_qthelp: Sphinx extension which outputs QtHelp documents</span></a></p></li>
+<li><p><a class="reference internal" href="sphinxcontrib_serializinghtml.html#spkg-sphinxcontrib-serializinghtml"><span class="std std-ref">sphinxcontrib_serializinghtml: Sphinx extension which outputs serialized HTML files</span></a></p></li>
+<li><p><a class="reference internal" href="sphinxcontrib_websupport.html#spkg-sphinxcontrib-websupport"><span class="std std-ref">sphinxcontrib_websupport: Sphinx API for Web apps</span></a></p></li>
+<li><p><a class="reference internal" href="sqlite.html#spkg-sqlite"><span class="std std-ref">sqlite: An SQL database engine</span></a></p></li>
+<li><p><a class="reference internal" href="stack_data.html#spkg-stack-data"><span class="std std-ref">stack_data: Extract data from python stack frames and tracebacks for informative displays</span></a></p></li>
+<li><p><a class="reference internal" href="terminado.html#spkg-terminado"><span class="std std-ref">terminado: Tornado websocket backend for the term.js Javascript terminal emulator library</span></a></p></li>
+<li><p><a class="reference internal" href="tinycss2.html#spkg-tinycss2"><span class="std std-ref">tinycss2: A tiny CSS parser</span></a></p></li>
+<li><p><a class="reference internal" href="tomli.html#spkg-tomli"><span class="std std-ref">tomli: A lil’ TOML parser</span></a></p></li>
+<li><p><a class="reference internal" href="tornado.html#spkg-tornado"><span class="std std-ref">tornado: Python web framework and asynchronous networking library</span></a></p></li>
+<li><p><a class="reference internal" href="tox.html#spkg-tox"><span class="std std-ref">tox: tox is a generic virtualenv management and test command line tool</span></a></p></li>
+<li><p><a class="reference internal" href="traitlets.html#spkg-traitlets"><span class="std std-ref">traitlets: Traitlets Python configuration system</span></a></p></li>
+<li><p><a class="reference internal" href="trove_classifiers.html#spkg-trove-classifiers"><span class="std std-ref">trove_classifiers: Canonical source for classifiers on PyPI (pypi.org)</span></a></p></li>
+<li><p><a class="reference internal" href="types_python_dateutil.html#spkg-types-python-dateutil"><span class="std std-ref">types_python_dateutil: Typing stubs for python-dateutil</span></a></p></li>
+<li><p><a class="reference internal" href="typing_extensions.html#spkg-typing-extensions"><span class="std std-ref">typing_extensions: Backported and Experimental Type Hints for Python 3.8+</span></a></p></li>
+<li><p><a class="reference internal" href="tzdata.html#spkg-tzdata"><span class="std std-ref">tzdata: Provider of IANA time zone data</span></a></p></li>
+<li><p><a class="reference internal" href="tzlocal.html#spkg-tzlocal"><span class="std std-ref">tzlocal: Python timezone information for the local timezone</span></a></p></li>
+<li><p><a class="reference internal" href="uri_template.html#spkg-uri-template"><span class="std std-ref">uri_template: RFC 6570 URI Template Processor</span></a></p></li>
+<li><p><a class="reference internal" href="urllib3.html#spkg-urllib3"><span class="std std-ref">urllib3: HTTP library with thread-safe connection pooling, file post, and more</span></a></p></li>
+<li><p><a class="reference internal" href="virtualenv.html#spkg-virtualenv"><span class="std std-ref">virtualenv: Virtual Python Environment builder</span></a></p></li>
+<li><p><a class="reference internal" href="wcwidth.html#spkg-wcwidth"><span class="std std-ref">wcwidth: Measures the displayed width of unicode strings in a terminal</span></a></p></li>
+<li><p><a class="reference internal" href="webcolors.html#spkg-webcolors"><span class="std std-ref">webcolors: Library for working with the color formats defined by HTML and CSS</span></a></p></li>
+<li><p><a class="reference internal" href="webencodings.html#spkg-webencodings"><span class="std std-ref">webencodings: Character encoding aliases for legacy web content</span></a></p></li>
+<li><p><a class="reference internal" href="websocket_client.html#spkg-websocket-client"><span class="std std-ref">websocket_client: WebSocket client for Python with low level API options</span></a></p></li>
+<li><p><a class="reference internal" href="wheel.html#spkg-wheel"><span class="std std-ref">wheel: A built-package format for Python</span></a></p></li>
+<li><p><a class="reference internal" href="widgetsnbextension.html#spkg-widgetsnbextension"><span class="std std-ref">widgetsnbextension: Jupyter interactive widgets for Jupyter Notebook</span></a></p></li>
+<li><p><a class="reference internal" href="xz.html#spkg-xz"><span class="std std-ref">xz: General-purpose data compression software</span></a></p></li>
+<li><p><a class="reference internal" href="zeromq.html#spkg-zeromq"><span class="std std-ref">zeromq: A modern networking library</span></a></p></li>
+<li><p><a class="reference internal" href="zipp.html#spkg-zipp"><span class="std std-ref">zipp: A pathlib-compatible zipfile object wrapper</span></a></p></li>
+<li><p><a class="reference internal" href="zlib.html#spkg-zlib"><span class="std std-ref">zlib: Data compression library</span></a></p></li>
+</ul>
+</section>
+</section>
+<section id="optional-packages">
+<h2>Optional Packages<a class="headerlink" href="#optional-packages" title="Link to this heading">¶</a></h2>
+<p>For additional functionality, you can install some of the following
+optional packages.</p>
+<section id="id1">
+<h3>Mathematics<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><a class="reference internal" href="4ti2.html#spkg-4ti2"><span class="std std-ref">4ti2: Algebraic, geometric and combinatorial problems on linear spaces</span></a></p></li>
+<li><p><a class="reference internal" href="admcycles.html#spkg-admcycles"><span class="std std-ref">admcycles: Computation in the tautological ring of the moduli space of curves</span></a></p></li>
+<li><p><a class="reference internal" href="benzene.html#spkg-benzene"><span class="std std-ref">benzene: Generate fusenes and benzenoids with a given number of faces</span></a></p></li>
+<li><p><a class="reference internal" href="bliss.html#spkg-bliss"><span class="std std-ref">bliss: Computing automorphism groups and canonical forms of graphs</span></a></p></li>
+<li><p><a class="reference internal" href="buckygen.html#spkg-buckygen"><span class="std std-ref">buckygen: Efficient generation of nonisomorphic fullerenes</span></a></p></li>
+<li><p><a class="reference internal" href="cbc.html#spkg-cbc"><span class="std std-ref">cbc: COIN-OR branch and cut solver for mixed-integer programs</span></a></p></li>
+<li><p><a class="reference internal" href="clarabel.html#spkg-clarabel"><span class="std std-ref">clarabel: Clarabel Conic Interior Point Solver for Rust / Python</span></a></p></li>
+<li><p><a class="reference internal" href="coxeter3.html#spkg-coxeter3"><span class="std std-ref">coxeter3: Library for Coxeter groups, Bruhat ordering, Kazhdan-Lusztig polynomials</span></a></p></li>
+<li><p><a class="reference internal" href="csdp.html#spkg-csdp"><span class="std std-ref">csdp: Solver for semidefinite programs</span></a></p></li>
+<li><p><a class="reference internal" href="cunningham_tables.html#spkg-cunningham-tables"><span class="std std-ref">cunningham_tables: List of the prime numbers occuring in the Cunningham table</span></a></p></li>
+<li><p><a class="reference internal" href="cvxpy.html#spkg-cvxpy"><span class="std std-ref">cvxpy: Domain-specific language for modeling convex optimization problems in Python</span></a></p></li>
+<li><p><a class="reference internal" href="cylp.html#spkg-cylp"><span class="std std-ref">cylp: Python interface for CLP, CBC, and CGL</span></a></p></li>
+<li><p><a class="reference internal" href="database_cremona_ellcurve.html#spkg-database-cremona-ellcurve"><span class="std std-ref">database_cremona_ellcurve: Database of elliptic curves</span></a></p></li>
+<li><p><a class="reference internal" href="database_cubic_hecke.html#spkg-database-cubic-hecke"><span class="std std-ref">database_cubic_hecke: Ivan Marin’s representations of the cubic Hecke algebra</span></a></p></li>
+<li><p><a class="reference internal" href="database_jones_numfield.html#spkg-database-jones-numfield"><span class="std std-ref">database_jones_numfield: Table of number fields</span></a></p></li>
+<li><p><a class="reference internal" href="database_knotinfo.html#spkg-database-knotinfo"><span class="std std-ref">database_knotinfo: Content of the KnotInfo and LinkInfo databases as lists of dictionaries</span></a></p></li>
+<li><p><a class="reference internal" href="database_kohel.html#spkg-database-kohel"><span class="std std-ref">database_kohel: Database of modular and Hilbert polynomials</span></a></p></li>
+<li><p><a class="reference internal" href="database_mutation_class.html#spkg-database-mutation-class"><span class="std std-ref">database_mutation_class: Database of exceptional mutation classes of quivers</span></a></p></li>
+<li><p><a class="reference internal" href="database_odlyzko_zeta.html#spkg-database-odlyzko-zeta"><span class="std std-ref">database_odlyzko_zeta: Table of zeros of the Riemann zeta function</span></a></p></li>
+<li><p><a class="reference internal" href="database_stein_watkins.html#spkg-database-stein-watkins"><span class="std std-ref">database_stein_watkins: Database of elliptic curves (full version)</span></a></p></li>
+<li><p><a class="reference internal" href="database_stein_watkins_mini.html#spkg-database-stein-watkins-mini"><span class="std std-ref">database_stein_watkins_mini: Database of elliptic curves (small version)</span></a></p></li>
+<li><p><a class="reference internal" href="database_symbolic_data.html#spkg-database-symbolic-data"><span class="std std-ref">database_symbolic_data: Database from the SymbolicData project</span></a></p></li>
+<li><p><a class="reference internal" href="dsdp.html#spkg-dsdp"><span class="std std-ref">dsdp: Semidefinite programming solver</span></a></p></li>
+<li><p><a class="reference internal" href="e_antic.html#spkg-e-antic"><span class="std std-ref">e_antic: Real embedded number fields</span></a></p></li>
+<li><p><a class="reference internal" href="ecos_python.html#spkg-ecos-python"><span class="std std-ref">ecos_python: Embedded Cone Solver (Python wrapper)</span></a></p></li>
+<li><p><a class="reference internal" href="fricas.html#spkg-fricas"><span class="std std-ref">fricas: A general purpose computer algebra system</span></a></p></li>
+<li><p><a class="reference internal" href="frobby.html#spkg-frobby"><span class="std std-ref">frobby: Computations on monomial ideals</span></a></p></li>
+<li><p><a class="reference internal" href="gap_jupyter.html#spkg-gap-jupyter"><span class="std std-ref">gap_jupyter: Jupyter kernel for GAP</span></a></p></li>
+<li><p><a class="reference internal" href="gap_packages.html#spkg-gap-packages"><span class="std std-ref">gap_packages: A collection of GAP packages</span></a></p></li>
+<li><p><a class="reference internal" href="giac.html#spkg-giac"><span class="std std-ref">giac: A general purpose computer algebra system</span></a></p></li>
+<li><p><a class="reference internal" href="glucose.html#spkg-glucose"><span class="std std-ref">glucose: A SAT solver</span></a></p></li>
+<li><p><a class="reference internal" href="gp2c.html#spkg-gp2c"><span class="std std-ref">gp2c: A compiler for translating GP routines to C</span></a></p></li>
+<li><p><a class="reference internal" href="igraph.html#spkg-igraph"><span class="std std-ref">igraph: A library for creating and manipulating graphs</span></a></p></li>
+<li><p><a class="reference internal" href="isl.html#spkg-isl"><span class="std std-ref">isl: Sets and relations of integer points bounded by affine constraints</span></a></p></li>
+<li><p><a class="reference internal" href="jupymake.html#spkg-jupymake"><span class="std std-ref">jupymake: A Python wrapper for the polymake shell</span></a></p></li>
+<li><p><a class="reference internal" href="kenzo.html#spkg-kenzo"><span class="std std-ref">kenzo: Construct topological spaces and compute homology groups</span></a></p></li>
+<li><p><a class="reference internal" href="kissat.html#spkg-kissat"><span class="std std-ref">kissat: SAT solver</span></a></p></li>
+<li><p><a class="reference internal" href="latte_int.html#spkg-latte-int"><span class="std std-ref">latte_int: Count lattice points, compute volumes, and integrate over convex polytopes</span></a></p></li>
+<li><p><a class="reference internal" href="libnauty.html#spkg-libnauty"><span class="std std-ref">libnauty: Find automorphism groups of graphs, generate non-isomorphic graphs (callable library)</span></a></p></li>
+<li><p><a class="reference internal" href="libsemigroups.html#spkg-libsemigroups"><span class="std std-ref">libsemigroups: Library for semigroups and monoids</span></a></p></li>
+<li><p><a class="reference internal" href="lidia.html#spkg-lidia"><span class="std std-ref">lidia: A library for computational number theory</span></a></p></li>
+<li><p><a class="reference internal" href="lrslib.html#spkg-lrslib"><span class="std std-ref">lrslib: Reverse search algorithm for vertex enumeration and convex hull problems</span></a></p></li>
+<li><p><a class="reference internal" href="mathics.html#spkg-mathics"><span class="std std-ref">mathics: General-purpose computer algebra system</span></a></p></li>
+<li><p><a class="reference internal" href="matroid_database.html#spkg-matroid-database"><span class="std std-ref">matroid_database: Python interface to matroid database</span></a></p></li>
+<li><p><a class="reference internal" href="mcqd.html#spkg-mcqd"><span class="std std-ref">mcqd: An exact algorithm for finding a maximum clique in an undirected graph</span></a></p></li>
+<li><p><a class="reference internal" href="meataxe.html#spkg-meataxe"><span class="std std-ref">meataxe: Library for computing with modular representations</span></a></p></li>
+<li><p><a class="reference internal" href="modular_resolution.html#spkg-modular-resolution"><span class="std std-ref">modular_resolution: Modular cohomology rings of finite groups</span></a></p></li>
+<li><p><a class="reference internal" href="mpfrcx.html#spkg-mpfrcx"><span class="std std-ref">mpfrcx: Arithmetic of univariate polynomials over arbitrary precision real or complex numbers</span></a></p></li>
+<li><p><a class="reference internal" href="msolve.html#spkg-msolve"><span class="std std-ref">msolve: Multivariate polynomial system solver</span></a></p></li>
+<li><p><a class="reference internal" href="normaliz.html#spkg-normaliz"><span class="std std-ref">normaliz: Computations in affine monoids, vector configurations, lattice polytopes, and rational cones</span></a></p></li>
+<li><p><a class="reference internal" href="ore_algebra.html#spkg-ore-algebra"><span class="std std-ref">ore_algebra: Ore algebra</span></a></p></li>
+<li><p><a class="reference internal" href="osqp_python.html#spkg-osqp-python"><span class="std std-ref">osqp_python: The Operator Splitting QP Solver (Python wrapper)</span></a></p></li>
+<li><p><a class="reference internal" href="p_group_cohomology.html#spkg-p-group-cohomology"><span class="std std-ref">p_group_cohomology: Modular cohomology rings of finite groups</span></a></p></li>
+<li><p><a class="reference internal" href="papilo.html#spkg-papilo"><span class="std std-ref">papilo: Parallel presolve for integer and linear optimization</span></a></p></li>
+<li><p><a class="reference internal" href="pari_elldata.html#spkg-pari-elldata"><span class="std std-ref">pari_elldata: PARI data package for elliptic curves</span></a></p></li>
+<li><p><a class="reference internal" href="pari_galpol.html#spkg-pari-galpol"><span class="std std-ref">pari_galpol: PARI data package for polynomials defining Galois extensions of the rationals</span></a></p></li>
+<li><p><a class="reference internal" href="pari_jupyter.html#spkg-pari-jupyter"><span class="std std-ref">pari_jupyter: Jupyter kernel for PARI/GP</span></a></p></li>
+<li><p><a class="reference internal" href="pari_nftables.html#spkg-pari-nftables"><span class="std std-ref">pari_nftables: PARI data package for number fields</span></a></p></li>
+<li><p><a class="reference internal" href="pari_seadata.html#spkg-pari-seadata"><span class="std std-ref">pari_seadata: PARI data package needed by ellap for large primes (full version)</span></a></p></li>
+<li><p><a class="reference internal" href="phitigra.html#spkg-phitigra"><span class="std std-ref">phitigra: Graph editor for SageMath/Jupyter</span></a></p></li>
+<li><p><a class="reference internal" href="plantri.html#spkg-plantri"><span class="std std-ref">plantri: Generate non-isomorphic sphere-embdedded graphs</span></a></p></li>
+<li><p><a class="reference internal" href="polymake.html#spkg-polymake"><span class="std std-ref">polymake: Computations with polyhedra, fans, simplicial complexes, matroids, graphs, tropical hypersurfaces</span></a></p></li>
+<li><p><a class="reference internal" href="polytopes_db_4d.html#spkg-polytopes-db-4d"><span class="std std-ref">polytopes_db_4d: Database of 4-dimensional reflexive polytopes</span></a></p></li>
+<li><p><a class="reference internal" href="pycosat.html#spkg-pycosat"><span class="std std-ref">pycosat: SAT solver picosat with Python bindings</span></a></p></li>
+<li><p><a class="reference internal" href="pycryptosat.html#spkg-pycryptosat"><span class="std std-ref">pycryptosat: Python module of cryptominisat</span></a></p></li>
+<li><p><a class="reference internal" href="pynormaliz.html#spkg-pynormaliz"><span class="std std-ref">pynormaliz: Python bindings for the normaliz library</span></a></p></li>
+<li><p><a class="reference internal" href="pyscipopt.html#spkg-pyscipopt"><span class="std std-ref">pyscipopt: Python interface and modeling environment for SCIP</span></a></p></li>
+<li><p><a class="reference internal" href="pysingular.html#spkg-pysingular"><span class="std std-ref">pysingular: A basic Python interface to Singular</span></a></p></li>
+<li><p><a class="reference internal" href="python_igraph.html#spkg-python-igraph"><span class="std std-ref">python_igraph: Python bindings for igraph</span></a></p></li>
+<li><p><a class="reference internal" href="qdldl_python.html#spkg-qdldl-python"><span class="std std-ref">qdldl_python: QDLDL, a free LDL factorization routine (Python wrapper)</span></a></p></li>
+<li><p><a class="reference internal" href="qepcad.html#spkg-qepcad"><span class="std std-ref">qepcad: Quantifier elimination by partial cylindrical algebraic decomposition</span></a></p></li>
+<li><p><a class="reference internal" href="r.html#spkg-r"><span class="std std-ref">r: A free software environment for statistical computing and graphics</span></a></p></li>
+<li><p><a class="reference internal" href="rubiks.html#spkg-rubiks"><span class="std std-ref">rubiks: Programs for Rubik’s cube</span></a></p></li>
+<li><p><a class="reference internal" href="saclib.html#spkg-saclib"><span class="std std-ref">saclib: Computations with real algebraic numbers</span></a></p></li>
+<li><p><a class="reference internal" href="sage_flatsurf.html#spkg-sage-flatsurf"><span class="std std-ref">sage_flatsurf: Flat surfaces in SageMath</span></a></p></li>
+<li><p><a class="reference internal" href="sage_numerical_backends_coin.html#spkg-sage-numerical-backends-coin"><span class="std std-ref">sage_numerical_backends_coin: COIN-OR backend for Sage MixedIntegerLinearProgram</span></a></p></li>
+<li><p><a class="reference internal" href="sage_numerical_backends_cplex.html#spkg-sage-numerical-backends-cplex"><span class="std std-ref">sage_numerical_backends_cplex: Cplex backend for Sage MixedIntegerLinearProgram</span></a></p></li>
+<li><p><a class="reference internal" href="sage_numerical_backends_gurobi.html#spkg-sage-numerical-backends-gurobi"><span class="std std-ref">sage_numerical_backends_gurobi: Gurobi backend for Sage MixedIntegerLinearProgram</span></a></p></li>
+<li><p><a class="reference internal" href="sbcl.html#spkg-sbcl"><span class="std std-ref">sbcl: a lisp compiler and runtime system</span></a></p></li>
+<li><p><a class="reference internal" href="scip.html#spkg-scip"><span class="std std-ref">scip: Mixed integer programming solver</span></a></p></li>
+<li><p><a class="reference internal" href="scip_sdp.html#spkg-scip-sdp"><span class="std std-ref">scip_sdp: Mixed integer semidefinite programming plugin for SCIP</span></a></p></li>
+<li><p><a class="reference internal" href="scs.html#spkg-scs"><span class="std std-ref">scs: Splitting conic solver</span></a></p></li>
+<li><p><a class="reference internal" href="singular_jupyter.html#spkg-singular-jupyter"><span class="std std-ref">singular_jupyter: Jupyter kernel for Singular</span></a></p></li>
+<li><p><a class="reference internal" href="sirocco.html#spkg-sirocco"><span class="std std-ref">sirocco: Compute topologically certified root continuation of bivariate polynomials</span></a></p></li>
+<li><p><a class="reference internal" href="slabbe.html#spkg-slabbe"><span class="std std-ref">slabbe: Sébastien Labbé’s Research code</span></a></p></li>
+<li><p><a class="reference internal" href="snappy.html#spkg-snappy"><span class="std std-ref">snappy: Topology and geometry of 3-manifolds, with a focus on hyperbolic structures</span></a></p></li>
+<li><p><a class="reference internal" href="soplex.html#spkg-soplex"><span class="std std-ref">soplex: Linear optimization solver using the revised simplex method</span></a></p></li>
+<li><p><a class="reference internal" href="surface_dynamics.html#spkg-surface-dynamics"><span class="std std-ref">surface_dynamics: dynamics on surfaces (measured foliations, interval exchange transformation, Teichmüller flow, etc)</span></a></p></li>
+<li><p><a class="reference internal" href="symengine.html#spkg-symengine"><span class="std std-ref">symengine: A C++ symbolic manipulation library</span></a></p></li>
+<li><p><a class="reference internal" href="symengine_py.html#spkg-symengine-py"><span class="std std-ref">symengine_py: Python wrappers for SymEngine</span></a></p></li>
+<li><p><a class="reference internal" href="tdlib.html#spkg-tdlib"><span class="std std-ref">tdlib: Algorithms for computing tree decompositions of graphs</span></a></p></li>
+<li><p><a class="reference internal" href="tides.html#spkg-tides"><span class="std std-ref">tides: Integration of ODEs</span></a></p></li>
+<li><p><a class="reference internal" href="topcom.html#spkg-topcom"><span class="std std-ref">topcom: Compute triangulations of point configurations and oriented matroids</span></a></p></li>
+</ul>
+</section>
+<section id="id2">
+<h3>Front-end, graphics, document preparation<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><a class="reference internal" href="dot2tex.html#spkg-dot2tex"><span class="std std-ref">dot2tex: Create PGF/TikZ commands from Graphviz output</span></a></p></li>
+<li><p><a class="reference internal" href="graphviz.html#spkg-graphviz"><span class="std std-ref">graphviz: Graph visualization software</span></a></p></li>
+<li><p><a class="reference internal" href="jmol.html#spkg-jmol"><span class="std std-ref">jmol: Java viewer for chemical structures in 3D</span></a></p></li>
+<li><p><a class="reference internal" href="jupyter_jsmol.html#spkg-jupyter-jsmol"><span class="std std-ref">jupyter_jsmol: JSmol viewer widget for Jupyter</span></a></p></li>
+<li><p><a class="reference internal" href="pandoc.html#spkg-pandoc"><span class="std std-ref">pandoc: A document converter</span></a></p></li>
+<li><p><a class="reference internal" href="pdf2svg.html#spkg-pdf2svg"><span class="std std-ref">pdf2svg: PDF to SVG convertor</span></a></p></li>
+<li><p><a class="reference internal" href="pygraphviz.html#spkg-pygraphviz"><span class="std std-ref">pygraphviz: Python interface to Graphviz</span></a></p></li>
+<li><p><a class="reference internal" href="rst2ipynb.html#spkg-rst2ipynb"><span class="std std-ref">rst2ipynb: Convert reStructuredText files to Jupyter notebooks</span></a></p></li>
+<li><p><a class="reference internal" href="sage_sws2rst.html#spkg-sage-sws2rst"><span class="std std-ref">sage_sws2rst: Translate legacy Sage worksheet files (.sws) to reStructuredText (.rst) files</span></a></p></li>
+<li><p><a class="reference internal" href="texlive.html#spkg-texlive"><span class="std std-ref">texlive: A comprehensive TeX system</span></a></p></li>
+</ul>
+</section>
+<section id="id3">
+<h3>Other dependencies<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><a class="reference internal" href="_bootstrap.html#spkg-bootstrap"><span class="std std-ref">_bootstrap: Represents system packages required for running the top-level bootstrap script</span></a></p></li>
+<li><p><a class="reference internal" href="_develop.html#spkg-develop"><span class="std std-ref">_develop: Represents system packages recommended for development</span></a></p></li>
+<li><p><a class="reference internal" href="_recommended.html#spkg-recommended"><span class="std std-ref">_recommended: Represents system packages recommended for additional functionality</span></a></p></li>
+<li><p><a class="reference internal" href="_sagemath.html#spkg-sagemath"><span class="std std-ref">_sagemath: Downstream package of Sage in distributions</span></a></p></li>
+<li><p><a class="reference internal" href="auditwheel_or_delocate.html#spkg-auditwheel-or-delocate"><span class="std std-ref">auditwheel_or_delocate: Repair wheels on Linux or macOS</span></a></p></li>
+<li><p><a class="reference internal" href="biopython.html#spkg-biopython"><span class="std std-ref">biopython: Tools for computational molecular biology</span></a></p></li>
+<li><p><a class="reference internal" href="ccache.html#spkg-ccache"><span class="std std-ref">ccache: A compiler cache</span></a></p></li>
+<li><p><a class="reference internal" href="d3js.html#spkg-d3js"><span class="std std-ref">d3js: JavaScript library for manipulating documents based on data</span></a></p></li>
+<li><p><a class="reference internal" href="ffmpeg.html#spkg-ffmpeg"><span class="std std-ref">ffmpeg: ffmpeg video converter</span></a></p></li>
+<li><p><a class="reference internal" href="free_fonts.html#spkg-free-fonts"><span class="std std-ref">free_fonts: a free family of scalable outline fonts</span></a></p></li>
+<li><p><a class="reference internal" href="gdb.html#spkg-gdb"><span class="std std-ref">gdb: The GNU Project debugger</span></a></p></li>
+<li><p><a class="reference internal" href="git.html#spkg-git"><span class="std std-ref">git: Version control system</span></a></p></li>
+<li><p><a class="reference internal" href="github_cli.html#spkg-github-cli"><span class="std std-ref">github_cli: Command-line interface for GitHub</span></a></p></li>
+<li><p><a class="reference internal" href="gitpython.html#spkg-gitpython"><span class="std std-ref">gitpython: GitPython is a python library used to interact with Git repositories</span></a></p></li>
+<li><p><a class="reference internal" href="hypothesis.html#spkg-hypothesis"><span class="std std-ref">hypothesis: A library for property-based testing</span></a></p></li>
+<li><p><a class="reference internal" href="imagemagick.html#spkg-imagemagick"><span class="std std-ref">imagemagick: A collection of tools and libraries for many image file formats</span></a></p></li>
+<li><p><a class="reference internal" href="libgraphviz.html#spkg-libgraphviz"><span class="std std-ref">libgraphviz: Graph visualization software (callable library)</span></a></p></li>
+<li><p><a class="reference internal" href="libjpeg.html#spkg-libjpeg"><span class="std std-ref">libjpeg: JPEG image support</span></a></p></li>
+<li><p><a class="reference internal" href="libogg.html#spkg-libogg"><span class="std std-ref">libogg: Library for the Ogg multimedia container format</span></a></p></li>
+<li><p><a class="reference internal" href="libxml2.html#spkg-libxml2"><span class="std std-ref">libxml2: XML parser and toolkit</span></a></p></li>
+<li><p><a class="reference internal" href="llvm.html#spkg-llvm"><span class="std std-ref">llvm: The LLVM Compiler Infrastructure, including the Clang C/C++/Objective-C compiler</span></a></p></li>
+<li><p><a class="reference internal" href="nibabel.html#spkg-nibabel"><span class="std std-ref">nibabel: Access a multitude of neuroimaging data formats</span></a></p></li>
+<li><p><a class="reference internal" href="notedown.html#spkg-notedown"><span class="std std-ref">notedown: Create IPython notebooks from markdown</span></a></p></li>
+<li><p><a class="reference internal" href="onetbb.html#spkg-onetbb"><span class="std std-ref">onetbb: oneAPI Threading Building Blocks</span></a></p></li>
+<li><p><a class="reference internal" href="pandoc_attributes.html#spkg-pandoc-attributes"><span class="std std-ref">pandoc_attributes: A parser and generator for pandoc block attributes</span></a></p></li>
+<li><p><a class="reference internal" href="perl_cpan_polymake_prereq.html#spkg-perl-cpan-polymake-prereq"><span class="std std-ref">perl_cpan_polymake_prereq: Represents all Perl packages that are prerequisites for polymake</span></a></p></li>
+<li><p><a class="reference internal" href="perl_mongodb.html#spkg-perl-mongodb"><span class="std std-ref">perl_mongodb: A prerequisite for polymake’s PolyDB feature</span></a></p></li>
+<li><p><a class="reference internal" href="perl_term_readline_gnu.html#spkg-perl-term-readline-gnu"><span class="std std-ref">perl_term_readline_gnu: Perl extension for the GNU Readline/History libraries</span></a></p></li>
+<li><p><a class="reference internal" href="pybtex.html#spkg-pybtex"><span class="std std-ref">pybtex: A BibTeX-compatible bibliography processor in Python</span></a></p></li>
+<li><p><a class="reference internal" href="pyppeteer.html#spkg-pyppeteer"><span class="std std-ref">pyppeteer: Headless chrome/chromium automation library</span></a></p></li>
+<li><p><a class="reference internal" href="python_flint.html#spkg-python-flint"><span class="std std-ref">python_flint: Bindings for FLINT and Arb</span></a></p></li>
+<li><p><a class="reference internal" href="pyx.html#spkg-pyx"><span class="std std-ref">pyx: Generate PostScript, PDF, and SVG files in Python</span></a></p></li>
+<li><p><a class="reference internal" href="sqlalchemy.html#spkg-sqlalchemy"><span class="std std-ref">sqlalchemy: A database abstraction library</span></a></p></li>
+<li><p><a class="reference internal" href="texlive_luatex.html#spkg-texlive-luatex"><span class="std std-ref">texlive_luatex: LuaTeX packages</span></a></p></li>
+<li><p><a class="reference internal" href="texttable.html#spkg-texttable"><span class="std std-ref">texttable: Python module for creating simple ASCII tables</span></a></p></li>
+<li><p><a class="reference internal" href="valgrind.html#spkg-valgrind"><span class="std std-ref">valgrind: Memory error detector, call graph generator, runtime profiler</span></a></p></li>
+<li><p><a class="reference internal" href="xindy.html#spkg-xindy"><span class="std std-ref">xindy: a general-purpose index processor</span></a></p></li>
+</ul>
+</section>
+</section>
+<section id="features">
+<h2>Features<a class="headerlink" href="#features" title="Link to this heading">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sage/features.html">Testing for features of the environment at runtime</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/join_feature.html">Join features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/all.html">Enumeration of all defined features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/sagemath.html">Features for testing the presence of Python modules in the Sage library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/pkg_systems.html">Features for testing the presence of package systems <code class="docutils literal notranslate"><span class="pre">sage_spkg</span></code>, <code class="docutils literal notranslate"><span class="pre">conda</span></code>, <code class="docutils literal notranslate"><span class="pre">pip</span></code>, <code class="docutils literal notranslate"><span class="pre">debian</span></code>, <code class="docutils literal notranslate"><span class="pre">fedora</span></code> etc.</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/bliss.html">Features for testing the presence of <code class="docutils literal notranslate"><span class="pre">bliss</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/csdp.html">Feature for testing the presence of <code class="docutils literal notranslate"><span class="pre">csdp</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/databases.html">Features for testing the presence of various databases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/dvipng.html">Feature for testing the presence of <code class="docutils literal notranslate"><span class="pre">dvipng</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/ffmpeg.html">Feature for testing the presence of <code class="docutils literal notranslate"><span class="pre">ffmpeg</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/four_ti_2.html">Features for testing the presence of <code class="docutils literal notranslate"><span class="pre">4ti2</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/gap.html">Features for testing the presence of the SageMath interfaces to <code class="docutils literal notranslate"><span class="pre">gap</span></code> and of GAP packages</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/graph_generators.html">Features for testing the presence of graph generator programs <code class="docutils literal notranslate"><span class="pre">benzene</span></code>, <code class="docutils literal notranslate"><span class="pre">buckygen</span></code>, <code class="docutils literal notranslate"><span class="pre">plantri</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/graphviz.html">Features for testing the presence of <code class="docutils literal notranslate"><span class="pre">graphviz</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/imagemagick.html">Feature for testing the presence of <code class="docutils literal notranslate"><span class="pre">imagemagick</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/interfaces.html">Features for testing whether interpreter interfaces to <code class="docutils literal notranslate"><span class="pre">magma</span></code>, <code class="docutils literal notranslate"><span class="pre">maple</span></code>, <code class="docutils literal notranslate"><span class="pre">mathematica</span></code> etc. are functional</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/internet.html">Feature for testing if the Internet is available</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/kenzo.html">Feature for testing the presence of <code class="docutils literal notranslate"><span class="pre">kenzo</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/latex.html">Features for testing the presence of <code class="docutils literal notranslate"><span class="pre">latex</span></code> and equivalent programs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/latte.html">Features for testing the presence of <code class="docutils literal notranslate"><span class="pre">latte_int</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/lrs.html">Feature for testing the presence of <code class="docutils literal notranslate"><span class="pre">lrslib</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/mcqd.html">Features for testing the presence of <code class="docutils literal notranslate"><span class="pre">mcqd</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/meataxe.html">Feature for testing the presence of <code class="docutils literal notranslate"><span class="pre">meataxe</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/mip_backends.html">Features for testing the presence of <code class="xref py py-class docutils literal notranslate"><span class="pre">MixedIntegerLinearProgram</span></code> backends</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/normaliz.html">Feature for testing the presence of <code class="docutils literal notranslate"><span class="pre">pynormaliz</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/pandoc.html">Feature for testing the presence of <code class="docutils literal notranslate"><span class="pre">pandoc</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/pdf2svg.html">Feature for testing the presence of <code class="docutils literal notranslate"><span class="pre">pdf2svg</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/polymake.html">Feature for testing the presence of <code class="docutils literal notranslate"><span class="pre">jupymake</span></code>, the Python interface to polymake</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/rubiks.html">Features for testing the presence of <code class="docutils literal notranslate"><span class="pre">rubiks</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/tdlib.html">Features for testing the presence of <code class="docutils literal notranslate"><span class="pre">tdlib</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="sage/features/topcom.html">Features for testing the presence of topcom executables</a></li>
+</ul>
+</div>
+</section>
+<section id="distribution-packages-of-the-sage-library">
+<h2>Distribution Packages of the Sage Library<a class="headerlink" href="#distribution-packages-of-the-sage-library" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="sagemath_bliss.html#spkg-sagemath-bliss"><span class="std std-ref">sagemath_bliss: Graph (iso/auto)morphisms with bliss</span></a></p></li>
+<li><p><a class="reference internal" href="sagemath_categories.html#spkg-sagemath-categories"><span class="std std-ref">sagemath_categories: Sage categories and basic rings</span></a></p></li>
+<li><p><a class="reference internal" href="sagemath_coxeter3.html#spkg-sagemath-coxeter3"><span class="std std-ref">sagemath_coxeter3: Coxeter groups, Bruhat ordering, Kazhdan-Lusztig polynomials with coxeter3</span></a></p></li>
+<li><p><a class="reference internal" href="sagemath_doc_html.html#spkg-sagemath-doc-html"><span class="std std-ref">sagemath_doc_html: SageMath documentation in HTML format</span></a></p></li>
+<li><p><a class="reference internal" href="sagemath_doc_pdf.html#spkg-sagemath-doc-pdf"><span class="std std-ref">sagemath_doc_pdf: SageMath documentation in PDF format</span></a></p></li>
+<li><p><a class="reference internal" href="sagemath_environment.html#spkg-sagemath-environment"><span class="std std-ref">sagemath_environment: System and software environment</span></a></p></li>
+<li><p><a class="reference internal" href="sagemath_giac.html#spkg-sagemath-giac"><span class="std std-ref">sagemath_giac: Giac integration</span></a></p></li>
+<li><p><a class="reference internal" href="sagemath_mcqd.html#spkg-sagemath-mcqd"><span class="std std-ref">sagemath_mcqd: Finding maximum cliques with mcqd</span></a></p></li>
+<li><p><a class="reference internal" href="sagemath_meataxe.html#spkg-sagemath-meataxe"><span class="std std-ref">sagemath_meataxe: Matrices over small finite fields with meataxe</span></a></p></li>
+<li><p><a class="reference internal" href="sagemath_objects.html#spkg-sagemath-objects"><span class="std std-ref">sagemath_objects: Sage objects, elements, parents, categories, coercion, metaclasses</span></a></p></li>
+<li><p><a class="reference internal" href="sagemath_repl.html#spkg-sagemath-repl"><span class="std std-ref">sagemath_repl: IPython kernel, Sage preparser, doctester</span></a></p></li>
+<li><p><a class="reference internal" href="sagemath_sirocco.html#spkg-sagemath-sirocco"><span class="std std-ref">sagemath_sirocco: Certified root continuation with sirocco</span></a></p></li>
+<li><p><a class="reference internal" href="sagemath_tdlib.html#spkg-sagemath-tdlib"><span class="std std-ref">sagemath_tdlib: Tree decompositions with tdlib</span></a></p></li>
+</ul>
+</section>
+<section id="experimental-packages">
+<h2>Experimental Packages<a class="headerlink" href="#experimental-packages" title="Link to this heading">¶</a></h2>
+<p>Some packages that provide additional functionality are marked as
+“experimental”.  Developers are needed in order to improve the
+integration of these packages into the Sage distribution.</p>
+<section id="id4">
+<h3>Mathematics<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><a class="reference internal" href="awali.html#spkg-awali"><span class="std std-ref">awali: Computation of/with finite state machines</span></a></p></li>
+<li><p><a class="reference internal" href="barvinok.html#spkg-barvinok"><span class="std std-ref">barvinok: Projections of integer point sets of parametric polytopes</span></a></p></li>
+<li><p><a class="reference internal" href="cocoalib.html#spkg-cocoalib"><span class="std std-ref">cocoalib: Computations in commutative algebra</span></a></p></li>
+<li><p><a class="reference internal" href="deformation.html#spkg-deformation"><span class="std std-ref">deformation: Count points on hypersurfaces using the deformation method</span></a></p></li>
+<li><p><a class="reference internal" href="gap3.html#spkg-gap3"><span class="std std-ref">gap3: A minimal distribution of GAP 3 containing packages that have no equivalent in GAP 4</span></a></p></li>
+<li><p><a class="reference internal" href="lie.html#spkg-lie"><span class="std std-ref">lie: Library for the representation theory of complex semisimple Lie groups and algebras</span></a></p></li>
+<li><p><a class="reference internal" href="polylib.html#spkg-polylib"><span class="std std-ref">polylib: Operations on unions of polyhedra</span></a></p></li>
+<li><p><a class="reference internal" href="r_jupyter.html#spkg-r-jupyter"><span class="std std-ref">r_jupyter: Jupyter kernel for R</span></a></p></li>
+<li><p><a class="reference internal" href="surf.html#spkg-surf"><span class="std std-ref">surf: Visualization of algebraic curves, algebraic surfaces and hyperplane sections of surfaces</span></a></p></li>
+</ul>
+</section>
+<section id="id5">
+<h3>Other dependencies<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h3>
+</section>
+</section>
+<section id="all-external-packages">
+<h2>All External Packages<a class="headerlink" href="#all-external-packages" title="Link to this heading">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="index_alph.html">Details of external packages</a></li>
+</ul>
+</div>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="sage/features.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Testing for features of the environment at runtime</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2005--2025, The Sage Development Team
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Packages and Features</a><ul>
+<li><a class="reference internal" href="#standard-packages">Standard Packages</a><ul>
+<li><a class="reference internal" href="#mathematics">Mathematics</a></li>
+<li><a class="reference internal" href="#front-end-graphics-document-preparation">Front-end, graphics, document preparation</a></li>
+<li><a class="reference internal" href="#other-dependencies">Other dependencies</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#optional-packages">Optional Packages</a><ul>
+<li><a class="reference internal" href="#id1">Mathematics</a></li>
+<li><a class="reference internal" href="#id2">Front-end, graphics, document preparation</a></li>
+<li><a class="reference internal" href="#id3">Other dependencies</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#features">Features</a></li>
+<li><a class="reference internal" href="#distribution-packages-of-the-sage-library">Distribution Packages of the Sage Library</a></li>
+<li><a class="reference internal" href="#experimental-packages">Experimental Packages</a><ul>
+<li><a class="reference internal" href="#id4">Mathematics</a></li>
+<li><a class="reference internal" href="#id5">Other dependencies</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#all-external-packages">All External Packages</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=e9bf40f3"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=5fa4622c"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=8e571dd6"></script>
+    <script src="../_static/tabs.js?v=3ee01567"></script>
+    <script src="../_static/thebelab-helper.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@^1.0.1/dist/embed-amd.js"></script>
+    <script>window.MathJax = {"tex": {"macros": {"ZZ": "\\Bold{Z}", "NN": "\\Bold{N}", "RR": "\\Bold{R}", "CC": "\\Bold{C}", "QQ": "\\Bold{Q}", "QQbar": "\\overline{\\QQ}", "GF": ["\\Bold{F}_{#1}", 1], "Zp": ["\\Bold{Z}_{#1}", 1], "Qp": ["\\Bold{Q}_{#1}", 1], "Zmod": ["\\ZZ/#1\\ZZ", 1], "CDF": "\\Bold{C}", "CIF": "\\Bold{C}", "CLF": "\\Bold{C}", "RDF": "\\Bold{R}", "RIF": "\\Bold{I} \\Bold{R}", "RLF": "\\Bold{R}", "SL": "\\mathrm{SL}", "PSL": "\\mathrm{PSL}", "lcm": "\\mathop{\\operatorname{lcm}}", "dist": "\\mathrm{dist}", "Bold": ["\\mathbf{#1}", 1]}, "inlineMath": [["$", "$"], ["\\(", "\\)"]], "maxBuffer": 51200, "autoload": {"color": [], "colorv2": ["color"]}}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <script src="../_static/jupyter-sphinx-furo.js?v=24b7fe9d"></script>
+    </body>
+</html>

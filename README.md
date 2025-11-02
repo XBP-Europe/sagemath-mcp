@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/XBP-Europe/sagemath-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/XBP-Europe/sagemath-mcp/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/XBP-Europe/sagemath-mcp.svg)](https://github.com/XBP-Europe/sagemath-mcp/releases/latest)
-[![PyPI](https://img.shields.io/pypi/v/sagemath-mcp.svg)](https://pypi.org/project/sagemath-mcp/)
+[![PyPI](https://img.shields.io/badge/PyPI-pending-lightgrey.svg)](https://pypi.org/project/sagemath-mcp/)
 [![License](https://img.shields.io/github/license/XBP-Europe/sagemath-mcp.svg)](LICENSE)
 
 A Model Context Protocol (MCP) server that exposes stateful [SageMath](https://www.sagemath.org/) computations to LLM clients. The server uses [FastMCP](https://gofastmcp.com/) as the transport layer and maintains a dedicated SageMath session for each MCP conversation so variables, functions, and assumptions persist across tool calls.

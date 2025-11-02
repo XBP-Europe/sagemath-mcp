@@ -99,3 +99,12 @@ jobs:
         uses: pypa/gh-action-pypi-publish@v1.8.11
         with:
           packages-dir: dist
+      - name: Publish to GitHub Packages (PyPI)
+        run: |
+          uv run python -m pip install --upgrade pip
+          uv run python -m pip install --upgrade build
+          uv run uv publish \
+            --url https://pypi.pkg.github.com/XBP-Europe \
+            --username $GITHUB_ACTOR \
+            --password ${{ secrets.GITHUB_PACKAGES_TOKEN }} \
+            dist/*

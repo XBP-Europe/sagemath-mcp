@@ -1,0 +1,65 @@
+name: Bump Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      segment:
+        description: "Version segment to bump"
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Ensure clean working tree
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Working tree has uncommitted changes. Please commit or stash before running the bump."
+            exit 1
+          fi
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Bump version
+        id: bump
+        run: |
+          NEW_VERSION=$(python scripts/bump_version.py --segment "${{ inputs.segment }}")
+          echo "new_version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+      - name: Commit version bump
+        env:
+          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml src/sagemath_mcp/__init__.py
+          if git diff --cached --quiet; then
+            echo "No version changes detected; aborting."
+            exit 1
+          fi
+          git commit -m "Bump version to ${NEW_VERSION}"
+      - name: Create git tag
+        env:
+          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+        run: |
+          if git rev-parse "v${NEW_VERSION}" >/dev/null 2>&1; then
+            echo "Tag v${NEW_VERSION} already exists; aborting."
+            exit 1
+          fi
+          git tag "v${NEW_VERSION}"
+      - name: Push changes
+        env:
+          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+        run: |
+          git push origin HEAD
+          git push origin "v${NEW_VERSION}"

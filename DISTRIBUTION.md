@@ -1,5 +1,14 @@
 # Distribution & Installation Guide
 
+## Versioning
+
+Use the **Bump Version** workflow (GitHub Actions → *Bump Version*) before starting a release. The workflow:
+
+- increments the selected segment (patch by default) via `scripts/bump_version.py`,
+- updates `pyproject.toml` and `src/sagemath_mcp/__init__.py`,
+- commits the change to `main`, and
+- creates/pushes the matching `vX.Y.Z` tag that triggers the release pipeline.
+
 ## Building Artifacts
 1. Install development extras:
    ```bash

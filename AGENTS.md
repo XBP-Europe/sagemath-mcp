@@ -24,6 +24,7 @@
 - Update `README.md`, `USAGE.md`, and the monitoring docs whenever you touch CLI flags, security toggles, or observability outputs.
 - Surface new automation (e.g., build pipeline steps, artifact locations) in `AGENTS.md` and `TODO.md` so follow-on work is visible.
 - Keep distribution guidance current (`INSTALLATION.md`, `DISTRIBUTION.md`) and maintain cross-platform notes (Windows/macOS).
+- Kick off the **Bump Version** workflow ahead of a release to increment the package version and push the matching `vX.Y.Z` tag.
 
 ## Pending Focus Areas (from `TODO.md`)
 - Document CLI arguments/help output in the primary docs.

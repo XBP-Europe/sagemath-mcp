@@ -84,4 +84,4 @@ sage -python scripts/exercise_mcp.py
 ```
 
 For container validation, start the service with `docker compose up --build` and run
-`scripts/exercise_mcp.py` against `http://127.0.0.1:31415/mcp` to confirm end-to-end behavior.
+`scripts/exercise_mcp.py` against `http://127.0.0.1:8314/mcp` to confirm end-to-end behavior.

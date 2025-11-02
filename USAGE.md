@@ -10,7 +10,7 @@
 - Alternatively, run `make sage-container` (or `./scripts/setup_sage_container.sh`) to pull and launch
   the Docker image automatically.
 - Optional: `sage` on your `PATH` if running outside Docker.
-- `docker compose up --build` launches the bundled stack on `http://127.0.0.1:31415/mcp` using the
+- `docker compose up --build` launches the bundled stack on `http://127.0.0.1:8314/mcp` using the
   non-root `sage` user (UID/GID 1000); ensure the mounted project directory is writable by that UID.
 - To deploy to Kubernetes, use the Helm chart in `charts/sagemath-mcp` and set
   `image.repository`/`image.tag` to the published container (non-root execution is enforced by default).
@@ -74,7 +74,7 @@ sage -python scripts/exercise_mcp.py
 ```
 This script performs an assignment, a dependent evaluation, launches a long-running loop (emitting progress every 1.5 seconds), and cancels it using `cancel_sage_session`.
 
-When running via Docker Compose, the same script can target `http://127.0.0.1:31415/mcp`. Under Helm,
+When running via Docker Compose, the same script can target `http://127.0.0.1:8314/mcp`. Under Helm,
 use `kubectl port-forward` (see chart `NOTES.txt`) or expose an ingress to reach the MCP endpoint.
 
 ## Integrating with MCP Clients

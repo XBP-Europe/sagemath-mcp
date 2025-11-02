@@ -25,7 +25,7 @@ cd sagemath-mcp
 docker compose up --build
 ```
 
-The container exposes `http://127.0.0.1:31415/mcp` and runs as the non-root `sage` user (UID/GID 1000).
+The container exposes `http://127.0.0.1:8314/mcp` and runs as the non-root `sage` user (UID/GID 1000).
 If you mount the repository from the host, ensure it is writable by that UID (`chown -R 1000:1000 .`
 before launching).
 

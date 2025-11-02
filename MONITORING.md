@@ -50,7 +50,7 @@ import asyncio, json
 from fastmcp import Client
 
 async def main():
-    client = Client("http://127.0.0.1:31415/mcp", transport="http")
+    client = Client("http://127.0.0.1:8314/mcp", transport="http")
     metrics = await client.resource("resource://sagemath/monitoring/metrics")
     print(json.dumps([m.model_dump() for m in metrics], indent=2))
 
@@ -60,7 +60,7 @@ PY
 
 ## Exporting to Prometheus / Grafana
 
-For Docker Compose deployments the MCP endpoint defaults to `http://127.0.0.1:31415/mcp`. Inside
+For Docker Compose deployments the MCP endpoint defaults to `http://127.0.0.1:8314/mcp`. Inside
 Kubernetes, use `kubectl port-forward` (see `charts/sagemath-mcp/templates/NOTES.txt`) or expose an
 ingress before scraping metrics. The chart enforces non-root execution, so ensure any sidecar or job
 containers mounting shared volumes tolerate UID/GID 1000 ownership.
@@ -88,7 +88,7 @@ FIELDS = {
 }
 
 async def fetch_snapshot():
-    client = Client("http://127.0.0.1:31415/mcp", transport="http")
+    client = Client("http://127.0.0.1:8314/mcp", transport="http")
     snapshot = await client.resource("resource://sagemath/monitoring/metrics")
     return snapshot[0]
 

@@ -10,7 +10,7 @@ services:
     user: "1000:1000"
     restart: unless-stopped
     ports:
-      - "31415:31415"
+      - "8314:31415"
     environment:
       # Override runtime behavior by setting SageSettings env vars here.
       # Example: SAGEMATH_MCP_EVAL_TIMEOUT: "45"

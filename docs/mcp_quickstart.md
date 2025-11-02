@@ -9,7 +9,7 @@ This guide offers ready-to-use snippets for LLM-driven clients.
   `integrate_expression`, `matrix_multiply`, `statistics_summary`.
 - **Session Management:** `reset_sage_session`, `cancel_sage_session`.
 - **Resources:** `resource://sagemath/session/all`, `resource://sagemath/monitoring/metrics`.
-- **Deployment:** Local development via `uv run sagemath-mcp`, Docker Compose on `http://127.0.0.1:31415/mcp`,
+- **Deployment:** Local development via `uv run sagemath-mcp`, Docker Compose on `http://127.0.0.1:8314/mcp`,
   or the Helm chart (`charts/sagemath-mcp`) which exposes the MCP endpoint through a Kubernetes Service.
 
 ## Example Prompts

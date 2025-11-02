@@ -90,7 +90,7 @@ Build a ready-to-run container with the MCP server baked in:
 
 ```bash
 docker build -t sagemath-mcp:latest .
-docker run -p 31415:31415 sagemath-mcp:latest --transport streamable-http
+docker run -p 8314:31415 sagemath-mcp:latest --transport streamable-http
 ```
 
 This pulls the `sagemath/sagemath:latest` image (overridable via
@@ -115,7 +115,7 @@ To bootstrap a local SageMath MCP stack with a single command, use the provided
 docker compose up --build
 ```
 
-The compose service exposes port `31415` by default and mounts the repository at
+The compose service exposes port `8314` on the host (forwarded to container port `31415`) and mounts the repository at
 `/workspace`. Containers run as the non-root `sage` user (UID/GID 1000) to match the
 base image. Tweak runtime settings by editing the environment block (for example,
 increase `SAGEMATH_MCP_EVAL_TIMEOUT` or adjust `SAGEMATH_MCP_MAX_STDOUT`) before launch.
@@ -192,7 +192,7 @@ For streaming progress, expose the HTTP endpoint first:
 
 ```bash
 sage -python -m uv run sagemath-mcp -- --transport streamable-http --host 0.0.0.0 --port 31415
-codex mcp add sagemath-http --url http://127.0.0.1:31415/mcp
+codex mcp add sagemath-http --url http://127.0.0.1:8314/mcp
 ```
 
 ### Using with `gemini_cli`
@@ -208,7 +208,7 @@ gemini_cli mcp add sagemath \
 Or point to the HTTP transport:
 
 ```bash
-gemini_cli mcp add sagemath-http --transport http --url http://127.0.0.1:31415/mcp
+gemini_cli mcp add sagemath-http --transport http --url http://127.0.0.1:8314/mcp
 ```
 
 ### Using with `qwen_cli`
@@ -223,7 +223,7 @@ If you prefer HTTP:
 
 ```bash
 qwen_cli mcp add sagemath-http \
-  --url http://127.0.0.1:31415/mcp \
+  --url http://127.0.0.1:8314/mcp \
   --transport http
 ```
 

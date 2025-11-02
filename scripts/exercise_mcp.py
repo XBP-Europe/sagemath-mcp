@@ -9,7 +9,7 @@ from collections.abc import Callable
 
 from mcp.client.session_group import ClientSessionGroup, StreamableHttpParameters
 
-URL = os.getenv("SAGEMATH_MCP_URL", "http://127.0.0.1:31415/mcp")
+URL = os.getenv("SAGEMATH_MCP_URL", "http://127.0.0.1:8314/mcp")
 
 
 async def _connect_with_retry(

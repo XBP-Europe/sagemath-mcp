@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import json
 import shutil
 
@@ -34,6 +35,71 @@ class FakeContext:
         message: str | None,
     ) -> None:
         self.progress_events.append((progress, total, message))
+
+
+@pytest.mark.asyncio
+async def test_cull_loop_runs_until_cancelled(monkeypatch):
+    calls: list[int] = []
+
+    async def fake_cull_idle():
+        calls.append(1)
+
+    monkeypatch.setattr(server.SESSION_MANAGER, "cull_idle", fake_cull_idle)
+
+    task = asyncio.create_task(server._cull_loop(interval=0.01))
+    await asyncio.sleep(0.03)
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
+
+    assert calls
+
+
+@pytest.mark.asyncio
+async def test_lifespan_starts_and_stops(monkeypatch):
+    started: list[float] = []
+
+    async def fake_cull_loop(interval: float = 60.0) -> None:
+        started.append(interval)
+
+    monkeypatch.setattr(server, "_cull_loop", fake_cull_loop)
+
+    async with server._lifespan(server.mcp):
+        await asyncio.sleep(0)
+
+    assert started == [60.0]
+
+
+@pytest.mark.asyncio
+async def test_lifespan_cancels_running_cull_loop(monkeypatch):
+    events: list[str] = []
+    stop = asyncio.Event()
+
+    async def fake_cull_loop(interval: float = 60.0) -> None:
+        try:
+            await stop.wait()
+        except asyncio.CancelledError:
+            events.append("cancelled")
+            raise
+
+    monkeypatch.setattr(server, "_cull_loop", fake_cull_loop)
+
+    async with server._lifespan(server.mcp):
+        await asyncio.sleep(0)
+
+    assert events == ["cancelled"]
+
+
+@pytest.mark.asyncio
+async def test_progress_heartbeat_emits(monkeypatch):
+    ctx = FakeContext("heartbeat")
+    task = asyncio.create_task(server._progress_heartbeat(ctx, interval=0.01))
+    await asyncio.sleep(0.03)
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
+
+    assert ctx.progress_events
 
 
 @pytest.mark.asyncio

@@ -105,6 +105,16 @@ def test_truncate_stdout():
         server.SESSION_MANAGER.settings.max_stdout_chars = original_limit
 
 
+def test_truncate_stdout_with_non_int_limit(monkeypatch):
+    server = pytest.importorskip("sagemath_mcp.server")
+    import types
+
+    monkeypatch.setattr(server, "DEFAULT_SETTINGS", types.SimpleNamespace(max_stdout_chars=5))
+    monkeypatch.setattr(server.SESSION_MANAGER.settings, "max_stdout_chars", 5.5)
+    result = server._truncate_stdout("0123456789")
+    assert result.endswith("[output truncated]")
+
+
 class _FakeWriter:
     def __init__(self):
         self.data = bytearray()

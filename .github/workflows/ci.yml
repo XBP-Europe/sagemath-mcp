@@ -15,7 +15,7 @@ jobs:
     env:
       HELM_VERSION: v3.15.2
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v2
       - name: Create virtual environment
         run: uv venv

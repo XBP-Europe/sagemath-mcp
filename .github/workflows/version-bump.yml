@@ -28,7 +28,7 @@ jobs:
             echo "Working tree has uncommitted changes. Please commit or stash before running the bump."
             exit 1
           fi
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - name: Bump version

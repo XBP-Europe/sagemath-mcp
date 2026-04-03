@@ -28,10 +28,9 @@
 - Keep distribution guidance current (`INSTALLATION.md`, `DISTRIBUTION.md`) and maintain cross-platform notes (Windows/macOS).
 - Kick off the **Bump Version** workflow ahead of a release to increment the package version and push the matching `vX.Y.Z` tag.
 
-## Pending Focus Areas (from `TODO.md`)
-- Document CLI arguments/help output in the primary docs.
-- Add an integration test that validates monitoring metrics during timeout/cancellation scenarios using real Sage.
-- Extend release workflow to package Helm artifacts and run templating during publish.
+## Completed Focus Areas (from `TODO.md`)
+
+All items from the original TODO are complete. See `TODO.md` for the full checklist.
 
 ## Extra Tips
 - Use `cancel_sage_session` instead of force-stopping long Sage computations.

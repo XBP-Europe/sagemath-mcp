@@ -4,9 +4,14 @@ This guide offers ready-to-use snippets for LLM-driven clients.
 
 ## Connection Summary
 
-- **Tool:** `evaluate_sage` (general Sage code with optional `latex`, `capture_stdout`, `timeout`).
-- **Helpers:** `calculate_expression`, `solve_equation`, `differentiate_expression`,
-  `integrate_expression`, `matrix_multiply`, `statistics_summary`.
+- **Core:** `evaluate_sage` (general Sage code with optional `latex`, `capture_stdout`, `timeout`).
+- **Calculus:** `differentiate_expression`, `integrate_expression`, `limit_expression`, `series_expansion`.
+- **Algebra:** `solve_equation`, `simplify_expression`, `expand_expression`, `factor_expression`, `calculate_expression`.
+- **Linear Algebra:** `matrix_multiply`, `matrix_operation` (determinant, inverse, eigenvalues, rank, RREF, transpose).
+- **Differential Equations:** `solve_ode`.
+- **Number Theory:** `number_theory_operation` (is_prime, factor_integer, next_prime, gcd, lcm).
+- **Statistics:** `statistics_summary`.
+- **Visualization:** `plot_expression` (returns base64-encoded PNG).
 - **Session Management:** `reset_sage_session`, `cancel_sage_session`.
 - **Resources:** `resource://sagemath/session/all`, `resource://sagemath/monitoring/metrics`.
 - **Deployment:** Local development via `uv run sagemath-mcp`, Docker Compose on `http://127.0.0.1:8314/mcp`,

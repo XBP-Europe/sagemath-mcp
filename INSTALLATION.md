@@ -63,7 +63,7 @@ ingress, resource limits, or environment variables.
 
 ## macOS (Intel & Apple Silicon)
 
-1. Install Python 3.11 via [python.org](https://python.org) or Homebrew:
+1. Install Python 3.12 via [python.org](https://python.org) or Homebrew:
    ```bash
    brew install python@3.12
    ```

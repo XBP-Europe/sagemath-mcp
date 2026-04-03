@@ -45,7 +45,7 @@ Ruff with line-length 100, target Python 3.12. Rules: E, F, W, B, UP, ASYNC, RUF
 
 **Request flow:** MCP client -> `server.py` tool -> `SageSessionManager.get_or_create()` -> `SageSession.evaluate()` -> JSON request to `_sage_worker.py` subprocess -> AST validation -> exec in persistent namespace -> JSON response back.
 
-**MCP tools:** `evaluate_sage` (core), `reset_sage_session`, `cancel_sage_session`, plus math helpers (`solve_equation`, `differentiate_expression`, `integrate_expression`, `calculate_expression`, `statistics_summary`, `matrix_multiply`).
+**MCP tools (18):** `evaluate_sage` (core), `reset_sage_session`, `cancel_sage_session`, plus 15 math helpers: `calculate_expression`, `solve_equation`, `differentiate_expression`, `integrate_expression`, `simplify_expression`, `expand_expression`, `factor_expression`, `limit_expression`, `series_expansion`, `matrix_multiply`, `matrix_operation`, `solve_ode`, `number_theory_operation`, `statistics_summary`, `plot_expression`.
 
 **MCP resources:** `sagemath/session/{scope}` (session snapshots), `sagemath/monitoring/{scope}` (metrics), `sagemath/docs/{scope}` (doc links).
 

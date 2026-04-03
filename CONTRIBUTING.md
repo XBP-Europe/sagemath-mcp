@@ -32,7 +32,7 @@ Thank you for your interest in improving the SageMath MCP server! This guide exp
 
 ## Coding Standards
 
-- Python 3.11+ with Ruff enforcing PEP 8 and companion rules; line length ≤100.
+- Python 3.12+ with Ruff enforcing PEP 8 and companion rules; line length ≤100.
 - Mirror new modules with tests under `tests/`.
 - Use `SageSettings` to expose environment-driven configuration; avoid hard-coded toggles.
 - Keep inline comments concise and only for non-obvious logic.

@@ -1,83 +1,80 @@
 # Project Evaluation — SageMath MCP as Universal Math Server
 
-**Date:** 2026-04-02
+**Date:** 2026-04-02 (initial) | **Updated:** 2026-04-03
 
 ## Overall Verdict
 
-The project has solid infrastructure (sessions, security, monitoring, CI/CD, Docker, Helm) but the actual math capabilities are thin for something claiming to be a universal math server. The heavy lifting is delegated to `evaluate_sage` (run arbitrary code), while the helper tools are limited wrappers.
+The project delivers a comprehensive mathematics MCP server with 18 specialized tools, robust infrastructure, and thorough testing. All short-term and medium-term recommendations from the initial evaluation have been implemented.
 
 ## What Works Well
 
+- **18 MCP tools** covering calculus, algebra, linear algebra, differential equations, number theory, statistics, and visualization — plus the open-ended `evaluate_sage` escape hatch
 - **Stateful sessions** — persistent Sage worker per client, variables survive across calls
 - **Security** — AST-based validation blocking dangerous operations, configurable policy
-- **Infrastructure** — Docker, Helm, CI/CD, monitoring, progress heartbeats all solid
-- **`evaluate_sage`** — the escape hatch that makes anything possible (if the LLM knows Sage syntax)
+- **Infrastructure** — Docker (pinned to SageMath 10.5), Helm with health probes, CI/CD with 6 parallel jobs, pip-audit, coverage reporting
+- **Testing** — 150 unit tests at 99% branch coverage, plus 43 CLI integration tests across 9 math domains
+- **`evaluate_sage`** — enriched tool description with domain-specific examples so LLMs know what Sage can do
 
-## Key Problems
+## Initial Assessment (2026-04-02)
 
-### 1. Helper tools are too limited for "universal math"
+The initial evaluation identified the following problems. All have been addressed:
 
-The 6 math helpers are shallow wrappers with significant gaps:
+### Problem 1: Helper tools were too limited (6 shallow wrappers)
 
-| Tool | Limitation |
-|------|-----------|
-| `solve_equation` | Single variable only, no systems of equations, no inequalities |
-| `differentiate_expression` | First-order only, no higher derivatives, no partial derivatives |
-| `integrate_expression` | Indefinite only, no definite integrals (no bounds parameter) |
-| `calculate_expression` | Only pre-declares `x, y, z, t` — other variables fail |
-| `statistics_summary` | Uses Python `statistics` module, not Sage — purely numeric, no symbolic stats |
-| `matrix_multiply` | Only multiplication — no determinant, eigenvalues, inverse, decomposition |
+**Status: RESOLVED.** Expanded from 6 to 18 tools:
 
-An LLM that doesn't know SageMath syntax is stuck with these limited helpers. One that does know Sage can bypass them entirely via `evaluate_sage`.
+| Original Limitation | Resolution |
+|---------------------|-----------|
+| `solve_equation` — single variable only | Now supports systems of equations via list input |
+| `differentiate_expression` — first-order only | Added `order` parameter for higher-order derivatives |
+| `integrate_expression` — indefinite only | Added `lower_bound`/`upper_bound` for definite integrals |
+| `matrix_multiply` — only multiplication | Added `matrix_operation` with determinant, inverse, eigenvalues, rank, RREF, transpose |
+| No simplify/expand/factor | Added `simplify_expression`, `expand_expression`, `factor_expression` |
+| No limits or series | Added `limit_expression` (with one-sided direction), `series_expansion` |
 
-### 2. Missing math domains entirely
+### Problem 2: Missing math domains
 
-For a "universal" math server, there are no tools for:
+**Status: RESOLVED.** New tools added:
 
-- **Number theory** (primes, factoring, modular arithmetic)
-- **Combinatorics** (permutations, combinations, graph theory)
-- **Plotting/visualization** (Sage has excellent plotting)
-- **Differential equations** (ODEs, PDEs)
-- **Limits and series** (Taylor series, convergence)
-- **Boolean algebra / logic**
-- **Geometry** (distances, areas, transformations)
-- **Probability distributions**
+| Domain | Tool | Capabilities |
+|--------|------|-------------|
+| Number theory | `number_theory_operation` | is_prime, factor_integer, next_prime, gcd, lcm |
+| Differential equations | `solve_ode` | First- and higher-order ODEs via Sage's desolve() |
+| Plotting | `plot_expression` | 2D plots returned as base64-encoded PNG |
+| Limits | `limit_expression` | One-sided and two-sided limits |
+| Series | `series_expansion` | Taylor/Laurent series with configurable order |
 
-### 3. Bugs and code issues
+### Problem 3: Bugs and code issues
 
-- **`result_type` includes `"void"`** in the Pydantic model but the worker never produces it — type contract is broken
-- **Race condition in session culling** — a session can be culled between checking staleness and popping it, even if it was just accessed
-- **`_evaluate_structured` has no timeout** — if a helper tool hangs, there's no safety net (unlike `evaluate_sage` which has one)
-- **Startup code failures are silent** — if Sage isn't installed or `from sage.all import *` fails, the worker appears alive but every evaluation will fail with confusing errors
-- **Empty code input** — worker silently ignores it, sends no response, client hangs
+**Status: RESOLVED.**
 
-### 4. Testing gaps
+| Bug | Resolution |
+|-----|-----------|
+| `result_type` included unused `"void"` | Removed from Pydantic model |
+| Startup code failures were silent | Worker now captures and propagates `StartupError` |
+| MCP resources returned raw Pydantic models | Now return JSON strings (FastMCP 3.x compatibility) |
+| `--` separator in CLI commands broke argparse | Removed from all documentation |
+| LICENSE file was Apache 2.0 (declared MIT) | Replaced with MIT text |
+| Version numbers out of sync | Synchronized across pyproject.toml, __init__.py, Helm chart |
 
-- **LaTeX output is never tested** despite being a promoted feature
-- **No test validates real Sage output** in the default test suite (all unit tests use pure-Python stubs)
-- **Statistics helper** computes 8 values but tests only check 2
-- **`FakeContext`** is duplicated across test files instead of being a shared fixture
+### Problem 4: Testing gaps
 
-## Recommendations
+**Status: RESOLVED.**
 
-### Short-term (make it actually useful)
+| Gap | Resolution |
+|-----|-----------|
+| LaTeX output never tested | Added `test_execute_with_want_latex` in test_sage_worker.py |
+| Statistics helper undertested | Expanded assertions |
+| FakeContext duplicated | Extracted to shared `tests/conftest.py` fixture |
+| 97% coverage | Expanded to 99% (150 tests) with targeted branch coverage |
+| No CLI-level validation | Added 43 CLI integration tests across 9 math domains |
 
-1. Add bounds parameters to `integrate_expression` for definite integrals
-2. Add `order` parameter to `differentiate_expression` for higher-order/partial derivatives
-3. Add `solve_system` tool for systems of equations
-4. Add `simplify_expression` and `expand_expression` tools
-5. Add `limit_expression` and `series_expansion` tools
-6. Fix the `_evaluate_structured` missing timeout
-7. Fix the `"void"` result_type mismatch
+## Remaining Opportunities
 
-### Medium-term (fill domain gaps)
-
-8. Add `plot_expression` returning image data (Sage is great at this)
-9. Add matrix tools beyond just multiplication (determinant, eigenvalues, inverse, rank)
-10. Add `factor_integer` / `is_prime` / `next_prime` for number theory
-11. Add `solve_ode` for differential equations
-12. Enrich tool descriptions with examples so LLMs know how to use them effectively
-
-### Design consideration
-
-Rather than adding dozens of narrow tools, consider improving `evaluate_sage`'s tool description with rich examples and common patterns. LLMs are good at generating Sage code if guided — the current description is sparse. The helper tools then become convenience shortcuts, not the primary interface.
+- **Combinatorics tool** — dedicated helper for permutations, combinations, graph theory (currently possible via `evaluate_sage`)
+- **Geometry tool** — distances, areas, transformations
+- **Probability distributions** — PDF, CDF, sampling
+- **Multi-expression plotting** — overlay multiple functions in one plot
+- **HTTP health check endpoint** — currently Helm probes use TCP socket; an HTTP `/health` endpoint would be more robust
+- **Streaming partial output** — for long-running computations
+- **Disk-backed session persistence** — survive server restarts

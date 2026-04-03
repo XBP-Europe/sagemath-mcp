@@ -7,7 +7,7 @@ Primary goals:
 - Confirm MCP bindings emit progress, surface errors, and expose documentation resources (`tests/test_server.py`).
 
 ## Requirements
-- Python 3.11+ and `uv`.  
+- Python 3.12+ and `uv`.  
 - Development extras installed:  
   ```bash
   uv pip install -e .[dev]

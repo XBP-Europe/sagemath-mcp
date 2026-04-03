@@ -133,6 +133,12 @@ Probability: RealDistribution('gaussian', 1).cum_distribution_function(1.96)
 Group theory: SymmetricGroup(5).order(); AlternatingGroup(4).is_abelian()
 Polynomial rings: R.<a,b> = PolynomialRing(QQ); (a+b)^3
 Coding theory: codes.HammingCode(GF(2), 3).minimum_distance()
+Symbolic sums: var('n'); sum(1/n^2, n, 1, oo)
+Transforms: laplace(sin(t), t, s); inverse_laplace(1/(s^2+1), s, t)
+Modular arithmetic: Mod(17, 5); power_mod(3, 100, 97)
+Vector calculus: var('x y z'); f = x^2+y^2+z^2; diff(f,x), diff(f,y), diff(f,z)
+Numeric root finding: find_root(x - cos(x), 0, 1)
+Recurrences: desolve_rsolve(f(n+2)-f(n+1)-f(n), f, [0, 1])
 """)
 async def evaluate_sage(
     code: Annotated[str, Field(description="SageMath code to execute")],
@@ -770,6 +776,354 @@ async def number_theory_operation(
         "lcm": f"int(lcm({a}, {b}))",
     }
     code = _sage_prelude() + op_code[operation] + "\n"
+    result = await _evaluate_structured(session, code)
+    return {"operation": operation, "result": result}
+
+
+@mcp.tool(description="Compute a symbolic sum or product over an index variable")
+async def symbolic_sum(
+    expression: Annotated[str, Field(description="Expression to sum (e.g. '1/n^2')")],
+    variable: Annotated[str, Field(description="Index variable (e.g. 'n')")] = "n",
+    lower: Annotated[str, Field(description="Lower bound (e.g. '1')")] = "1",
+    upper: Annotated[str, Field(description="Upper bound (e.g. 'oo' for infinity)")] = "oo",
+    product: Annotated[
+        bool, Field(description="If true, compute a product instead of a sum")
+    ] = False,
+    ctx: Context | None = None,
+) -> dict:
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required for stateful execution")
+    session = await SESSION_MANAGER.get(ctx.session_id)
+    op = "product" if product else "sum"
+    code = (
+        _sage_prelude([variable])
+        + textwrap.dedent(
+            f"""
+        _var = var({_encode_literal(variable)})
+        _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
+        _lo = sage_eval({_encode_literal(lower)}, locals=_locals)
+        _hi = sage_eval({_encode_literal(upper)}, locals=_locals)
+        str({op}(_expr, _var, _lo, _hi))
+        """
+        )
+    )
+    result = await _evaluate_structured(session, code)
+    return {"result": result, "operation": op}
+
+
+@mcp.tool(description="Combinatorics: binomial, permutations, combinations, partitions, and more")
+async def combinatorics_operation(
+    operation: Annotated[
+        str,
+        Field(
+            description="One of: binomial, permutations, combinations, "
+            "partitions, factorial, catalan, fibonacci, bell"
+        ),
+    ],
+    n: Annotated[int, Field(description="Primary integer argument")],
+    k: Annotated[
+        int | None, Field(description="Secondary argument (for binomial, combinations)")
+    ] = None,
+    ctx: Context | None = None,
+) -> dict:
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required for stateful execution")
+    session = await SESSION_MANAGER.get(ctx.session_id)
+    op_code = {
+        "binomial": f"int(binomial({n}, {k or 0}))",
+        "permutations": f"int(Permutations({n}).cardinality())"
+        if k is None
+        else f"int(factorial({n}) // factorial({n} - {k}))",
+        "combinations": f"int(binomial({n}, {k or 0}))",
+        "partitions": f"int(Partitions({n}).cardinality())",
+        "factorial": f"int(factorial({n}))",
+        "catalan": f"int(catalan_number({n}))",
+        "fibonacci": f"int(fibonacci({n}))",
+        "bell": f"int(bell_number({n}))",
+    }
+    if operation not in op_code:
+        raise ToolError(f"Unknown operation '{operation}'. Use: {', '.join(op_code)}")
+    code = _sage_prelude() + op_code[operation] + "\n"
+    result = await _evaluate_structured(session, code)
+    return {"operation": operation, "result": result}
+
+
+@mcp.tool(description="Plot a 3D surface of a two-variable expression as base64 PNG")
+async def plot3d_expression(
+    expression: Annotated[
+        str, Field(description="Expression of two variables (e.g. 'sin(x)*cos(y)')")
+    ],
+    x_variable: Annotated[str, Field(description="First variable")] = "x",
+    y_variable: Annotated[str, Field(description="Second variable")] = "y",
+    x_range_min: Annotated[float, Field(description="X lower bound")] = -5.0,
+    x_range_max: Annotated[float, Field(description="X upper bound")] = 5.0,
+    y_range_min: Annotated[float, Field(description="Y lower bound")] = -5.0,
+    y_range_max: Annotated[float, Field(description="Y upper bound")] = 5.0,
+    ctx: Context | None = None,
+) -> dict:
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required for stateful execution")
+    session = await SESSION_MANAGER.get(ctx.session_id)
+    code = (
+        _sage_prelude([x_variable, y_variable])
+        + textwrap.dedent(
+            f"""
+        import base64
+        import io as _io
+        _xv = var({_encode_literal(x_variable)})
+        _yv = var({_encode_literal(y_variable)})
+        _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
+        _plt = plot3d(_expr, (_xv, {x_range_min}, {x_range_max}),
+                     (_yv, {y_range_min}, {y_range_max}))
+        _buf = _io.BytesIO()
+        _plt.save(_buf, format='png')
+        _buf.seek(0)
+        base64.b64encode(_buf.read()).decode('ascii')
+        """
+        )
+    )
+    result = await _evaluate_structured(session, code)
+    return {"image_base64": result, "format": "png"}
+
+
+@mcp.tool(
+    description="Probability distribution operations: PDF, CDF, quantile, mean, variance, sampling"
+)
+async def distribution_operation(
+    distribution: Annotated[
+        str,
+        Field(
+            description="Distribution name: normal, exponential, poisson, "
+            "chi_squared, student_t, uniform, beta, gamma"
+        ),
+    ],
+    parameters: Annotated[
+        list[float], Field(description="Distribution parameters (e.g. [0, 1] for standard normal)")
+    ],
+    operation: Annotated[
+        str, Field(description="One of: pdf, cdf, quantile, mean, variance, sample")
+    ],
+    x: Annotated[float | None, Field(description="Point for pdf/cdf/quantile evaluation")] = None,
+    n: Annotated[int | None, Field(description="Number of samples (for sample operation)")] = None,
+    ctx: Context | None = None,
+) -> dict:
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required for stateful execution")
+    session = await SESSION_MANAGER.get(ctx.session_id)
+    params_str = ", ".join(str(p) for p in parameters)
+    dist_map = {
+        "normal": f"RealDistribution('gaussian', {parameters[0] if len(parameters) == 1 else 1})",
+        "exponential": f"RealDistribution('exponential', {parameters[0] if parameters else 1})",
+        "uniform": f"RealDistribution('uniform', [{params_str}])",
+        "chi_squared": f"RealDistribution('chisquared', {parameters[0] if parameters else 1})",
+        "student_t": f"RealDistribution('t', {parameters[0] if parameters else 1})",
+        "beta": f"RealDistribution('beta', [{params_str}])",
+        "gamma": f"RealDistribution('gamma', [{params_str}])",
+    }
+    # For distributions not directly in RealDistribution, use scipy-like Sage constructs
+    if distribution == "poisson":
+        # Poisson is discrete; handle separately
+        lam = parameters[0] if parameters else 1
+        op_code = {
+            "pdf": (
+                f"float(exp(-{lam}) * {lam}**{x} / factorial(int({x})))"
+                if x is not None else "0"
+            ),
+            "cdf": (
+                f"float(sum(exp(-{lam}) * {lam}**k / factorial(k)"
+                f" for k in range(int({x}) + 1)))"
+                if x is not None else "0"
+            ),
+            "mean": f"float({lam})",
+            "variance": f"float({lam})",
+            "sample": f"[int(numpy_rng.poisson({lam})) for _ in range({n or 1})]",
+        }
+        if operation not in op_code:
+            raise ToolError(f"Unknown operation '{operation}' for Poisson distribution")
+        code = _sage_prelude() + op_code.get(operation, "None") + "\n"
+    elif distribution in dist_map:
+        dist_expr = dist_map[distribution]
+        op_code = {
+            "pdf": f"float(_d.distribution_function({x}))" if x is not None else "None",
+            "cdf": f"float(_d.cum_distribution_function({x}))" if x is not None else "None",
+            "quantile": (
+                f"float(_d.cum_distribution_function_inv({x}))"
+                if x is not None else "None"
+            ),
+            "mean": "float(_d.get_random_element())",
+            "variance": "None",
+            "sample": f"[float(_d.get_random_element()) for _ in range({n or 1})]",
+        }
+        if operation not in op_code:
+            raise ToolError(
+                f"Unknown operation '{operation}'. "
+                "Use: pdf, cdf, quantile, mean, variance, sample"
+            )
+        code = _sage_prelude() + f"_d = {dist_expr}\n" + op_code[operation] + "\n"
+    else:
+        raise ToolError(
+            f"Unknown distribution '{distribution}'. "
+            "Use: normal, exponential, poisson, chi_squared, student_t, uniform, beta, gamma"
+        )
+    result = await _evaluate_structured(session, code)
+    return {"distribution": distribution, "operation": operation, "result": result}
+
+
+@mcp.tool(description="Find a numeric root of an expression in a given interval")
+async def find_root(
+    expression: Annotated[str, Field(description="Expression to find root of (e.g. 'x - cos(x)')")],
+    variable: Annotated[str, Field(description="Variable")] = "x",
+    lower_bound: Annotated[float, Field(description="Left bound of search interval")] = -10.0,
+    upper_bound: Annotated[float, Field(description="Right bound of search interval")] = 10.0,
+    ctx: Context | None = None,
+) -> dict:
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required for stateful execution")
+    session = await SESSION_MANAGER.get(ctx.session_id)
+    code = (
+        _sage_prelude([variable])
+        + textwrap.dedent(
+            f"""
+        _var = var({_encode_literal(variable)})
+        _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
+        float(find_root(_expr, {lower_bound}, {upper_bound}))
+        """
+        )
+    )
+    result = await _evaluate_structured(session, code)
+    return {"root": result}
+
+
+@mcp.tool(description="Plot multiple expressions overlaid on a single 2D graph")
+async def plot_multi_expression(
+    expressions: Annotated[
+        list[str], Field(description="List of expressions to plot (e.g. ['sin(x)', 'cos(x)'])")
+    ],
+    variable: Annotated[str, Field(description="Plot variable")] = "x",
+    range_min: Annotated[float, Field(description="Lower bound of plot range")] = -10.0,
+    range_max: Annotated[float, Field(description="Upper bound of plot range")] = 10.0,
+    ctx: Context | None = None,
+) -> dict:
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required for stateful execution")
+    session = await SESSION_MANAGER.get(ctx.session_id)
+    code = (
+        _sage_prelude([variable])
+        + textwrap.dedent(
+            f"""
+        import base64
+        import io as _io
+        _var = var({_encode_literal(variable)})
+        _exprs = [sage_eval(e, locals=_locals) for e in {_encode_literal(expressions)}]
+        _plt = sum(plot(e, (_var, {range_min}, {range_max})) for e in _exprs)
+        _buf = _io.BytesIO()
+        _plt.save(_buf, format='png')
+        _buf.seek(0)
+        base64.b64encode(_buf.read()).decode('ascii')
+        """
+        )
+    )
+    result = await _evaluate_structured(session, code)
+    return {"image_base64": result, "format": "png"}
+
+
+@mcp.tool(
+    description="Vector calculus operations: gradient, divergence, curl, laplacian"
+)
+async def vector_calculus_operation(
+    operation: Annotated[
+        str, Field(description="One of: gradient, divergence, curl, laplacian")
+    ],
+    expression: Annotated[
+        str | list[str],
+        Field(
+            description="Scalar field (string) for gradient/laplacian, "
+            "or vector field components (list) for divergence/curl"
+        ),
+    ],
+    variables: Annotated[
+        list[str] | None,
+        Field(description="Variable names (e.g. ['x', 'y', 'z'])"),
+    ] = None,
+    ctx: Context | None = None,
+) -> dict:
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required for stateful execution")
+    if variables is None:
+        variables = ["x", "y", "z"]
+    session = await SESSION_MANAGER.get(ctx.session_id)
+    vars_str = ", ".join(f"var('{v}')" for v in variables)
+
+    if operation == "gradient":
+        if not isinstance(expression, str):
+            raise ToolError("Gradient requires a scalar expression (string)")
+        code = (
+            _sage_prelude(variables)
+            + textwrap.dedent(
+                f"""
+            _vars = [{vars_str}]
+            _f = sage_eval({_encode_literal(expression)}, locals=_locals)
+            [str(diff(_f, v)) for v in _vars]
+            """
+            )
+        )
+    elif operation == "divergence":
+        if not isinstance(expression, list):
+            raise ToolError("Divergence requires a vector field (list of component strings)")
+        if len(expression) != len(variables):
+            raise ToolError(
+                f"Vector field has {len(expression)} components "
+                f"but {len(variables)} variables"
+            )
+        code = (
+            _sage_prelude(variables)
+            + textwrap.dedent(
+                f"""
+            _vars = [{vars_str}]
+            _components = [sage_eval(c, locals=_locals) for c in {_encode_literal(expression)}]
+            str(sum(diff(_components[i], _vars[i]) for i in range(len(_vars))))
+            """
+            )
+        )
+    elif operation == "curl":
+        if not isinstance(expression, list) or len(expression) != 3:
+            raise ToolError("Curl requires exactly 3 vector field components")
+        if len(variables) != 3:
+            raise ToolError("Curl requires exactly 3 variables")
+        code = (
+            _sage_prelude(variables)
+            + textwrap.dedent(
+                f"""
+            _vars = [{vars_str}]
+            _F = [sage_eval(c, locals=_locals) for c in {_encode_literal(expression)}]
+            _curl = [
+                str(diff(_F[2], _vars[1]) - diff(_F[1], _vars[2])),
+                str(diff(_F[0], _vars[2]) - diff(_F[2], _vars[0])),
+                str(diff(_F[1], _vars[0]) - diff(_F[0], _vars[1])),
+            ]
+            _curl
+            """
+            )
+        )
+    elif operation == "laplacian":
+        if not isinstance(expression, str):
+            raise ToolError("Laplacian requires a scalar expression (string)")
+        code = (
+            _sage_prelude(variables)
+            + textwrap.dedent(
+                f"""
+            _vars = [{vars_str}]
+            _f = sage_eval({_encode_literal(expression)}, locals=_locals)
+            str(sum(diff(_f, v, 2) for v in _vars))
+            """
+            )
+        )
+    else:
+        raise ToolError(
+            f"Unknown operation '{operation}'. "
+            "Use: gradient, divergence, curl, laplacian"
+        )
+
     result = await _evaluate_structured(session, code)
     return {"operation": operation, "result": result}
 

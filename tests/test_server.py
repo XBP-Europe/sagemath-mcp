@@ -1004,6 +1004,443 @@ async def test_evaluate_sage_process_error_with_cause(monkeypatch):
     assert any("unavailable" in msg.lower() for msg in ctx.error_messages)
 
 
+# ---------------------------------------------------------------------------
+# Phase 1 tools: symbolic_sum, combinatorics_operation, plot3d_expression
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_symbolic_sum(monkeypatch):
+    session = StubSession("'pi^2/6'")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.symbolic_sum(
+        expression="1/n^2", variable="n", lower="1", upper="oo", ctx=ctx,
+    )
+    assert result["operation"] == "sum"
+    assert result["result"] is not None
+
+
+@pytest.mark.asyncio
+async def test_symbolic_product(monkeypatch):
+    session = StubSession("'120'")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.symbolic_sum(
+        expression="k", variable="k", lower="1", upper="5",
+        product=True, ctx=ctx,
+    )
+    assert result["operation"] == "product"
+
+
+@pytest.mark.asyncio
+async def test_symbolic_sum_no_context():
+    with pytest.raises(ToolError, match="MCP context"):
+        await server.symbolic_sum("1/n^2", ctx=None)
+
+
+@pytest.mark.asyncio
+async def test_combinatorics_binomial(monkeypatch):
+    session = StubSession("252")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.combinatorics_operation(
+        operation="binomial", n=10, k=5, ctx=ctx,
+    )
+    assert result["operation"] == "binomial"
+    assert result["result"] == 252
+
+
+@pytest.mark.asyncio
+async def test_combinatorics_factorial(monkeypatch):
+    session = StubSession("120")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.combinatorics_operation(
+        operation="factorial", n=5, ctx=ctx,
+    )
+    assert result["result"] == 120
+
+
+@pytest.mark.asyncio
+async def test_combinatorics_catalan(monkeypatch):
+    session = StubSession("42")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.combinatorics_operation(
+        operation="catalan", n=5, ctx=ctx,
+    )
+    assert result["operation"] == "catalan"
+
+
+@pytest.mark.asyncio
+async def test_combinatorics_fibonacci(monkeypatch):
+    session = StubSession("55")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.combinatorics_operation(
+        operation="fibonacci", n=10, ctx=ctx,
+    )
+    assert result["result"] == 55
+
+
+@pytest.mark.asyncio
+async def test_combinatorics_bell(monkeypatch):
+    session = StubSession("52")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.combinatorics_operation(
+        operation="bell", n=5, ctx=ctx,
+    )
+    assert result["operation"] == "bell"
+
+
+@pytest.mark.asyncio
+async def test_combinatorics_partitions(monkeypatch):
+    session = StubSession("7")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.combinatorics_operation(
+        operation="partitions", n=5, ctx=ctx,
+    )
+    assert result["result"] == 7
+
+
+@pytest.mark.asyncio
+async def test_combinatorics_permutations(monkeypatch):
+    session = StubSession("24")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.combinatorics_operation(
+        operation="permutations", n=4, ctx=ctx,
+    )
+    assert result["result"] == 24
+
+
+@pytest.mark.asyncio
+async def test_combinatorics_permutations_with_k(monkeypatch):
+    session = StubSession("60")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.combinatorics_operation(
+        operation="permutations", n=5, k=3, ctx=ctx,
+    )
+    assert result["result"] == 60
+
+
+@pytest.mark.asyncio
+async def test_combinatorics_invalid_operation(monkeypatch):
+    session = StubSession("0")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    with pytest.raises(ToolError, match="Unknown operation"):
+        await server.combinatorics_operation(
+            operation="invalid", n=5, ctx=ctx,
+        )
+
+
+@pytest.mark.asyncio
+async def test_combinatorics_no_context():
+    with pytest.raises(ToolError, match="MCP context"):
+        await server.combinatorics_operation(
+            operation="factorial", n=5, ctx=None,
+        )
+
+
+@pytest.mark.asyncio
+async def test_plot3d_expression(monkeypatch):
+    session = StubSession("'iVBORw0KGgo...'")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.plot3d_expression(
+        expression="x^2 + y^2", ctx=ctx,
+    )
+    assert result["format"] == "png"
+    assert "image_base64" in result
+
+
+@pytest.mark.asyncio
+async def test_plot3d_expression_no_context():
+    with pytest.raises(ToolError, match="MCP context"):
+        await server.plot3d_expression("x + y", ctx=None)
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 tools: distribution, find_root, plot_multi, vector_calculus
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_distribution_normal_cdf(monkeypatch):
+    session = StubSession("0.9772")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.distribution_operation(
+        distribution="normal", parameters=[1.0],
+        operation="cdf", x=2.0, ctx=ctx,
+    )
+    assert result["distribution"] == "normal"
+    assert result["operation"] == "cdf"
+
+
+@pytest.mark.asyncio
+async def test_distribution_poisson_pdf(monkeypatch):
+    session = StubSession("0.1804")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.distribution_operation(
+        distribution="poisson", parameters=[5.0],
+        operation="pdf", x=3.0, ctx=ctx,
+    )
+    assert result["distribution"] == "poisson"
+
+
+@pytest.mark.asyncio
+async def test_distribution_poisson_mean(monkeypatch):
+    session = StubSession("5.0")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.distribution_operation(
+        distribution="poisson", parameters=[5.0],
+        operation="mean", ctx=ctx,
+    )
+    assert result["operation"] == "mean"
+
+
+@pytest.mark.asyncio
+async def test_distribution_sample(monkeypatch):
+    session = StubSession("[1.2, 0.5, -0.3]")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.distribution_operation(
+        distribution="exponential", parameters=[1.0],
+        operation="sample", n=3, ctx=ctx,
+    )
+    assert result["operation"] == "sample"
+
+
+@pytest.mark.asyncio
+async def test_distribution_unknown(monkeypatch):
+    session = StubSession("None")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    with pytest.raises(ToolError, match="Unknown distribution"):
+        await server.distribution_operation(
+            distribution="invalid", parameters=[1.0],
+            operation="pdf", ctx=ctx,
+        )
+
+
+@pytest.mark.asyncio
+async def test_distribution_unknown_operation(monkeypatch):
+    session = StubSession("None")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    with pytest.raises(ToolError, match="Unknown operation"):
+        await server.distribution_operation(
+            distribution="normal", parameters=[1.0],
+            operation="invalid", ctx=ctx,
+        )
+
+
+@pytest.mark.asyncio
+async def test_distribution_poisson_unknown_op(monkeypatch):
+    session = StubSession("None")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    with pytest.raises(ToolError, match="Unknown operation"):
+        await server.distribution_operation(
+            distribution="poisson", parameters=[5.0],
+            operation="quantile", ctx=ctx,
+        )
+
+
+@pytest.mark.asyncio
+async def test_distribution_no_context():
+    with pytest.raises(ToolError, match="MCP context"):
+        await server.distribution_operation(
+            distribution="normal", parameters=[1.0],
+            operation="pdf", ctx=None,
+        )
+
+
+@pytest.mark.asyncio
+async def test_find_root(monkeypatch):
+    session = StubSession("0.7390851332151607")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.find_root(
+        expression="x - cos(x)", lower_bound=0.0, upper_bound=1.0, ctx=ctx,
+    )
+    assert "root" in result
+
+
+@pytest.mark.asyncio
+async def test_find_root_no_context():
+    with pytest.raises(ToolError, match="MCP context"):
+        await server.find_root("x^2 - 2", ctx=None)
+
+
+@pytest.mark.asyncio
+async def test_plot_multi_expression(monkeypatch):
+    session = StubSession("'iVBORw0KGgo...'")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.plot_multi_expression(
+        expressions=["sin(x)", "cos(x)"], ctx=ctx,
+    )
+    assert result["format"] == "png"
+    assert "image_base64" in result
+
+
+@pytest.mark.asyncio
+async def test_plot_multi_expression_no_context():
+    with pytest.raises(ToolError, match="MCP context"):
+        await server.plot_multi_expression(
+            expressions=["x", "x^2"], ctx=None,
+        )
+
+
+@pytest.mark.asyncio
+async def test_vector_calculus_gradient(monkeypatch):
+    session = StubSession("['2*x', '2*y', '2*z']")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.vector_calculus_operation(
+        operation="gradient", expression="x^2 + y^2 + z^2", ctx=ctx,
+    )
+    assert result["operation"] == "gradient"
+    assert isinstance(result["result"], list)
+
+
+@pytest.mark.asyncio
+async def test_vector_calculus_divergence(monkeypatch):
+    session = StubSession("'3'")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.vector_calculus_operation(
+        operation="divergence", expression=["x", "y", "z"], ctx=ctx,
+    )
+    assert result["operation"] == "divergence"
+
+
+@pytest.mark.asyncio
+async def test_vector_calculus_curl(monkeypatch):
+    session = StubSession("['0', '0', '0']")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.vector_calculus_operation(
+        operation="curl", expression=["x", "y", "z"], ctx=ctx,
+    )
+    assert result["operation"] == "curl"
+
+
+@pytest.mark.asyncio
+async def test_vector_calculus_laplacian(monkeypatch):
+    session = StubSession("'6'")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.vector_calculus_operation(
+        operation="laplacian", expression="x^2 + y^2 + z^2", ctx=ctx,
+    )
+    assert result["operation"] == "laplacian"
+
+
+@pytest.mark.asyncio
+async def test_vector_calculus_invalid_operation(monkeypatch):
+    session = StubSession("None")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    with pytest.raises(ToolError, match="Unknown operation"):
+        await server.vector_calculus_operation(
+            operation="invalid", expression="x^2", ctx=ctx,
+        )
+
+
+@pytest.mark.asyncio
+async def test_vector_calculus_gradient_requires_string(monkeypatch):
+    session = StubSession("None")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    with pytest.raises(ToolError, match="scalar expression"):
+        await server.vector_calculus_operation(
+            operation="gradient", expression=["x", "y"], ctx=ctx,
+        )
+
+
+@pytest.mark.asyncio
+async def test_vector_calculus_divergence_requires_list(monkeypatch):
+    session = StubSession("None")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    with pytest.raises(ToolError, match="vector field"):
+        await server.vector_calculus_operation(
+            operation="divergence", expression="x^2", ctx=ctx,
+        )
+
+
+@pytest.mark.asyncio
+async def test_vector_calculus_divergence_dimension_mismatch(monkeypatch):
+    session = StubSession("None")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    with pytest.raises(ToolError, match="components"):
+        await server.vector_calculus_operation(
+            operation="divergence",
+            expression=["x", "y"],
+            variables=["x", "y", "z"],
+            ctx=ctx,
+        )
+
+
+@pytest.mark.asyncio
+async def test_vector_calculus_curl_requires_3_components(monkeypatch):
+    session = StubSession("None")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    with pytest.raises(ToolError, match="exactly 3"):
+        await server.vector_calculus_operation(
+            operation="curl", expression=["x", "y"], ctx=ctx,
+        )
+
+
+@pytest.mark.asyncio
+async def test_vector_calculus_laplacian_requires_string(monkeypatch):
+    session = StubSession("None")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    with pytest.raises(ToolError, match="scalar expression"):
+        await server.vector_calculus_operation(
+            operation="laplacian", expression=["x"], ctx=ctx,
+        )
+
+
+@pytest.mark.asyncio
+async def test_vector_calculus_no_context():
+    with pytest.raises(ToolError, match="MCP context"):
+        await server.vector_calculus_operation(
+            operation="gradient", expression="x^2", ctx=None,
+        )
+
+
+@pytest.mark.asyncio
+async def test_vector_calculus_default_variables(monkeypatch):
+    """Verify that variables defaults to ['x', 'y', 'z'] when None."""
+    session = StubSession("['2*x', '2*y', '2*z']")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.vector_calculus_operation(
+        operation="gradient", expression="x^2 + y^2 + z^2",
+        variables=None, ctx=ctx,
+    )
+    assert result["operation"] == "gradient"
+
+
+# ---------------------------------------------------------------------------
+# Sage integration (requires real Sage)
+# ---------------------------------------------------------------------------
+
+
 @pytest.mark.asyncio
 @pytest.mark.skipif(
     shutil.which("sage") is None, reason="Sage executable not available"

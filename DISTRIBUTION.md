@@ -76,7 +76,7 @@ verification proves the image was built by the repository’s GitHub Actions wor
 ## Verification After Install
 ```bash
 uv pip install sagemath-mcp
-uv run sagemath-mcp -- --help
+uv run sagemath-mcp --help
 ```
 If SageMath is available, execute a quick smoke test:
 ```bash

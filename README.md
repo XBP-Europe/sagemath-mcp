@@ -147,7 +147,7 @@ uv pip install -e .[dev]
 uv run sagemath-mcp
 
 # Run with streaming-friendly HTTP transport
-uv run sagemath-mcp -- --transport streamable-http --host 127.0.0.1 --port 8314
+uv run sagemath-mcp --transport streamable-http --host 127.0.0.1 --port 8314
 ```
 
 ### Optional: start a Sage container automatically
@@ -755,7 +755,7 @@ Best for local LLM clients (Claude Desktop, Claude Code, Codex CLI). The client 
 ### HTTP / Streamable HTTP
 
 ```bash
-uv run sagemath-mcp -- --transport streamable-http --host 127.0.0.1 --port 8314
+uv run sagemath-mcp --transport streamable-http --host 127.0.0.1 --port 8314
 ```
 
 Best for remote clients, browser-based tools, or shared environments. Supports streaming responses and cancellation.
@@ -841,7 +841,7 @@ sagemath-mcp --transport streamable-http --host 0.0.0.0 --port 8314
 sagemath-mcp --log-level DEBUG
 
 # With uv
-uv run sagemath-mcp -- --transport streamable-http --host 127.0.0.1 --port 8314
+uv run sagemath-mcp --transport streamable-http --host 127.0.0.1 --port 8314
 ```
 
 ---

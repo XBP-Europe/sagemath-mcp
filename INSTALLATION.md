@@ -7,14 +7,14 @@ SageMath MCP server.
 
 ```bash
 pip install sagemath-mcp
-sagemath-mcp -- --transport streamable-http --host 127.0.0.1 --port 8314
+sagemath-mcp --transport streamable-http --host 127.0.0.1 --port 8314
 ```
 
 Or with [uv](https://docs.astral.sh/uv/):
 
 ```bash
 uv tool install sagemath-mcp
-uvx sagemath-mcp -- --transport http --host 127.0.0.1 --port 8314
+uvx sagemath-mcp --transport http --host 127.0.0.1 --port 8314
 ```
 
 ### Docker Compose (all platforms)
@@ -42,7 +42,7 @@ ingress, resource limits, or environment variables.
 
 ## Windows 11
 
-1. Install Python 3.11+ from [python.org](https://python.org/) (check "Add to PATH").
+1. Install Python 3.12+ from [python.org](https://python.org/) (check "Add to PATH").
 2. Optionally install `uv`:
    ```powershell
    powershell -ExecutionPolicy RemoteSigned -Command "Invoke-WebRequest https://astral.sh/uv/install.ps1 -UseBasicParsing | Invoke-Expression"
@@ -65,7 +65,7 @@ ingress, resource limits, or environment variables.
 
 1. Install Python 3.11 via [python.org](https://python.org) or Homebrew:
    ```bash
-   brew install python@3.11
+   brew install python@3.12
    ```
 2. Install `uv` (optional but recommended):
    ```bash

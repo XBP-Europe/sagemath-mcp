@@ -52,7 +52,7 @@ Ruff with line-length 100, target Python 3.12. Rules: E, F, W, B, UP, ASYNC, RUF
 ## Deployment
 
 - **stdio** (default, for Claude Desktop): `uv run sagemath-mcp`
-- **HTTP**: `uv run sagemath-mcp -- --transport streamable-http --host 127.0.0.1 --port 8314`
+- **HTTP**: `uv run sagemath-mcp --transport streamable-http --host 127.0.0.1 --port 8314`
 - **Docker Compose**: `docker compose up --build` (port 8314)
 - **Kubernetes**: Helm chart in `charts/sagemath-mcp/`; enforces non-root user (UID/GID 1000)
 

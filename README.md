@@ -4,10 +4,44 @@
 [![Release](https://img.shields.io/github/v/release/XBP-Europe/sagemath-mcp.svg)](https://github.com/XBP-Europe/sagemath-mcp/releases/latest)
 [![PyPI](https://img.shields.io/badge/PyPI-pending-lightgrey.svg)](https://pypi.org/project/sagemath-mcp/)
 [![License](https://img.shields.io/github/license/XBP-Europe/sagemath-mcp.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![FastMCP](https://img.shields.io/badge/FastMCP-3.2-green.svg)](https://gofastmcp.com/)
 
-A universal mathematics [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that gives LLM clients full access to [SageMath](https://www.sagemath.org/) --- one of the most comprehensive open-source mathematics systems available. Built on [FastMCP](https://gofastmcp.com/), the server maintains a dedicated SageMath process for each MCP session so variables, functions, and assumptions persist across tool calls.
+A universal mathematics [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that gives LLM clients full access to [SageMath](https://www.sagemath.org/) --- one of the most comprehensive open-source mathematics systems available. Built on [FastMCP 3.x](https://gofastmcp.com/), the server maintains a dedicated SageMath process for each MCP session so variables, functions, and assumptions persist across tool calls.
 
 Whether the task is symbolic calculus, number theory, linear algebra, differential equations, plotting, combinatorics, or basic arithmetic, the server provides both **18 high-level helper tools** for common workflows and an **open-ended evaluation tool** (`evaluate_sage`) for arbitrary SageMath code.
+
+---
+
+## Table of Contents
+
+- [Features at a Glance](#features-at-a-glance)
+- [Architecture Overview](#architecture-overview)
+- [Quick Start](#quick-start)
+- [Detailed Tool Reference](#detailed-tool-reference)
+  - [evaluate_sage --- Open-Ended Execution](#evaluate_sage----open-ended-sagemath-execution)
+  - [Calculus Tools](#calculus-tools)
+  - [Algebra & Simplification Tools](#algebra--simplification-tools)
+  - [Linear Algebra Tools](#linear-algebra-tools)
+  - [Differential Equations](#differential-equations)
+  - [Number Theory](#number-theory)
+  - [Statistics](#statistics)
+  - [Visualization](#visualization)
+  - [Session Management & Observability](#session-management--observability)
+- [Security Sandbox](#security-sandbox)
+- [LLM Client Configuration](#llm-client-configuration)
+- [Deployment](#deployment)
+- [Configuration Reference](#configuration-reference)
+- [CLI Reference](#cli-reference)
+- [Development](#development)
+- [CLI Integration Testing](#cli-integration-testing)
+- [Project Layout](#project-layout)
+- [Technology Stack](#technology-stack)
+- [Changelog](#changelog)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+
+---
 
 ## Features at a Glance
 
@@ -23,6 +57,133 @@ Whether the task is symbolic calculus, number theory, linear algebra, differenti
 | **Visualization** | `plot_expression` | 2D function plots returned as base64-encoded PNG |
 | **Session control** | `reset_sage_session`, `cancel_sage_session` | Clear state or abort long-running computations |
 | **Observability** | 3 MCP resources | Live session snapshots, aggregated metrics, documentation links |
+
+---
+
+## Architecture Overview
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  MCP Client (Claude Desktop, Gemini CLI, Codex CLI, etc.)       │
+└──────────────────────┬───────────────────────────────────────────┘
+                       │  MCP protocol (stdio or HTTP)
+                       ▼
+┌──────────────────────────────────────────────────────────────────┐
+│  server.py --- FastMCP 3.x Application                          │
+│                                                                  │
+│  ┌─────────────┐  ┌──────────────┐  ┌────────────────────────┐  │
+│  │ 18 MCP Tools│  │ 3 Resources  │  │ Middleware              │  │
+│  │ (evaluate,  │  │ (session,    │  │ - Request logging       │  │
+│  │  solve,     │  │  monitoring, │  │ - Response caching      │  │
+│  │  diff, ...)│  │  docs)       │  │ - Progress heartbeats   │  │
+│  └──────┬──────┘  └──────────────┘  └────────────────────────┘  │
+│         │                                                        │
+│  ┌──────▼──────────────────────────────────────────────────────┐ │
+│  │ session.py --- SageSessionManager                           │ │
+│  │  Per-client session map with asyncio locks, idle culling    │ │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │ │
+│  │  │ Session A   │  │ Session B   │  │ Session C   │  ...   │ │
+│  │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘        │ │
+│  └─────────┼───────────────┼───────────────┼──────────────────┘ │
+└────────────┼───────────────┼───────────────┼────────────────────┘
+             │               │               │
+             ▼               ▼               ▼
+     ┌───────────────────────────────────────────────┐
+     │  _sage_worker.py --- Subprocess Workers       │
+     │  JSON stdin/stdout protocol                    │
+     │                                                │
+     │  ┌────────────┐   ┌──────────────────────┐    │
+     │  │ security.py│──▶│ AST validation       │    │
+     │  │            │   │ before every exec()   │    │
+     │  └────────────┘   └──────────────────────┘    │
+     │                                                │
+     │  Persistent namespace: vars, functions,        │
+     │  classes survive across calls                   │
+     └────────────────────────────────────────────────┘
+```
+
+**Request flow:** MCP client → `server.py` tool → `SageSessionManager.get_or_create()` → `SageSession.evaluate()` → JSON request to `_sage_worker.py` subprocess → AST validation → `exec()` in persistent namespace → JSON response back.
+
+**Key design decisions:**
+
+- **Process isolation:** Each session runs SageMath in a separate subprocess. A crash or timeout in one session cannot affect others.
+- **Stateful sessions:** Variables, functions, and assumptions persist across tool calls within the same MCP session, enabling multi-step mathematical workflows.
+- **Security by default:** Every code snippet passes through an AST-based validator before execution, blocking dangerous operations regardless of the tool used.
+- **Progress heartbeats:** Long-running computations emit periodic progress events (~1.5s) so clients can display activity indicators and detect stalls.
+
+---
+
+## Quick Start
+
+### Install from PyPI
+
+```bash
+pip install sagemath-mcp
+
+# Run the server over stdio (default)
+sagemath-mcp
+
+# Or expose an HTTP endpoint
+sagemath-mcp --transport streamable-http --host 127.0.0.1 --port 8314
+```
+
+If the command is not on your `PATH`, run `python -m sagemath_mcp.server --help`.
+
+### Develop from source
+
+```bash
+git clone https://github.com/XBP-Europe/sagemath-mcp.git
+cd sagemath-mcp
+
+# Install dependencies (use uv or pip)
+uv pip install -e .[dev]
+
+# Run the server over stdio (default)
+uv run sagemath-mcp
+
+# Run with streaming-friendly HTTP transport
+uv run sagemath-mcp -- --transport streamable-http --host 127.0.0.1 --port 8314
+```
+
+### Optional: start a Sage container automatically
+
+If you'd like a ready-to-use Sage runtime without installing it locally, run:
+
+```bash
+make sage-container  # or ./scripts/setup_sage_container.sh
+```
+
+On Windows PowerShell:
+
+```powershell
+pwsh -File scripts/setup_sage_container.ps1
+```
+
+### Docker Image
+
+Build a ready-to-run container with the MCP server baked in:
+
+```bash
+docker build -t sagemath-mcp:latest .
+docker run -p 8314:8314 sagemath-mcp:latest --transport streamable-http
+```
+
+Released images are published to `ghcr.io/xbp-europe/sagemath-mcp` and signed with Cosign.
+Verify a downloaded artifact with:
+
+```bash
+cosign verify ghcr.io/xbp-europe/sagemath-mcp:latest \
+  --certificate-identity "https://github.com/XBP-Europe/sagemath-mcp/.github/workflows/release.yml@refs/tags/vX.Y.Z" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
+```
+
+### Docker Compose
+
+```bash
+docker compose up --build
+```
+
+The compose service exposes port `8314` on both host and container and mounts the repository at `/workspace`. Containers run as the non-root `sage` user (UID/GID 1000) to match the base image. Tweak runtime settings by editing the environment block (for example, increase `SAGEMATH_MCP_EVAL_TIMEOUT` or adjust `SAGEMATH_MCP_MAX_STDOUT`) before launch.
 
 ---
 
@@ -480,13 +641,13 @@ Abort any in-flight computation by killing the worker process and starting a new
 
 | Resource URI | Scope values | Description |
 |-------------|-------------|-------------|
-| `resource://sagemath/session/{scope}` | `all`, or a specific session ID | Returns `SessionSnapshot` objects with: `session_id`, `live` (bool), `started_at`, `last_used_at`, `idle_seconds`. |
-| `resource://sagemath/monitoring/{scope}` | `metrics`, `all` | Returns `MonitoringSnapshot` with: `attempts`, `successes`, `failures`, `security_failures`, `avg_elapsed_ms`, `max_elapsed_ms`, `last_run_at`, `last_error`, `last_security_violation`, `last_error_details`. |
-| `resource://sagemath/docs/{scope}` | `all`, `reference`, `tutorial` | Returns `DocumentationLink` objects with URLs to SageMath documentation. |
+| `resource://sagemath/session/{scope}` | `all`, or a specific session ID | Returns JSON with: `session_id`, `live` (bool), `started_at`, `last_used_at`, `idle_seconds`. |
+| `resource://sagemath/monitoring/{scope}` | `metrics`, `all` | Returns JSON with: `attempts`, `successes`, `failures`, `security_failures`, `avg_elapsed_ms`, `max_elapsed_ms`, `last_run_at`, `last_error`, `last_security_violation`, `last_error_details`. |
+| `resource://sagemath/docs/{scope}` | `all`, `reference`, `tutorial` | Returns documentation link objects with URLs to SageMath documentation. |
 
 ---
 
-### Security Sandbox
+## Security Sandbox
 
 All code --- whether from `evaluate_sage` or generated internally by helper tools --- passes through an AST-based security validator before execution.
 
@@ -520,7 +681,7 @@ All code --- whether from `evaluate_sage` or generated internally by helper tool
 
 ---
 
-## LLM Usage Notes
+## LLM Client Configuration
 
 Clients connecting through MCP receive the following guidance automatically:
 
@@ -531,101 +692,7 @@ Clients connecting through MCP receive the following guidance automatically:
 - **Timeouts** --- long computations emit heartbeat progress events. Adjust per-call timeouts via the `timeout` parameter.
 - **Security** --- the AST validator blocks arbitrary imports, `eval`/`exec`, and filesystem/process calls. Prefer Sage primitives; if a violation occurs, rewrite the workflow using supported APIs.
 
-## Requirements
-
-- Python 3.11+
-- A local SageMath installation available on the `PATH` (tested with Sage 10.x).
-- FastMCP-compatible MCP client (e.g. Claude Desktop, Codex CLI, Gemini CLI).
-
-## Quick Start
-
-### Install from PyPI
-
-```bash
-pip install sagemath-mcp
-
-# Run the server over stdio (default)
-sagemath-mcp
-
-# Or expose an HTTP endpoint
-sagemath-mcp --transport streamable-http --host 127.0.0.1 --port 8314
-```
-
-If the command is not on your `PATH`, run `python -m sagemath_mcp.server --help`.
-
-### Develop from source
-
-```bash
-# Install dependencies (use uv or pip)
-uv pip install -e .[cli]
-
-# Run the server over stdio (default)
-uv run sagemath-mcp
-
-# Run with streaming-friendly HTTP transport
-uv run sagemath-mcp -- --transport streamable-http --host 127.0.0.1 --port 8314
-```
-
-See [INSTALLATION.md](INSTALLATION.md) for Windows/macOS tooling tips, Docker notes,
-and guidance on installing Sage locally.
-
-### Optional: start a Sage container automatically
-
-If you'd like a ready-to-use Sage runtime without installing it locally, run:
-
-```bash
-make sage-container  # or ./scripts/setup_sage_container.sh
-```
-
-On Windows PowerShell:
-
-```powershell
-pwsh -File scripts/setup_sage_container.ps1
-```
-
-### Docker Image
-
-Build a ready-to-run container with the MCP server baked in:
-
-```bash
-docker build -t sagemath-mcp:latest .
-docker run -p 8314:8314 sagemath-mcp:latest --transport streamable-http
-```
-
-Released images are published to `ghcr.io/xbp-europe/sagemath-mcp` and signed with Cosign.
-Verify a downloaded artifact with:
-
-```bash
-cosign verify ghcr.io/xbp-europe/sagemath-mcp:latest \
-  --certificate-identity "https://github.com/XBP-Europe/sagemath-mcp/.github/workflows/release.yml@refs/tags/vX.Y.Z" \
-  --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
-```
-
-### Docker Compose
-
-```bash
-docker compose up --build
-```
-
-The compose service exposes port `8314` on both host and container and mounts the repository at
-`/workspace`. Containers run as the non-root `sage` user (UID/GID 1000) to match the
-base image. Tweak runtime settings by editing the environment block (for example,
-increase `SAGEMATH_MCP_EVAL_TIMEOUT` or adjust `SAGEMATH_MCP_MAX_STDOUT`) before launch.
-
-### Kubernetes (Helm)
-
-```bash
-helm install sagemath charts/sagemath-mcp \
-  --set image.repository=ghcr.io/xbp-europe/sagemath-mcp \
-  --set image.tag=latest
-```
-
-Key values: `service.port`, `env` (map of environment overrides), `args` (CLI arguments),
-`ingress.*`. The chart enforces non-root execution (`runAsUser`/`runAsGroup` 1000).
-Review `values.yaml` for the full set of configurable knobs. The release workflow validates
-the chart with `helm lint` and `helm template` before publishing.
-
-### Client Configuration
+### Client-Specific Setup
 
 **Claude Desktop** --- add to `claude_desktop_config.json`:
 
@@ -633,6 +700,20 @@ the chart with `helm lint` and `helm template` before publishing.
 {
   "mcpServers": {
     "sagemath": {
+      "command": "uv",
+      "args": ["run", "sagemath-mcp"]
+    }
+  }
+}
+```
+
+**Claude Code** --- add to `.mcp.json` in the project root:
+
+```json
+{
+  "mcpServers": {
+    "sagemath": {
+      "type": "stdio",
       "command": "uv",
       "args": ["run", "sagemath-mcp"]
     }
@@ -649,20 +730,56 @@ codex mcp add sagemath --command uv --args "run" "sagemath-mcp"
 **Gemini CLI:**
 
 ```bash
-gemini_cli mcp add sagemath --transport stdio --command uv --arg run --arg sagemath-mcp
-```
-
-**Qwen CLI:**
-
-```bash
-qwen_cli mcp add sagemath --command uv --args "run" "sagemath-mcp"
+gemini mcp add sagemath --transport stdio --command uv --arg run --arg sagemath-mcp
 ```
 
 For HTTP transport, expose the endpoint first (`sagemath-mcp --transport streamable-http --host 0.0.0.0 --port 8314`) and point the client at `http://HOST:8314/mcp`.
 
-## Configuration
+---
 
-Environment variables influence runtime behavior:
+## Deployment
+
+### stdio (default)
+
+```bash
+uv run sagemath-mcp
+```
+
+Best for local LLM clients (Claude Desktop, Claude Code, Codex CLI). The client spawns the server as a subprocess and communicates over stdin/stdout.
+
+### HTTP / Streamable HTTP
+
+```bash
+uv run sagemath-mcp -- --transport streamable-http --host 127.0.0.1 --port 8314
+```
+
+Best for remote clients, browser-based tools, or shared environments. Supports streaming responses and cancellation.
+
+### Docker Compose
+
+```bash
+docker compose up --build
+```
+
+Exposes `http://127.0.0.1:8314/mcp`. Runs as non-root `sage` user (UID/GID 1000). The compose file mounts the repository at `/workspace` and accepts environment variable overrides for all `SAGEMATH_MCP_*` settings.
+
+### Kubernetes (Helm)
+
+```bash
+helm install sagemath charts/sagemath-mcp \
+  --set image.repository=ghcr.io/xbp-europe/sagemath-mcp \
+  --set image.tag=latest
+```
+
+Key values: `service.port`, `env` (map of environment overrides), `args` (CLI arguments), `ingress.*`. The chart enforces non-root execution (`runAsUser`/`runAsGroup` 1000). Review `values.yaml` for the full set of configurable knobs. The release workflow validates the chart with `helm lint` and `helm template` before publishing.
+
+---
+
+## Configuration Reference
+
+All configuration is done via environment variables. No config files are needed.
+
+### Runtime Settings
 
 | Variable | Description | Default |
 | --- | --- | --- |
@@ -674,6 +791,11 @@ Environment variables influence runtime behavior:
 | `SAGEMATH_MCP_SHUTDOWN_GRACE` | Grace period before a stuck worker is terminated. | `2` |
 | `SAGEMATH_MCP_FORCE_PYTHON_WORKER` | Use the pure-Python worker (helpful for tests/CI). | `false` |
 | `SAGEMATH_MCP_PURE_PYTHON` | When set to `1`, load math stdlib instead of Sage modules. | unset |
+
+### Security Settings
+
+| Variable | Description | Default |
+| --- | --- | --- |
 | `SAGEMATH_MCP_SECURITY_ENABLED` | Enable/disable AST-based code validation. | `true` |
 | `SAGEMATH_MCP_SECURITY_MAX_SOURCE` | Maximum source length in characters. | `8000` |
 | `SAGEMATH_MCP_SECURITY_MAX_AST_NODES` | Maximum AST node count allowed. | `2500` |
@@ -684,6 +806,8 @@ Environment variables influence runtime behavior:
 | `SAGEMATH_MCP_SECURITY_LOG_VIOLATIONS` | Emit warnings when code is blocked. | `true` |
 | `SAGEMATH_MCP_SECURITY_ALLOWED_IMPORTS` | Comma-separated allowlist of importable modules. | `math,cmath,statistics,base64,io,sage,sage.all` |
 | `SAGEMATH_MCP_SECURITY_ALLOWED_IMPORT_PREFIXES` | Comma-separated prefixes treated as safe namespaces. | `sage.` |
+
+---
 
 ## CLI Reference
 
@@ -715,21 +839,36 @@ sagemath-mcp --log-level DEBUG
 uv run sagemath-mcp -- --transport streamable-http --host 127.0.0.1 --port 8314
 ```
 
+---
+
 ## Development
 
+### Prerequisites
+
+- Python 3.11+ with [uv](https://docs.astral.sh/uv/) installed
+- Docker (optional, for integration tests and Sage container)
+- SageMath (optional, for local development without Docker)
+
+### Commands
+
 ```bash
-uv pip install -e .[dev]
-make lint                  # ruff check
-make test                  # pytest (pure Python, no Sage needed)
-make integration-test      # pytest inside Sage Docker container
-make build                 # sdist + wheel
+uv pip install -e .[dev]       # Install with dev extras
+make lint                       # ruff check (ruff 0.15+)
+make test                       # pytest (pure Python, no Sage needed)
+make integration-test           # pytest inside Sage Docker container
+make build                      # sdist + wheel via scripts/build_release.py
+make cli-integration            # Run CLI integration tests (Claude + Gemini)
+make sage-container             # Bootstrap the Sage Docker container
 ```
 
-GitHub Actions runs `make lint`, `make test`, `make integration-test`, and `make build` on every push/PR. The release workflow additionally runs `helm lint` and `helm template` to validate the Kubernetes chart.
+### Running Tests
 
-Without a local SageMath installation you can still run unit tests --- the test suite replaces the Sage worker with a lightweight Python interpreter to validate session plumbing. Coverage is at **97%** across all core modules.
+Without a local SageMath installation you can still run unit tests --- the test suite replaces the Sage worker with a lightweight Python interpreter to validate session plumbing.
 
 ```bash
+# Run all unit tests
+uv run pytest
+
 # Run a single test
 uv run pytest tests/test_server.py -k "test_solve_equation"
 
@@ -737,44 +876,183 @@ uv run pytest tests/test_server.py -k "test_solve_equation"
 uv run pytest --cov=sagemath_mcp --cov-report=term-missing
 ```
 
+### Linting
+
+Ruff with line-length 100, target Python 3.11. Rules: E, F, W, B, UP, ASYNC, RUF, I (import sorting). Run `make lint` before committing.
+
+### Git Hooks
+
+Configure Git hooks after cloning:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The pre-push hook runs ruff automatically.
+
+---
+
+## CLI Integration Testing
+
+The project includes a comprehensive end-to-end test suite that validates the MCP server through real LLM CLI invocations. Located in `tests/cli_integration/`.
+
+### Overview
+
+- **43 test cases** across 9 mathematical domains
+- Tests both **Claude Code** (`claude --print`) and **Gemini CLI** (`gemini -p`)
+- Live progress reporting during execution
+- Multi-tier validation: substring matching, numeric extraction, soft-fail for non-deterministic output
+- JSON result export for historical tracking
+
+### Running
+
+```bash
+# Run against both CLIs
+make cli-integration
+
+# Or use the standalone runner with options
+python -m tests.cli_integration.run_cli_tests --cli claude --domain calculus
+python -m tests.cli_integration.run_cli_tests --cli both --parallel
+python -m tests.cli_integration.run_cli_tests --cli gemini --domain algebra,number_theory
+```
+
+### Domain Coverage
+
+| Domain | Cases | Tools tested |
+|--------|-------|-------------|
+| Calculus | 10 | `differentiate_expression`, `integrate_expression`, `limit_expression`, `series_expansion` |
+| Algebra | 11 | `solve_equation`, `simplify_expression`, `expand_expression`, `factor_expression`, `calculate_expression` |
+| Linear algebra | 5 | `matrix_multiply`, `matrix_operation` |
+| ODEs | 2 | `solve_ode` |
+| Number theory | 6 | `number_theory_operation` |
+| Statistics | 2 | `statistics_summary` |
+| Plotting | 2 | `plot_expression` |
+| General | 3 | `evaluate_sage` |
+| Session | 2 | `reset_sage_session`, `cancel_sage_session` |
+
+---
+
 ## Project Layout
 
 ```
 sagemath-mcp/
-├── pyproject.toml
-├── README.md
+├── pyproject.toml                  # Project metadata, dependencies, tool config
+├── README.md                       # This file
+├── USAGE.md                        # Detailed usage guide
+├── CLAUDE.md                       # Claude Code project instructions
+├── Dockerfile                      # Production container (SageMath + MCP server)
+├── docker-compose.yml              # Local development stack
+├── Makefile                        # Common commands (test, lint, build, etc.)
 ├── src/sagemath_mcp/
-│   ├── server.py          # FastMCP app: 18 tools, 3 resources, progress heartbeats
-│   ├── session.py         # Sage worker lifecycle, session management, idle culling
-│   ├── _sage_worker.py    # Subprocess worker: code execution, AST validation, LaTeX
-│   ├── security.py        # AST validator, SecurityPolicy, configurable allowlists
-│   ├── config.py          # SageSettings from environment variables
-│   ├── models.py          # Pydantic models (EvaluateResult, SessionSnapshot, etc.)
-│   ├── monitoring.py      # Thread-safe evaluation metrics (EvaluationMetrics)
-│   └── py.typed           # PEP 561 type hint marker
+│   ├── server.py                   # FastMCP 3.x app: 18 tools, 3 resources, middleware
+│   ├── session.py                  # Sage worker lifecycle, session management, idle culling
+│   ├── _sage_worker.py             # Subprocess worker: code execution, AST validation, LaTeX
+│   ├── security.py                 # AST validator, SecurityPolicy, configurable allowlists
+│   ├── config.py                   # SageSettings from environment variables
+│   ├── models.py                   # Pydantic models (EvaluateResult, SessionSnapshot, etc.)
+│   ├── monitoring.py               # Thread-safe evaluation metrics (EvaluationMetrics)
+│   └── py.typed                    # PEP 561 type hint marker
 ├── tests/
-│   ├── conftest.py        # Shared FakeContext fixture
-│   ├── test_server.py     # Tool & resource unit tests (136 tests total)
-│   ├── test_session.py    # Session lifecycle, timeout, reset, cancel
-│   ├── test_security.py   # AST validation, policy configuration
-│   ├── test_config.py     # Environment variable parsing
-│   ├── test_math_suite.py # Math functions (pure Python)
-│   ├── test_sage_worker.py # Worker protocol, LaTeX, startup errors
-│   ├── test_integration.py # Real Sage: monitoring, timeout, cancellation
-│   └── test_use_cases.py  # End-to-end Sage workflows
-├── charts/sagemath-mcp/   # Helm chart for Kubernetes
-├── scripts/               # Build, release, CI scripts
-├── docs/reference_md/     # SageMath reference docs (Markdown)
-├── Dockerfile
-├── docker-compose.yml
-└── Makefile
+│   ├── conftest.py                 # Shared FakeContext fixture
+│   ├── test_server.py              # Tool & resource unit tests
+│   ├── test_session.py             # Session lifecycle, timeout, reset, cancel
+│   ├── test_security.py            # AST validation, policy configuration
+│   ├── test_config.py              # Environment variable parsing
+│   ├── test_sage_worker.py         # Worker protocol, LaTeX, startup errors
+│   ├── test_integration.py         # Real Sage: monitoring, timeout, cancellation
+│   ├── test_use_cases.py           # End-to-end Sage workflows
+│   └── cli_integration/            # LLM CLI end-to-end tests (43 cases)
+│       ├── run_cli_tests.py        # Standalone runner with rich reporting
+│       ├── test_cases.py           # All test case definitions
+│       ├── validate.py             # Multi-tier output validation
+│       ├── runner.py               # Claude/Gemini CLI invocation
+│       ├── cli_config.py           # MCP server setup/teardown for CLIs
+│       ├── test_claude.py          # Pytest wrapper for Claude
+│       └── test_gemini.py          # Pytest wrapper for Gemini
+├── charts/sagemath-mcp/            # Helm chart for Kubernetes
+├── scripts/                        # Build, release, CI scripts
+├── docs/reference_md/              # SageMath reference docs (Markdown)
+└── .github/workflows/
+    ├── ci.yml                      # Lint, test, integration test, Docker smoke test
+    ├── release.yml                 # Multi-Python test, build, GHCR push, PyPI publish
+    └── version-bump.yml            # Manual version bump + tag workflow
 ```
+
+---
+
+## Technology Stack
+
+| Component | Version | Purpose |
+|-----------|---------|---------|
+| [FastMCP](https://gofastmcp.com/) | 3.2+ | MCP server framework (tools, resources, middleware) |
+| [MCP SDK](https://github.com/modelcontextprotocol/python-sdk) | 1.27+ | Model Context Protocol implementation |
+| [Pydantic](https://docs.pydantic.dev/) | 2.12+ | Data validation and serialization for all models |
+| [anyio](https://anyio.readthedocs.io/) | 4.13+ | Async runtime abstraction |
+| [SageMath](https://www.sagemath.org/) | 10.x | Mathematics engine (subprocess worker) |
+| [Ruff](https://docs.astral.sh/ruff/) | 0.15+ | Linting and import sorting |
+| [pytest](https://docs.pytest.org/) | 9.0+ | Test framework |
+| [pytest-asyncio](https://github.com/pytest-dev/pytest-asyncio) | 1.3+ | Async test support |
+| [Hatchling](https://hatch.pypa.io/) | 1.29+ | Build backend |
+| [Docker](https://www.docker.com/) | --- | Containerization and CI integration testing |
+| [Helm](https://helm.sh/) | 3.15+ | Kubernetes deployment |
+| [GitHub Actions](https://github.com/features/actions) | --- | CI/CD (Node.js 24 compatible) |
+| [Cosign](https://docs.sigstore.dev/cosign/) | --- | Container image signing |
+
+---
+
+## Changelog
+
+### v0.2.0 (2026-04-03)
+
+**New features:**
+- 18 new MCP math tools: `differentiate_expression`, `integrate_expression`, `limit_expression`, `series_expansion`, `simplify_expression`, `expand_expression`, `factor_expression`, `solve_equation`, `calculate_expression`, `matrix_multiply`, `matrix_operation`, `solve_ode`, `number_theory_operation`, `statistics_summary`, `plot_expression`, `reset_sage_session`, `cancel_sage_session`, and enhanced `evaluate_sage` with domain-specific examples
+- CLI integration test suite: 43 end-to-end test cases across 9 mathematical domains, supporting both Claude Code and Gemini CLI with live progress reporting, parallel execution, and JSON result export
+- Worker startup error capture and propagation (`StartupError` type) --- clear diagnostics when SageMath fails to initialize
+- `plot_expression` tool for 2D function visualization returned as base64-encoded PNG
+- Security policy updated to allow `base64` and `io` imports for plot support
+
+**Upgrades:**
+- FastMCP 2.13 -> 3.2 (major version --- tools/resources now return plain functions)
+- MCP SDK 1.20 -> 1.27
+- pytest 8.4 -> 9.0, pytest-asyncio 1.2 -> 1.3
+- ruff 0.14 -> 0.15, pydantic 2.8+ -> 2.12+, anyio 4.4+ -> 4.13+
+- All GitHub Actions updated to Node.js 24 (checkout v5, setup-uv v7, setup-python v6, download-artifact v6, build-push-action v6)
+
+**Fixes:**
+- MCP resources now return JSON strings instead of raw Pydantic models (FastMCP 3.x compatibility)
+- Removed `"void"` from `EvaluateResult.result_type` (was unused)
+- Suppressed cosmetic `PytestUnraisableExceptionWarning` from asyncio subprocess cleanup
+
+**Documentation:**
+- Complete README rewrite with detailed tool reference, architecture diagram, and examples for every tool
+- Updated USAGE.md with new tool workflows
+- Added CLAUDE.md for Claude Code project instructions
+
+### v0.1.2 (2025-11-02)
+
+- Initial public release
+- Core `evaluate_sage` tool with persistent sessions
+- AST-based security sandbox
+- Docker, Docker Compose, and Helm deployment
+- CI/CD with GitHub Actions
+- PyPI and GHCR publishing
+
+---
 
 ## Roadmap
 
 - Disk-backed session persistence for long-running workloads.
 - Streaming partial outputs for long calculations.
 - Fine-grained resource templates exposing saved worksheets.
+- Python 3.12+ minimum with modern type hint syntax.
+- Helm chart health checks (liveness/readiness probes).
+- CI security scanning (pip-audit, bandit).
+
+## Requirements
+
+- Python 3.11+
+- A local SageMath installation available on the `PATH` (tested with Sage 10.x), or Docker.
+- FastMCP-compatible MCP client (e.g. Claude Desktop, Claude Code, Codex CLI, Gemini CLI).
 
 ## Contributing
 

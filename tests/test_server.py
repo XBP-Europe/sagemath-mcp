@@ -1437,6 +1437,89 @@ async def test_vector_calculus_default_variables(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# Health check endpoint
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_health_check():
+    """Verify the health_check function returns status ok."""
+    # We can call the handler directly with a mock request
+    response = await server.health_check(None)
+    assert response.status_code == 200
+    body = json.loads(response.body)
+    assert body["status"] == "ok"
+    assert body["version"] == server.__version__
+    assert "active_sessions" in body
+
+
+# ---------------------------------------------------------------------------
+# Streaming evaluate
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_evaluate_sage_streaming(monkeypatch):
+    """Streaming tool emits stdout lines as progress events."""
+    fake_result = WorkerResult(
+        result_type="expression",
+        result="6",
+        latex=None,
+        stdout="line1\nline2\nline3",
+        elapsed_ms=1.0,
+    )
+
+    class FakeSession:
+        async def evaluate(self, *args, **kwargs):
+            return fake_result
+
+    async def fake_get(session_id):
+        return FakeSession()
+
+    monkeypatch.setattr(server, "SESSION_MANAGER", SageSessionManager(server.DEFAULT_SETTINGS))
+    monkeypatch.setattr(server.SESSION_MANAGER, "get", fake_get)
+
+    ctx = FakeContext("streaming")
+    result = await server.evaluate_sage_streaming("for i in range(3): print(i)", ctx=ctx)
+    assert result.result == "6"
+    # Each stdout line should have been emitted as progress
+    assert len(ctx.progress_events) == 3
+
+
+@pytest.mark.asyncio
+async def test_evaluate_sage_streaming_no_context():
+    with pytest.raises(ToolError, match="MCP context"):
+        await server.evaluate_sage_streaming("1+1", ctx=None)
+
+
+@pytest.mark.asyncio
+async def test_evaluate_sage_streaming_empty_stdout(monkeypatch):
+    """No progress events when stdout is empty."""
+    fake_result = WorkerResult(
+        result_type="expression",
+        result="42",
+        latex=None,
+        stdout="",
+        elapsed_ms=0.5,
+    )
+
+    class FakeSession:
+        async def evaluate(self, *args, **kwargs):
+            return fake_result
+
+    async def fake_get(session_id):
+        return FakeSession()
+
+    monkeypatch.setattr(server, "SESSION_MANAGER", SageSessionManager(server.DEFAULT_SETTINGS))
+    monkeypatch.setattr(server.SESSION_MANAGER, "get", fake_get)
+
+    ctx = FakeContext("stream-empty")
+    result = await server.evaluate_sage_streaming("42", ctx=ctx)
+    assert result.result == "42"
+    assert len(ctx.progress_events) == 0
+
+
+# ---------------------------------------------------------------------------
 # Sage integration (requires real Sage)
 # ---------------------------------------------------------------------------
 

@@ -44,6 +44,8 @@ class SageSettings:
     shutdown_grace: float = 2.0
     max_stdout_chars: int = 100_000
     force_python_worker: bool = False
+    persist_sessions: bool = False
+    persist_dir: str = ""
 
     @classmethod
     def from_env(cls) -> SageSettings:
@@ -61,6 +63,12 @@ class SageSettings:
             ),
             force_python_worker=_bool_from_env(
                 "SAGEMATH_MCP_FORCE_PYTHON_WORKER", defaults["force_python_worker"]
+            ),
+            persist_sessions=_bool_from_env(
+                "SAGEMATH_MCP_PERSIST_SESSIONS", defaults["persist_sessions"]
+            ),
+            persist_dir=os.getenv(
+                "SAGEMATH_MCP_PERSIST_DIR", defaults["persist_dir"]
             ),
         )
 

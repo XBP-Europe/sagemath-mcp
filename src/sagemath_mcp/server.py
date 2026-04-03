@@ -120,6 +120,25 @@ mcp.add_middleware(
 mcp.add_middleware(ResponseCachingMiddleware())
 
 
+# ---------------------------------------------------------------------------
+# HTTP health check endpoint (non-MCP, for Kubernetes probes)
+# ---------------------------------------------------------------------------
+
+
+async def health_check(request: object) -> object:
+    """Return 200 with server status for liveness/readiness probes."""
+    from starlette.responses import JSONResponse
+
+    sessions = SESSION_MANAGER.snapshot()
+    return JSONResponse(
+        {
+            "status": "ok",
+            "version": __version__,
+            "active_sessions": len(sessions),
+        }
+    )
+
+
 @mcp.tool(description="""\
 Execute arbitrary SageMath code within a persistent session. Variables and definitions \
 persist across calls. Use this for any computation not covered by the specialized helpers. \
@@ -1159,6 +1178,58 @@ async def plot_expression(
     return {"image_base64": result, "format": "png"}
 
 
+@mcp.tool(
+    description="Execute SageMath code and stream intermediate print() output "
+    "line by line. Final result is returned as usual."
+)
+async def evaluate_sage_streaming(
+    code: Annotated[str, Field(description="SageMath code to execute")],
+    timeout_seconds: Annotated[
+        float | None,
+        Field(description="Override timeout in seconds", gt=0.0),
+    ] = None,
+    ctx: Context | None = None,
+) -> EvaluateResult:
+    """Like evaluate_sage but emits each stdout line as a progress event."""
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required")
+    session = await SESSION_MANAGER.get(ctx.session_id)
+    worker_result = await session.evaluate(
+        code,
+        want_latex=False,
+        capture_stdout=True,
+        timeout_seconds=timeout_seconds,
+    )
+    # Emit each stdout line as a progress event so clients can show
+    # partial output while the result is being assembled.
+    if worker_result.stdout and ctx is not None:
+        for i, line in enumerate(worker_result.stdout.splitlines()):
+            await ctx.report_progress(
+                float(i + 1), None, line,
+            )
+    monitoring.record_success(worker_result.elapsed_ms)
+    return EvaluateResult(
+        result_type=worker_result.result_type,
+        result=worker_result.result,
+        latex=None,
+        stdout=_truncate_stdout(worker_result.stdout),
+        elapsed_ms=worker_result.elapsed_ms,
+    )
+
+
+def _register_health_route() -> None:
+    """Attach /health to the underlying Starlette app if HTTP transport."""
+    try:
+        from starlette.routing import Route
+
+        app = getattr(mcp, "_app", None) or getattr(mcp, "app", None)
+        if app and hasattr(app, "routes"):
+            app.routes.insert(0, Route("/health", health_check))
+            LOGGER.debug("Registered /health endpoint")
+    except Exception:  # pragma: no cover - starlette may not be loaded
+        pass
+
+
 def main(argv: list[str] | None = None) -> None:  # pragma: no cover - CLI entrypoint
     parser = argparse.ArgumentParser(description="Run the SageMath MCP server.")
     parser.add_argument(
@@ -1188,6 +1259,7 @@ def main(argv: list[str] | None = None) -> None:  # pragma: no cover - CLI entry
         transport_kwargs.update({"host": args.host, "port": args.port})
         if args.path:
             transport_kwargs["path"] = args.path
+        _register_health_route()
 
     mcp.run(transport=args.transport, **transport_kwargs)
 

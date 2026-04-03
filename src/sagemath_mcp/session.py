@@ -54,6 +54,7 @@ class SageSession:
         self._lock = asyncio.Lock()
         self.started_at = time.time()
         self.last_used_at = self.started_at
+        self._code_journal: list[str] = []
 
     async def ensure_started(self) -> None:
         if self._process and self._process.returncode is None:
@@ -151,6 +152,7 @@ class SageSession:
                 stdout=response.get("stdout", ""),
                 traceback=error.get("traceback", ""),
             )
+        self._code_journal.append(code)
         return WorkerResult(
             result_type=response["result_type"],
             result=response.get("result"),
@@ -158,6 +160,47 @@ class SageSession:
             stdout=response.get("stdout", ""),
             elapsed_ms=float(response.get("elapsed_ms", 0.0)),
         )
+
+    def _persist_path(self) -> Path | None:
+        """Return the journal file path if persistence is enabled."""
+        if not self.settings.persist_sessions or not self.settings.persist_dir:
+            return None
+        d = Path(self.settings.persist_dir)
+        d.mkdir(parents=True, exist_ok=True)
+        return d / f"{self.session_id}.journal.json"
+
+    def save_journal(self) -> None:
+        """Write the code journal to disk for later restoration."""
+        path = self._persist_path()
+        if path is None:
+            return
+        path.write_text(json.dumps(self._code_journal))
+        LOGGER.debug("Saved journal for %s (%d entries)", self.session_id, len(self._code_journal))
+
+    @classmethod
+    def load_journal(cls, path: Path) -> list[str]:
+        """Read a code journal from disk."""
+        return json.loads(path.read_text())
+
+    async def restore_from_journal(self, journal: list[str]) -> int:
+        """Replay saved code entries to rebuild session state.
+
+        Returns the number of entries successfully replayed.
+        """
+        replayed = 0
+        for code in journal:
+            try:
+                await self.evaluate(
+                    code, want_latex=False, capture_stdout=False
+                )
+                replayed += 1
+            except Exception:
+                LOGGER.warning(
+                    "Journal replay failed at entry %d for %s",
+                    replayed, self.session_id,
+                )
+                break
+        return replayed
 
     async def reset(self) -> None:
         await self.ensure_started()
@@ -173,6 +216,7 @@ class SageSession:
         response = json.loads(raw.decode("utf-8"))
         if not response.get("ok", False):
             raise SageProcessError("Failed to reset Sage session.")
+        self._code_journal.clear()
         self.last_used_at = time.time()
 
     async def cancel(self) -> None:
@@ -243,6 +287,17 @@ class SageSessionManager:
                 session = SageSession(session_id, self.settings)
                 self._sessions[session_id] = session
         await session.ensure_started()
+        # Restore persisted journal if available
+        if not session._code_journal:
+            path = session._persist_path()
+            if path and path.exists():
+                journal = SageSession.load_journal(path)
+                if journal:
+                    LOGGER.info(
+                        "Restoring %d entries for %s",
+                        len(journal), session_id,
+                    )
+                    await session.restore_from_journal(journal)
         return session
 
     async def reset(self, session_id: str) -> None:
@@ -277,6 +332,12 @@ class SageSessionManager:
         async with self._lock:
             sessions = list(self._sessions.values())
             self._sessions.clear()
+        # Persist journals before shutting down workers
+        for session in sessions:
+            try:
+                session.save_journal()
+            except Exception:
+                LOGGER.debug("Failed to save journal for %s", session.session_id)
         if not sessions:
             return
         results = await asyncio.gather(

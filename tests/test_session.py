@@ -470,3 +470,153 @@ async def test_cull_idle_no_stale_sessions(python_settings):
         assert len(manager.snapshot()) == 1
     finally:
         await manager.shutdown()
+
+
+# ---------------------------------------------------------------------------
+# Code journal and session persistence
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_code_journal_records_evaluations(python_settings):
+    """Verify that successful evaluations are recorded in the journal."""
+    session = SageSession("journal-test", python_settings)
+    try:
+        await session.evaluate("x = 42", want_latex=False, capture_stdout=False)
+        await session.evaluate("y = x + 1", want_latex=False, capture_stdout=False)
+        assert len(session._code_journal) == 2
+        assert "x = 42" in session._code_journal[0]
+    finally:
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_code_journal_cleared_on_reset(python_settings):
+    """Verify that reset clears the journal."""
+    session = SageSession("journal-reset", python_settings)
+    try:
+        await session.evaluate("a = 1", want_latex=False, capture_stdout=False)
+        assert len(session._code_journal) == 1
+        await session.reset()
+        assert len(session._code_journal) == 0
+    finally:
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_journal_save_and_load(python_settings, tmp_path):
+    """Test saving and loading a code journal to/from disk."""
+    settings = SageSettings(
+        sage_binary="sage",
+        startup_code="from math import *",
+        eval_timeout=5.0,
+        idle_ttl=10.0,
+        shutdown_grace=1.0,
+        max_stdout_chars=1000,
+        force_python_worker=True,
+        persist_sessions=True,
+        persist_dir=str(tmp_path),
+    )
+    session = SageSession("persist-test", settings)
+    try:
+        await session.evaluate("total = 100", want_latex=False, capture_stdout=False)
+        await session.evaluate("half = total / 2", want_latex=False, capture_stdout=False)
+        session.save_journal()
+
+        journal_path = tmp_path / "persist-test.journal.json"
+        assert journal_path.exists()
+
+        loaded = SageSession.load_journal(journal_path)
+        assert len(loaded) == 2
+    finally:
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_journal_save_noop_when_disabled(python_settings):
+    """save_journal is a no-op when persistence is disabled."""
+    session = SageSession("no-persist", python_settings)
+    try:
+        await session.evaluate("x = 1", want_latex=False, capture_stdout=False)
+        session.save_journal()  # should not raise
+    finally:
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_restore_from_journal(python_settings):
+    """Test replaying a journal to restore session state."""
+    session = SageSession("replay-test", python_settings)
+    try:
+        replayed = await session.restore_from_journal(
+            ["val = 99", "val + 1"]
+        )
+        assert replayed == 2
+        result = await session.evaluate("val", want_latex=False, capture_stdout=False)
+        assert result.result == "99"
+    finally:
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_restore_from_journal_stops_on_error(python_settings):
+    """Journal replay stops at first error and returns partial count."""
+    session = SageSession("replay-error", python_settings)
+    try:
+        replayed = await session.restore_from_journal(
+            ["a = 1", "raise ValueError('boom')", "b = 2"]
+        )
+        assert replayed == 1  # only first entry succeeded
+    finally:
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_manager_shutdown_saves_journals(tmp_path):
+    """Manager.shutdown() persists journals for all sessions."""
+    settings = SageSettings(
+        sage_binary="sage",
+        startup_code="from math import *",
+        eval_timeout=5.0,
+        idle_ttl=10.0,
+        shutdown_grace=1.0,
+        max_stdout_chars=1000,
+        force_python_worker=True,
+        persist_sessions=True,
+        persist_dir=str(tmp_path),
+    )
+    manager = SageSessionManager(settings)
+    session = await manager.get("shutdown-persist")
+    await session.evaluate("x = 42", want_latex=False, capture_stdout=False)
+    await manager.shutdown()
+
+    journal_path = tmp_path / "shutdown-persist.journal.json"
+    assert journal_path.exists()
+
+
+@pytest.mark.asyncio
+async def test_manager_restores_journal_on_get(tmp_path):
+    """Manager.get() replays persisted journal for a new session."""
+    settings = SageSettings(
+        sage_binary="sage",
+        startup_code="from math import *",
+        eval_timeout=5.0,
+        idle_ttl=10.0,
+        shutdown_grace=1.0,
+        max_stdout_chars=1000,
+        force_python_worker=True,
+        persist_sessions=True,
+        persist_dir=str(tmp_path),
+    )
+    # First: create and save a session
+    manager1 = SageSessionManager(settings)
+    s1 = await manager1.get("restore-test")
+    await s1.evaluate("saved_var = 123", want_latex=False, capture_stdout=False)
+    await manager1.shutdown()
+
+    # Second: get the same session_id — should restore
+    manager2 = SageSessionManager(settings)
+    s2 = await manager2.get("restore-test")
+    result = await s2.evaluate("saved_var", want_latex=False, capture_stdout=False)
+    assert result.result == "123"
+    await manager2.shutdown()

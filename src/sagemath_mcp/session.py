@@ -17,6 +17,7 @@ from pathlib import Path
 from .config import DEFAULT_SETTINGS, SageSettings
 
 LOGGER = logging.getLogger(__name__)
+_PROJECT_ROOT = str(Path(__file__).resolve().parents[1])
 
 
 class SageProcessError(RuntimeError):
@@ -74,13 +75,12 @@ class SageSession:
                 )
             command = [sage_binary, "-python", "-m", "sagemath_mcp._sage_worker"]
         env = os.environ.copy()
-        project_root = Path(__file__).resolve().parents[1]
         pythonpath_entries: list[str] = []
         if (sage_venv := env.get("SAGE_VENV")):
             py_version = f"python{sys.version_info.major}.{sys.version_info.minor}"
             site_packages = Path(sage_venv) / "lib" / py_version / "site-packages"
             pythonpath_entries.append(str(site_packages))
-        pythonpath_entries.append(str(project_root))
+        pythonpath_entries.append(_PROJECT_ROOT)
         if (existing_pythonpath := env.get("PYTHONPATH")):
             pythonpath_entries.append(existing_pythonpath)
         env["PYTHONPATH"] = os.pathsep.join(pythonpath_entries)
@@ -255,13 +255,13 @@ class SageSessionManager:
 
     async def cull_idle(self) -> None:
         now = time.time()
+        sessions_to_shutdown: list[tuple[str, SageSession]] = []
         async with self._lock:
             stale = [sid for sid, sess in self._sessions.items() if sess.should_cull(now)]
-        sessions_to_shutdown: list[tuple[str, SageSession]] = []
-        for sid in stale:
-            session = self._sessions.pop(sid, None)
-            if session:
-                sessions_to_shutdown.append((sid, session))
+            for sid in stale:
+                session = self._sessions.pop(sid, None)
+                if session:
+                    sessions_to_shutdown.append((sid, session))
         if not sessions_to_shutdown:
             return
         LOGGER.info("Culling %d idle Sage session(s)", len(sessions_to_shutdown))

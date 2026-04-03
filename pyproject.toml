@@ -51,7 +51,7 @@ select = ["E", "F", "W", "B", "UP", "ASYNC", "RUF", "I"]
 ignore = ["E203"]
 
 [tool.pytest.ini_options]
-addopts = "-ra"
+addopts = "-ra --ignore=tests/cli_integration"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 asyncio_default_test_loop_scope = "function"

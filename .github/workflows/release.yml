@@ -82,7 +82,7 @@ jobs:
         env:
           COSIGN_YES: "true"
         run: |
-          IMAGE="ghcr.io/${{ github.repository }}"
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
           DIGEST="${{ steps.build.outputs.digest }}"
           cosign sign "${IMAGE}@${DIGEST}"
 

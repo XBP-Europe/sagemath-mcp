@@ -2,183 +2,45 @@
 
 This document tracks planned improvements to the SageMath MCP server, organized by priority and effort. The goal is to strengthen the server's position as a universal mathematics MCP server that enables LLMs to perform any symbolic or discrete mathematical operation.
 
-**Current state (v0.2.0):** 18 dedicated MCP tools covering calculus, algebra, linear algebra, ODEs, number theory, statistics, and 2D plotting. The open-ended `evaluate_sage` tool provides access to all of SageMath via unrestricted `sage.*` imports. 150 unit tests at 99% branch coverage, plus 43 CLI integration tests.
+**Current state (v0.3.0-dev):** 26 dedicated MCP tools covering calculus, algebra, linear algebra, ODEs, number theory, statistics, 2D/3D plotting, combinatorics, probability distributions, numeric root-finding, vector calculus, and streaming execution. The open-ended `evaluate_sage` tool provides access to all of SageMath via unrestricted `sage.*` imports. 201 unit tests at 98% branch coverage, plus 43 CLI integration tests.
 
 ---
 
-## Phase 1 — High-Value Helper Tools
+## Completed — Phase 1 (High-Value Helper Tools)
 
-These tools address frequent use cases where LLMs struggle with raw Sage syntax. Structured input/output significantly improves reliability.
+- [x] **`symbolic_sum`** — symbolic summation and products with sum/product toggle
+- [x] **`combinatorics_operation`** — binomial, permutations, combinations, partitions, factorial, catalan, fibonacci, bell
+- [x] **`plot3d_expression`** — 3D surface plots as base64-encoded PNG
 
-### `symbolic_sum` / `symbolic_product`
+## Completed — Phase 2 (Medium-Value Helper Tools)
 
-Compute symbolic summation and products. LLMs frequently need `sum(1/n^2, n, 1, oo)` but often get the Sage syntax wrong.
+- [x] **`distribution_operation`** — probability distributions (normal, exponential, poisson, chi_squared, student_t, uniform, beta, gamma) with pdf/cdf/quantile/mean/variance/sample operations
+- [x] **`find_root`** — numeric root-finding in an interval (complements symbolic `solve_equation`)
+- [x] **`plot_multi_expression`** — overlay multiple functions in a single 2D plot
+- [x] **`vector_calculus_operation`** — gradient, divergence, curl, laplacian
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `expression` | string | The expression to sum/multiply (e.g. `"1/n^2"`) |
-| `variable` | string | The index variable (e.g. `"n"`) |
-| `lower` | string | Lower bound (e.g. `"1"`) |
-| `upper` | string | Upper bound (e.g. `"oo"` for infinity) |
+## Completed — Phase 3 (Enrichment)
 
-Returns: `{"result": "pi^2/6"}` or `{"result": "n!"}`.
+- [x] **Enriched `evaluate_sage` description** — 14 domain examples (was 8): added symbolic sums, Laplace/inverse Laplace transforms, modular arithmetic, vector calculus, numeric root finding, recurrence relations
+- [x] **HTTP `/health` endpoint** — returns `{"status": "ok", "version": "...", "active_sessions": N}` for Kubernetes liveness/readiness probes (Starlette route on HTTP transports)
+- [x] **`evaluate_sage_streaming`** — executes code and emits each stdout line as a progress event for real-time partial output display
+- [x] **Disk-backed session persistence** — code journal saved to `SAGEMATH_MCP_PERSIST_DIR` on shutdown, replayed on restore. Controlled by `SAGEMATH_MCP_PERSIST_SESSIONS` and `SAGEMATH_MCP_PERSIST_DIR` environment variables.
 
-**Priority:** High | **Effort:** Low (wrapper around Sage's `sum()` and `product()`)
+## Phase 4 — Niche Domains (Not Planned)
 
-### `combinatorics_operation`
+These domains are fully accessible via `evaluate_sage` and documented in its tool description. Dedicated tools are not planned because the domains require specialized knowledge to use effectively, and the `evaluate_sage` escape hatch with domain-specific examples already covers them.
 
-Counting and enumeration problems are common in discrete math, CS theory, and interview prep. LLMs benefit from structured operation selection rather than constructing Sage iterator objects.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `operation` | string | One of: `"binomial"`, `"permutations"`, `"combinations"`, `"partitions"`, `"factorial"`, `"catalan"`, `"fibonacci"`, `"bell"` |
-| `n` | int | Primary argument |
-| `k` | int or null | Secondary argument (for binomial, combinations, permutations) |
-
-Returns: `{"operation": "binomial", "result": 252}` or `{"operation": "partitions", "result": 7, "list": [[5], [4,1], [3,2], [3,1,1], [2,2,1], [2,1,1,1], [1,1,1,1,1]]}`.
-
-**Priority:** High | **Effort:** Low
-
-### `plot3d_expression`
-
-Natural extension of the existing `plot_expression` tool to 3D surface plots. Useful for visualizing functions of two variables.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `expression` | string | The expression to plot (e.g. `"sin(x)*cos(y)"`) |
-| `x_variable` | string | First variable (default `"x"`) |
-| `y_variable` | string | Second variable (default `"y"`) |
-| `x_range_min` / `x_range_max` | float | X-axis bounds (default -5 to 5) |
-| `y_range_min` / `y_range_max` | float | Y-axis bounds (default -5 to 5) |
-
-Returns: `{"image_base64": "...", "format": "png"}`.
-
-**Priority:** High | **Effort:** Low (similar pattern to 2D tool, calls Sage's `plot3d()`)
-
----
-
-## Phase 2 — Medium-Value Helper Tools
-
-These tools address less frequent but still meaningful use cases where dedicated tools improve the LLM experience.
-
-### `distribution_operation`
-
-Probability distributions are common in statistics and data science workflows. A structured interface reduces boilerplate for common queries.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `distribution` | string | One of: `"normal"`, `"exponential"`, `"poisson"`, `"binomial_dist"`, `"chi_squared"`, `"student_t"`, `"uniform"`, `"beta"`, `"gamma"` |
-| `parameters` | list[float] | Distribution parameters (e.g. `[0, 1]` for standard normal) |
-| `operation` | string | One of: `"pdf"`, `"cdf"`, `"quantile"`, `"mean"`, `"variance"`, `"sample"` |
-| `x` | float or null | Point for PDF/CDF/quantile evaluation |
-| `n` | int or null | Number of samples (for `"sample"` operation) |
-
-Returns: `{"distribution": "normal", "operation": "cdf", "result": 0.9772}`.
-
-**Priority:** Medium | **Effort:** Medium
-
-### `find_root`
-
-Numeric root-finding for cases where `solve_equation` has no symbolic solution. Complements the symbolic solver.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `expression` | string | The expression to find roots of (e.g. `"x - cos(x)"`) |
-| `variable` | string | The variable (default `"x"`) |
-| `lower_bound` | float | Left bound of search interval |
-| `upper_bound` | float | Right bound of search interval |
-
-Returns: `{"root": 0.7390851332151607}`.
-
-**Priority:** Medium | **Effort:** Low (wrapper around Sage's `find_root()`)
-
-### Multi-expression plotting
-
-Extend the existing `plot_expression` tool to overlay multiple functions in a single plot.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `expressions` | list[string] | List of expressions to plot (e.g. `["sin(x)", "cos(x)", "x^2/10"]`) |
-| `variable` | string | The plot variable (default `"x"`) |
-| `range_min` / `range_max` | float | Axis bounds |
-| `legend` | bool | Whether to show a legend (default `true`) |
-
-Returns: `{"image_base64": "...", "format": "png"}`.
-
-**Priority:** Medium | **Effort:** Low (extension of existing tool)
-
-### `vector_calculus_operation`
-
-Vector calculus operations (gradient, divergence, curl, Laplacian) are standard in physics and engineering but tricky to express in Sage syntax.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `operation` | string | One of: `"gradient"`, `"divergence"`, `"curl"`, `"laplacian"` |
-| `expression` | string or list[string] | Scalar field (for gradient/laplacian) or vector field components (for divergence/curl) |
-| `variables` | list[string] | Variable names (e.g. `["x", "y", "z"]`) |
-
-Returns: `{"operation": "gradient", "result": ["2*x", "2*y", "2*z"]}`.
-
-**Priority:** Medium | **Effort:** Medium
-
----
-
-## Phase 3 — Enrichment (As Needed)
-
-These improvements do not require new tools but enhance the existing server's usability.
-
-### Enrich `evaluate_sage` tool description
-
-Add more domain-specific examples to the tool description that LLMs see. Currently documents 8 domains. Candidates for additional examples:
-
-| Domain | Example |
-|--------|---------|
-| Symbolic summation | `sum(1/n^2, n, 1, oo)` |
-| Vector calculus | `f = x^2 + y^2 + z^2; diff(f, x), diff(f, y), diff(f, z)` |
-| Fourier transforms | `fourier_transform(exp(-x^2), x, s)` |
-| Laplace transforms | `laplace(sin(t), t, s)` |
-| Numeric root finding | `find_root(x - cos(x), 0, 1)` |
-| Recurrence relations | `var('n'); f = function('f'); desolve_rsolve(f(n+2) - f(n+1) - f(n), f, [0, 1])` |
-| Modular arithmetic | `Mod(17, 5)`, `power_mod(3, 100, 97)` |
-| Lattice/poset operations | `Posets.BooleanLattice(3)` |
-
-**Priority:** Medium | **Effort:** Very low (just updating a string)
-
-### HTTP health check endpoint
-
-Replace TCP socket-based Helm probes with an HTTP `/health` endpoint that returns 200 when the server is ready and the Sage worker is responsive.
-
-**Priority:** Medium | **Effort:** Low
-
-### Streaming partial output
-
-For long-running computations, emit partial results (e.g., intermediate steps of a series expansion or iterative solver) as they become available, rather than waiting for the full result.
-
-**Priority:** Low | **Effort:** High (requires changes to the worker protocol)
-
-### Disk-backed session persistence
-
-Optionally serialize session state to disk so sessions survive server restarts. Useful for long-running workloads or scheduled computations.
-
-**Priority:** Low | **Effort:** High (requires serialization of Sage namespaces)
-
----
-
-## Phase 4 — Niche Domains (Only if Requested)
-
-These domains are fully accessible via `evaluate_sage` and documented in its tool description. Dedicated tools are unlikely to provide significant value over raw Sage code because the domains require specialized knowledge to use effectively.
-
-| Domain | Current Access | Dedicated Tool Value |
-|--------|---------------|---------------------|
-| Graph theory | `graphs.PetersenGraph(); G.chromatic_number()` | Low — problems are too varied for a single tool interface |
-| Group theory | `SymmetricGroup(5).order()` | Low — requires domain expertise |
-| Elliptic curves | `EllipticCurve([0,0,1,-1,0]).rank()` | Low — highly specialized |
-| Coding theory | `codes.HammingCode(GF(2), 3).minimum_distance()` | Low — niche |
-| Tensor operations | Sage tensor module with index notation | Low — very specialized |
-| Boolean algebra | `BooleanPolynomialRing` | Low — Sage is not strong here |
-| Category theory | Limited Sage support | Very low — out of Sage's scope |
-| Unit conversion | External `units` package | Low — domain-specific |
-| Curve fitting | Limited in Sage (scipy is better) | Low — wrong tool for the job |
+| Domain | Access via `evaluate_sage` | Why no dedicated tool |
+|--------|---------------------------|----------------------|
+| Graph theory | `graphs.PetersenGraph(); G.chromatic_number()` | Problems are too varied for a single tool interface |
+| Group theory | `SymmetricGroup(5).order()` | Requires domain expertise |
+| Elliptic curves | `EllipticCurve([0,0,1,-1,0]).rank()` | Highly specialized |
+| Coding theory | `codes.HammingCode(GF(2), 3).minimum_distance()` | Niche |
+| Tensor operations | Sage tensor module with index notation | Very specialized |
+| Boolean algebra | `BooleanPolynomialRing` | Sage is not strong here |
+| Category theory | Limited Sage support | Out of Sage's scope |
+| Unit conversion | External `units` package | Domain-specific |
+| Curve fitting | Limited in Sage (scipy is better) | Wrong tool for the job |
 
 ---
 

@@ -1156,11 +1156,24 @@ Remaining 1% is defensive `if ctx is not None` branches that are always true in 
 
 ## Roadmap
 
-- Disk-backed session persistence for long-running workloads.
-- Streaming partial outputs for long calculations.
-- Fine-grained resource templates exposing saved worksheets.
-- HTTP-based health check endpoint for Helm probes (currently TCP socket).
-- Multi-expression plotting (overlay multiple functions in one image).
+See [ROADMAP.md](ROADMAP.md) for the full prioritized plan. Highlights:
+
+**Phase 1 — High-value tools:**
+- `symbolic_sum` / `symbolic_product` --- symbolic summation and products
+- `combinatorics_operation` --- binomial, permutations, combinations, partitions, Catalan, Fibonacci
+- `plot3d_expression` --- 3D surface plots for two-variable functions
+
+**Phase 2 — Medium-value tools:**
+- `distribution_operation` --- probability distributions (PDF, CDF, sampling, quantiles)
+- `find_root` --- numeric root-finding (complements symbolic `solve_equation`)
+- Multi-expression plotting --- overlay multiple functions in one plot
+- `vector_calculus_operation` --- gradient, divergence, curl, Laplacian
+
+**Phase 3 — Enrichment:**
+- Richer `evaluate_sage` examples (Fourier/Laplace transforms, modular arithmetic, recurrences)
+- HTTP `/health` endpoint for Helm probes
+- Streaming partial output for long computations
+- Disk-backed session persistence
 
 ## Requirements
 

@@ -37,6 +37,8 @@ jobs:
           enable-cache: true
       - name: Create virtual environment
         run: uv venv
+      - name: Install build tool
+        run: uv pip install build
       - name: Build artifacts
         run: uv run python -m build --sdist --wheel --outdir dist
       - uses: actions/upload-artifact@v4
@@ -110,15 +112,6 @@ jobs:
           name: dist
           path: dist
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@v1.8.11
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist
-      - name: Publish to GitHub Packages (PyPI)
-        run: |
-          uv run python -m pip install --upgrade pip
-          uv run python -m pip install --upgrade build
-          uv run uv publish \
-            --url https://pypi.pkg.github.com/XBP-Europe \
-            --username $GITHUB_ACTOR \
-            --password ${{ secrets.GITHUB_PACKAGES_TOKEN }} \
-            dist/*

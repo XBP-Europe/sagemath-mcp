@@ -1437,6 +1437,390 @@ async def test_vector_calculus_default_variables(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# Phase 4 — Niche domain tools
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_graph_operation_chromatic(monkeypatch):
+    session = StubSession("3")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.graph_operation(
+        graph="PetersenGraph", operation="chromatic_number", ctx=ctx,
+    )
+    assert result["operation"] == "chromatic_number"
+    assert result["result"] == 3
+
+
+@pytest.mark.asyncio
+async def test_graph_operation_is_connected(monkeypatch):
+    session = StubSession("True")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.graph_operation(
+        graph="{0:[1,2], 1:[0,2], 2:[0,1]}",
+        operation="is_connected", ctx=ctx,
+    )
+    assert result["result"] is True
+
+
+@pytest.mark.asyncio
+async def test_graph_operation_shortest_path(monkeypatch):
+    session = StubSession("[0, 1, 2]")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.graph_operation(
+        graph="PetersenGraph", operation="shortest_path",
+        source=0, target=2, ctx=ctx,
+    )
+    assert result["operation"] == "shortest_path"
+
+
+@pytest.mark.asyncio
+async def test_graph_operation_invalid(monkeypatch):
+    session = StubSession("None")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    with pytest.raises(ToolError, match="Unknown operation"):
+        await server.graph_operation(
+            graph="PetersenGraph", operation="invalid", ctx=ctx,
+        )
+
+
+@pytest.mark.asyncio
+async def test_graph_operation_no_context():
+    with pytest.raises(ToolError, match="MCP context"):
+        await server.graph_operation(
+            graph="PetersenGraph", operation="order", ctx=None,
+        )
+
+
+@pytest.mark.asyncio
+async def test_group_operation_order(monkeypatch):
+    session = StubSession("120")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.group_operation(
+        group="SymmetricGroup(5)", operation="order", ctx=ctx,
+    )
+    assert result["result"] == 120
+
+
+@pytest.mark.asyncio
+async def test_group_operation_is_abelian(monkeypatch):
+    session = StubSession("True")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.group_operation(
+        group="CyclicPermutationGroup(6)",
+        operation="is_abelian", ctx=ctx,
+    )
+    assert result["result"] is True
+
+
+@pytest.mark.asyncio
+async def test_group_operation_is_cyclic(monkeypatch):
+    session = StubSession("False")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.group_operation(
+        group="SymmetricGroup(4)", operation="is_cyclic", ctx=ctx,
+    )
+    assert result["operation"] == "is_cyclic"
+
+
+@pytest.mark.asyncio
+async def test_group_operation_invalid(monkeypatch):
+    session = StubSession("None")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    with pytest.raises(ToolError, match="Unknown operation"):
+        await server.group_operation(
+            group="SymmetricGroup(3)", operation="invalid", ctx=ctx,
+        )
+
+
+@pytest.mark.asyncio
+async def test_group_operation_no_context():
+    with pytest.raises(ToolError, match="MCP context"):
+        await server.group_operation(
+            group="SymmetricGroup(3)", operation="order", ctx=None,
+        )
+
+
+@pytest.mark.asyncio
+async def test_elliptic_curve_rank(monkeypatch):
+    session = StubSession("0")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.elliptic_curve_operation(
+        coefficients=[0, 0, 1, -1, 0], operation="rank", ctx=ctx,
+    )
+    assert result["operation"] == "rank"
+
+
+@pytest.mark.asyncio
+async def test_elliptic_curve_discriminant(monkeypatch):
+    session = StubSession("'-37'")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.elliptic_curve_operation(
+        coefficients=[0, -1], operation="discriminant", ctx=ctx,
+    )
+    assert result["operation"] == "discriminant"
+
+
+@pytest.mark.asyncio
+async def test_elliptic_curve_invalid(monkeypatch):
+    session = StubSession("None")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    with pytest.raises(ToolError, match="Unknown operation"):
+        await server.elliptic_curve_operation(
+            coefficients=[0, 1], operation="invalid", ctx=ctx,
+        )
+
+
+@pytest.mark.asyncio
+async def test_elliptic_curve_no_context():
+    with pytest.raises(ToolError, match="MCP context"):
+        await server.elliptic_curve_operation(
+            coefficients=[0, 1], operation="rank", ctx=None,
+        )
+
+
+@pytest.mark.asyncio
+async def test_coding_theory_length(monkeypatch):
+    session = StubSession("7")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.coding_theory_operation(
+        code_type="HammingCode(GF(2), 3)",
+        operation="length", ctx=ctx,
+    )
+    assert result["result"] == 7
+
+
+@pytest.mark.asyncio
+async def test_coding_theory_minimum_distance(monkeypatch):
+    session = StubSession("3")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.coding_theory_operation(
+        code_type="HammingCode(GF(2), 3)",
+        operation="minimum_distance", ctx=ctx,
+    )
+    assert result["operation"] == "minimum_distance"
+
+
+@pytest.mark.asyncio
+async def test_coding_theory_rate(monkeypatch):
+    session = StubSession("0.5714285714285714")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.coding_theory_operation(
+        code_type="HammingCode(GF(2), 3)",
+        operation="rate", ctx=ctx,
+    )
+    assert result["operation"] == "rate"
+
+
+@pytest.mark.asyncio
+async def test_coding_theory_invalid(monkeypatch):
+    session = StubSession("None")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    with pytest.raises(ToolError, match="Unknown operation"):
+        await server.coding_theory_operation(
+            code_type="HammingCode(GF(2), 3)",
+            operation="invalid", ctx=ctx,
+        )
+
+
+@pytest.mark.asyncio
+async def test_coding_theory_no_context():
+    with pytest.raises(ToolError, match="MCP context"):
+        await server.coding_theory_operation(
+            code_type="HammingCode(GF(2), 3)",
+            operation="length", ctx=None,
+        )
+
+
+@pytest.mark.asyncio
+async def test_boolean_algebra_evaluate(monkeypatch):
+    session = StubSession("'x0*x1 + x0*x2 + x1*x2'")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.boolean_algebra_operation(
+        expression="x0*x1 + x0*x2 + x1*x2",
+        operation="evaluate", ctx=ctx,
+    )
+    assert result["operation"] == "evaluate"
+
+
+@pytest.mark.asyncio
+async def test_boolean_algebra_variables(monkeypatch):
+    session = StubSession("['x0', 'x1']")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.boolean_algebra_operation(
+        expression="x0*x1", operation="variables",
+        num_variables=2, ctx=ctx,
+    )
+    assert result["operation"] == "variables"
+
+
+@pytest.mark.asyncio
+async def test_boolean_algebra_degree(monkeypatch):
+    session = StubSession("2")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.boolean_algebra_operation(
+        expression="x0*x1 + x2", operation="degree", ctx=ctx,
+    )
+    assert result["result"] == 2
+
+
+@pytest.mark.asyncio
+async def test_boolean_algebra_invalid(monkeypatch):
+    session = StubSession("None")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    with pytest.raises(ToolError, match="Unknown operation"):
+        await server.boolean_algebra_operation(
+            expression="x0", operation="invalid", ctx=ctx,
+        )
+
+
+@pytest.mark.asyncio
+async def test_boolean_algebra_no_context():
+    with pytest.raises(ToolError, match="MCP context"):
+        await server.boolean_algebra_operation(
+            expression="x0", operation="evaluate", ctx=None,
+        )
+
+
+@pytest.mark.asyncio
+async def test_polynomial_ring_groebner(monkeypatch):
+    session = StubSession("['a^2 + b', 'b^2 - 1']")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.polynomial_ring_operation(
+        ring_vars=["a", "b"],
+        polynomials=["a^2+b", "b^2-1"],
+        operation="groebner_basis", ctx=ctx,
+    )
+    assert result["operation"] == "groebner_basis"
+
+
+@pytest.mark.asyncio
+async def test_polynomial_ring_dimension(monkeypatch):
+    session = StubSession("0")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.polynomial_ring_operation(
+        ring_vars=["a", "b"],
+        polynomials=["a^2+b", "b^2-1"],
+        operation="ideal_dimension", ctx=ctx,
+    )
+    assert result["operation"] == "ideal_dimension"
+
+
+@pytest.mark.asyncio
+async def test_polynomial_ring_variety(monkeypatch):
+    session = StubSession("[{'a': '1', 'b': '-1'}]")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.polynomial_ring_operation(
+        ring_vars=["a", "b"],
+        polynomials=["a-1", "b+1"],
+        operation="ideal_variety", ctx=ctx,
+    )
+    assert result["operation"] == "ideal_variety"
+
+
+@pytest.mark.asyncio
+async def test_polynomial_ring_invalid(monkeypatch):
+    session = StubSession("None")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    with pytest.raises(ToolError, match="Unknown operation"):
+        await server.polynomial_ring_operation(
+            ring_vars=["a"], polynomials=["a^2"],
+            operation="invalid", ctx=ctx,
+        )
+
+
+@pytest.mark.asyncio
+async def test_polynomial_ring_no_context():
+    with pytest.raises(ToolError, match="MCP context"):
+        await server.polynomial_ring_operation(
+            ring_vars=["a"], polynomials=["a^2"],
+            operation="groebner_basis", ctx=None,
+        )
+
+
+@pytest.mark.asyncio
+async def test_geometry_distance(monkeypatch):
+    session = StubSession("5.0")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.geometry_operation(
+        operation="distance",
+        points=[[0.0, 0.0], [3.0, 4.0]], ctx=ctx,
+    )
+    assert result["result"] == 5.0
+
+
+@pytest.mark.asyncio
+async def test_geometry_volume(monkeypatch):
+    session = StubSession("1.0")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.geometry_operation(
+        operation="polytope_volume",
+        points=[[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]],
+        ctx=ctx,
+    )
+    assert result["operation"] == "polytope_volume"
+
+
+@pytest.mark.asyncio
+async def test_geometry_convex_hull(monkeypatch):
+    session = StubSession("[[0, 0], [1, 0], [0, 1]]")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.geometry_operation(
+        operation="convex_hull_vertices",
+        points=[[0, 0], [1, 0], [0, 1], [0.5, 0.25]],
+        ctx=ctx,
+    )
+    assert result["operation"] == "convex_hull_vertices"
+
+
+@pytest.mark.asyncio
+async def test_geometry_invalid(monkeypatch):
+    session = StubSession("None")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    with pytest.raises(ToolError, match="Unknown operation"):
+        await server.geometry_operation(
+            operation="invalid",
+            points=[[0, 0], [1, 1]], ctx=ctx,
+        )
+
+
+@pytest.mark.asyncio
+async def test_geometry_no_context():
+    with pytest.raises(ToolError, match="MCP context"):
+        await server.geometry_operation(
+            operation="distance",
+            points=[[0, 0], [1, 1]], ctx=None,
+        )
+
+
+# ---------------------------------------------------------------------------
 # Health check endpoint
 # ---------------------------------------------------------------------------
 

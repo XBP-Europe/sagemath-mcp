@@ -1178,6 +1178,375 @@ async def plot_expression(
     return {"image_base64": result, "format": "png"}
 
 
+# ---------------------------------------------------------------------------
+# Phase 4 — Niche domain tools
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool(
+    description="Graph theory: create named graphs and compute properties "
+    "(chromatic_number, is_connected, diameter, etc.)"
+)
+async def graph_operation(
+    graph: Annotated[
+        str,
+        Field(
+            description="Graph constructor: a named graph like 'PetersenGraph' "
+            "or an adjacency dict like '{0:[1,2], 1:[0,2], 2:[0,1]}'"
+        ),
+    ],
+    operation: Annotated[
+        str,
+        Field(
+            description="One of: chromatic_number, is_connected, is_planar, "
+            "diameter, order, size, degree_sequence, adjacency_matrix, "
+            "shortest_path (requires source and target)"
+        ),
+    ],
+    source: Annotated[int | None, Field(description="Source vertex")] = None,
+    target: Annotated[int | None, Field(description="Target vertex")] = None,
+    ctx: Context | None = None,
+) -> dict:
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required")
+    session = await SESSION_MANAGER.get(ctx.session_id)
+    # Determine graph construction
+    if graph.endswith("Graph") or graph.endswith("Graph()"):
+        g_name = graph.rstrip("()")
+        graph_code = f"_G = graphs.{g_name}()"
+    else:
+        graph_code = f"_G = Graph({graph})"
+    ops = {
+        "chromatic_number": "int(_G.chromatic_number())",
+        "is_connected": "bool(_G.is_connected())",
+        "is_planar": "bool(_G.is_planar())",
+        "diameter": "int(_G.diameter())",
+        "order": "int(_G.order())",
+        "size": "int(_G.size())",
+        "degree_sequence": "sorted(_G.degree_sequence(), reverse=True)",
+        "adjacency_matrix": (
+            "[[int(x) for x in row] "
+            "for row in _G.adjacency_matrix().rows()]"
+        ),
+        "shortest_path": (
+            f"list(_G.shortest_path({source}, {target}))"
+            if source is not None and target is not None
+            else "None"
+        ),
+    }
+    if operation not in ops:
+        raise ToolError(
+            f"Unknown operation '{operation}'. "
+            f"Use: {', '.join(ops)}"
+        )
+    code = _sage_prelude() + graph_code + "\n" + ops[operation] + "\n"
+    result = await _evaluate_structured(session, code)
+    return {"operation": operation, "result": result}
+
+
+@mcp.tool(
+    description="Group theory: construct groups and query properties "
+    "(order, is_abelian, center, etc.)"
+)
+async def group_operation(
+    group: Annotated[
+        str,
+        Field(
+            description="Sage group constructor, e.g. "
+            "'SymmetricGroup(5)', 'DihedralGroup(4)', "
+            "'CyclicPermutationGroup(6)', 'AlternatingGroup(5)'"
+        ),
+    ],
+    operation: Annotated[
+        str,
+        Field(
+            description="One of: order, is_abelian, is_cyclic, "
+            "center_order, conjugacy_classes_count, exponent"
+        ),
+    ],
+    ctx: Context | None = None,
+) -> dict:
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required")
+    session = await SESSION_MANAGER.get(ctx.session_id)
+    ops = {
+        "order": "int(_G.order())",
+        "is_abelian": "bool(_G.is_abelian())",
+        "is_cyclic": "bool(_G.is_cyclic())",
+        "center_order": "int(_G.center().order())",
+        "conjugacy_classes_count": (
+            "int(len(_G.conjugacy_classes_representatives()))"
+        ),
+        "exponent": "int(_G.exponent())",
+    }
+    if operation not in ops:
+        raise ToolError(
+            f"Unknown operation '{operation}'. "
+            f"Use: {', '.join(ops)}"
+        )
+    code = _sage_prelude() + f"_G = {group}\n" + ops[operation] + "\n"
+    result = await _evaluate_structured(session, code)
+    return {"group": group, "operation": operation, "result": result}
+
+
+@mcp.tool(
+    description="Elliptic curve operations: rank, torsion, "
+    "discriminant, j_invariant, rational points"
+)
+async def elliptic_curve_operation(
+    coefficients: Annotated[
+        list[int],
+        Field(
+            description="Curve coefficients [a1,a2,a3,a4,a6] or "
+            "short Weierstrass [a,b] for y^2 = x^3 + a*x + b"
+        ),
+    ],
+    operation: Annotated[
+        str,
+        Field(
+            description="One of: rank, torsion_order, discriminant, "
+            "j_invariant, conductor, gens"
+        ),
+    ],
+    ctx: Context | None = None,
+) -> dict:
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required")
+    session = await SESSION_MANAGER.get(ctx.session_id)
+    ops = {
+        "rank": "int(_E.rank())",
+        "torsion_order": "int(_E.torsion_order())",
+        "discriminant": "str(_E.discriminant())",
+        "j_invariant": "str(_E.j_invariant())",
+        "conductor": "int(_E.conductor())",
+        "gens": "[str(p) for p in _E.gens()]",
+    }
+    if operation not in ops:
+        raise ToolError(
+            f"Unknown operation '{operation}'. "
+            f"Use: {', '.join(ops)}"
+        )
+    code = (
+        _sage_prelude()
+        + f"_E = EllipticCurve({_encode_literal(coefficients)})\n"
+        + ops[operation]
+        + "\n"
+    )
+    result = await _evaluate_structured(session, code)
+    return {"operation": operation, "result": result}
+
+
+@mcp.tool(
+    description="Coding theory: construct error-correcting codes "
+    "and compute properties"
+)
+async def coding_theory_operation(
+    code_type: Annotated[
+        str,
+        Field(
+            description="Code constructor, e.g. "
+            "'HammingCode(GF(2),3)', 'ReedSolomonCode(GF(7),3,5)'"
+        ),
+    ],
+    operation: Annotated[
+        str,
+        Field(
+            description="One of: length, dimension, "
+            "minimum_distance, generator_matrix, rate"
+        ),
+    ],
+    ctx: Context | None = None,
+) -> dict:
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required")
+    session = await SESSION_MANAGER.get(ctx.session_id)
+    ops = {
+        "length": "int(_C.length())",
+        "dimension": "int(_C.dimension())",
+        "minimum_distance": "int(_C.minimum_distance())",
+        "generator_matrix": (
+            "[[int(x) for x in row] "
+            "for row in _C.generator_matrix().rows()]"
+        ),
+        "rate": "float(_C.dimension() / _C.length())",
+    }
+    if operation not in ops:
+        raise ToolError(
+            f"Unknown operation '{operation}'. "
+            f"Use: {', '.join(ops)}"
+        )
+    code = (
+        _sage_prelude()
+        + f"_C = codes.{code_type}\n"
+        + ops[operation]
+        + "\n"
+    )
+    result = await _evaluate_structured(session, code)
+    return {"operation": operation, "result": result}
+
+
+@mcp.tool(
+    description="Boolean algebra: operations on boolean polynomials"
+)
+async def boolean_algebra_operation(
+    expression: Annotated[
+        str,
+        Field(description="Boolean expression (e.g. 'x*y + x*z + y*z')"),
+    ],
+    operation: Annotated[
+        str,
+        Field(
+            description="One of: evaluate, variables, degree, "
+            "is_zero, is_one, reduce"
+        ),
+    ],
+    num_variables: Annotated[
+        int,
+        Field(description="Number of boolean variables", ge=1),
+    ] = 3,
+    ctx: Context | None = None,
+) -> dict:
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required")
+    session = await SESSION_MANAGER.get(ctx.session_id)
+    var_names = ", ".join(f"'x{i}'" for i in range(num_variables))
+    ring_setup = (
+        f"_R = BooleanPolynomialRing({num_variables}, [{var_names}])\n"
+        f"_R.inject_variables(verbose=False)\n"
+    )
+    ops = {
+        "evaluate": f"str(_R({_encode_literal(expression)}))",
+        "variables": (
+            f"[str(v) for v in _R({_encode_literal(expression)}).variables()]"
+        ),
+        "degree": f"int(_R({_encode_literal(expression)}).deg())",
+        "is_zero": f"bool(_R({_encode_literal(expression)}).is_zero())",
+        "is_one": f"bool(_R({_encode_literal(expression)}).is_one())",
+        "reduce": f"str(_R({_encode_literal(expression)}))",
+    }
+    if operation not in ops:
+        raise ToolError(
+            f"Unknown operation '{operation}'. "
+            f"Use: {', '.join(ops)}"
+        )
+    code = _sage_prelude() + ring_setup + ops[operation] + "\n"
+    result = await _evaluate_structured(session, code)
+    return {"operation": operation, "result": result}
+
+
+@mcp.tool(
+    description="Polynomial ring operations: construct rings "
+    "and compute Groebner bases, ideals, quotients"
+)
+async def polynomial_ring_operation(
+    ring_vars: Annotated[
+        list[str],
+        Field(description="Variable names, e.g. ['a', 'b', 'c']"),
+    ],
+    polynomials: Annotated[
+        list[str],
+        Field(description="Polynomials as strings, e.g. ['a^2+b', 'b^2-1']"),
+    ],
+    operation: Annotated[
+        str,
+        Field(
+            description="One of: groebner_basis, ideal_dimension, "
+            "ideal_variety, reduce, is_groebner"
+        ),
+    ],
+    base_ring: Annotated[str, Field(description="Base ring")] = "QQ",
+    ctx: Context | None = None,
+) -> dict:
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required")
+    session = await SESSION_MANAGER.get(ctx.session_id)
+    var_list = ", ".join(ring_vars)
+    ops = {
+        "groebner_basis": "[str(g) for g in _I.groebner_basis()]",
+        "ideal_dimension": "int(_I.dimension())",
+        "ideal_variety": "[{str(k): str(v) for k, v in pt.items()} "
+        "for pt in _I.variety()]",
+        "reduce": (
+            f"str(_I.reduce(_R({_encode_literal(polynomials[0])})))"
+            if polynomials
+            else "''"
+        ),
+        "is_groebner": "bool(_I.basis_is_groebner())",
+    }
+    if operation not in ops:
+        raise ToolError(
+            f"Unknown operation '{operation}'. "
+            f"Use: {', '.join(ops)}"
+        )
+    polys_code = ", ".join(
+        f"_R({_encode_literal(p)})" for p in polynomials
+    )
+    code = (
+        _sage_prelude(ring_vars)
+        + f"_R = PolynomialRing({base_ring}, '{var_list}')\n"
+        + "_R.inject_variables(verbose=False)\n"
+        + f"_I = _R.ideal([{polys_code}])\n"
+        + ops[operation]
+        + "\n"
+    )
+    result = await _evaluate_structured(session, code)
+    return {"operation": operation, "result": result}
+
+
+@mcp.tool(
+    description="Geometry: distances, areas, volumes, convex hulls "
+    "for points and polytopes"
+)
+async def geometry_operation(
+    operation: Annotated[
+        str,
+        Field(
+            description="One of: distance, polygon_area, "
+            "polytope_volume, convex_hull_vertices, is_convex"
+        ),
+    ],
+    points: Annotated[
+        list[list[float]],
+        Field(description="List of points as coordinate lists"),
+    ],
+    ctx: Context | None = None,
+) -> dict:
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required")
+    session = await SESSION_MANAGER.get(ctx.session_id)
+    pts = _encode_literal(points)
+    ops = {
+        "distance": (
+            f"float(sqrt(sum((a-b)^2 for a, b in "
+            f"zip({_encode_literal(points[0])}, "
+            f"{_encode_literal(points[1])}))))"
+            if len(points) >= 2
+            else "None"
+        ),
+        "polygon_area": (
+            f"float(Polyhedron(vertices={pts}).volume())"
+        ),
+        "polytope_volume": (
+            f"float(Polyhedron(vertices={pts}).volume())"
+        ),
+        "convex_hull_vertices": (
+            f"[list(v) for v in "
+            f"Polyhedron(vertices={pts}).vertices_list()]"
+        ),
+        "is_convex": (
+            f"bool(Polyhedron(vertices={pts}).is_compact())"
+        ),
+    }
+    if operation not in ops:
+        raise ToolError(
+            f"Unknown operation '{operation}'. "
+            f"Use: {', '.join(ops)}"
+        )
+    code = _sage_prelude() + ops[operation] + "\n"
+    result = await _evaluate_structured(session, code)
+    return {"operation": operation, "result": result}
+
+
 @mcp.tool(
     description="Execute SageMath code and stream intermediate print() output "
     "line by line. Final result is returned as usual."

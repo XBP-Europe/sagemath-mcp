@@ -14,7 +14,7 @@
 
 A universal mathematics [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that gives LLM clients full access to [SageMath](https://www.sagemath.org/) --- one of the most comprehensive open-source mathematics systems available. Built on [FastMCP 3.x](https://gofastmcp.com/), the server maintains a dedicated SageMath process for each MCP session so variables, functions, and assumptions persist across tool calls.
 
-Whether the task is symbolic calculus, number theory, linear algebra, differential equations, plotting, combinatorics, or basic arithmetic, the server provides both **18 high-level helper tools** for common workflows and an **open-ended evaluation tool** (`evaluate_sage`) for arbitrary SageMath code.
+Whether the task is symbolic calculus, number theory, linear algebra, differential equations, plotting, combinatorics, graph theory, group theory, or basic arithmetic, the server provides **33 MCP tools** --- 30 backed by the full SageMath engine, plus `statistics_summary` (pure Python `statistics` module), `evaluate_sage_streaming` (streaming wrapper), and an HTTP `/health` endpoint.
 
 ---
 
@@ -50,18 +50,30 @@ Whether the task is symbolic calculus, number theory, linear algebra, differenti
 
 ## Features at a Glance
 
-| Category | Tools | Capabilities |
-|----------|-------|-------------|
-| **Core execution** | `evaluate_sage` | Run any SageMath code with persistent state, LaTeX output, stdout capture, progress heartbeats, and per-call timeouts |
-| **Calculus** | `differentiate_expression`, `integrate_expression`, `limit_expression`, `series_expansion` | Derivatives of any order, indefinite & definite integrals, one-sided limits, Taylor/Laurent series |
-| **Algebra** | `solve_equation`, `simplify_expression`, `expand_expression`, `factor_expression`, `calculate_expression` | Single equations & systems, symbolic simplification, expansion, factoring, numeric evaluation |
-| **Linear algebra** | `matrix_multiply`, `matrix_operation` | Matrix products, determinants, inverses, eigenvalues, rank, RREF, transpose |
-| **Differential equations** | `solve_ode` | First- and higher-order ODEs via Sage's `desolve()` |
-| **Number theory** | `number_theory_operation` | Primality testing, integer factorization, next prime, GCD, LCM |
-| **Statistics** | `statistics_summary` | Mean, median, population & sample variance/std dev, min, max |
-| **Visualization** | `plot_expression` | 2D function plots returned as base64-encoded PNG |
-| **Session control** | `reset_sage_session`, `cancel_sage_session` | Clear state or abort long-running computations |
-| **Observability** | 3 MCP resources | Live session snapshots, aggregated metrics, documentation links |
+| Category | Tools | Backend | Capabilities |
+|----------|-------|---------|-------------|
+| **Core execution** | `evaluate_sage`, `evaluate_sage_streaming` | Sage | Run any SageMath code with persistent state, LaTeX output, stdout capture, progress heartbeats, per-call timeouts, and line-by-line streaming |
+| **Calculus** | `differentiate_expression`, `integrate_expression`, `limit_expression`, `series_expansion` | Sage | Derivatives of any order, indefinite & definite integrals, one-sided limits, Taylor/Laurent series |
+| **Algebra** | `solve_equation`, `simplify_expression`, `expand_expression`, `factor_expression`, `calculate_expression` | Sage | Single equations & systems, symbolic simplification, expansion, factoring, numeric evaluation |
+| **Symbolic sums** | `symbolic_sum` | Sage | Symbolic summation and products (finite and infinite series) |
+| **Linear algebra** | `matrix_multiply`, `matrix_operation` | Sage | Matrix products, determinants, inverses, eigenvalues, rank, RREF, transpose |
+| **Differential equations** | `solve_ode` | Sage | First- and higher-order ODEs via Sage's `desolve()` |
+| **Number theory** | `number_theory_operation` | Sage | Primality testing, integer factorization, next prime, GCD, LCM |
+| **Combinatorics** | `combinatorics_operation` | Sage | Binomial, permutations, combinations, partitions, factorial, Catalan, Fibonacci, Bell numbers |
+| **Graph theory** | `graph_operation` | Sage | Named graphs and adjacency dicts; chromatic number, connectivity, planarity, diameter, shortest path |
+| **Group theory** | `group_operation` | Sage | Symmetric, dihedral, cyclic, alternating groups; order, abelian/cyclic test, center, exponent |
+| **Elliptic curves** | `elliptic_curve_operation` | Sage | Rank, torsion, discriminant, j-invariant, conductor, generators |
+| **Coding theory** | `coding_theory_operation` | Sage | Hamming, Reed-Solomon codes; length, dimension, minimum distance, generator matrix, rate |
+| **Polynomial rings** | `polynomial_ring_operation` | Sage | Groebner bases, ideal dimension/variety, reduction, Groebner test |
+| **Boolean algebra** | `boolean_algebra_operation` | Sage | Boolean polynomial ring; evaluate, variables, degree, zero/one test |
+| **Geometry** | `geometry_operation` | Sage | Distance, polygon area, polytope volume, convex hull, compactness via `Polyhedron` |
+| **Statistics** | `statistics_summary` | Python | Mean, median, population & sample variance/std dev, min, max (uses Python `statistics` module, no Sage required) |
+| **Probability** | `distribution_operation` | Sage | Normal, exponential, Poisson, chi-squared, Student-t, uniform, beta, gamma; PDF, CDF, quantile, sampling |
+| **Visualization** | `plot_expression`, `plot3d_expression`, `plot_multi_expression` | Sage | 2D plots, 3D surface plots, multi-function overlays as base64-encoded PNG |
+| **Numeric methods** | `find_root` | Sage | Numeric root-finding in an interval via Sage's `find_root()` |
+| **Vector calculus** | `vector_calculus_operation` | Sage | Gradient, divergence, curl, Laplacian on scalar/vector fields |
+| **Session control** | `reset_sage_session`, `cancel_sage_session` | Worker | Clear state or abort long-running computations |
+| **Infrastructure** | `/health` endpoint, 3 MCP resources | Server | Health check, session snapshots, aggregated metrics, documentation links |
 
 ---
 
@@ -868,7 +880,7 @@ make sage-container             # Bootstrap the Sage Docker container
 
 ### Running Tests
 
-Without a local SageMath installation you can still run all 150 unit tests --- the test suite replaces the Sage worker with a lightweight Python interpreter to validate session plumbing. Code coverage is at **99%** across all core modules.
+Without a local SageMath installation you can still run all 235 unit tests --- the test suite replaces the Sage worker with a lightweight Python interpreter to validate session plumbing. Code coverage is at **98%** across all core modules.
 
 ```bash
 # Run all unit tests
@@ -949,7 +961,7 @@ sagemath-mcp/
 ├── docker-compose.yml              # Local development stack
 ├── Makefile                        # Common commands (test, lint, build, etc.)
 ├── src/sagemath_mcp/
-│   ├── server.py                   # FastMCP 3.x app: 18 tools, 3 resources, middleware
+│   ├── server.py                   # FastMCP 3.x app: 33 tools, 3 resources, /health, middleware
 │   ├── session.py                  # Sage worker lifecycle, session management, idle culling
 │   ├── _sage_worker.py             # Subprocess worker: code execution, AST validation, LaTeX
 │   ├── security.py                 # AST validator, SecurityPolicy, configurable allowlists
@@ -998,7 +1010,7 @@ sagemath-mcp/
 | [Ruff](https://docs.astral.sh/ruff/) | 0.15+ | Linting and import sorting |
 | [pytest](https://docs.pytest.org/) | 9.0+ | Test framework |
 | [pytest-asyncio](https://github.com/pytest-dev/pytest-asyncio) | 1.3+ | Async test support |
-| [pytest-cov](https://github.com/pytest-dev/pytest-cov) | 7.0+ | Coverage reporting (99% branch coverage) |
+| [pytest-cov](https://github.com/pytest-dev/pytest-cov) | 7.0+ | Coverage reporting (98% branch coverage, 235 tests) |
 | [pip-audit](https://github.com/pypa/pip-audit) | 2.9+ | Dependency vulnerability scanning |
 | [Hatchling](https://hatch.pypa.io/) | 1.29+ | Build backend |
 | [Docker](https://www.docker.com/) | --- | Containerization and CI integration testing |
@@ -1014,7 +1026,7 @@ sagemath-mcp/
 
 #### New MCP Tools (18 tools added)
 
-The server grew from a single `evaluate_sage` tool to a comprehensive mathematics toolkit with 18 specialized helper tools. Each tool accepts structured parameters, runs through the AST security validator, and returns typed JSON responses.
+The server grew from a single `evaluate_sage` tool to a comprehensive mathematics toolkit with 33 MCP tools (30 Sage-backed, 1 pure-Python, 2 infrastructure). Each tool accepts structured parameters, runs through the AST security validator, and returns typed JSON responses.
 
 **Calculus (4 tools):**
 - `differentiate_expression` --- symbolic derivatives of any order. Supports all Sage-recognized expressions including trigonometric, exponential, logarithmic, and user-defined functions. The `order` parameter handles higher-order derivatives without repeated calls.
@@ -1113,7 +1125,7 @@ A new end-to-end test suite validates the MCP server through real LLM CLI invoca
 
 #### Test Coverage
 
-Test suite expanded from 136 to **150 unit tests** with branch coverage increased from 97% to **99%**. New tests cover:
+Test suite expanded from 136 to **235 unit tests** with branch coverage at **98%** across all core modules. New tests cover:
 
 - Session error paths: no Python interpreter, SAGE_VENV/PYTHONPATH environment handling, reset failures (worker terminated, `ok=False`), `_terminate_worker` with running process, `cull_idle` with no stale sessions
 - Server error branches: `evaluate_sage` with no context / no session_id, `SecurityViolation` error type, non-security error type, `SageProcessError` with `__cause__`

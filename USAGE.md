@@ -39,30 +39,49 @@ sage -python -m uv run sagemath-mcp --transport streamable-http --host 0.0.0.0 -
 ```
 The server advertises its MCP endpoint at `http://HOST:PORT/mcp`.
 
-## Available Tools & Resources
-| Name | Type | Description |
+## Available Tools & Resources (33 tools, 3 resources)
+
+All tools except `statistics_summary` use **SageMath** as the computation backend. `statistics_summary` uses Python's built-in `statistics` module and does not require Sage.
+
+| Name | Backend | Description |
 | --- | --- | --- |
-| `evaluate_sage` | tool | Execute arbitrary SageMath code within a persistent session; supports `timeout`, `want_latex`, `capture_stdout`. |
-| `calculate_expression` | tool | Evaluate a Sage expression and return string/numeric results. |
-| `solve_equation` | tool | Solve a single equation or a system of equations for one or more variables. |
-| `differentiate_expression` | tool | Symbolic differentiation of any order (set `order` for higher-order derivatives). |
-| `integrate_expression` | tool | Indefinite or definite integration (pass `lower_bound`/`upper_bound` for definite integrals). |
-| `simplify_expression` | tool | Simplify a mathematical expression via Sage's `simplify()`. |
-| `expand_expression` | tool | Expand products, powers, and identities in an expression. |
-| `factor_expression` | tool | Factor a symbolic expression or integer. |
-| `limit_expression` | tool | Compute limits with optional one-sided direction (`plus`/`minus`). |
-| `series_expansion` | tool | Taylor / Laurent series expansion around a point with configurable order. |
-| `matrix_multiply` | tool | Multiply two matrices (nested list input) and return the product. |
-| `matrix_operation` | tool | Determinant, inverse, eigenvalues, rank, RREF, or transpose of a matrix. |
-| `solve_ode` | tool | Solve ordinary differential equations via Sage's `desolve()`. |
-| `number_theory_operation` | tool | Primality testing, integer factoring, next prime, GCD, LCM. |
-| `statistics_summary` | tool | Compute population & sample mean/variance/std-dev plus min/max. |
-| `plot_expression` | tool | Render a 2D plot and return a base64-encoded PNG image. |
-| `cancel_sage_session` | tool | Cancel the active computation and restart the underlying worker. |
-| `reset_sage_session` | tool | Clear the session state without cancelling a running job. |
-| `resource://sagemath/session/{scope}` | resource | Inspect active sessions (`scope=all` or specific session id). |
-| `resource://sagemath/monitoring/{scope}` | resource | Fetch evaluation metrics (`scope=metrics` or `all`). |
-| `resource://sagemath/docs/{scope}` | resource | Retrieve SageMath documentation links (`scope=all`, `reference`, `tutorial`). |
+| `evaluate_sage` | Sage | Execute arbitrary SageMath code within a persistent session; supports `timeout`, `want_latex`, `capture_stdout`. |
+| `evaluate_sage_streaming` | Sage | Like `evaluate_sage` but emits each stdout line as a progress event for real-time display. |
+| `calculate_expression` | Sage | Evaluate a Sage expression and return string/numeric results. |
+| `solve_equation` | Sage | Solve a single equation or a system of equations for one or more variables. |
+| `differentiate_expression` | Sage | Symbolic differentiation of any order (set `order` for higher-order derivatives). |
+| `integrate_expression` | Sage | Indefinite or definite integration (pass `lower_bound`/`upper_bound` for definite integrals). |
+| `simplify_expression` | Sage | Simplify a mathematical expression via Sage's `simplify()`. |
+| `expand_expression` | Sage | Expand products, powers, and identities in an expression. |
+| `factor_expression` | Sage | Factor a symbolic expression or integer. |
+| `limit_expression` | Sage | Compute limits with optional one-sided direction (`plus`/`minus`). |
+| `series_expansion` | Sage | Taylor / Laurent series expansion around a point with configurable order. |
+| `symbolic_sum` | Sage | Symbolic summation and products (finite and infinite series). |
+| `matrix_multiply` | Sage | Multiply two matrices (nested list input) and return the product. |
+| `matrix_operation` | Sage | Determinant, inverse, eigenvalues, rank, RREF, or transpose of a matrix. |
+| `solve_ode` | Sage | Solve ordinary differential equations via Sage's `desolve()`. |
+| `number_theory_operation` | Sage | Primality testing, integer factoring, next prime, GCD, LCM. |
+| `combinatorics_operation` | Sage | Binomial, permutations, combinations, partitions, factorial, Catalan, Fibonacci, Bell. |
+| `statistics_summary` | Python | Compute population & sample mean/variance/std-dev plus min/max. No Sage required. |
+| `distribution_operation` | Sage | Probability distributions: normal, exponential, Poisson, chi-squared, Student-t, uniform, beta, gamma. |
+| `plot_expression` | Sage | Render a 2D plot and return a base64-encoded PNG image. |
+| `plot3d_expression` | Sage | Render a 3D surface plot and return a base64-encoded PNG image. |
+| `plot_multi_expression` | Sage | Overlay multiple functions in a single 2D plot. |
+| `find_root` | Sage | Numeric root-finding in an interval via Sage's `find_root()`. |
+| `vector_calculus_operation` | Sage | Gradient, divergence, curl, Laplacian on scalar/vector fields. |
+| `graph_operation` | Sage | Named graphs and adjacency dicts; chromatic number, connectivity, planarity, diameter, shortest path. |
+| `group_operation` | Sage | Symmetric, dihedral, cyclic, alternating groups; order, abelian/cyclic test, center, exponent. |
+| `elliptic_curve_operation` | Sage | Rank, torsion, discriminant, j-invariant, conductor, generators. |
+| `coding_theory_operation` | Sage | Hamming, Reed-Solomon codes; length, dimension, minimum distance, generator matrix, rate. |
+| `boolean_algebra_operation` | Sage | Boolean polynomial ring; evaluate, variables, degree, zero/one test. |
+| `polynomial_ring_operation` | Sage | Groebner bases, ideal dimension/variety, reduction, Groebner test. |
+| `geometry_operation` | Sage | Distance, polygon area, polytope volume, convex hull, compactness via `Polyhedron`. |
+| `cancel_sage_session` | Worker | Cancel the active computation and restart the underlying worker. |
+| `reset_sage_session` | Worker | Clear the session state without cancelling a running job. |
+| `resource://sagemath/session/{scope}` | Server | Inspect active sessions (`scope=all` or specific session id). |
+| `resource://sagemath/monitoring/{scope}` | Server | Fetch evaluation metrics (`scope=metrics` or `all`). |
+| `resource://sagemath/docs/{scope}` | Server | Retrieve SageMath documentation links (`scope=all`, `reference`, `tutorial`). |
+| `/health` | Server | HTTP health check endpoint returning server status (for Kubernetes probes). |
 
 The repo ships a curated subset of the Sage reference manual (index, search, plotting/plot3d,
 calculus, rings, statistics) in `docs/reference_md/`, suitable for in-context prompting.

@@ -63,13 +63,13 @@ async def test_server_monitoring_resource_with_real_sage(monkeypatch):
     ctx = FakeContext("integration-monitoring")
 
     try:
-        success = await server.evaluate_sage.fn("factorial(6)", ctx=ctx)
+        success = await server.evaluate_sage("factorial(6)", ctx=ctx)
         assert success.result == "720"
 
         with pytest.raises(server.ToolError):
-            await server.evaluate_sage.fn("import os", ctx=ctx)
+            await server.evaluate_sage("import os", ctx=ctx)
 
-        raw = await server.monitoring_resource.fn("metrics", None)
+        raw = await server.monitoring_resource("metrics", None)
         assert raw
         snapshot = json.loads(raw)
         assert snapshot["successes"] >= 1
@@ -92,11 +92,11 @@ async def test_monitoring_metrics_on_timeout(monkeypatch):
     try:
         # Run a computation that exceeds the 1s timeout
         with pytest.raises(server.ToolError):
-            await server.evaluate_sage.fn(
+            await server.evaluate_sage(
                 "import time; time.sleep(10)", ctx=ctx
             )
 
-        raw = await server.monitoring_resource.fn("metrics", None)
+        raw = await server.monitoring_resource("metrics", None)
         assert raw
         snapshot = json.loads(raw)
         assert snapshot["failures"] >= 1
@@ -118,13 +118,13 @@ async def test_monitoring_metrics_on_cancellation(monkeypatch):
 
     try:
         # First do a successful eval to establish the session
-        result = await server.evaluate_sage.fn("1 + 1", ctx=ctx)
+        result = await server.evaluate_sage("1 + 1", ctx=ctx)
         assert result.result == "2"
 
         # Cancel the session and verify monitoring
-        await server.cancel_sage_session.fn(ctx=ctx)
+        await server.cancel_sage_session(ctx=ctx)
 
-        raw = await server.monitoring_resource.fn("metrics", None)
+        raw = await server.monitoring_resource("metrics", None)
         assert raw
         snapshot = json.loads(raw)
         assert snapshot["successes"] >= 1

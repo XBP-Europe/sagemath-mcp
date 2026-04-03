@@ -42,9 +42,11 @@ cli = [
 dev = [
     "pytest>=9.0.0",
     "pytest-asyncio>=1.3.0",
+    "pytest-cov>=7.0.0",
     "coverage>=7.13.0",
     "ruff>=0.15.0",
-    "build>=1.4.0"
+    "build>=1.4.0",
+    "pip-audit>=2.9.0",
 ]
 
 [project.scripts]

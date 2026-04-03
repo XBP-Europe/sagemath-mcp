@@ -1,3 +1,4 @@
+import json
 import shutil
 
 import pytest
@@ -68,12 +69,12 @@ async def test_server_monitoring_resource_with_real_sage(monkeypatch):
         with pytest.raises(server.ToolError):
             await server.evaluate_sage.fn("import os", ctx=ctx)
 
-        metrics = await server.monitoring_resource.fn("metrics", None)
-        assert metrics
-        snapshot = metrics[0]
-        assert snapshot.successes >= 1
-        assert snapshot.failures >= 1
-        assert snapshot.security_failures >= 1
+        raw = await server.monitoring_resource.fn("metrics", None)
+        assert raw
+        snapshot = json.loads(raw)
+        assert snapshot["successes"] >= 1
+        assert snapshot["failures"] >= 1
+        assert snapshot["security_failures"] >= 1
     finally:
         await manager.shutdown()
 
@@ -95,11 +96,11 @@ async def test_monitoring_metrics_on_timeout(monkeypatch):
                 "import time; time.sleep(10)", ctx=ctx
             )
 
-        metrics = await server.monitoring_resource.fn("metrics", None)
-        assert metrics
-        snapshot = metrics[0]
-        assert snapshot.failures >= 1
-        assert snapshot.last_error is not None
+        raw = await server.monitoring_resource.fn("metrics", None)
+        assert raw
+        snapshot = json.loads(raw)
+        assert snapshot["failures"] >= 1
+        assert snapshot["last_error"] is not None
     finally:
         await manager.shutdown()
 
@@ -123,9 +124,9 @@ async def test_monitoring_metrics_on_cancellation(monkeypatch):
         # Cancel the session and verify monitoring
         await server.cancel_sage_session.fn(ctx=ctx)
 
-        metrics = await server.monitoring_resource.fn("metrics", None)
-        assert metrics
-        snapshot = metrics[0]
-        assert snapshot.successes >= 1
+        raw = await server.monitoring_resource.fn("metrics", None)
+        assert raw
+        snapshot = json.loads(raw)
+        assert snapshot["successes"] >= 1
     finally:
         await manager.shutdown()

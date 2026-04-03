@@ -237,13 +237,15 @@ async def cancel_sage_session(ctx: Context | None = None) -> ResetResponse:
 
 
 @mcp.resource("resource://sagemath/session/{scope}")
-async def session_resource(scope: str, ctx: Context | None = None) -> list[SessionSnapshot]:
+async def session_resource(scope: str, ctx: Context | None = None) -> str:
     """Expose a resource describing active Sage sessions for observability."""
+    import json as _json
+
     del ctx  # resource does not require request context
     data = SESSION_MANAGER.snapshot()
     if scope != "all":
         data = [entry for entry in data if entry["session_id"] == scope]
-    return [
+    snapshots = [
         SessionSnapshot(
             session_id=entry["session_id"],
             live=bool(entry["live"]),
@@ -253,16 +255,17 @@ async def session_resource(scope: str, ctx: Context | None = None) -> list[Sessi
         )
         for entry in data
     ]
+    return _json.dumps([s.model_dump() for s in snapshots])
 
 
 @mcp.resource("resource://sagemath/monitoring/{scope}")
-async def monitoring_resource(scope: str, ctx: Context | None = None) -> list[MonitoringSnapshot]:
+async def monitoring_resource(scope: str, ctx: Context | None = None) -> str:
     """Expose aggregated metrics for observability."""
     del ctx
     if scope not in {"metrics", "all"}:
-        return []
+        return "[]"
     snapshot = monitoring.snapshot()
-    return [MonitoringSnapshot(**snapshot)]
+    return MonitoringSnapshot(**snapshot).model_dump_json()
 
 
 async def _progress_heartbeat(ctx: Context, interval: float = 1.5) -> None:

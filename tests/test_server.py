@@ -355,15 +355,15 @@ async def test_monitoring_resource_tracks_metrics(monkeypatch):
     with pytest.raises(server.ToolError):
         await server.evaluate_sage.fn("import os", ctx=ctx_fail)
 
-    snapshots = await server.monitoring_resource.fn("metrics", None)
-    assert snapshots
-    snapshot = snapshots[0]
-    assert snapshot.attempts == 2
-    assert snapshot.successes == 1
-    assert snapshot.failures == 1
-    assert snapshot.security_failures == 1
-    assert snapshot.last_security_violation
-    assert snapshot.last_error_details
+    raw = await server.monitoring_resource.fn("metrics", None)
+    assert raw
+    snapshot = json.loads(raw)
+    assert snapshot["attempts"] == 2
+    assert snapshot["successes"] == 1
+    assert snapshot["failures"] == 1
+    assert snapshot["security_failures"] == 1
+    assert snapshot["last_security_violation"]
+    assert snapshot["last_error_details"]
 
 
 @pytest.mark.asyncio
@@ -400,7 +400,7 @@ async def test_documentation_resource_unknown_scope():
 @pytest.mark.asyncio
 async def test_monitoring_resource_unknown_scope():
     result = await server.monitoring_resource.fn("other", None)
-    assert result == []
+    assert result == "[]"
 
 
 
@@ -875,9 +875,10 @@ async def test_session_resource_all(monkeypatch):
         ]
 
     monkeypatch.setattr(server.SESSION_MANAGER, "snapshot", fake_snapshot)
-    result = await server.session_resource.fn("all", None)
+    raw = await server.session_resource.fn("all", None)
+    result = json.loads(raw)
     assert len(result) == 1
-    assert result[0].session_id == "s1"
+    assert result[0]["session_id"] == "s1"
 
 
 @pytest.mark.asyncio
@@ -904,9 +905,10 @@ async def test_session_resource_filtered(monkeypatch):
         ]
 
     monkeypatch.setattr(server.SESSION_MANAGER, "snapshot", fake_snapshot)
-    result = await server.session_resource.fn("s2", None)
+    raw = await server.session_resource.fn("s2", None)
+    result = json.loads(raw)
     assert len(result) == 1
-    assert result[0].session_id == "s2"
+    assert result[0]["session_id"] == "s2"
 
 
 @pytest.mark.asyncio

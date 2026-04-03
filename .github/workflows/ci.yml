@@ -65,7 +65,7 @@ jobs:
                       async with Client(transport=url) as client:
                           metrics = await client.read_resource("resource://sagemath/monitoring/metrics")
                           assert metrics, "No metrics returned"
-                          payload = json.loads(metrics[0].text)[0]
+                          payload = json.loads(metrics[0].text)
                           attempts = payload.get("attempts")
                           successes = payload.get("successes")
                           print(

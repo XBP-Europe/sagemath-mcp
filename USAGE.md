@@ -41,7 +41,7 @@ The server advertises its MCP endpoint at `http://HOST:PORT/mcp`.
 
 ## Available Tools & Resources (33 tools, 3 resources)
 
-All tools except `statistics_summary` use **SageMath** as the computation backend. `statistics_summary` uses Python's built-in `statistics` module and does not require Sage.
+All math tools use **SageMath** as the computation backend.
 
 | Name | Backend | Description |
 | --- | --- | --- |
@@ -62,7 +62,7 @@ All tools except `statistics_summary` use **SageMath** as the computation backen
 | `solve_ode` | Sage | Solve ordinary differential equations via Sage's `desolve()`. |
 | `number_theory_operation` | Sage | Primality testing, integer factoring, next prime, GCD, LCM. |
 | `combinatorics_operation` | Sage | Binomial, permutations, combinations, partitions, factorial, Catalan, Fibonacci, Bell. |
-| `statistics_summary` | Python | Compute population & sample mean/variance/std-dev plus min/max. No Sage required. |
+| `statistics_summary` | Sage | Compute population & sample mean/variance/std-dev plus min/max. |
 | `distribution_operation` | Sage | Probability distributions: normal, exponential, Poisson, chi-squared, Student-t, uniform, beta, gamma. |
 | `plot_expression` | Sage | Render a 2D plot and return a base64-encoded PNG image. |
 | `plot3d_expression` | Sage | Render a 3D surface plot and return a base64-encoded PNG image. |

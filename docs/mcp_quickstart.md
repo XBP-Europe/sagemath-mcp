@@ -20,7 +20,7 @@ All tools use **SageMath** as the computation backend unless noted.
 - **Boolean Algebra (Sage):** `boolean_algebra_operation` (evaluate, variables, degree).
 - **Polynomial Rings (Sage):** `polynomial_ring_operation` (Groebner bases, ideal dimension/variety).
 - **Geometry (Sage):** `geometry_operation` (distance, area, volume, convex hull via Polyhedron).
-- **Statistics (Python):** `statistics_summary` — uses Python's `statistics` module, no Sage required.
+- **Statistics (Sage):** `statistics_summary` — mean, median, variance, std dev, min, max.
 - **Probability (Sage):** `distribution_operation` (normal, exponential, Poisson, chi-squared, Student-t, etc.).
 - **Visualization (Sage):** `plot_expression`, `plot3d_expression`, `plot_multi_expression` (base64 PNG).
 - **Numeric Methods (Sage):** `find_root` (root-finding in an interval).

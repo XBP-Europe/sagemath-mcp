@@ -14,7 +14,7 @@
 
 A universal mathematics [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that gives LLM clients full access to [SageMath](https://www.sagemath.org/) --- one of the most comprehensive open-source mathematics systems available. Built on [FastMCP 3.x](https://gofastmcp.com/), the server maintains a dedicated SageMath process for each MCP session so variables, functions, and assumptions persist across tool calls.
 
-Whether the task is symbolic calculus, number theory, linear algebra, differential equations, plotting, combinatorics, graph theory, group theory, or basic arithmetic, the server provides **33 MCP tools** --- 30 backed by the full SageMath engine, plus `statistics_summary` (pure Python `statistics` module), `evaluate_sage_streaming` (streaming wrapper), and an HTTP `/health` endpoint.
+Whether the task is symbolic calculus, number theory, linear algebra, differential equations, plotting, combinatorics, graph theory, group theory, or basic arithmetic, the server provides **33 MCP tools** --- all math tools backed by the full SageMath engine, plus `evaluate_sage_streaming` (streaming wrapper) and an HTTP `/health` endpoint.
 
 ---
 
@@ -67,7 +67,7 @@ Whether the task is symbolic calculus, number theory, linear algebra, differenti
 | **Polynomial rings** | `polynomial_ring_operation` | Sage | Groebner bases, ideal dimension/variety, reduction, Groebner test |
 | **Boolean algebra** | `boolean_algebra_operation` | Sage | Boolean polynomial ring; evaluate, variables, degree, zero/one test |
 | **Geometry** | `geometry_operation` | Sage | Distance, polygon area, polytope volume, convex hull, compactness via `Polyhedron` |
-| **Statistics** | `statistics_summary` | Python | Mean, median, population & sample variance/std dev, min, max (uses Python `statistics` module, no Sage required) |
+| **Statistics** | `statistics_summary` | Sage | Mean, median, population & sample variance/std dev, min, max |
 | **Probability** | `distribution_operation` | Sage | Normal, exponential, Poisson, chi-squared, Student-t, uniform, beta, gamma; PDF, CDF, quantile, sampling |
 | **Visualization** | `plot_expression`, `plot3d_expression`, `plot_multi_expression` | Sage | 2D plots, 3D surface plots, multi-function overlays as base64-encoded PNG |
 | **Numeric methods** | `find_root` | Sage | Numeric root-finding in an interval via Sage's `find_root()` |
@@ -587,7 +587,7 @@ Perform common number-theoretic operations using Sage's built-in functions.
 
 #### `statistics_summary`
 
-Compute descriptive statistics for a numeric dataset. Uses Python's `statistics` module internally.
+Compute descriptive statistics for a numeric dataset using Sage's `mean()` and `sqrt()` functions.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -1026,7 +1026,7 @@ sagemath-mcp/
 
 #### New MCP Tools (18 tools added)
 
-The server grew from a single `evaluate_sage` tool to a comprehensive mathematics toolkit with 33 MCP tools (30 Sage-backed, 1 pure-Python, 2 infrastructure). Each tool accepts structured parameters, runs through the AST security validator, and returns typed JSON responses.
+The server grew from a single `evaluate_sage` tool to a comprehensive mathematics toolkit with 33 MCP tools (31 Sage-backed, 2 infrastructure). Each tool accepts structured parameters, runs through the AST security validator, and returns typed JSON responses.
 
 **Calculus (4 tools):**
 - `differentiate_expression` --- symbolic derivatives of any order. Supports all Sage-recognized expressions including trigonometric, exponential, logarithmic, and user-defined functions. The `order` parameter handles higher-order derivatives without repeated calls.
@@ -1052,7 +1052,7 @@ The server grew from a single `evaluate_sage` tool to a comprehensive mathematic
 - `number_theory_operation` --- five operations in one tool: `is_prime`, `factor_integer`, `next_prime`, `gcd`, `lcm`. Each maps directly to the corresponding Sage function with proper integer validation.
 
 **Statistics (1 tool):**
-- `statistics_summary` --- computes 8 descriptive statistics (mean, median, population/sample variance, population/sample std dev, min, max) in a single call. Uses Python's `statistics` module for numerical stability.
+- `statistics_summary` --- computes 8 descriptive statistics (mean, median, population/sample variance, population/sample std dev, min, max) in a single call using Sage's `mean()` and `sqrt()` for exact arithmetic.
 
 **Visualization (1 tool):**
 - `plot_expression` --- renders 2D function plots and returns base64-encoded PNG images. Uses Sage's `plot()` with configurable range bounds. The `base64` and `io` imports were added to the security allowlist specifically for this tool.

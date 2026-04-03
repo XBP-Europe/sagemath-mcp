@@ -521,22 +521,30 @@ async def statistics_summary(
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
     session = await SESSION_MANAGER.get(ctx.session_id)
-    code = textwrap.dedent(
-        f"""
-        import statistics as _stats
-        data = {data}
-        stats = {{
-            'mean': float(_stats.mean(data)),
-            'median': float(_stats.median(data)),
-            'population_variance': float(_stats.pvariance(data)),
-            'sample_variance': float(_stats.variance(data)),
-            'population_std_dev': float(_stats.pstdev(data)),
-            'sample_std_dev': float(_stats.stdev(data)),
-            'min': float(min(data)),
-            'max': float(max(data)),
+    code = (
+        _sage_prelude()
+        + textwrap.dedent(
+            f"""
+        _data = {_encode_literal(data)}
+        _n = len(_data)
+        _mean = float(mean(_data))
+        _sorted = sorted(_data)
+        _mid = _n // 2
+        _median = float((_sorted[_mid] + _sorted[~_mid]) / 2)
+        _pvar = float(sum((x - _mean)**2 for x in _data) / _n)
+        _svar = float(sum((x - _mean)**2 for x in _data) / (_n - 1)) if _n > 1 else 0.0
+        {{
+            'mean': _mean,
+            'median': _median,
+            'population_variance': _pvar,
+            'sample_variance': _svar,
+            'population_std_dev': float(sqrt(_pvar)),
+            'sample_std_dev': float(sqrt(_svar)),
+            'min': float(min(_data)),
+            'max': float(max(_data)),
         }}
-        stats
         """
+        )
     )
     return await _evaluate_structured(session, code)
 

@@ -1904,6 +1904,49 @@ async def test_evaluate_sage_streaming_empty_stdout(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# Additional coverage: unreachable ctx branches, health route, curl vars
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_vector_calculus_curl_wrong_variable_count(monkeypatch):
+    """Cover line 1111: curl with != 3 variables."""
+    session = StubSession("None")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    with pytest.raises(ToolError, match="exactly 3 variables"):
+        await server.vector_calculus_operation(
+            operation="curl",
+            expression=["x", "y", "z"],
+            variables=["x", "y"],
+            ctx=ctx,
+        )
+
+
+def test_register_health_route(monkeypatch):
+    """Cover lines 1591-1597: _register_health_route with mock app."""
+
+    class FakeApp:
+        def __init__(self):
+            self.routes = []
+
+    fake_app = FakeApp()
+    monkeypatch.setattr(server.mcp, "http_app", fake_app, raising=False)
+    server._register_health_route()
+    assert len(fake_app.routes) == 1
+    assert fake_app.routes[0].path == "/health"
+
+
+@pytest.mark.asyncio
+async def test_lifespan_without_cull_task(monkeypatch):
+    """Cover branch 102->106: _CULL_TASK is None when lifespan exits."""
+    monkeypatch.setattr(server, "_CULL_TASK", None)
+    async with server._lifespan(server.mcp):
+        # Force _CULL_TASK to None to test the branch
+        monkeypatch.setattr(server, "_CULL_TASK", None)
+
+
+# ---------------------------------------------------------------------------
 # Sage integration (requires real Sage)
 # ---------------------------------------------------------------------------
 

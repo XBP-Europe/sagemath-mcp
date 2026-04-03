@@ -620,3 +620,74 @@ async def test_manager_restores_journal_on_get(tmp_path):
     result = await s2.evaluate("saved_var", want_latex=False, capture_stdout=False)
     assert result.result == "123"
     await manager2.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_terminate_worker_without_stdin(python_settings):
+    """Cover branch 265->269: process exists but stdin is None."""
+    session = SageSession("no-stdin", python_settings)
+    await session.ensure_started()
+    # Simulate stdin already closed
+    session._process.stdin = None
+    await session._terminate_worker()
+    assert session._process is None
+
+
+@pytest.mark.asyncio
+async def test_terminate_worker_already_exited(python_settings):
+    """Cover branch 269->272: process already exited (returncode set)."""
+    session = SageSession("already-exited", python_settings)
+    await session.ensure_started()
+    # Kill the process first so returncode is set
+    session._process.kill()
+    await session._process.wait()
+    assert session._process.returncode is not None
+    # Now terminate should skip kill() since it already exited
+    await session._terminate_worker()
+    assert session._process is None
+
+
+@pytest.mark.asyncio
+async def test_manager_get_empty_journal_file(tmp_path):
+    """Cover branch 295->301: journal file exists but is empty list."""
+    import json
+
+    settings = SageSettings(
+        sage_binary="sage",
+        startup_code="from math import *",
+        eval_timeout=5.0,
+        idle_ttl=10.0,
+        shutdown_grace=1.0,
+        max_stdout_chars=1000,
+        force_python_worker=True,
+        persist_sessions=True,
+        persist_dir=str(tmp_path),
+    )
+    # Write an empty journal
+    (tmp_path / "empty-journal.journal.json").write_text(json.dumps([]))
+
+    manager = SageSessionManager(settings)
+    try:
+        session = await manager.get("empty-journal")
+        # Should not crash, just skip restore
+        assert session._code_journal == []
+    finally:
+        await manager.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_manager_shutdown_journal_save_failure(tmp_path, python_settings):
+    """Cover lines 339-340: save_journal raises during shutdown."""
+    manager = SageSessionManager(python_settings)
+    session = await manager.get("save-fail")
+    await session.evaluate("x = 1", want_latex=False, capture_stdout=False)
+
+    # Make save_journal raise
+    def broken_save():
+        raise OSError("disk full")
+
+    session.save_journal = broken_save
+
+    # shutdown should not propagate the exception
+    await manager.shutdown()
+    assert manager.snapshot() == []

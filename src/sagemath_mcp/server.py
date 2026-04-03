@@ -1591,7 +1591,11 @@ def _register_health_route() -> None:
     try:
         from starlette.routing import Route
 
-        app = getattr(mcp, "_app", None) or getattr(mcp, "app", None)
+        app = (
+            getattr(mcp, "http_app", None)
+            or getattr(mcp, "_app", None)
+            or getattr(mcp, "app", None)
+        )
         if app and hasattr(app, "routes"):
             app.routes.insert(0, Route("/health", health_check))
             LOGGER.debug("Registered /health endpoint")

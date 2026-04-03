@@ -27,7 +27,7 @@ class EvaluateRequest(BaseModel):
 
 
 class EvaluateResult(BaseModel):
-    result_type: Literal["expression", "statement", "void"]
+    result_type: Literal["expression", "statement"]
     result: str | None = Field(
         default=None,
         description="String representation of the expression result if available.",

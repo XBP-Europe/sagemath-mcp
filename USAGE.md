@@ -42,12 +42,23 @@ The server advertises its MCP endpoint at `http://HOST:PORT/mcp`.
 ## Available Tools & Resources
 | Name | Type | Description |
 | --- | --- | --- |
-| `evaluate_sage` | tool | Execute SageMath code within a persistent session; supports `timeout`, `want_latex`, `capture_stdout`. |
+| `evaluate_sage` | tool | Execute arbitrary SageMath code within a persistent session; supports `timeout`, `want_latex`, `capture_stdout`. |
 | `calculate_expression` | tool | Evaluate a Sage expression and return string/numeric results. |
-| `solve_equation` / `differentiate_expression` / `integrate_expression` | tools | Algebra/calculus helpers built on Sage. |
+| `solve_equation` | tool | Solve a single equation or a system of equations for one or more variables. |
+| `differentiate_expression` | tool | Symbolic differentiation of any order (set `order` for higher-order derivatives). |
+| `integrate_expression` | tool | Indefinite or definite integration (pass `lower_bound`/`upper_bound` for definite integrals). |
+| `simplify_expression` | tool | Simplify a mathematical expression via Sage's `simplify()`. |
+| `expand_expression` | tool | Expand products, powers, and identities in an expression. |
+| `factor_expression` | tool | Factor a symbolic expression or integer. |
+| `limit_expression` | tool | Compute limits with optional one-sided direction (`plus`/`minus`). |
+| `series_expansion` | tool | Taylor / Laurent series expansion around a point with configurable order. |
+| `matrix_multiply` | tool | Multiply two matrices (nested list input) and return the product. |
+| `matrix_operation` | tool | Determinant, inverse, eigenvalues, rank, RREF, or transpose of a matrix. |
+| `solve_ode` | tool | Solve ordinary differential equations via Sage's `desolve()`. |
+| `number_theory_operation` | tool | Primality testing, integer factoring, next prime, GCD, LCM. |
 | `statistics_summary` | tool | Compute population & sample mean/variance/std-dev plus min/max. |
-| `matrix_multiply` | tool | Multiply matrices (nested list input) and return the product. |
-| `cancel_sage_session` | tool | Coop-cancel the active computation and restart the underlying worker. |
+| `plot_expression` | tool | Render a 2D plot and return a base64-encoded PNG image. |
+| `cancel_sage_session` | tool | Cancel the active computation and restart the underlying worker. |
 | `reset_sage_session` | tool | Clear the session state without cancelling a running job. |
 | `resource://sagemath/session/{scope}` | resource | Inspect active sessions (`scope=all` or specific session id). |
 | `resource://sagemath/monitoring/{scope}` | resource | Fetch evaluation metrics (`scope=metrics` or `all`). |

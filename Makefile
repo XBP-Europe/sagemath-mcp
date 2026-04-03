@@ -14,4 +14,8 @@ build:
 sage-container:
 	./scripts/setup_sage_container.sh
 
+cli-integration:
+	docker compose up -d
+	uv run python -m tests.cli_integration.run_cli_tests --cli both
+
 all: test integration-test

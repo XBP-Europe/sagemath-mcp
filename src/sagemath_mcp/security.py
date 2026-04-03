@@ -100,6 +100,8 @@ class SecurityPolicy:
         "sage",
         "sage.all",
         "statistics",
+        "base64",
+        "io",
     )
     allowed_import_prefixes: tuple[str, ...] = ("sage.",)
     log_violations: bool = True

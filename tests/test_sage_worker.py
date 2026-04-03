@@ -151,3 +151,64 @@ def test_main_returns_zero_on_exhausted_input(monkeypatch):
     monkeypatch.setattr(_sage_worker, "PURE_PYTHON", True)
     exit_code = _sage_worker._main()
     assert exit_code == 0
+
+
+def test_execute_with_want_latex(monkeypatch):
+    """Test that want_latex=True produces a non-None latex field."""
+    from sagemath_mcp import _sage_worker
+
+    monkeypatch.setattr(_sage_worker, "PURE_PYTHON", True)
+    monkeypatch.setattr(_sage_worker, "_STARTUP_ERROR", None)
+
+    # Stub _latex to return a known value
+    monkeypatch.setattr(_sage_worker, "_latex", lambda result: f"\\mathrm{{{result}}}")
+
+    ns: dict[str, object] = {"__builtins__": __builtins__}
+    response = _sage_worker._execute("2 + 3", True, False, ns)
+    assert response["ok"] is True
+    assert response["result_type"] == "expression"
+    assert response["result"] == "5"
+    assert response["latex"] == "\\mathrm{5}"
+
+
+def test_execute_with_want_latex_false(monkeypatch):
+    """Test that want_latex=False skips LaTeX generation."""
+    from sagemath_mcp import _sage_worker
+
+    monkeypatch.setattr(_sage_worker, "PURE_PYTHON", True)
+    monkeypatch.setattr(_sage_worker, "_STARTUP_ERROR", None)
+
+    ns: dict[str, object] = {"__builtins__": __builtins__}
+    response = _sage_worker._execute("2 + 3", False, False, ns)
+    assert response["ok"] is True
+    assert response["latex"] is None
+
+
+def test_execute_reports_startup_error(monkeypatch):
+    """Test that _execute returns an error when startup code failed."""
+    from sagemath_mcp import _sage_worker
+
+    monkeypatch.setattr(_sage_worker, "_STARTUP_ERROR", "Startup code failed: boom")
+
+    ns: dict[str, object] = {"__builtins__": __builtins__}
+    response = _sage_worker._execute("1 + 1", False, False, ns)
+    assert response["ok"] is False
+    assert response["error"]["type"] == "StartupError"
+    assert "boom" in response["error"]["message"]
+
+    # Reset for other tests
+    monkeypatch.setattr(_sage_worker, "_STARTUP_ERROR", None)
+
+
+def test_build_namespace_logs_startup_failure(monkeypatch, capsys):
+    """Test that _build_namespace captures startup errors."""
+    from sagemath_mcp import _sage_worker
+
+    monkeypatch.setattr(_sage_worker, "PURE_PYTHON", False)
+    monkeypatch.setattr(_sage_worker, "STARTUP_CODE", "raise RuntimeError('test fail')")
+    _sage_worker._build_namespace()
+    assert _sage_worker._STARTUP_ERROR is not None
+    assert "test fail" in _sage_worker._STARTUP_ERROR
+
+    # Reset
+    monkeypatch.setattr(_sage_worker, "_STARTUP_ERROR", None)

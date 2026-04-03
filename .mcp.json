@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "sagemath": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "run",
+        "sagemath-mcp"
+      ]
+    }
+  }
+}

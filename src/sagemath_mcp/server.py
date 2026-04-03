@@ -120,7 +120,20 @@ mcp.add_middleware(
 mcp.add_middleware(ResponseCachingMiddleware())
 
 
-@mcp.tool(description="Execute SageMath code within a persistent session")
+@mcp.tool(description="""\
+Execute arbitrary SageMath code within a persistent session. Variables and definitions \
+persist across calls. Use this for any computation not covered by the specialized helpers. \
+Examples by domain:
+
+Combinatorics: binomial(10, 3); Permutations(4).cardinality(); Combinations([1,2,3,4], 2).list()
+Graph theory: G = graphs.PetersenGraph(); G.chromatic_number()
+Number theory: prime_range(100); euler_phi(60); continued_fraction(pi, nterms=10)
+Geometry: polytopes.cube().volume(); EllipticCurve([0,0,1,-1,0]).rank()
+Probability: RealDistribution('gaussian', 1).cum_distribution_function(1.96)
+Group theory: SymmetricGroup(5).order(); AlternatingGroup(4).is_abelian()
+Polynomial rings: R.<a,b> = PolynomialRing(QQ); (a+b)^3
+Coding theory: codes.HammingCode(GF(2), 3).minimum_distance()
+""")
 async def evaluate_sage(
     code: Annotated[str, Field(description="SageMath code to execute")],
     want_latex: Annotated[
@@ -290,8 +303,12 @@ def _encode_literal(value: str | Iterable) -> str:
     return json.dumps(value)
 
 
-async def _evaluate_structured(session, code: str) -> object:
-    worker_result = await session.evaluate(code, want_latex=False, capture_stdout=False)
+async def _evaluate_structured(
+    session, code: str, timeout_seconds: float | None = None
+) -> object:
+    worker_result = await session.evaluate(
+        code, want_latex=False, capture_stdout=False, timeout_seconds=timeout_seconds
+    )
     if worker_result.result is None:
         return None
     try:
@@ -350,28 +367,41 @@ async def calculate_expression(
     return payload
 
 
-@mcp.tool(description="Solve an equation for a single variable")
+@mcp.tool(description="Solve an equation or system of equations")
 async def solve_equation(
-    equation: Annotated[str, Field(description="Equation string, e.g., 'x^2 - 1 = 0'")],
-    variable: Annotated[str, Field(description="Variable to solve for", default="x")] = "x",
+    equation: Annotated[
+        str | list[str],
+        Field(description="Equation string (e.g., 'x^2 - 1 = 0') or list of equations for systems"),
+    ],
+    variable: Annotated[
+        str | list[str],
+        Field(description="Variable or list of variables to solve for", default="x"),
+    ] = "x",
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
     session = await SESSION_MANAGER.get(ctx.session_id)
+    equations = [equation] if isinstance(equation, str) else equation
+    variables = [variable] if isinstance(variable, str) else variable
     code = (
-        _sage_prelude([variable])
+        _sage_prelude(variables)
         + textwrap.dedent(
             f"""
-        _var = var({_encode_literal(variable)})
-        parts = {_encode_literal(equation)}.split('=')
-        if len(parts) == 2:
-            left = sage_eval(parts[0], locals=_locals)
-            right = sage_eval(parts[1], locals=_locals)
-            _solutions = solve(left == right, _var)
+        _vars = [var(v) for v in {_encode_literal(variables)}]
+        _eqs = []
+        for _eq_str in {_encode_literal(equations)}:
+            parts = _eq_str.split('=')
+            if len(parts) == 2:
+                left = sage_eval(parts[0].strip(), locals=_locals)
+                right = sage_eval(parts[1].strip(), locals=_locals)
+                _eqs.append(left == right)
+            else:
+                _eqs.append(sage_eval(_eq_str, locals=_locals))
+        if len(_eqs) == 1 and len(_vars) == 1:
+            _solutions = solve(_eqs[0], _vars[0])
         else:
-            expr = sage_eval({_encode_literal(equation)}, locals=_locals)
-            _solutions = solve(expr, _var)
+            _solutions = solve(_eqs, _vars)
         [str(sol) for sol in _solutions]
         """
         )
@@ -384,6 +414,10 @@ async def solve_equation(
 async def differentiate_expression(
     expression: Annotated[str, Field(description="Expression to differentiate")],
     variable: Annotated[str, Field(description="Variable for differentiation", default="x")] = "x",
+    order: Annotated[
+        int,
+        Field(description="Order of differentiation (1 = first, 2 = second, etc.)", ge=1),
+    ] = 1,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
@@ -395,35 +429,60 @@ async def differentiate_expression(
             f"""
         _var = var({_encode_literal(variable)})
         _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
-        str(diff(_expr, _var))
+        str(diff(_expr, _var, {order}))
         """
         )
     )
     result = await _evaluate_structured(session, code)
-    return {"derivative": result}
+    return {"derivative": result, "order": order}
 
 
-@mcp.tool(description="Integrate an expression with respect to a variable")
+@mcp.tool(description="Integrate an expression (indefinite or definite with bounds)")
 async def integrate_expression(
     expression: Annotated[str, Field(description="Expression to integrate")],
     variable: Annotated[str, Field(description="Integration variable", default="x")] = "x",
+    lower_bound: Annotated[
+        str | None,
+        Field(description="Lower bound for definite integral (e.g., '0', '-oo')"),
+    ] = None,
+    upper_bound: Annotated[
+        str | None,
+        Field(description="Upper bound for definite integral (e.g., '1', 'oo')"),
+    ] = None,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
+    if (lower_bound is None) != (upper_bound is None):
+        raise ToolError("Both lower_bound and upper_bound must be provided for a definite integral")
     session = await SESSION_MANAGER.get(ctx.session_id)
-    code = (
-        _sage_prelude([variable])
-        + textwrap.dedent(
-            f"""
-        _var = var({_encode_literal(variable)})
-        _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
-        str(integrate(_expr, _var))
-        """
+    definite = lower_bound is not None
+    if definite:
+        code = (
+            _sage_prelude([variable])
+            + textwrap.dedent(
+                f"""
+            _var = var({_encode_literal(variable)})
+            _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
+            _lb = sage_eval({_encode_literal(lower_bound)}, locals=_locals)
+            _ub = sage_eval({_encode_literal(upper_bound)}, locals=_locals)
+            str(integrate(_expr, _var, _lb, _ub))
+            """
+            )
         )
-    )
+    else:
+        code = (
+            _sage_prelude([variable])
+            + textwrap.dedent(
+                f"""
+            _var = var({_encode_literal(variable)})
+            _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
+            str(integrate(_expr, _var))
+            """
+            )
+        )
     result = await _evaluate_structured(session, code)
-    return {"integral": result}
+    return {"integral": result, "definite": definite}
 
 
 @mcp.tool(description="Compute descriptive statistics for a dataset")
@@ -474,6 +533,273 @@ async def matrix_multiply(
     )
     product = await _evaluate_structured(session, code)
     return {"product": product}
+
+
+@mcp.tool(description="Simplify a mathematical expression")
+async def simplify_expression(
+    expression: Annotated[str, Field(description="Expression to simplify")],
+    ctx: Context | None = None,
+) -> dict:
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required for stateful execution")
+    session = await SESSION_MANAGER.get(ctx.session_id)
+    code = (
+        _sage_prelude()
+        + textwrap.dedent(
+            f"""
+        _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
+        str(simplify(_expr))
+        """
+        )
+    )
+    result = await _evaluate_structured(session, code)
+    return {"simplified": result}
+
+
+@mcp.tool(description="Expand a mathematical expression")
+async def expand_expression(
+    expression: Annotated[str, Field(description="Expression to expand")],
+    ctx: Context | None = None,
+) -> dict:
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required for stateful execution")
+    session = await SESSION_MANAGER.get(ctx.session_id)
+    code = (
+        _sage_prelude()
+        + textwrap.dedent(
+            f"""
+        _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
+        str(expand(_expr))
+        """
+        )
+    )
+    result = await _evaluate_structured(session, code)
+    return {"expanded": result}
+
+
+@mcp.tool(description="Factor a mathematical expression or integer")
+async def factor_expression(
+    expression: Annotated[str, Field(description="Expression to factor (e.g., 'x^2 - 1' or '60')")],
+    ctx: Context | None = None,
+) -> dict:
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required for stateful execution")
+    session = await SESSION_MANAGER.get(ctx.session_id)
+    code = (
+        _sage_prelude()
+        + textwrap.dedent(
+            f"""
+        _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
+        str(factor(_expr))
+        """
+        )
+    )
+    result = await _evaluate_structured(session, code)
+    return {"factored": result}
+
+
+@mcp.tool(description="Compute the limit of an expression")
+async def limit_expression(
+    expression: Annotated[str, Field(description="Expression to take the limit of")],
+    variable: Annotated[str, Field(description="Variable approaching the point")] = "x",
+    point: Annotated[str, Field(description="Point to approach (e.g., '0', 'oo', '-oo')")] = "0",
+    direction: Annotated[
+        str | None,
+        Field(description="Direction: 'plus' (right), 'minus' (left), or omit for both"),
+    ] = None,
+    ctx: Context | None = None,
+) -> dict:
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required for stateful execution")
+    session = await SESSION_MANAGER.get(ctx.session_id)
+    dir_arg = f", dir={_encode_literal(direction)}" if direction else ""
+    code = (
+        _sage_prelude([variable])
+        + textwrap.dedent(
+            f"""
+        _var = var({_encode_literal(variable)})
+        _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
+        _point = sage_eval({_encode_literal(point)}, locals=_locals)
+        str(limit(_expr, _var, _point{dir_arg}))
+        """
+        )
+    )
+    result = await _evaluate_structured(session, code)
+    return {"limit": result}
+
+
+@mcp.tool(description="Compute a Taylor/Laurent series expansion")
+async def series_expansion(
+    expression: Annotated[str, Field(description="Expression to expand in series")],
+    variable: Annotated[str, Field(description="Variable for expansion")] = "x",
+    point: Annotated[str, Field(description="Point around which to expand")] = "0",
+    order: Annotated[int, Field(description="Number of terms in the expansion", ge=1)] = 6,
+    ctx: Context | None = None,
+) -> dict:
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required for stateful execution")
+    session = await SESSION_MANAGER.get(ctx.session_id)
+    code = (
+        _sage_prelude([variable])
+        + textwrap.dedent(
+            f"""
+        _var = var({_encode_literal(variable)})
+        _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
+        _point = sage_eval({_encode_literal(point)}, locals=_locals)
+        str(_expr.series(_var == _point, {order}))
+        """
+        )
+    )
+    result = await _evaluate_structured(session, code)
+    return {"series": result, "point": point, "order": order}
+
+
+@mcp.tool(description="Perform a matrix operation (det, inverse, eigenvalues, ...)")
+async def matrix_operation(
+    matrix: Annotated[
+        list[list[float]], Field(description="Matrix as nested list of numbers")
+    ],
+    operation: Annotated[
+        str,
+        Field(description="One of: determinant, inverse, eigenvalues, rank, rref, transpose"),
+    ],
+    ctx: Context | None = None,
+) -> dict:
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required for stateful execution")
+    allowed_ops = {"determinant", "inverse", "eigenvalues", "rank", "rref", "transpose"}
+    if operation not in allowed_ops:
+        raise ToolError(
+            f"Unknown operation '{operation}'. "
+            f"Must be one of: {', '.join(sorted(allowed_ops))}"
+        )
+    session = await SESSION_MANAGER.get(ctx.session_id)
+    _row_repr = (
+        "[[float(e) if e in RR else str(e) for e in row] for row in {obj}.rows()]"
+    )
+    op_code = {
+        "determinant": (
+            "float(M.determinant()) if M.determinant() in RR"
+            " else str(M.determinant())"
+        ),
+        "inverse": _row_repr.format(obj="M.inverse()"),
+        "eigenvalues": (
+            "[float(ev) if ev in RR else str(ev) for ev in M.eigenvalues()]"
+        ),
+        "rank": "int(M.rank())",
+        "rref": _row_repr.format(obj="M.rref()"),
+        "transpose": _row_repr.format(obj="M.transpose()"),
+    }
+    code = textwrap.dedent(
+        f"""
+        from sage.all import *
+        M = matrix(SR, {matrix})
+        {op_code[operation]}
+        """
+    )
+    result = await _evaluate_structured(session, code)
+    return {"operation": operation, "result": result}
+
+
+@mcp.tool(description="Solve an ordinary differential equation")
+async def solve_ode(
+    equation: Annotated[
+        str,
+        Field(description="ODE string, e.g., \"diff(y(x),x) + y(x) = 0\""),
+    ],
+    function: Annotated[str, Field(description="Dependent function name (e.g., 'y')")] = "y",
+    variable: Annotated[str, Field(description="Independent variable (e.g., 'x')")] = "x",
+    ctx: Context | None = None,
+) -> dict:
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required for stateful execution")
+    session = await SESSION_MANAGER.get(ctx.session_id)
+    code = (
+        _sage_prelude([variable])
+        + textwrap.dedent(
+            f"""
+        _x = var({_encode_literal(variable)})
+        _y = function({_encode_literal(function)})(_x)
+        _ode_locals = dict(_locals)
+        _ode_locals[{_encode_literal(function)}] = _y
+        _ode_locals['diff'] = diff
+        parts = {_encode_literal(equation)}.split('=')
+        if len(parts) == 2:
+            left = sage_eval(parts[0].strip(), locals=_ode_locals)
+            right = sage_eval(parts[1].strip(), locals=_ode_locals)
+            _ode = left == right
+        else:
+            _ode = sage_eval({_encode_literal(equation)}, locals=_ode_locals)
+        str(desolve(_ode, _y, ivar=_x))
+        """
+        )
+    )
+    result = await _evaluate_structured(session, code)
+    return {"solution": result}
+
+
+@mcp.tool(description="Number theory operations: is_prime, factor_integer, next_prime, gcd, lcm")
+async def number_theory_operation(
+    operation: Annotated[
+        str,
+        Field(description="Operation: 'is_prime', 'factor_integer', 'next_prime', 'gcd', 'lcm'"),
+    ],
+    a: Annotated[int, Field(description="Primary integer argument")],
+    b: Annotated[int | None, Field(description="Second integer (required for gcd, lcm)")] = None,
+    ctx: Context | None = None,
+) -> dict:
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required for stateful execution")
+    allowed_ops = {"is_prime", "factor_integer", "next_prime", "gcd", "lcm"}
+    if operation not in allowed_ops:
+        raise ToolError(
+            f"Unknown operation '{operation}'. "
+            f"Must be one of: {', '.join(sorted(allowed_ops))}"
+        )
+    if operation in {"gcd", "lcm"} and b is None:
+        raise ToolError(f"Operation '{operation}' requires both 'a' and 'b' arguments")
+    session = await SESSION_MANAGER.get(ctx.session_id)
+    op_code = {
+        "is_prime": f"bool(is_prime({a}))",
+        "factor_integer": f"str(factor({a}))",
+        "next_prime": f"int(next_prime({a}))",
+        "gcd": f"int(gcd({a}, {b}))",
+        "lcm": f"int(lcm({a}, {b}))",
+    }
+    code = _sage_prelude() + op_code[operation] + "\n"
+    result = await _evaluate_structured(session, code)
+    return {"operation": operation, "result": result}
+
+
+@mcp.tool(description="Plot an expression and return a base64-encoded PNG image")
+async def plot_expression(
+    expression: Annotated[str, Field(description="Expression to plot")],
+    variable: Annotated[str, Field(description="Plot variable")] = "x",
+    range_min: Annotated[float, Field(description="Lower bound of plot range")] = -10.0,
+    range_max: Annotated[float, Field(description="Upper bound of plot range")] = 10.0,
+    ctx: Context | None = None,
+) -> dict:
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required for stateful execution")
+    session = await SESSION_MANAGER.get(ctx.session_id)
+    code = (
+        _sage_prelude([variable])
+        + textwrap.dedent(
+            f"""
+        import base64
+        import io as _io
+        _var = var({_encode_literal(variable)})
+        _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
+        _plt = plot(_expr, (_var, {range_min}, {range_max}))
+        _buf = _io.BytesIO()
+        _plt.save(_buf, format='png')
+        _buf.seek(0)
+        base64.b64encode(_buf.read()).decode('ascii')
+        """
+        )
+    )
+    result = await _evaluate_structured(session, code)
+    return {"image_base64": result, "format": "png"}
 
 
 def main(argv: list[str] | None = None) -> None:  # pragma: no cover - CLI entrypoint

@@ -11,31 +11,7 @@ from sagemath_mcp.models import EvaluateResult
 from sagemath_mcp.monitoring import reset_metrics
 from sagemath_mcp.session import SageEvaluationError, SageSessionManager, WorkerResult
 
-
-class FakeContext:
-    def __init__(self, session_id: str = "session"):
-        self.session_id = session_id
-        self.info_messages: list[str] = []
-        self.error_messages: list[str] = []
-        self.warning_messages: list[str] = []
-        self.progress_events: list[tuple[float, float | None, str | None]] = []
-
-    async def info(self, message: str) -> None:
-        self.info_messages.append(message)
-
-    async def error(self, message: str) -> None:
-        self.error_messages.append(message)
-
-    async def warning(self, message: str) -> None:
-        self.warning_messages.append(message)
-
-    async def report_progress(
-        self,
-        progress: float,
-        total: float | None,
-        message: str | None,
-    ) -> None:
-        self.progress_events.append((progress, total, message))
+from .conftest import FakeContext
 
 
 @pytest.mark.asyncio
@@ -136,6 +112,34 @@ async def test_evaluate_sage_reports_progress(monkeypatch):
     assert ctx.info_messages
     assert ctx.progress_events
     assert ctx.progress_events[-1] == (1.0, 1.0, "Sage evaluation complete")
+
+
+@pytest.mark.asyncio
+async def test_evaluate_sage_with_latex(monkeypatch):
+    fake_result = WorkerResult(
+        result_type="expression",
+        result="x^2",
+        latex="x^{2}",
+        stdout="",
+        elapsed_ms=5.0,
+    )
+
+    class FakeSession:
+        async def evaluate(self, *args, **kwargs) -> WorkerResult:
+            assert kwargs.get("want_latex") is True
+            return fake_result
+
+    monkeypatch.setattr(server, "SESSION_MANAGER", SageSessionManager(server.DEFAULT_SETTINGS))
+
+    async def fake_get(session_id: str) -> FakeSession:
+        return FakeSession()
+
+    monkeypatch.setattr(server.SESSION_MANAGER, "get", fake_get)
+
+    ctx = FakeContext()
+    payload = await server.evaluate_sage.fn("x^2", want_latex=True, ctx=ctx)
+    assert payload.latex == "x^{2}"
+    assert payload.result == "x^2"
 
 
 @pytest.mark.asyncio
@@ -410,12 +414,34 @@ async def test_solve_equation(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_solve_equation_system(monkeypatch):
+    session = StubSession("[['x == 1', 'y == 2']]")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.solve_equation.fn(
+        ["x + y = 3", "x - y = -1"],
+        variable=["x", "y"],
+        ctx=ctx,
+    )
+    assert result == {"solutions": [["x == 1", "y == 2"]]}
+
+
+@pytest.mark.asyncio
 async def test_differentiate_expression(monkeypatch):
     session = StubSession("'2*x'")
     await _stub_manager(monkeypatch, session)
     ctx = FakeContext()
     result = await server.differentiate_expression.fn("x^2", ctx=ctx)
-    assert result == {"derivative": "2*x"}
+    assert result == {"derivative": "2*x", "order": 1}
+
+
+@pytest.mark.asyncio
+async def test_differentiate_expression_higher_order(monkeypatch):
+    session = StubSession("'2'")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.differentiate_expression.fn("x^2", order=2, ctx=ctx)
+    assert result == {"derivative": "2", "order": 2}
 
 
 @pytest.mark.asyncio
@@ -424,7 +450,25 @@ async def test_integrate_expression(monkeypatch):
     await _stub_manager(monkeypatch, session)
     ctx = FakeContext()
     result = await server.integrate_expression.fn("x^2", ctx=ctx)
-    assert result == {"integral": "x^3/3"}
+    assert result == {"integral": "x^3/3", "definite": False}
+
+
+@pytest.mark.asyncio
+async def test_integrate_expression_definite(monkeypatch):
+    session = StubSession("'1/3'")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.integrate_expression.fn(
+        "x^2", lower_bound="0", upper_bound="1", ctx=ctx
+    )
+    assert result == {"integral": "1/3", "definite": True}
+
+
+@pytest.mark.asyncio
+async def test_integrate_expression_mixed_bounds():
+    ctx = FakeContext()
+    with pytest.raises(ToolError):
+        await server.integrate_expression.fn("x^2", lower_bound="0", ctx=ctx)
 
 
 @pytest.mark.asyncio
@@ -494,7 +538,381 @@ async def test_llm_reuses_defined_function(monkeypatch):
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(shutil.which("sage") is None, reason="Sage executable not available")
+async def test_simplify_expression(monkeypatch):
+    session = StubSession("'x'")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.simplify_expression.fn("x + 0", ctx=ctx)
+    assert result == {"simplified": "x"}
+
+
+@pytest.mark.asyncio
+async def test_expand_expression(monkeypatch):
+    session = StubSession("'x^2 + 2*x + 1'")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.expand_expression.fn("(x+1)^2", ctx=ctx)
+    assert result == {"expanded": "x^2 + 2*x + 1"}
+
+
+@pytest.mark.asyncio
+async def test_factor_expression(monkeypatch):
+    session = StubSession("'(x - 1)*(x + 1)'")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.factor_expression.fn("x^2 - 1", ctx=ctx)
+    assert result == {"factored": "(x - 1)*(x + 1)"}
+
+
+@pytest.mark.asyncio
+async def test_limit_expression(monkeypatch):
+    session = StubSession("'1'")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.limit_expression.fn("sin(x)/x", point="0", ctx=ctx)
+    assert result == {"limit": "1"}
+
+
+@pytest.mark.asyncio
+async def test_limit_expression_with_direction(monkeypatch):
+    session = StubSession("'+Infinity'")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.limit_expression.fn(
+        "1/x", point="0", direction="plus", ctx=ctx
+    )
+    assert result == {"limit": "+Infinity"}
+
+
+@pytest.mark.asyncio
+async def test_series_expansion(monkeypatch):
+    session = StubSession("'1 - x^2/2 + x^4/24 + O(x^6)'")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.series_expansion.fn("cos(x)", order=6, ctx=ctx)
+    assert result["series"] == "1 - x^2/2 + x^4/24 + O(x^6)"
+    assert result["order"] == 6
+    assert result["point"] == "0"
+
+
+@pytest.mark.asyncio
+async def test_matrix_operation_determinant(monkeypatch):
+    session = StubSession("-2.0")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.matrix_operation.fn(
+        [[1, 2], [3, 4]], "determinant", ctx=ctx
+    )
+    assert result == {"operation": "determinant", "result": -2.0}
+
+
+@pytest.mark.asyncio
+async def test_matrix_operation_rank(monkeypatch):
+    session = StubSession("2")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.matrix_operation.fn(
+        [[1, 0], [0, 1]], "rank", ctx=ctx
+    )
+    assert result == {"operation": "rank", "result": 2}
+
+
+@pytest.mark.asyncio
+async def test_matrix_operation_eigenvalues(monkeypatch):
+    session = StubSession("[3.0, 1.0]")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.matrix_operation.fn(
+        [[2, 1], [1, 2]], "eigenvalues", ctx=ctx
+    )
+    assert result == {"operation": "eigenvalues", "result": [3.0, 1.0]}
+
+
+@pytest.mark.asyncio
+async def test_matrix_operation_invalid():
+    ctx = FakeContext()
+    with pytest.raises(ToolError, match="Unknown operation"):
+        await server.matrix_operation.fn([[1]], "nonsense", ctx=ctx)
+
+
+@pytest.mark.asyncio
+async def test_solve_ode(monkeypatch):
+    session = StubSession("'_C*e^(-x)'")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.solve_ode.fn(
+        "diff(y(x),x) + y(x) = 0", ctx=ctx
+    )
+    assert result == {"solution": "_C*e^(-x)"}
+
+
+@pytest.mark.asyncio
+async def test_number_theory_is_prime(monkeypatch):
+    session = StubSession("True")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.number_theory_operation.fn(
+        "is_prime", 7, ctx=ctx
+    )
+    assert result == {"operation": "is_prime", "result": True}
+
+
+@pytest.mark.asyncio
+async def test_number_theory_factor_integer(monkeypatch):
+    session = StubSession("'2^2 * 3 * 5'")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.number_theory_operation.fn(
+        "factor_integer", 60, ctx=ctx
+    )
+    assert result == {"operation": "factor_integer", "result": "2^2 * 3 * 5"}
+
+
+@pytest.mark.asyncio
+async def test_number_theory_gcd(monkeypatch):
+    session = StubSession("6")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.number_theory_operation.fn(
+        "gcd", 12, b=18, ctx=ctx
+    )
+    assert result == {"operation": "gcd", "result": 6}
+
+
+@pytest.mark.asyncio
+async def test_number_theory_gcd_missing_b():
+    ctx = FakeContext()
+    with pytest.raises(ToolError, match="requires both"):
+        await server.number_theory_operation.fn("gcd", 12, ctx=ctx)
+
+
+@pytest.mark.asyncio
+async def test_number_theory_invalid_op():
+    ctx = FakeContext()
+    with pytest.raises(ToolError, match="Unknown operation"):
+        await server.number_theory_operation.fn("bogus", 5, ctx=ctx)
+
+
+@pytest.mark.asyncio
+async def test_plot_expression(monkeypatch):
+    session = StubSession("'aWdub3JlZA=='")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    result = await server.plot_expression.fn("sin(x)", ctx=ctx)
+    assert result["format"] == "png"
+    assert result["image_base64"] == "aWdub3JlZA=="
+
+
+@pytest.mark.asyncio
+async def test_evaluate_structured_forwards_timeout():
+    session = StubSession("42")
+    await server._evaluate_structured(session, "ignored", timeout_seconds=5.0)
+    call = session.calls[-1]
+    assert call["timeout_seconds"] == 5.0
+
+
+# --- context guard tests (no ctx / no session_id) ---
+
+
+@pytest.mark.asyncio
+async def test_reset_sage_session_no_context():
+    with pytest.raises(ToolError):
+        await server.reset_sage_session.fn(ctx=None)
+
+
+@pytest.mark.asyncio
+async def test_cancel_sage_session_no_context():
+    with pytest.raises(ToolError):
+        await server.cancel_sage_session.fn(ctx=None)
+
+
+@pytest.mark.asyncio
+async def test_simplify_expression_no_context():
+    with pytest.raises(ToolError):
+        await server.simplify_expression.fn("x", ctx=None)
+
+
+@pytest.mark.asyncio
+async def test_expand_expression_no_context():
+    with pytest.raises(ToolError):
+        await server.expand_expression.fn("x", ctx=None)
+
+
+@pytest.mark.asyncio
+async def test_factor_expression_no_context():
+    with pytest.raises(ToolError):
+        await server.factor_expression.fn("x", ctx=None)
+
+
+@pytest.mark.asyncio
+async def test_limit_expression_no_context():
+    with pytest.raises(ToolError):
+        await server.limit_expression.fn("x", ctx=None)
+
+
+@pytest.mark.asyncio
+async def test_series_expansion_no_context():
+    with pytest.raises(ToolError):
+        await server.series_expansion.fn("x", ctx=None)
+
+
+@pytest.mark.asyncio
+async def test_matrix_operation_no_context():
+    with pytest.raises(ToolError):
+        await server.matrix_operation.fn([[1]], "rank", ctx=None)
+
+
+@pytest.mark.asyncio
+async def test_solve_ode_no_context():
+    with pytest.raises(ToolError):
+        await server.solve_ode.fn("y' = 0", ctx=None)
+
+
+@pytest.mark.asyncio
+async def test_number_theory_operation_no_context():
+    with pytest.raises(ToolError):
+        await server.number_theory_operation.fn("is_prime", 7, ctx=None)
+
+
+@pytest.mark.asyncio
+async def test_plot_expression_no_context():
+    with pytest.raises(ToolError):
+        await server.plot_expression.fn("x", ctx=None)
+
+
+@pytest.mark.asyncio
+async def test_calculate_expression_no_context():
+    with pytest.raises(ToolError):
+        await server.calculate_expression.fn("1+1", ctx=None)
+
+
+@pytest.mark.asyncio
+async def test_solve_equation_no_context():
+    with pytest.raises(ToolError):
+        await server.solve_equation.fn("x=0", ctx=None)
+
+
+@pytest.mark.asyncio
+async def test_differentiate_expression_no_context():
+    with pytest.raises(ToolError):
+        await server.differentiate_expression.fn("x", ctx=None)
+
+
+@pytest.mark.asyncio
+async def test_integrate_expression_no_context():
+    with pytest.raises(ToolError):
+        await server.integrate_expression.fn("x", ctx=None)
+
+
+@pytest.mark.asyncio
+async def test_statistics_summary_no_context():
+    with pytest.raises(ToolError):
+        await server.statistics_summary.fn([1, 2], ctx=None)
+
+
+@pytest.mark.asyncio
+async def test_matrix_multiply_no_context():
+    with pytest.raises(ToolError):
+        await server.matrix_multiply.fn([[1]], [[1]], ctx=None)
+
+
+# --- reset/cancel tool happy paths ---
+
+
+@pytest.mark.asyncio
+async def test_reset_sage_session(monkeypatch):
+    reset_called = False
+
+    async def fake_reset(session_id: str):
+        nonlocal reset_called
+        reset_called = True
+
+    manager = SageSessionManager(server.DEFAULT_SETTINGS)
+    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(server.SESSION_MANAGER, "reset", fake_reset)
+
+    ctx = FakeContext("reset-test")
+    result = await server.reset_sage_session.fn(ctx=ctx)
+    assert reset_called
+    assert result.message == "Session cleared"
+
+
+@pytest.mark.asyncio
+async def test_cancel_sage_session(monkeypatch):
+    cancel_called = False
+
+    async def fake_cancel(session_id: str):
+        nonlocal cancel_called
+        cancel_called = True
+
+    manager = SageSessionManager(server.DEFAULT_SETTINGS)
+    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(server.SESSION_MANAGER, "cancel", fake_cancel)
+
+    ctx = FakeContext("cancel-test")
+    result = await server.cancel_sage_session.fn(ctx=ctx)
+    assert cancel_called
+    assert result.message == "Session cancelled and restarted"
+
+
+# --- session_resource coverage ---
+
+
+@pytest.mark.asyncio
+async def test_session_resource_all(monkeypatch):
+    manager = SageSessionManager(server.DEFAULT_SETTINGS)
+    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+
+    def fake_snapshot():
+        return [
+            {
+                "session_id": "s1",
+                "live": True,
+                "started_at": 1000.0,
+                "last_used_at": 1001.0,
+                "idle_seconds": 5.0,
+            }
+        ]
+
+    monkeypatch.setattr(server.SESSION_MANAGER, "snapshot", fake_snapshot)
+    result = await server.session_resource.fn("all", None)
+    assert len(result) == 1
+    assert result[0].session_id == "s1"
+
+
+@pytest.mark.asyncio
+async def test_session_resource_filtered(monkeypatch):
+    manager = SageSessionManager(server.DEFAULT_SETTINGS)
+    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+
+    def fake_snapshot():
+        return [
+            {
+                "session_id": "s1",
+                "live": True,
+                "started_at": 1000.0,
+                "last_used_at": 1001.0,
+                "idle_seconds": 5.0,
+            },
+            {
+                "session_id": "s2",
+                "live": False,
+                "started_at": 1000.0,
+                "last_used_at": 1001.0,
+                "idle_seconds": 10.0,
+            },
+        ]
+
+    monkeypatch.setattr(server.SESSION_MANAGER, "snapshot", fake_snapshot)
+    result = await server.session_resource.fn("s2", None)
+    assert len(result) == 1
+    assert result[0].session_id == "s2"
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(
+    shutil.which("sage") is None, reason="Sage executable not available"
+)
 async def test_calculate_expression_with_sage(monkeypatch):
     from sagemath_mcp.session import SageSession, SageSettings
 

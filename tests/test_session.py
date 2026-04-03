@@ -208,3 +208,158 @@ async def test_session_shutdown_kills_on_timeout(monkeypatch, python_settings):
 
     assert fake_process.killed is True
     assert fake_process.stdin.closed is True
+
+
+@pytest.mark.asyncio
+async def test_session_launch_fails_without_sage(monkeypatch, python_settings):
+    settings = SageSettings(
+        sage_binary="nonexistent-sage-binary",
+        startup_code="from math import *",
+        eval_timeout=5.0,
+        idle_ttl=10.0,
+        shutdown_grace=1.0,
+        max_stdout_chars=1000,
+        force_python_worker=False,
+    )
+    session = SageSession("no-sage", settings)
+    from sagemath_mcp.session import SageProcessError
+
+    with pytest.raises(SageProcessError, match="Unable to locate Sage"):
+        await session.ensure_started()
+
+
+@pytest.mark.asyncio
+async def test_session_evaluate_worker_terminated(monkeypatch, python_settings):
+    """Worker returns empty bytes (terminated unexpectedly)."""
+    from sagemath_mcp.session import SageProcessError
+
+    session = SageSession("terminated", python_settings)
+    fake_process = _FakeProcess()
+
+    async def fake_ensure_started():
+        session._process = fake_process
+
+    monkeypatch.setattr(session, "ensure_started", fake_ensure_started)
+
+    with pytest.raises(SageProcessError, match="terminated unexpectedly"):
+        await session.evaluate("1 + 1", want_latex=False, capture_stdout=False)
+
+
+@pytest.mark.asyncio
+async def test_session_terminate_worker_branches(python_settings):
+    """Cover _terminate_worker when there is a process with a running stderr task."""
+    session = SageSession("terminate-branches", python_settings)
+    await session.ensure_started()
+    assert session._process is not None
+    assert session._stderr_task is not None
+
+    await session._terminate_worker()
+
+    assert session._process is None
+    assert session._stderr_task is None
+
+
+@pytest.mark.asyncio
+async def test_session_terminate_worker_no_process(python_settings):
+    """Cover _terminate_worker when there is no process."""
+    session = SageSession("terminate-none", python_settings)
+    # No process started — should be a no-op
+    await session._terminate_worker()
+    assert session._process is None
+
+
+@pytest.mark.asyncio
+async def test_manager_reset_and_cancel(python_settings):
+    """Cover SageSessionManager.reset() and .cancel() code paths."""
+    manager = SageSessionManager(python_settings)
+    try:
+        session = await manager.get("mgr-ops")
+        await session.evaluate("x = 42", want_latex=False, capture_stdout=False)
+
+        await manager.reset("mgr-ops")
+        # After reset, x should be undefined
+        with pytest.raises(SageEvaluationError):
+            await session.evaluate("x + 1", want_latex=False, capture_stdout=False)
+
+        # Re-create state and test cancel
+        session = await manager.get("mgr-ops")
+        await session.evaluate("y = 10", want_latex=False, capture_stdout=False)
+        await manager.cancel("mgr-ops")
+        # After cancel (restart), y should be gone
+        with pytest.raises(SageEvaluationError):
+            session2 = await manager.get("mgr-ops")
+            await session2.evaluate("y + 1", want_latex=False, capture_stdout=False)
+    finally:
+        await manager.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_manager_cull_idle_with_shutdown_failure(python_settings):
+    """Cover the exception logging branch in cull_idle."""
+    eager_settings = SageSettings(
+        sage_binary="sage",
+        startup_code="from math import *",
+        eval_timeout=5.0,
+        idle_ttl=0.0,
+        shutdown_grace=0.01,
+        max_stdout_chars=1000,
+        force_python_worker=True,
+    )
+    manager = SageSessionManager(eager_settings)
+    session = await manager.get("cull-fail")
+    await session.evaluate("z = 1", want_latex=False, capture_stdout=False)
+    session.last_used_at -= 5
+
+    # Patch shutdown to raise
+    async def failing_shutdown():
+        raise RuntimeError("simulated shutdown failure")
+
+    session.shutdown = failing_shutdown
+    # cull_idle uses return_exceptions=True, so the error is caught and logged
+    await manager.cull_idle()
+
+    # The session should still have been removed from the manager
+    assert manager.snapshot() == []
+
+
+@pytest.mark.asyncio
+async def test_manager_shutdown_with_failure(python_settings):
+    """Cover the exception logging branch in manager.shutdown()."""
+    manager = SageSessionManager(python_settings)
+    session = await manager.get("shutdown-fail")
+    await session.evaluate("a = 1", want_latex=False, capture_stdout=False)
+
+    async def failing_shutdown():
+        raise RuntimeError("simulated")
+
+    session.shutdown = failing_shutdown
+
+    # shutdown should not propagate the exception (return_exceptions=True)
+    await manager.shutdown()
+    assert manager.snapshot() == []
+
+
+@pytest.mark.asyncio
+async def test_session_shutdown_noop_when_not_started(python_settings):
+    """Cover shutdown early return when no process exists."""
+    session = SageSession("noop-shutdown", python_settings)
+    await session.shutdown()  # should be a no-op
+
+
+@pytest.mark.asyncio
+async def test_session_is_alive(python_settings):
+    session = SageSession("alive-check", python_settings)
+    assert session.is_alive() is False
+    try:
+        await session.ensure_started()
+        assert session.is_alive() is True
+    finally:
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_session_should_cull(python_settings):
+    session = SageSession("cull-check", python_settings)
+    assert session.should_cull() is False
+    session.last_used_at -= python_settings.idle_ttl + 1
+    assert session.should_cull() is True

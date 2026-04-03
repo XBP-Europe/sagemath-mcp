@@ -7,6 +7,8 @@ from sagemath_mcp.config import SageSettings
 from sagemath_mcp.monitoring import reset_metrics
 from sagemath_mcp.session import SageEvaluationError, SageSession, SageSessionManager
 
+from .conftest import FakeContext
+
 requires_sage = pytest.mark.skipif(
     shutil.which("sage") is None, reason="Sage executable not available"
 )
@@ -50,32 +52,6 @@ async def test_security_violation_keeps_session_alive():
         await session.shutdown()
 
 
-class _IntegrationContext:
-    def __init__(self, session_id: str):
-        self.session_id = session_id
-        self.info_messages: list[str] = []
-        self.error_messages: list[str] = []
-        self.warning_messages: list[str] = []
-        self.progress_events: list[tuple[float, float | None, str | None]] = []
-
-    async def info(self, message: str) -> None:
-        self.info_messages.append(message)
-
-    async def error(self, message: str) -> None:
-        self.error_messages.append(message)
-
-    async def warning(self, message: str) -> None:
-        self.warning_messages.append(message)
-
-    async def report_progress(
-        self,
-        progress: float,
-        total: float | None,
-        message: str | None,
-    ) -> None:
-        self.progress_events.append((progress, total, message))
-
-
 @requires_sage
 @pytest.mark.asyncio
 async def test_server_monitoring_resource_with_real_sage(monkeypatch):
@@ -83,7 +59,7 @@ async def test_server_monitoring_resource_with_real_sage(monkeypatch):
     manager = SageSessionManager(settings)
     monkeypatch.setattr(server, "SESSION_MANAGER", manager)
     reset_metrics()
-    ctx = _IntegrationContext("integration-monitoring")
+    ctx = FakeContext("integration-monitoring")
 
     try:
         success = await server.evaluate_sage.fn("factorial(6)", ctx=ctx)
@@ -98,5 +74,58 @@ async def test_server_monitoring_resource_with_real_sage(monkeypatch):
         assert snapshot.successes >= 1
         assert snapshot.failures >= 1
         assert snapshot.security_failures >= 1
+    finally:
+        await manager.shutdown()
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_monitoring_metrics_on_timeout(monkeypatch):
+    """Validate monitoring metrics capture timeout from a real Sage session."""
+    settings = SageSettings(force_python_worker=False, eval_timeout=1.0)
+    manager = SageSessionManager(settings)
+    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    reset_metrics()
+    ctx = FakeContext("integration-timeout")
+
+    try:
+        # Run a computation that exceeds the 1s timeout
+        with pytest.raises(server.ToolError):
+            await server.evaluate_sage.fn(
+                "import time; time.sleep(10)", ctx=ctx
+            )
+
+        metrics = await server.monitoring_resource.fn("metrics", None)
+        assert metrics
+        snapshot = metrics[0]
+        assert snapshot.failures >= 1
+        assert snapshot.last_error is not None
+    finally:
+        await manager.shutdown()
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_monitoring_metrics_on_cancellation(monkeypatch):
+    """Validate monitoring metrics capture cancellation from a real Sage session."""
+
+    settings = SageSettings(force_python_worker=False)
+    manager = SageSessionManager(settings)
+    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    reset_metrics()
+    ctx = FakeContext("integration-cancel")
+
+    try:
+        # First do a successful eval to establish the session
+        result = await server.evaluate_sage.fn("1 + 1", ctx=ctx)
+        assert result.result == "2"
+
+        # Cancel the session and verify monitoring
+        await server.cancel_sage_session.fn(ctx=ctx)
+
+        metrics = await server.monitoring_resource.fn("metrics", None)
+        assert metrics
+        snapshot = metrics[0]
+        assert snapshot.successes >= 1
     finally:
         await manager.shutdown()

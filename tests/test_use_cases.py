@@ -7,32 +7,7 @@ from sagemath_mcp.config import SageSettings
 from sagemath_mcp.models import EvaluateResult
 from sagemath_mcp.session import SageSessionManager
 
-
-class FakeContext:
-    def __init__(self, session_id: str):
-        self.session_id = session_id
-        self.info_messages: list[str] = []
-        self.error_messages: list[str] = []
-        self.warning_messages: list[str] = []
-        self.progress_events: list[tuple[float, float | None, str | None]] = []
-
-    async def info(self, message: str) -> None:
-        self.info_messages.append(message)
-
-    async def error(self, message: str) -> None:
-        self.error_messages.append(message)
-
-    async def warning(self, message: str) -> None:
-        self.warning_messages.append(message)
-
-    async def report_progress(
-        self,
-        progress: float,
-        total: float | None,
-        message: str | None,
-    ) -> None:
-        self.progress_events.append((progress, total, message))
-
+from .conftest import FakeContext
 
 requires_sage = pytest.mark.skipif(
     shutil.which("sage") is None, reason="Sage executable not available"

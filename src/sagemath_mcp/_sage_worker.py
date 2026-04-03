@@ -19,15 +19,27 @@ PURE_PYTHON = os.getenv("SAGEMATH_MCP_PURE_PYTHON") == "1"
 STARTUP_CODE = os.getenv("SAGEMATH_MCP_STARTUP", "from sage.all import *")
 
 
+_STARTUP_ERROR: str | None = None
+
+
 def _build_namespace() -> dict[str, Any]:
     # NOTE: Each worker keeps its own global namespace. We allow a single
     # preload statement so sessions can bootstrap Sage or the lightweight math
     # shim used during testing. By seeding __builtins__ explicitly we avoid
     # inheriting ambient globals from the worker process.
+    global _STARTUP_ERROR
     ns: dict[str, Any] = {"__builtins__": __builtins__}
     preload = "from math import *" if PURE_PYTHON else STARTUP_CODE
     if preload:
-        exec(preload, ns)
+        try:
+            exec(preload, ns)
+            _STARTUP_ERROR = None
+        except Exception as exc:
+            _STARTUP_ERROR = f"Startup code failed: {exc}"
+            print(
+                json.dumps({"ok": False, "startup_error": _STARTUP_ERROR}),
+                file=sys.stderr,
+            )
     return ns
 
 
@@ -74,6 +86,16 @@ def _execute(
     capture_stdout: bool,
     namespace: dict[str, Any],
 ) -> dict[str, Any]:
+    if _STARTUP_ERROR:
+        return {
+            "ok": False,
+            "stdout": "",
+            "error": {
+                "type": "StartupError",
+                "message": _STARTUP_ERROR,
+                "traceback": "",
+            },
+        }
     stdout_buffer = io.StringIO() if capture_stdout else None
     start = time.perf_counter()
 

@@ -912,6 +912,99 @@ async def test_session_resource_filtered(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_evaluate_sage_no_context():
+    """Cover line 160: evaluate_sage called without a context."""
+    with pytest.raises(ToolError, match="MCP context"):
+        await server.evaluate_sage("1+1", ctx=None)
+
+
+@pytest.mark.asyncio
+async def test_evaluate_sage_no_session_id():
+    """Cover line 160: evaluate_sage with ctx but no session_id."""
+    ctx = FakeContext()
+    ctx.session_id = None
+    with pytest.raises(ToolError, match="MCP context"):
+        await server.evaluate_sage("1+1", ctx=ctx)
+
+
+@pytest.mark.asyncio
+async def test_evaluate_sage_security_violation_branch(monkeypatch):
+    """Cover lines 185-189: SageEvaluationError with SecurityViolation type."""
+    from sagemath_mcp.session import SageEvaluationError
+
+    class FakeSession:
+        async def evaluate(self, *args, **kwargs):
+            raise SageEvaluationError(
+                "Blocked",
+                error_type="SecurityViolation",
+                stdout="",
+                traceback="traceback info",
+            )
+
+    async def fake_get(session_id: str):
+        return FakeSession()
+
+    monkeypatch.setattr(server, "SESSION_MANAGER", SageSessionManager(server.DEFAULT_SETTINGS))
+    monkeypatch.setattr(server.SESSION_MANAGER, "get", fake_get)
+
+    ctx = FakeContext("sec-violation")
+    with pytest.raises(ToolError):
+        await server.evaluate_sage("import os", ctx=ctx)
+
+    assert any("security policy" in msg.lower() for msg in ctx.error_messages)
+
+
+@pytest.mark.asyncio
+async def test_evaluate_sage_non_security_error_branch(monkeypatch):
+    """Cover line 189: SageEvaluationError with non-security error type."""
+    from sagemath_mcp.session import SageEvaluationError
+
+    class FakeSession:
+        async def evaluate(self, *args, **kwargs):
+            raise SageEvaluationError(
+                "NameError: x is not defined",
+                error_type="NameError",
+                stdout="",
+                traceback="",
+            )
+
+    async def fake_get(session_id: str):
+        return FakeSession()
+
+    monkeypatch.setattr(server, "SESSION_MANAGER", SageSessionManager(server.DEFAULT_SETTINGS))
+    monkeypatch.setattr(server.SESSION_MANAGER, "get", fake_get)
+
+    ctx = FakeContext("name-error")
+    with pytest.raises(ToolError):
+        await server.evaluate_sage("x + 1", ctx=ctx)
+
+    assert any("SageMath error" in msg for msg in ctx.error_messages)
+
+
+@pytest.mark.asyncio
+async def test_evaluate_sage_process_error_with_cause(monkeypatch):
+    """Cover lines 192-201: SageProcessError with a __cause__."""
+    class FakeSession:
+        async def evaluate(self, *args, **kwargs):
+            try:
+                raise OSError("broken pipe")
+            except OSError:
+                raise server.SageProcessError("worker died") from OSError("broken pipe")
+
+    async def fake_get(session_id: str):
+        return FakeSession()
+
+    monkeypatch.setattr(server, "SESSION_MANAGER", SageSessionManager(server.DEFAULT_SETTINGS))
+    monkeypatch.setattr(server.SESSION_MANAGER, "get", fake_get)
+
+    ctx = FakeContext("process-error-cause")
+    with pytest.raises(ToolError):
+        await server.evaluate_sage("1+1", ctx=ctx)
+
+    assert any("unavailable" in msg.lower() for msg in ctx.error_messages)
+
+
+@pytest.mark.asyncio
 @pytest.mark.skipif(
     shutil.which("sage") is None, reason="Sage executable not available"
 )

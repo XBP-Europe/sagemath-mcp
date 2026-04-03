@@ -148,3 +148,24 @@ def test_security_policy_from_env(monkeypatch):
     assert policy.enabled is False
     assert policy.max_source_chars == 100
     assert "numpy" in policy.allowed_import_modules
+
+
+def test_format_violation_with_blank_lines_only():
+    """Cover line 162: code with only whitespace lines."""
+    result = _format_violation("error msg", "   \n   \n   ")
+    assert result == "error msg"
+
+
+def test_raise_violation_without_logging():
+    """Cover branch 169->171: log_violations=False."""
+    policy = SecurityPolicy(log_violations=False)
+    with pytest.raises(SecurityViolation):
+        validate_code("import os", policy=policy)
+
+
+def test_validate_code_debug_log_on_success(caplog):
+    """Cover line 264->exit: debug log emitted on successful validation."""
+    policy = SecurityPolicy(log_violations=True)
+    caplog.set_level(logging.DEBUG)
+    validate_code("x = 1 + 2", policy=policy)
+    assert any("validation passed" in record.message for record in caplog.records)

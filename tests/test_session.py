@@ -1,7 +1,14 @@
+import sys
+
 import pytest
 
 from sagemath_mcp.config import SageSettings
-from sagemath_mcp.session import SageEvaluationError, SageSession, SageSessionManager
+from sagemath_mcp.session import (
+    SageEvaluationError,
+    SageProcessError,
+    SageSession,
+    SageSessionManager,
+)
 
 
 @pytest.fixture(scope="module")
@@ -134,8 +141,11 @@ class _FakeWriter:
 
 
 class _FakeReader:
+    def __init__(self, data: bytes = b""):
+        self._data = data
+
     async def readline(self) -> bytes:
-        return b""
+        return self._data
 
 
 class _FakeProcess:
@@ -363,3 +373,100 @@ async def test_session_should_cull(python_settings):
     assert session.should_cull() is False
     session.last_used_at -= python_settings.idle_ttl + 1
     assert session.should_cull() is True
+
+
+@pytest.mark.asyncio
+async def test_launch_worker_no_python_interpreter(monkeypatch, python_settings):
+    """Cover line 68: no python interpreter found."""
+    monkeypatch.setattr(sys, "executable", "")
+    import shutil as _shutil
+
+    orig_which = _shutil.which
+
+    def fake_which(name):
+        if name in ("python3", "python"):
+            return None
+        return orig_which(name)
+
+    monkeypatch.setattr(_shutil, "which", fake_which)
+
+    session = SageSession("no-python", python_settings)
+    with pytest.raises(SageProcessError, match="Unable to locate a Python interpreter"):
+        await session.ensure_started()
+
+
+@pytest.mark.asyncio
+async def test_launch_worker_sage_venv_and_pythonpath(monkeypatch, python_settings):
+    """Cover lines 80-82 (SAGE_VENV) and 85 (existing PYTHONPATH)."""
+    monkeypatch.setenv("SAGE_VENV", "/fake/sage/venv")
+    monkeypatch.setenv("PYTHONPATH", "/existing/path")
+
+    session = SageSession("env-paths", python_settings)
+    try:
+        await session.ensure_started()
+        result = await session.evaluate("2 + 2", want_latex=False, capture_stdout=False)
+        assert result.result == "4"
+    finally:
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_reset_worker_terminated(monkeypatch, python_settings):
+    """Cover line 172: worker terminated during reset."""
+    session = SageSession("reset-terminated", python_settings)
+    fake_process = _FakeProcess()
+    # readline returns empty bytes = worker died
+    fake_process.stdout = _FakeReader()  # default returns b""
+
+    async def fake_ensure_started():
+        session._process = fake_process
+
+    monkeypatch.setattr(session, "ensure_started", fake_ensure_started)
+
+    with pytest.raises(SageProcessError, match="terminated during reset"):
+        await session.reset()
+
+
+@pytest.mark.asyncio
+async def test_reset_worker_returns_failure(monkeypatch, python_settings):
+    """Cover line 175: worker returns ok=False during reset."""
+    import json
+
+    session = SageSession("reset-fail", python_settings)
+    fake_process = _FakeProcess()
+    fake_process.stdout = _FakeReader(json.dumps({"ok": False}).encode() + b"\n")
+
+    async def fake_ensure_started():
+        session._process = fake_process
+
+    monkeypatch.setattr(session, "ensure_started", fake_ensure_started)
+
+    with pytest.raises(SageProcessError, match="Failed to reset"):
+        await session.reset()
+
+
+@pytest.mark.asyncio
+async def test_terminate_worker_process_still_running(python_settings):
+    """Cover lines 225-227: process.returncode is None (still running) during terminate."""
+    session = SageSession("terminate-running", python_settings)
+    await session.ensure_started()
+    assert session._process is not None
+    # Ensure returncode is None (process still alive)
+    assert session._process.returncode is None
+
+    await session._terminate_worker()
+    assert session._process is None
+
+
+@pytest.mark.asyncio
+async def test_cull_idle_no_stale_sessions(python_settings):
+    """Cover lines 263->261, 266: cull_idle with no stale sessions (early return)."""
+    manager = SageSessionManager(python_settings)
+    try:
+        session = await manager.get("not-stale")
+        await session.evaluate("1+1", want_latex=False, capture_stdout=False)
+        # Session is fresh, so nothing should be culled
+        await manager.cull_idle()
+        assert len(manager.snapshot()) == 1
+    finally:
+        await manager.shutdown()

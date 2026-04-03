@@ -868,7 +868,7 @@ make sage-container             # Bootstrap the Sage Docker container
 
 ### Running Tests
 
-Without a local SageMath installation you can still run unit tests --- the test suite replaces the Sage worker with a lightweight Python interpreter to validate session plumbing.
+Without a local SageMath installation you can still run all 150 unit tests --- the test suite replaces the Sage worker with a lightweight Python interpreter to validate session plumbing. Code coverage is at **99%** across all core modules.
 
 ```bash
 # Run all unit tests
@@ -998,6 +998,8 @@ sagemath-mcp/
 | [Ruff](https://docs.astral.sh/ruff/) | 0.15+ | Linting and import sorting |
 | [pytest](https://docs.pytest.org/) | 9.0+ | Test framework |
 | [pytest-asyncio](https://github.com/pytest-dev/pytest-asyncio) | 1.3+ | Async test support |
+| [pytest-cov](https://github.com/pytest-dev/pytest-cov) | 7.0+ | Coverage reporting (99% branch coverage) |
+| [pip-audit](https://github.com/pypa/pip-audit) | 2.9+ | Dependency vulnerability scanning |
 | [Hatchling](https://hatch.pypa.io/) | 1.29+ | Build backend |
 | [Docker](https://www.docker.com/) | --- | Containerization and CI integration testing |
 | [Helm](https://helm.sh/) | 3.15+ | Kubernetes deployment |
@@ -1109,11 +1111,25 @@ A new end-to-end test suite validates the MCP server through real LLM CLI invoca
 - Added PyPI classifiers: Development Status, Intended Audience, Python versions, License, Topic
 - Added project URLs: Homepage, Repository, Issues, Changelog
 
+#### Test Coverage
+
+Test suite expanded from 136 to **150 unit tests** with branch coverage increased from 97% to **99%**. New tests cover:
+
+- Session error paths: no Python interpreter, SAGE_VENV/PYTHONPATH environment handling, reset failures (worker terminated, `ok=False`), `_terminate_worker` with running process, `cull_idle` with no stale sessions
+- Server error branches: `evaluate_sage` with no context / no session_id, `SecurityViolation` error type, non-security error type, `SageProcessError` with `__cause__`
+- Security: `_format_violation` with blank-lines-only code, `log_violations=False` branch, debug log on successful validation
+
+Remaining 1% is defensive `if ctx is not None` branches that are always true in practice, and the Sage binary path which requires a real Sage installation.
+
 #### Bug Fixes
 
 - **MCP resource serialization** --- `monitoring_resource` and `session_resource` now return JSON strings via `model_dump_json()` instead of raw Pydantic model objects. FastMCP 3.x requires resources to return `str` or `ResourceContent`, not models. The CI metrics verification script and all tests were updated accordingly.
 - **ASYNC240 lint fix** --- moved `Path(__file__).resolve()` from inside an async function to a module-level `_PROJECT_ROOT` constant to avoid sync filesystem calls in async context.
 - **CLI integration validator** --- error indicator checks (phrases like "I can't", "MCP server") are now evaluated *after* expected-substring matching, preventing false negatives when a correct answer happens to mention the MCP server.
+- **Broken `--` separator in CLI commands** --- all documentation previously showed `uv run sagemath-mcp -- --transport streamable-http` which fails because argparse treats `--` as a positional argument. Fixed across README, INSTALLATION, CLAUDE, USAGE, DISTRIBUTION, and MONITORING docs.
+- **LICENSE file mismatch** --- the LICENSE file contained Apache 2.0 text but `pyproject.toml` declared MIT. Replaced with the correct MIT license text.
+- **Version synchronization** --- `__init__.py` fallback version (was `0.1.2`) and Helm chart version/appVersion (was `0.1.0`) updated to match `pyproject.toml` (`0.2.0`).
+- **Missing `pytest-cov` dependency** --- CI coverage step failed because `pytest-cov` was not in dev dependencies. Added alongside `pip-audit`.
 - **Suppressed `PytestUnraisableExceptionWarning`** --- cosmetic asyncio subprocess transport finalizer warning no longer appears in test output.
 
 #### Documentation
@@ -1121,6 +1137,7 @@ A new end-to-end test suite validates the MCP server through real LLM CLI invoca
 - **Complete README rewrite** --- added table of contents, architecture diagram, technology stack table, changelog, CLI integration testing section, and detailed examples for every tool parameter and return type.
 - **USAGE.md** updated with new tool workflows and deployment options.
 - **CLAUDE.md** added for Claude Code project instructions.
+- **INSTALLATION.md** updated Python version from 3.11 to 3.12.
 
 ### v0.1.2 (2025-11-02)
 

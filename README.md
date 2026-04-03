@@ -4,7 +4,7 @@
 [![Release](https://img.shields.io/github/v/release/XBP-Europe/sagemath-mcp.svg)](https://github.com/XBP-Europe/sagemath-mcp/releases/latest)
 [![PyPI](https://img.shields.io/badge/PyPI-pending-lightgrey.svg)](https://pypi.org/project/sagemath-mcp/)
 [![License](https://img.shields.io/github/license/XBP-Europe/sagemath-mcp.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![FastMCP](https://img.shields.io/badge/FastMCP-3.2-green.svg)](https://gofastmcp.com/)
 
 A universal mathematics [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that gives LLM clients full access to [SageMath](https://www.sagemath.org/) --- one of the most comprehensive open-source mathematics systems available. Built on [FastMCP 3.x](https://gofastmcp.com/), the server maintains a dedicated SageMath process for each MCP session so variables, functions, and assumptions persist across tool calls.
@@ -845,7 +845,7 @@ uv run sagemath-mcp -- --transport streamable-http --host 127.0.0.1 --port 8314
 
 ### Prerequisites
 
-- Python 3.11+ with [uv](https://docs.astral.sh/uv/) installed
+- Python 3.12+ with [uv](https://docs.astral.sh/uv/) installed
 - Docker (optional, for integration tests and Sage container)
 - SageMath (optional, for local development without Docker)
 
@@ -878,7 +878,7 @@ uv run pytest --cov=sagemath_mcp --cov-report=term-missing
 
 ### Linting
 
-Ruff with line-length 100, target Python 3.11. Rules: E, F, W, B, UP, ASYNC, RUF, I (import sorting). Run `make lint` before committing.
+Ruff with line-length 100, target Python 3.12. Rules: E, F, W, B, UP, ASYNC, RUF, I (import sorting). Run `make lint` before committing.
 
 ### Git Hooks
 
@@ -1050,7 +1050,7 @@ sagemath-mcp/
 
 ## Requirements
 
-- Python 3.11+
+- Python 3.12+
 - A local SageMath installation available on the `PATH` (tested with Sage 10.x), or Docker.
 - FastMCP-compatible MCP client (e.g. Claude Desktop, Claude Code, Codex CLI, Gemini CLI).
 

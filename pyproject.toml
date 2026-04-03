@@ -7,16 +7,33 @@ name = "sagemath-mcp"
 version = "0.2.0"
 description = "Model Context Protocol server that provides stateful SageMath computations."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "fastmcp>=3.2.0",
     "pydantic>=2.12.0",
     "anyio>=4.13.0",
 ]
 authors = [
-    { name = "Your Name", email = "you@example.com" }
+    { name = "XBP Europe" }
 ]
 license = { text = "MIT" }
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/XBP-Europe/sagemath-mcp"
+Repository = "https://github.com/XBP-Europe/sagemath-mcp"
+Issues = "https://github.com/XBP-Europe/sagemath-mcp/issues"
+Changelog = "https://github.com/XBP-Europe/sagemath-mcp/releases"
 
 [project.optional-dependencies]
 cli = [
@@ -44,7 +61,7 @@ include = ["src/sagemath_mcp/py.typed"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "B", "UP", "ASYNC", "RUF", "I"]

@@ -22,7 +22,7 @@ Unit tests run with `SAGEMATH_MCP_PURE_PYTHON=1` (uses Python `math` stdlib inst
 
 ## Linting
 
-Ruff with line-length 100, target Python 3.11. Rules: E, F, W, B, UP, ASYNC, RUF, I (import sorting). Run `make lint` before committing.
+Ruff with line-length 100, target Python 3.12. Rules: E, F, W, B, UP, ASYNC, RUF, I (import sorting). Run `make lint` before committing.
 
 ## Testing
 
@@ -59,7 +59,7 @@ Ruff with line-length 100, target Python 3.11. Rules: E, F, W, B, UP, ASYNC, RUF
 ## CI/CD
 
 - **ci.yml**: lint, unit tests, integration tests (Sage Docker service), Docker Compose smoke test, build artifacts. Runs on push to main and PRs.
-- **release.yml**: triggered by `vX.Y.Z` tags. Tests on Python 3.11/3.12/3.13, builds wheel/sdist, pushes signed Docker image to GHCR, publishes to PyPI.
+- **release.yml**: triggered by `vX.Y.Z` tags. Tests on Python 3.12/3.13, builds wheel/sdist, pushes signed Docker image to GHCR, publishes to PyPI.
 - **version-bump.yml**: manual workflow to bump version in pyproject.toml and create tag.
 
 ## Key Conventions

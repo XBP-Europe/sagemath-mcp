@@ -1,7 +1,7 @@
 # SageMath MCP Server Usage Guide
 
 ## Prerequisites
-- Python 3.11+ with [uv](https://docs.astral.sh/uv/) installed (`curl -LsSf https://astral.sh/uv/install.sh | sh`).
+- Python 3.12+ with [uv](https://docs.astral.sh/uv/) installed (`curl -LsSf https://astral.sh/uv/install.sh | sh`).
 - A working SageMath installation. The reference environment uses Docker:  
   ```bash
   docker pull sagemath/sagemath:latest

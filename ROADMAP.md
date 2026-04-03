@@ -2,7 +2,7 @@
 
 This document tracks planned improvements to the SageMath MCP server, organized by priority and effort. The goal is to strengthen the server's position as a universal mathematics MCP server that enables LLMs to perform any symbolic or discrete mathematical operation.
 
-**Current state (v0.3.0-dev):** 33 MCP tools (30 Sage-backed, 1 pure-Python `statistics_summary`, 2 infrastructure) covering calculus, algebra, linear algebra, ODEs, number theory, combinatorics, graph theory, group theory, elliptic curves, coding theory, boolean algebra, polynomial rings, geometry, probability, vector calculus, statistics, 2D/3D plotting, numeric root-finding, and streaming execution. 235 unit tests at 98% branch coverage, plus 43 CLI integration tests.
+**Current state (v0.3.0-dev):** 33 MCP tools (30 Sage-backed, 1 pure-Python `statistics_summary`, 2 infrastructure) covering calculus, algebra, linear algebra, ODEs, number theory, combinatorics, graph theory, group theory, elliptic curves, coding theory, boolean algebra, polynomial rings, geometry, probability, vector calculus, statistics, 2D/3D plotting, numeric root-finding, and streaming execution. 242 unit tests at 99% branch coverage, plus 43 CLI integration tests.
 
 ---
 
@@ -50,7 +50,7 @@ All items from the initial evaluation and TODO have been implemented:
 
 - [x] 18 MCP math tools (calculus, algebra, linear algebra, ODEs, number theory, statistics, plotting)
 - [x] CLI integration test suite (43 cases, Claude + Gemini)
-- [x] 150 unit tests at 99% branch coverage
+- [x] 242 unit tests at 99% branch coverage
 - [x] FastMCP 3.x upgrade with full API migration
 - [x] CI modernization (6 parallel jobs, matrix testing, uv caching, pip-audit, coverage)
 - [x] Docker image pinned to SageMath 10.5

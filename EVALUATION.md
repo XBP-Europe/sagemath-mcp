@@ -12,7 +12,7 @@ The project delivers a comprehensive mathematics MCP server with 33 tools (30 Sa
 - **Stateful sessions** — persistent Sage worker per client, variables survive across calls
 - **Security** — AST-based validation blocking dangerous operations, configurable policy
 - **Infrastructure** — Docker (pinned to SageMath 10.5), Helm with health probes, CI/CD with 6 parallel jobs, pip-audit, coverage reporting
-- **Testing** — 235 unit tests at 98% branch coverage, plus 43 CLI integration tests across 9 math domains
+- **Testing** — 242 unit tests at 99% branch coverage, plus 43 CLI integration tests across 9 math domains
 - **`evaluate_sage`** — enriched tool description with domain-specific examples so LLMs know what Sage can do
 
 ## Initial Assessment (2026-04-02)
@@ -66,7 +66,7 @@ The initial evaluation identified the following problems. All have been addresse
 | LaTeX output never tested | Added `test_execute_with_want_latex` in test_sage_worker.py |
 | Statistics helper undertested | Expanded assertions |
 | FakeContext duplicated | Extracted to shared `tests/conftest.py` fixture |
-| 97% coverage | Expanded to 98% (235 tests) with targeted branch coverage |
+| 97% coverage | Expanded to 99% (242 tests) with targeted branch coverage |
 | No CLI-level validation | Added 43 CLI integration tests across 9 math domains |
 
 ## Remaining Opportunities

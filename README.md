@@ -880,7 +880,7 @@ make sage-container             # Bootstrap the Sage Docker container
 
 ### Running Tests
 
-Without a local SageMath installation you can still run all 235 unit tests --- the test suite replaces the Sage worker with a lightweight Python interpreter to validate session plumbing. Code coverage is at **98%** across all core modules.
+Without a local SageMath installation you can still run all 242 unit tests --- the test suite replaces the Sage worker with a lightweight Python interpreter to validate session plumbing. Code coverage is at **99%** across all core modules.
 
 ```bash
 # Run all unit tests
@@ -1010,7 +1010,7 @@ sagemath-mcp/
 | [Ruff](https://docs.astral.sh/ruff/) | 0.15+ | Linting and import sorting |
 | [pytest](https://docs.pytest.org/) | 9.0+ | Test framework |
 | [pytest-asyncio](https://github.com/pytest-dev/pytest-asyncio) | 1.3+ | Async test support |
-| [pytest-cov](https://github.com/pytest-dev/pytest-cov) | 7.0+ | Coverage reporting (98% branch coverage, 235 tests) |
+| [pytest-cov](https://github.com/pytest-dev/pytest-cov) | 7.0+ | Coverage reporting (99% branch coverage, 242 tests) |
 | [pip-audit](https://github.com/pypa/pip-audit) | 2.9+ | Dependency vulnerability scanning |
 | [Hatchling](https://hatch.pypa.io/) | 1.29+ | Build backend |
 | [Docker](https://www.docker.com/) | --- | Containerization and CI integration testing |
@@ -1125,7 +1125,7 @@ A new end-to-end test suite validates the MCP server through real LLM CLI invoca
 
 #### Test Coverage
 
-Test suite expanded from 136 to **235 unit tests** with branch coverage at **98%** across all core modules. New tests cover:
+Test suite expanded from 136 to **242 unit tests** with branch coverage at **99%** across all core modules. New tests cover:
 
 - Session error paths: no Python interpreter, SAGE_VENV/PYTHONPATH environment handling, reset failures (worker terminated, `ok=False`), `_terminate_worker` with running process, `cull_idle` with no stale sessions
 - Server error branches: `evaluate_sage` with no context / no session_id, `SecurityViolation` error type, non-security error type, `SageProcessError` with `__cause__`

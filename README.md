@@ -2,10 +2,15 @@
 
 [![CI](https://github.com/XBP-Europe/sagemath-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/XBP-Europe/sagemath-mcp/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/XBP-Europe/sagemath-mcp.svg)](https://github.com/XBP-Europe/sagemath-mcp/releases/latest)
-[![PyPI](https://img.shields.io/badge/PyPI-pending-lightgrey.svg)](https://pypi.org/project/sagemath-mcp/)
+[![PyPI](https://img.shields.io/pypi/v/sagemath-mcp.svg)](https://pypi.org/project/sagemath-mcp/)
+[![GHCR](https://img.shields.io/badge/GHCR-sagemath--mcp-blue?logo=github)](https://github.com/XBP-Europe/sagemath-mcp/pkgs/container/sagemath-mcp)
 [![License](https://img.shields.io/github/license/XBP-Europe/sagemath-mcp.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
+[![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-purple)](https://modelcontextprotocol.io/)
 [![FastMCP](https://img.shields.io/badge/FastMCP-3.2-green.svg)](https://gofastmcp.com/)
+[![SageMath](https://img.shields.io/badge/SageMath-10.5-orange)](https://www.sagemath.org/)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://docs.astral.sh/ruff/)
+[![Typed](https://img.shields.io/badge/type--checked-py.typed-blue)](https://peps.python.org/pep-0561/)
 
 A universal mathematics [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that gives LLM clients full access to [SageMath](https://www.sagemath.org/) --- one of the most comprehensive open-source mathematics systems available. Built on [FastMCP 3.x](https://gofastmcp.com/), the server maintains a dedicated SageMath process for each MCP session so variables, functions, and assumptions persist across tool calls.
 

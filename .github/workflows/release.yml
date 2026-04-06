@@ -41,7 +41,7 @@ jobs:
         run: uv pip install build
       - name: Build artifacts
         run: uv run python -m build --sdist --wheel --outdir dist
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/*

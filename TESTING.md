@@ -55,6 +55,45 @@ and `scripts/setup_sage_container.sh` honour it, and they must agree. They did n
 long period, and because the command was piped to `tee`, the failure was masked by
 `tee`'s exit status and CI reported success while running nothing.
 
+## Client integration (Claude, Gemini, Codex)
+
+Two suites drive real CLIs against a real server. Both are opt-in: they consume
+API quota and take minutes, so neither runs in CI.
+
+```bash
+make cli-integration     # 44 breadth cases, Claude and Gemini
+make cli-extended        # tool-forcing cases across all three CLIs
+uv run python -m tests.cli_integration.run_extended --cli codex --case ext-comb-bell
+```
+
+`cli-extended` exists because grepping a CLI's answer cannot tell a working MCP
+integration from a model answering out of its own memory. Asked to differentiate
+`x^3 + 2x`, every model replies `3x^2 + 2` without touching any tool — and a
+substring check passes.
+
+It closes that in two ways:
+
+1. **Questions that force the tool.** `next_prime(10^30)`, Bell(25), the number
+   of partitions of 120, a 5×5 determinant. A model that skips the server gets
+   them wrong.
+2. **Evidence from the wire.** `mcp_proxy.py` sits between the CLI and the
+   server, forwarding frames verbatim while recording every `tools/call` and
+   whether it returned an error. A case fails as `NO_TOOL_CALL` when the answer
+   is right but nothing was called.
+
+That second check is the one that matters, and it is worth confirming it can
+fail: feed the validator a correct answer with an empty log and it reports
+`NO_TOOL_CALL`, not `PASS`.
+
+Two cases are stateful on purpose. They define a variable in one call and read
+it in a second, which no model can fake, so they prove session state survives
+between separate MCP invocations.
+
+Each CLI needs its own flag to use tools non-interactively: Claude
+`--allowedTools`, Gemini `--yolo`, Codex `exec --skip-git-repo-check`. Without
+them the model silently declines every call and the run looks like a server
+failure.
+
 ## Writing tests
 
 **Assert a value, not the absence of an exception.** `distribution_operation` returned a

@@ -17,7 +17,7 @@ Severity is about consequence, not effort.
 | 4 | Medium | `server.py` is 2147 lines and the least-covered module | open |
 | 5 | Medium | Two release paths cannot be exercised before a tag push | **done** |
 | 6 | Low | 104 dependencies, with pip-audit now blocking | **done** |
-| 7 | Low | Distribution: Smithery and Glama listings | open |
+| 7 | Low | Distribution: Smithery and Glama listings | **partly done** |
 | 8 | Low | Codex still routes two questions to `evaluate_sage` | accepted |
 | 9 | Low | Jupyter kernel `debug_request` question left unresolved | deferred |
 | 10 | **Critical** | Response caching breaks state and isolation across MCP clients | **done** |
@@ -265,7 +265,29 @@ in whoever's PR happens to be open. Keep the blocking behaviour.
 
 ---
 
-## 7. Distribution: Smithery and Glama listings — low
+## 7. Distribution: Smithery and Glama listings — low — PARTLY DONE
+
+**The half that lives in git is done.** `smithery.yaml` declares the stdio launch
+command and the four settings worth exposing, and it names the `sagemath-mcp`
+entry point that `pyproject.toml` actually defines.
+
+**The remaining half needs an account and cannot be automated from here.**
+
+- **Smithery**: connect the repository at <https://smithery.ai/new> with an
+  account that owns `XBP-Europe/sagemath-mcp`. It reads `smithery.yaml` from the
+  default branch.
+- **Glama**: indexes public MCP servers from GitHub automatically and ranks on
+  metadata quality. The repository topics, description and README added earlier
+  are what it reads; claim the listing at <https://glama.ai/mcp/servers> to edit
+  it.
+
+Note that SageMath is a large runtime and is not bundled: the Smithery command
+assumes `sage` is on PATH, so the container image remains the better route for
+callers who do not have it. Worth saying on the listing rather than leaving
+people to discover it.
+
+Original finding follows.
+
 
 The remaining Tier 1 item from the competitive survey. `fermat-mcp` carries both
 badges and has 20 stars against our 12 with a far smaller tool surface.

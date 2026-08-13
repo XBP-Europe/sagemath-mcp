@@ -331,6 +331,78 @@ def _encode_literal(value: str | Iterable) -> str:
     return json.dumps(value)
 
 
+def _normal_parameters(parameters: list[float]) -> tuple[float, float]:
+    """Return (mu, sigma) for the documented [mu, sigma] parameter list."""
+    if len(parameters) >= 2:
+        return float(parameters[0]), float(parameters[1])
+    if len(parameters) == 1:
+        # A single parameter is the standard deviation, matching how the
+        # previous implementation treated a one-element list.
+        return 0.0, float(parameters[0])
+    return 0.0, 1.0
+
+
+def _distribution_mean(distribution: str, parameters: list[float]) -> float:
+    """Analytic mean for the supported continuous distributions."""
+    p = [float(v) for v in parameters]
+    if distribution == "normal":
+        return _normal_parameters(p)[0]
+    if distribution == "exponential":
+        # Sage parameterises RealDistribution('exponential', mu) by the mean.
+        return p[0] if p else 1.0
+    if distribution == "uniform":
+        if len(p) < 2:
+            raise ToolError("uniform requires parameters [a, b]")
+        return (p[0] + p[1]) / 2
+    if distribution == "chi_squared":
+        return p[0] if p else 1.0
+    if distribution == "student_t":
+        nu = p[0] if p else 1.0
+        if nu <= 1:
+            raise ToolError("student_t mean is undefined for degrees of freedom <= 1")
+        return 0.0
+    if distribution == "beta":
+        if len(p) < 2:
+            raise ToolError("beta requires parameters [a, b]")
+        return p[0] / (p[0] + p[1])
+    if distribution == "gamma":
+        if len(p) < 2:
+            raise ToolError("gamma requires parameters [shape, scale]")
+        return p[0] * p[1]
+    raise ToolError(f"No analytic mean available for distribution '{distribution}'")
+
+
+def _distribution_variance(distribution: str, parameters: list[float]) -> float:
+    """Analytic variance for the supported continuous distributions."""
+    p = [float(v) for v in parameters]
+    if distribution == "normal":
+        return _normal_parameters(p)[1] ** 2
+    if distribution == "exponential":
+        mu = p[0] if p else 1.0
+        return mu**2
+    if distribution == "uniform":
+        if len(p) < 2:
+            raise ToolError("uniform requires parameters [a, b]")
+        return (p[1] - p[0]) ** 2 / 12
+    if distribution == "chi_squared":
+        return 2 * (p[0] if p else 1.0)
+    if distribution == "student_t":
+        nu = p[0] if p else 1.0
+        if nu <= 2:
+            raise ToolError("student_t variance is undefined for degrees of freedom <= 2")
+        return nu / (nu - 2)
+    if distribution == "beta":
+        if len(p) < 2:
+            raise ToolError("beta requires parameters [a, b]")
+        a, b = p[0], p[1]
+        return a * b / ((a + b) ** 2 * (a + b + 1))
+    if distribution == "gamma":
+        if len(p) < 2:
+            raise ToolError("gamma requires parameters [shape, scale]")
+        return p[0] * p[1] ** 2
+    raise ToolError(f"No analytic variance available for distribution '{distribution}'")
+
+
 async def _evaluate_structured(
     session, code: str, timeout_seconds: float | None = None
 ) -> object:
@@ -917,6 +989,13 @@ async def plot3d_expression(
         _plt = plot3d(_expr, (_xv, {x_range_min}, {x_range_max}),
                      (_yv, {y_range_min}, {y_range_max}))
         _buf = _io.BytesIO()
+        # NOTE: this is currently broken and has no in-sandbox fix.
+        # Graphics3d.save()/save_image() require a filesystem path and reject a
+        # BytesIO, and unlike 2D Graphics there is no .matplotlib() figure to
+        # render into memory. Writing a temp file is not possible either:
+        # `open` is a forbidden call and `tempfile`/`os` are not in
+        # allowed_import_modules. Fixing this needs either a security-policy
+        # change or rendering outside the sandboxed worker.
         _plt.save(_buf, format='png')
         _buf.seek(0)
         base64.b64encode(_buf.read()).decode('ascii')
@@ -952,8 +1031,14 @@ async def distribution_operation(
         raise ToolError("MCP context with session_id is required for stateful execution")
     session = await SESSION_MANAGER.get(ctx.session_id)
     params_str = ", ".join(str(p) for p in parameters)
+    # "normal" takes [mu, sigma]. The previous mapping passed parameters[0] as
+    # sigma only when exactly one parameter was given and otherwise hardcoded
+    # 1, so [0, 3] silently computed with sigma=1, and mu was never applied at
+    # all. Sage's gaussian is always centred on 0, so mu is applied by shifting
+    # the evaluation point.
+    normal_mu, normal_sigma = _normal_parameters(parameters)
     dist_map = {
-        "normal": f"RealDistribution('gaussian', {parameters[0] if len(parameters) == 1 else 1})",
+        "normal": f"RealDistribution('gaussian', {normal_sigma})",
         "exponential": f"RealDistribution('exponential', {parameters[0] if parameters else 1})",
         "uniform": f"RealDistribution('uniform', [{params_str}])",
         "chi_squared": f"RealDistribution('chisquared', {parameters[0] if parameters else 1})",
@@ -984,15 +1069,28 @@ async def distribution_operation(
         code = _sage_prelude() + op_code.get(operation, "None") + "\n"
     elif distribution in dist_map:
         dist_expr = dist_map[distribution]
+        # Only the normal distribution carries a location parameter here; for
+        # every other distribution the shift is 0 and these read unchanged.
+        shift = normal_mu if distribution == "normal" else 0.0
+        shifted = None if x is None else f"({x}) - ({shift})"
+        unshift = f"({shift}) + " if distribution == "normal" else ""
         op_code = {
-            "pdf": f"float(_d.distribution_function({x}))" if x is not None else "None",
-            "cdf": f"float(_d.cum_distribution_function({x}))" if x is not None else "None",
-            "quantile": (
-                f"float(_d.cum_distribution_function_inv({x}))"
+            "pdf": f"float(_d.distribution_function({shifted}))" if x is not None else "None",
+            "cdf": (
+                f"float(_d.cum_distribution_function({shifted}))"
                 if x is not None else "None"
             ),
-            "mean": "float(_d.get_random_element())",
-            "variance": "None",
+            "quantile": (
+                f"float({unshift}_d.cum_distribution_function_inv({x}))"
+                if x is not None else "None"
+            ),
+            # mean/variance are computed analytically. They previously
+            # returned float(_d.get_random_element()) and None respectively,
+            # so "mean" reported a random draw from the distribution -- a
+            # different wrong answer on every call -- and "variance" was
+            # always null.
+            "mean": f"float({_distribution_mean(distribution, parameters)})",
+            "variance": f"float({_distribution_variance(distribution, parameters)})",
             "sample": f"[float(_d.get_random_element()) for _ in range({n or 1})]",
         }
         if operation not in op_code:
@@ -1058,7 +1156,10 @@ async def plot_multi_expression(
         _exprs = [sage_eval(e, locals=_locals) for e in {_encode_literal(expressions)}]
         _plt = sum(plot(e, (_var, {range_min}, {range_max})) for e in _exprs)
         _buf = _io.BytesIO()
-        _plt.save(_buf, format='png')
+        # Graphics.save() needs a filesystem path and rejects a BytesIO with
+        # "expected str, bytes or os.PathLike object". Going through the
+        # matplotlib figure renders to memory, which the sandbox allows.
+        _plt.matplotlib().savefig(_buf, format='png')
         _buf.seek(0)
         base64.b64encode(_buf.read()).decode('ascii')
         """
@@ -1190,7 +1291,10 @@ async def plot_expression(
         _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
         _plt = plot(_expr, (_var, {range_min}, {range_max}))
         _buf = _io.BytesIO()
-        _plt.save(_buf, format='png')
+        # Graphics.save() needs a filesystem path and rejects a BytesIO with
+        # "expected str, bytes or os.PathLike object". Going through the
+        # matplotlib figure renders to memory, which the sandbox allows.
+        _plt.matplotlib().savefig(_buf, format='png')
         _buf.seek(0)
         base64.b64encode(_buf.read()).decode('ascii')
         """
@@ -1367,7 +1471,10 @@ async def coding_theory_operation(
         str,
         Field(
             description="Code constructor, e.g. "
-            "'HammingCode(GF(2),3)', 'ReedSolomonCode(GF(7),3,5)'"
+            # ReedSolomonCode(GF(7),3,5) was documented here but has never been
+            # a valid constructor in current Sage; it raises AttributeError.
+            "'HammingCode(GF(2),3)', "
+            "'GeneralizedReedSolomonCode(GF(7).list()[:6],3)'"
         ),
     ],
     operation: Annotated[
@@ -1432,19 +1539,25 @@ async def boolean_algebra_operation(
         raise ToolError("MCP context with session_id is required")
     session = await SESSION_MANAGER.get(ctx.session_id)
     var_names = ", ".join(f"'x{i}'" for i in range(num_variables))
+    # The ring generators are x0, x1, ..., but the documented example uses
+    # x, y, z. Expose both spellings so either parses, rather than failing
+    # with "name 'x' is not defined" on the tool's own documented input.
     ring_setup = (
         f"_R = BooleanPolynomialRing({num_variables}, [{var_names}])\n"
         f"_R.inject_variables(verbose=False)\n"
+        "_bool_locals = {str(_g): _g for _g in _R.gens()}\n"
+        "for _alias, _gen in zip(['x', 'y', 'z', 'w', 'v', 'u'], _R.gens()):\n"
+        "    _bool_locals.setdefault(_alias, _gen)\n"
+        f"_bool_expr = _R(sage_eval({_encode_literal(expression)}, "
+        "locals=_bool_locals))\n"
     )
     ops = {
-        "evaluate": f"str(_R({_encode_literal(expression)}))",
-        "variables": (
-            f"[str(v) for v in _R({_encode_literal(expression)}).variables()]"
-        ),
-        "degree": f"int(_R({_encode_literal(expression)}).deg())",
-        "is_zero": f"bool(_R({_encode_literal(expression)}).is_zero())",
-        "is_one": f"bool(_R({_encode_literal(expression)}).is_one())",
-        "reduce": f"str(_R({_encode_literal(expression)}))",
+        "evaluate": "str(_bool_expr)",
+        "variables": "[str(v) for v in _bool_expr.variables()]",
+        "degree": "int(_bool_expr.deg())",
+        "is_zero": "bool(_bool_expr.is_zero())",
+        "is_one": "bool(_bool_expr.is_one())",
+        "reduce": "str(_bool_expr)",
     }
     if operation not in ops:
         raise ToolError(
@@ -1539,7 +1652,10 @@ async def geometry_operation(
     pts = _encode_literal(points)
     ops = {
         "distance": (
-            f"float(sqrt(sum((a-b)^2 for a, b in "
+            # "**", not "^": this expression is executed as Python, where "^"
+            # is XOR. (0-3)^2 evaluates to -1, and the sum then goes negative,
+            # so sqrt() returns a complex number and float() fails.
+            f"float(sqrt(sum((a-b)**2 for a, b in "
             f"zip({_encode_literal(points[0])}, "
             f"{_encode_literal(points[1])}))))"
             if len(points) >= 2

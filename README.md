@@ -89,10 +89,10 @@ Whether the task is symbolic calculus, number theory, linear algebra, differenti
                        │  MCP protocol (stdio or HTTP)
                        ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│  server.py --- FastMCP 3.x Application                          │
+│  app.py + tools/ --- FastMCP 3.x Application                    │
 │                                                                  │
 │  ┌─────────────┐  ┌──────────────┐  ┌────────────────────────┐  │
-│  │ 18 MCP Tools│  │ 3 Resources  │  │ Middleware              │  │
+│  │ 37 MCP Tools│  │ 3 Resources  │  │ Middleware              │  │
 │  │ (evaluate,  │  │ (session,    │  │ - Request logging       │  │
 │  │  solve,     │  │  monitoring, │  │ - Response caching      │  │
 │  │  diff, ...)│  │  docs)       │  │ - Progress heartbeats   │  │
@@ -122,7 +122,7 @@ Whether the task is symbolic calculus, number theory, linear algebra, differenti
      └────────────────────────────────────────────────┘
 ```
 
-**Request flow:** MCP client → `server.py` tool → `SageSessionManager.get_or_create()` → `SageSession.evaluate()` → JSON request to `_sage_worker.py` subprocess → AST validation → `exec()` in persistent namespace → JSON response back.
+**Request flow:** MCP client → a tool in `tools/` → `SageSessionManager.get_or_create()` → `SageSession.evaluate()` → JSON request to `_sage_worker.py` subprocess → AST validation → `exec()` in persistent namespace → JSON response back.
 
 **Key design decisions:**
 
@@ -1080,7 +1080,19 @@ sagemath-mcp/
 ├── docker-compose.yml              # Local development stack
 ├── Makefile                        # Common commands (test, lint, build, etc.)
 ├── src/sagemath_mcp/
-│   ├── server.py                   # FastMCP 3.x app: 37 tools, 3 resources, /health, middleware
+│   ├── server.py                   # Entry point: /health route, main(), and the imports that register everything
+│   ├── app.py                      # The FastMCP object, instructions, lifespan, middleware
+│   ├── runtime.py                  # Settings and the session manager
+│   ├── codegen.py                  # Prelude, literal encoding, validation gates, numeric guards
+│   ├── text.py                     # Client-facing strings shared by app and tools
+│   ├── tools/                      # The 37 tools and 3 resources, by domain
+│   │   ├── session.py              #   6 session tools + the 3 resources
+│   │   ├── core.py                 #   evaluate_sage, streaming, calculate, simplify/expand/factor, find_root
+│   │   ├── calculus.py             #   differentiate, integrate, limit, series, ODEs, sums, vector calculus
+│   │   ├── algebra.py              #   solve, matrices, polynomial rings, boolean algebra
+│   │   ├── discrete.py             #   number theory, combinatorics, graphs, groups, curves, codes
+│   │   ├── stats.py                #   statistics_summary, distribution_operation
+│   │   └── plotting.py             #   2D/3D plots and geometry
 │   ├── session.py                  # Sage worker lifecycle, session management, idle culling
 │   ├── _sage_worker.py             # Subprocess worker: code execution, AST validation, LaTeX
 │   ├── security.py                 # AST validator, SecurityPolicy, configurable allowlists

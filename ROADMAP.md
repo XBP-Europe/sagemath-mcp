@@ -24,9 +24,12 @@ evidence, a suggested fix and a verification step in
 **Status: fifteen of seventeen closed.** The validator took three rounds — direct
 spellings, then aliases of forbidden functions (`f = open`), then aliases of
 forbidden modules (`m = os`) — because each fix was checked only against the
-payloads that motivated it. The two that remain are item 4 (splitting `server.py`,
-deferred until the open PR stack merges) and the account-side half of item 7
-(Smithery and Glama submissions, which need repository-owner access).
+payloads that motivated it. Item 4 (splitting `server.py`) is now done: 2327 lines became 162, with the
+tools in a `tools/` package and the contract held byte-identical by a snapshot
+test. Item 18, found later by an external review, was a genuine remote-execution
+path through four unvalidated tool parameters and is closed. What remains is the
+account-side half of item 7 — the Smithery and Glama submissions, which need
+repository-owner access — and coverage on the newly isolated helpers.
 
 ## Competitive position (surveyed 2026-08-13)
 

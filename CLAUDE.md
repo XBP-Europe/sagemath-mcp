@@ -35,7 +35,11 @@ Ruff with line-length 100, target Python 3.12. Rules: E, F, W, B, UP, ASYNC, RUF
 
 **Source lives in `src/sagemath_mcp/`:**
 
-- `server.py` - FastMCP app, all MCP tool/resource definitions, progress heartbeats. Entry point: `main()`.
+- `server.py` - Entry point: the `/health` route, `main()`, and the imports that register the tools. Re-exports the tool functions, so `from sagemath_mcp import server` keeps working.
+- `app.py` - The FastMCP object, instructions, lifespan and middleware. Owns `mcp` so tool modules can decorate against it without importing the module that imports them.
+- `runtime.py` - `SETTINGS`, `SESSION_MANAGER` and `resolve_session()`. Read the manager through this module (never `from .runtime import SESSION_MANAGER`) so tests can swap it.
+- `codegen.py` - Building the Sage snippets: prelude, literal encoding, the validation gates and the numeric guards. Any caller string reaching a template must pass a gate — generated code runs under `trusted_policy()`, which permits `sage_eval`.
+- `tools/` - The 37 tools and 3 resources by domain: `session`, `core`, `calculus`, `algebra`, `discrete`, `stats`, `plotting`. A module missing from `tools/__init__.py` registers nothing.
 - `session.py` - `SageSessionManager` (per-client session map with asyncio locks) and `SageSession` (spawns/manages `_sage_worker.py` subprocess via JSON stdin/stdout protocol).
 - `_sage_worker.py` - Subprocess worker that executes code in a persistent namespace. Handles execute/reset/shutdown commands. Validates AST before compilation.
 - `security.py` - AST validator enforcing `SecurityPolicy`: blocks dangerous imports, eval/exec, filesystem/process APIs. Configurable via env vars.
@@ -43,7 +47,7 @@ Ruff with line-length 100, target Python 3.12. Rules: E, F, W, B, UP, ASYNC, RUF
 - `models.py` - Pydantic models for results (`EvaluateResult`, `SessionSnapshot`, `MonitoringSnapshot`).
 - `monitoring.py` - Thread-safe `EvaluationMetrics` (counters, latency, error tracking).
 
-**Request flow:** MCP client -> `server.py` tool -> `SageSessionManager.get_or_create()` -> `SageSession.evaluate()` -> JSON request to `_sage_worker.py` subprocess -> AST validation -> exec in persistent namespace -> JSON response back.
+**Request flow:** MCP client -> a tool in `tools/` -> `SageSessionManager.get_or_create()` -> `SageSession.evaluate()` -> JSON request to `_sage_worker.py` subprocess -> AST validation -> exec in persistent namespace -> JSON response back.
 
 **MCP tools (37, 31 Sage-backed):** `evaluate_sage` (core), `evaluate_sage_streaming`, `reset_sage_session`, `cancel_sage_session`, plus 29 math/domain helpers: `calculate_expression`, `solve_equation`, `differentiate_expression`, `integrate_expression`, `simplify_expression`, `expand_expression`, `factor_expression`, `limit_expression`, `series_expansion`, `symbolic_sum`, `matrix_multiply`, `matrix_operation`, `solve_ode`, `number_theory_operation`, `combinatorics_operation`, `statistics_summary`, `distribution_operation`, `plot_expression`, `plot3d_expression`, `plot_multi_expression`, `find_root`, `vector_calculus_operation`, `graph_operation`, `group_operation`, `elliptic_curve_operation`, `coding_theory_operation`, `boolean_algebra_operation`, `polynomial_ring_operation`, `geometry_operation`. Plus HTTP `/health` endpoint.
 

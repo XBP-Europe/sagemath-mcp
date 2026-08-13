@@ -30,4 +30,6 @@
 - [x] Persist idle-culled sessions and make journal filenames collision-free ([review items 14-15](REVIEW_ACTIONS.md)), with a fallback so the rename does not orphan journals written by earlier versions.
 - [x] Add named-workspace selection to every specialized worker-backed tool ([review item 16](REVIEW_ACTIONS.md)).
 - [x] Synchronize both `server.json` versions in `scripts/bump_version.py` and add a consistency test ([review item 17](REVIEW_ACTIONS.md)).
-- [ ] Remaining from the review: split `server.py` (item 4, deferred until the PR stack merges) and the account-side Smithery/Glama submissions (item 7).
+- [x] Split `server.py` into `app`/`runtime`/`codegen` and a `tools/` package ([review item 4](REVIEW_ACTIONS.md)); coverage work on the extracted helpers is deliberately separate.
+- [ ] Raise coverage on the helpers now that they are isolated in `codegen.py` (distribution mean/variance, matrix and integer rejection paths, expression fallbacks).
+- [ ] Account-side Smithery and Glama submissions ([review item 7](REVIEW_ACTIONS.md)) — needs repository-owner access.

@@ -132,6 +132,20 @@ def _execute(
             "stdout": stdout_value,
             "elapsed_ms": elapsed_ms,
         }
+    except KeyboardInterrupt:
+        # SIGINT from the parent means "abandon this computation", not "die".
+        # KeyboardInterrupt is a BaseException, so the handler below does not
+        # catch it; without this the worker would exit and take the namespace
+        # with it, which is exactly what interrupting is meant to avoid.
+        return {
+            "ok": False,
+            "stdout": stdout_buffer.getvalue() if stdout_buffer else "",
+            "error": {
+                "type": "Interrupted",
+                "message": "Computation interrupted; session state is preserved.",
+                "traceback": "",
+            },
+        }
     except Exception as exc:  # pragma: no cover - error path
         stdout_value = stdout_buffer.getvalue() if stdout_buffer else ""
         return {
@@ -147,7 +161,15 @@ def _execute(
 
 def _main() -> int:
     namespace = _build_namespace()
-    for raw in sys.stdin:
+    while True:
+        try:
+            raw = sys.stdin.readline()
+        except KeyboardInterrupt:
+            # An interrupt that lands while the worker is idle has nothing to
+            # cancel. Swallow it and keep serving rather than exiting.
+            continue
+        if not raw:
+            break
         raw = raw.strip()
         if not raw:
             continue

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import shutil
 
@@ -225,3 +226,70 @@ async def test_large_result_exceeds_asyncio_default_stream_limit():
         assert len(result.result) >= 200000
     finally:
         await session.shutdown()
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_interrupt_preserves_state_with_real_sage(monkeypatch):
+    """Interrupt against a real Sage worker, not the pure-Python shim.
+
+    Sage installs its own signal handling during startup, so the pure-Python
+    worker passing this is not evidence that Sage does.
+    """
+    settings = SageSettings(force_python_worker=False, eval_timeout=120.0)
+    manager = SageSessionManager(settings)
+    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    ctx = FakeContext("integration-interrupt")
+
+    try:
+        await server.evaluate_sage("treasure = factorial(20)", ctx=ctx)
+
+        async def long_running():
+            with pytest.raises(server.ToolError):
+                await server.evaluate_sage("sum(k for k in range(10**9))", ctx=ctx)
+
+        task = asyncio.create_task(long_running())
+        await asyncio.sleep(1.5)
+        result = await server.interrupt_sage_session(ctx=ctx)
+        assert "state preserved" in result.message
+        await task
+
+        # The namespace must have survived the interrupt.
+        kept = await server.evaluate_sage("treasure", ctx=ctx)
+        assert kept.result == str(factorial_20())
+    finally:
+        await manager.shutdown()
+
+
+def factorial_20() -> int:
+    result = 1
+    for value in range(2, 21):
+        result *= value
+    return result
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_named_sessions_isolated_with_real_sage(monkeypatch):
+    settings = SageSettings(force_python_worker=False, eval_timeout=120.0)
+    manager = SageSessionManager(settings)
+    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    ctx = FakeContext("integration-named")
+
+    try:
+        await server.evaluate_sage("E = EllipticCurve([0,-1])", session="curves", ctx=ctx)
+        await server.evaluate_sage("G = graphs.PetersenGraph()", session="graphs", ctx=ctx)
+
+        rank = await server.evaluate_sage("E.rank()", session="curves", ctx=ctx)
+        assert rank.result == "0"
+        order = await server.evaluate_sage("G.order()", session="graphs", ctx=ctx)
+        assert order.result == "10"
+
+        # Each workspace sees only its own definitions.
+        with pytest.raises(server.ToolError):
+            await server.evaluate_sage("E.rank()", session="graphs", ctx=ctx)
+
+        listed = await server.list_sage_sessions(ctx=ctx)
+        assert {entry["name"] for entry in listed["sessions"]} == {"curves", "graphs"}
+    finally:
+        await manager.shutdown()

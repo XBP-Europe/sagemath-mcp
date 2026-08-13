@@ -16,7 +16,7 @@
 
 A universal mathematics [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that gives LLM clients full access to [SageMath](https://www.sagemath.org/) --- one of the most comprehensive open-source mathematics systems available. Built on [FastMCP 3.x](https://gofastmcp.com/), the server maintains a dedicated SageMath process for each MCP session so variables, functions, and assumptions persist across tool calls.
 
-Whether the task is symbolic calculus, number theory, linear algebra, differential equations, plotting, combinatorics, graph theory, group theory, or basic arithmetic, the server provides **33 MCP tools** --- all math tools backed by the full SageMath engine, plus `evaluate_sage_streaming` (streaming wrapper) and an HTTP `/health` endpoint.
+Whether the task is symbolic calculus, number theory, linear algebra, differential equations, plotting, combinatorics, graph theory, group theory, or basic arithmetic, the server provides **37 MCP tools** --- all math tools backed by the full SageMath engine, plus `evaluate_sage_streaming` (streaming wrapper) and an HTTP `/health` endpoint.
 
 ---
 
@@ -74,7 +74,8 @@ Whether the task is symbolic calculus, number theory, linear algebra, differenti
 | **Visualization** | `plot_expression`, `plot3d_expression`, `plot_multi_expression` | Sage | 2D plots, 3D surface plots, multi-function overlays as base64-encoded PNG |
 | **Numeric methods** | `find_root` | Sage | Numeric root-finding in an interval via Sage's `find_root()` |
 | **Vector calculus** | `vector_calculus_operation` | Sage | Gradient, divergence, curl, Laplacian on scalar/vector fields |
-| **Session control** | `reset_sage_session`, `cancel_sage_session` | Worker | Clear state or abort long-running computations |
+| **Session control** | `reset_sage_session`, `interrupt_sage_session`, `cancel_sage_session` | Worker | Clear state, or stop a computation with or without keeping variables |
+| **Named workspaces** | `start_sage_session`, `list_sage_sessions`, `stop_sage_session` | Worker | Several independent variable namespaces per client |
 | **Infrastructure** | `/health` endpoint, 3 MCP resources | Server | Health check, session snapshots, aggregated metrics, documentation links |
 
 ---
@@ -663,11 +664,47 @@ Clear all variables, functions, and definitions in the current session. The unde
 
 **Returns:** `{"message": "Session cleared"}`
 
+#### `interrupt_sage_session`
+
+Stop a running computation **while keeping every variable defined so far**. The worker is signalled, abandons the current statement, and stays alive with its namespace intact. The interrupted call returns an `Interrupted` error.
+
+Prefer this over `cancel_sage_session` — cancelling discards state that may have been expensive to build.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `session` | `string` | `"default"` | Named workspace to interrupt. |
+
+**Returns:** `{"message": "Interrupted session 'default'; state preserved"}`
+
+Interrupting when nothing is running is reported, not an error. POSIX only.
+
 #### `cancel_sage_session`
 
-Abort any in-flight computation by killing the worker process and starting a new one. Use this when a computation is stuck or taking too long. All session state is lost.
+Abort any in-flight computation by killing the worker process and starting a new one. **All session state is lost** — reach for this only when the worker is wedged badly enough that interrupting does not help.
 
 **Returns:** `{"message": "Session cancelled and restarted"}`
+
+#### `start_sage_session`, `list_sage_sessions`, `stop_sage_session`
+
+One client can hold several independent workspaces. Variables defined in one are invisible to the others, so a long-running exploration and a quick scratch calculation need not collide.
+
+```
+> start_sage_session(name="curves")
+> evaluate_sage(code="E = EllipticCurve([0,-1])", session="curves")
+> evaluate_sage(code="G = graphs.PetersenGraph()", session="graphs")
+
+> evaluate_sage(code="E.rank()", session="curves")
+  0
+> evaluate_sage(code="E.rank()", session="graphs")     # not defined here
+  NameError
+
+> list_sage_sessions()
+  {"sessions": [{"name": "curves", "alive": true, "statements": 2}, ...], "count": 2}
+
+> stop_sage_session(name="curves")
+```
+
+Every tool that touches session state accepts the same optional `session` argument. Omitting it uses the `default` workspace, which is the behaviour of every earlier version.
 
 #### MCP Resources
 
@@ -976,7 +1013,7 @@ sagemath-mcp/
 ├── docker-compose.yml              # Local development stack
 ├── Makefile                        # Common commands (test, lint, build, etc.)
 ├── src/sagemath_mcp/
-│   ├── server.py                   # FastMCP 3.x app: 33 tools, 3 resources, /health, middleware
+│   ├── server.py                   # FastMCP 3.x app: 37 tools, 3 resources, /health, middleware
 │   ├── session.py                  # Sage worker lifecycle, session management, idle culling
 │   ├── _sage_worker.py             # Subprocess worker: code execution, AST validation, LaTeX
 │   ├── security.py                 # AST validator, SecurityPolicy, configurable allowlists
@@ -1041,7 +1078,7 @@ sagemath-mcp/
 
 #### New MCP Tools (18 tools added)
 
-The server grew from a single `evaluate_sage` tool to a comprehensive mathematics toolkit with 33 MCP tools (31 Sage-backed, 2 infrastructure). Each tool accepts structured parameters, runs through the AST security validator, and returns typed JSON responses.
+The server grew from a single `evaluate_sage` tool to a comprehensive mathematics toolkit with 37 MCP tools (31 Sage-backed, 6 infrastructure). Each tool accepts structured parameters, runs through the AST security validator, and returns typed JSON responses.
 
 **Calculus (4 tools):**
 - `differentiate_expression` --- symbolic derivatives of any order. Supports all Sage-recognized expressions including trigonometric, exponential, logarithmic, and user-defined functions. The `order` parameter handles higher-order derivatives without repeated calls.

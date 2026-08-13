@@ -39,7 +39,7 @@ sage -python -m uv run sagemath-mcp --transport streamable-http --host 0.0.0.0 -
 ```
 The server advertises its MCP endpoint at `http://HOST:PORT/mcp`.
 
-## Available Tools & Resources (33 tools, 3 resources)
+## Available Tools & Resources (37 tools, 3 resources)
 
 All math tools use **SageMath** as the computation backend.
 

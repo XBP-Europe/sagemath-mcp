@@ -2,7 +2,7 @@
 
 This document tracks planned improvements to the SageMath MCP server, organized by priority and effort. The goal is to strengthen the server's position as a universal mathematics MCP server that enables LLMs to perform any symbolic or discrete mathematical operation.
 
-**Current state (v0.4.0):** 33 MCP tools (31 Sage-backed, 2 infrastructure) covering calculus, algebra, linear algebra, ODEs, number theory, combinatorics, graph theory, group theory, elliptic curves, coding theory, boolean algebra, polynomial rings, geometry, probability, vector calculus, statistics, 2D/3D plotting, numeric root-finding, and streaming execution. 246 unit tests, and 319 tests against a real SageMath 10.9 runtime, plus 43 CLI integration tests.
+**Current state (v0.4.0):** 37 MCP tools (31 Sage-backed, 6 infrastructure) covering calculus, algebra, linear algebra, ODEs, number theory, combinatorics, graph theory, group theory, elliptic curves, coding theory, boolean algebra, polynomial rings, geometry, probability, vector calculus, statistics, 2D/3D plotting, numeric root-finding, and streaming execution. 258 unit tests, and 333 tests against a real SageMath 10.9 runtime, plus 43 CLI integration tests.
 
 Integration coverage now includes every tool exercised against the examples in its own
 documentation, and a syntax matrix over the input spellings each tool must accept. Both
@@ -17,7 +17,7 @@ nothing at all.
 
 | Project | Stars | Language | Tools | Session model | Last push |
 |---------|------:|----------|------:|---------------|-----------|
-| **this project** | **12** | Python | **33** | Subprocess per client, persistent namespace | active |
+| **this project** | **12** | Python | **37** | Subprocess per client, named workspaces, interrupt | active |
 | [GaloisHLee/mcp-server-sagemath](https://github.com/GaloisHLee/mcp-server-sagemath) | 11 | TypeScript | 3 | Explicitly stateless | 2025-12 |
 | [sanshanjianke/scicompute-mcp](https://github.com/sanshanjianke/scicompute-mcp) | 4 | Python | multi-backend | Persistent | 2026-04 |
 | [justice8096/sagemath-mcp-server](https://github.com/justice8096/sagemath-mcp-server) | 1 | — | 10 | — | 2026-05 |
@@ -36,8 +36,8 @@ The adjacent market is roughly five times larger and is where attention actually
   effectively allowing arbitrary code execution". No SageMath peer documents a sandbox at
   all. The AST validator with a configurable policy is the clearest differentiator, and
   only [Eis4TY/Sym-MCP](https://github.com/Eis4TY/Sym-MCP) shares the approach.
-- **Tool surface.** 33 against 3, 5 and 10 for the SageMath peers.
-- **Verification.** 246 unit and 319 real-runtime tests; peer test coverage is largely
+- **Tool surface.** 37 against 3, 5 and 10 for the SageMath peers.
+- **Verification.** 258 unit and 333 real-runtime tests; peer test coverage is largely
   invisible.
 - **Documentation.** 1218 README lines against 481, 284, 187 and 89.
 - **Operations.** Helm chart, Cosign-signed images, monitoring resource, health endpoint.
@@ -52,11 +52,8 @@ The adjacent market is roughly five times larger and is where attention actually
    clean separation of stdout / stderr / return values, native interrupt support, and
    robust multi-line input". Those are precisely the problems this project solved by
    hand, and a framing bug in that hand-rolled layer surfaced as recently as v0.4.0.
-2. **Interrupt versus restart.** Their `sage_interrupt` sends Ctrl+C and keeps session
-   state. `cancel_sage_session` restarts the worker and discards it, which is the worse
-   outcome when the state was expensive to build.
-3. **One session per client.** They expose `sage_start`, `sage_list` and `sage_stop` for
-   several named sessions at once.
+2. ~~**Interrupt versus restart.**~~ Closed by `interrupt_sage_session`.
+3. ~~**One session per client.**~~ Closed by `start` / `list` / `stop_sage_session`.
 4. **Install friction.** `uvx mcp-sage` runs with no install via PEP 723 inline
    dependencies. This project needs a local SageMath or a ~3 GB image.
 5. **Academic anchor.** Their server is cited in a NeSy 2026 paper. This project has no
@@ -79,15 +76,25 @@ At the time of the survey the only SageMath server in the official registry was
 publication requires the ownership marker to be present in the *published* PyPI
 description, so it takes effect from the first release after this change.
 
-## Planned — Tier 2: Session ergonomics
+## Tier 2: Session ergonomics (done 2026-08-13)
 
-The two capabilities where a one-star project is genuinely ahead. Neither needs an
+The two capabilities where a one-star project was genuinely ahead. Neither needed an
 architectural change.
 
-- [ ] **Interrupt without restart.** Signal the worker and keep the namespace, leaving
-      `cancel_sage_session` as the escape hatch when the worker is unrecoverable.
-- [ ] **Named multi-sessions.** `start` / `list` / `stop` alongside the implicit
-      per-client session, so one client can hold several independent workspaces.
+- [x] **Interrupt without restart.** `interrupt_sage_session` signals the worker, which
+      turns the resulting KeyboardInterrupt into an `Interrupted` response and keeps its
+      namespace. `cancel_sage_session` remains the escape hatch for a wedged worker.
+- [x] **Named multi-sessions.** `start_sage_session`, `list_sage_sessions` and
+      `stop_sage_session`, with an optional `session` argument on the state-bearing
+      tools. The default workspace keys on the bare scope, so existing behaviour and
+      persisted journals are unchanged.
+
+Two details worth remembering. `interrupt` deliberately does not take the session lock:
+the evaluation being interrupted holds it, so waiting would deadlock until the
+computation everyone is trying to stop finishes on its own. And the worker's
+`except Exception` did not catch `KeyboardInterrupt`, which is a `BaseException` — without
+handling it explicitly the worker exited and took the namespace with it, defeating the
+purpose.
 
 ## Under consideration — Tier 3: Jupyter kernel transport
 
@@ -99,7 +106,7 @@ cannot be lost in the move. Prototype before committing.
 
 ## Explicitly not planned
 
-**More tools.** At 33 the surface already exceeds every peer. The gaps that matter are
+**More tools.** At 37 the surface already exceeds every peer. The gaps that matter are
 distribution and session ergonomics, not coverage.
 
 ---

@@ -30,12 +30,18 @@ from .models import (
     SessionSnapshot,
 )
 from .session import (
+    DEFAULT_SESSION_NAME,
     SageEvaluationError,
     SageProcessError,
     SageSessionManager,
 )
 
 LOGGER = logging.getLogger(__name__)
+
+_SESSION_ARG_DESC = (
+    "Named workspace to use. Workspaces have independent variables; "
+    f"omit for '{DEFAULT_SESSION_NAME}'."
+)
 
 MCP_INSTRUCTIONS = """
 You are connected to a dedicated SageMath runtime. Each MCP session gets its own
@@ -179,18 +185,19 @@ async def evaluate_sage(
             default=None,
         ),
     ] = None,
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> EvaluateResult:
     """Run SageMath code, preserving state within the caller's MCP session."""
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    sage_session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     progress_task: asyncio.Task[None] | None = None
     if ctx is not None:
         await ctx.info("Starting SageMath evaluation")
         progress_task = asyncio.create_task(_progress_heartbeat(ctx))
     try:
-        worker_result = await session.evaluate(
+        worker_result = await sage_session.evaluate(
             code,
             want_latex=want_latex,
             capture_stdout=capture_stdout,
@@ -243,23 +250,102 @@ async def evaluate_sage(
 
 
 @mcp.tool(description="Reset the SageMath session state for the current MCP session")
-async def reset_sage_session(ctx: Context | None = None) -> ResetResponse:
+async def reset_sage_session(
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
+    ctx: Context | None = None,
+) -> ResetResponse:
     """Reset the Sage session associated with the current MCP session."""
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required to reset state")
-    await SESSION_MANAGER.reset(ctx.session_id)
-    await ctx.info("Sage session reset")
+    await SESSION_MANAGER.reset(SESSION_MANAGER.key_for(ctx.session_id, session))
+    await ctx.info(f"Sage session '{session}' reset")
     return ResetResponse()
 
 
+@mcp.tool(
+    description="Interrupt a running Sage computation while keeping variables defined so far"
+)
+async def interrupt_sage_session(
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
+    ctx: Context | None = None,
+) -> ResetResponse:
+    """Signal the worker to abandon its computation without losing state.
+
+    Prefer this over cancel_sage_session: cancelling restarts the worker and
+    discards every variable, which is the worse outcome when the state was
+    expensive to build.
+    """
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required to interrupt work")
+    key = SESSION_MANAGER.key_for(ctx.session_id, session)
+    interrupted = await SESSION_MANAGER.interrupt(key)
+    if not interrupted:
+        # No worker to signal: either nothing has run yet in this workspace, or
+        # it has already exited. Not an error, but say which.
+        await ctx.info(f"No running Sage worker for session '{session}'")
+        return ResetResponse(message=f"No running computation in session '{session}'")
+    await ctx.warning(f"Interrupted session '{session}'; state preserved")
+    return ResetResponse(message=f"Interrupted session '{session}'; state preserved")
+
+
 @mcp.tool(description="Cancel any running Sage computation and restart the worker")
-async def cancel_sage_session(ctx: Context | None = None) -> ResetResponse:
-    """Cancel in-flight work by restarting the backing Sage worker."""
+async def cancel_sage_session(
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
+    ctx: Context | None = None,
+) -> ResetResponse:
+    """Cancel in-flight work by restarting the backing Sage worker.
+
+    This discards the namespace. Use interrupt_sage_session to stop a
+    computation while keeping it.
+    """
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required to cancel work")
-    await SESSION_MANAGER.cancel(ctx.session_id)
-    await ctx.warning("Sage session cancelled and restarted")
+    await SESSION_MANAGER.cancel(SESSION_MANAGER.key_for(ctx.session_id, session))
+    await ctx.warning(f"Sage session '{session}' cancelled and restarted")
     return ResetResponse(message="Session cancelled and restarted")
+
+
+@mcp.tool(description="Start a named Sage workspace with its own independent variables")
+async def start_sage_session(
+    name: Annotated[str, Field(description="Workspace name, e.g. 'curves' or 'scratch'")],
+    ctx: Context | None = None,
+) -> ResetResponse:
+    """Create a named workspace so one client can hold several at once.
+
+    Workspaces are independent: a variable defined in one is invisible to the
+    others. Calling this for an existing name is harmless.
+    """
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required to start a session")
+    if not name.strip():
+        raise ToolError("Session name must not be empty")
+    await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, name))
+    await ctx.info(f"Started Sage session '{name}'")
+    return ResetResponse(message=f"Session '{name}' ready")
+
+
+@mcp.tool(description="List the named Sage workspaces belonging to this client")
+async def list_sage_sessions(ctx: Context | None = None) -> dict:
+    """Report every workspace for this client, with liveness and statement counts."""
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required to list sessions")
+    sessions = await SESSION_MANAGER.list_for_scope(ctx.session_id)
+    return {"sessions": sessions, "count": len(sessions)}
+
+
+@mcp.tool(description="Stop a named Sage workspace and release its worker")
+async def stop_sage_session(
+    name: Annotated[str, Field(description="Workspace name to stop")],
+    ctx: Context | None = None,
+) -> ResetResponse:
+    """Terminate one workspace. Other workspaces are unaffected."""
+    if ctx is None or ctx.session_id is None:
+        raise ToolError("MCP context with session_id is required to stop a session")
+    stopped = await SESSION_MANAGER.stop(ctx.session_id, name)
+    if not stopped:
+        raise ToolError(f"No Sage session named '{name}' for this client")
+    await ctx.info(f"Stopped Sage session '{name}'")
+    return ResetResponse(message=f"Session '{name}' stopped")
 
 
 @mcp.resource("resource://sagemath/session/{scope}")

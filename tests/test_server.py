@@ -7,6 +7,7 @@ import pytest
 from fastmcp.exceptions import ToolError
 
 from sagemath_mcp import server
+from sagemath_mcp.config import SageSettings
 from sagemath_mcp.models import EvaluateResult
 from sagemath_mcp.monitoring import reset_metrics
 from sagemath_mcp.session import SageEvaluationError, SageSessionManager, WorkerResult
@@ -2000,3 +2001,64 @@ async def test_calculate_expression_with_sage(monkeypatch):
         assert result["numeric"] == 120.0
     finally:
         await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_session_tools_require_context():
+    """Every session tool needs a session_id to scope the workspace."""
+    for call in (
+        lambda: server.interrupt_sage_session(ctx=None),
+        lambda: server.start_sage_session("x", ctx=None),
+        lambda: server.list_sage_sessions(ctx=None),
+        lambda: server.stop_sage_session("x", ctx=None),
+    ):
+        with pytest.raises(ToolError):
+            await call()
+
+
+@pytest.mark.asyncio
+async def test_start_sage_session_rejects_blank_name(monkeypatch):
+    session = StubSession("None")
+    await _stub_manager(monkeypatch, session)
+    with pytest.raises(ToolError, match="must not be empty"):
+        await server.start_sage_session("   ", ctx=FakeContext())
+
+
+@pytest.mark.asyncio
+async def test_stop_unknown_session_reports_clearly(monkeypatch):
+    """Stopping a workspace that does not exist must say so, not fail silently."""
+    manager = SageSessionManager(SageSettings(force_python_worker=True))
+    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    with pytest.raises(ToolError, match="No Sage session named"):
+        await server.stop_sage_session("absent", ctx=FakeContext("scope"))
+
+
+@pytest.mark.asyncio
+async def test_interrupt_without_worker_is_not_an_error(monkeypatch):
+    """Nothing running is a normal outcome, reported rather than raised."""
+    manager = SageSessionManager(SageSettings(force_python_worker=True))
+    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    result = await server.interrupt_sage_session(ctx=FakeContext("scope"))
+    assert "No running computation" in result.message
+
+
+@pytest.mark.asyncio
+async def test_named_sessions_listed_per_client(monkeypatch):
+    manager = SageSessionManager(SageSettings(force_python_worker=True))
+    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    ctx = FakeContext("client-a")
+    try:
+        await server.start_sage_session("alpha", ctx=ctx)
+        await server.start_sage_session("beta", ctx=ctx)
+        # A different client must not see them.
+        other = await server.list_sage_sessions(ctx=FakeContext("client-b"))
+        assert other["count"] == 0
+
+        listed = await server.list_sage_sessions(ctx=ctx)
+        assert [entry["name"] for entry in listed["sessions"]] == ["alpha", "beta"]
+
+        await server.stop_sage_session("alpha", ctx=ctx)
+        listed = await server.list_sage_sessions(ctx=ctx)
+        assert [entry["name"] for entry in listed["sessions"]] == ["beta"]
+    finally:
+        await manager.shutdown()

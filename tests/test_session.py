@@ -1,3 +1,4 @@
+import asyncio
 import sys
 
 import pytest
@@ -691,3 +692,122 @@ async def test_manager_shutdown_journal_save_failure(tmp_path, python_settings):
     # shutdown should not propagate the exception
     await manager.shutdown()
     assert manager.snapshot() == []
+
+
+@pytest.mark.asyncio
+async def test_interrupt_preserves_namespace(python_settings):
+    """Interrupting must abandon the computation, not the variables.
+
+    This is the difference from cancel(), which restarts the worker and drops
+    everything the caller has built up.
+    """
+    session = SageSession("interrupt-keeps-state", python_settings)
+    try:
+        await session.evaluate("treasure = 12345", want_latex=False, capture_stdout=False)
+
+        async def long_running():
+            with pytest.raises(SageEvaluationError) as excinfo:
+                await session.evaluate(
+                    "x = 0\nfor i in range(10**9):\n    x += i\nx",
+                    want_latex=False,
+                    capture_stdout=False,
+                )
+            return excinfo.value
+
+        task = asyncio.create_task(long_running())
+        await asyncio.sleep(0.5)
+        assert await session.interrupt() is True
+        error = await task
+        assert error.error_type == "Interrupted"
+
+        # The whole point: state survived.
+        result = await session.evaluate("treasure", want_latex=False, capture_stdout=False)
+        assert result.result == "12345"
+    finally:
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_interrupt_reports_when_no_worker(python_settings):
+    """Interrupting a session that never started is a no-op, not an error."""
+    session = SageSession("interrupt-no-worker", python_settings)
+    assert await session.interrupt() is False
+
+
+@pytest.mark.asyncio
+async def test_interrupt_while_idle_leaves_worker_usable(python_settings):
+    """A stray interrupt with nothing running must not kill the worker."""
+    session = SageSession("interrupt-idle", python_settings)
+    try:
+        await session.evaluate("kept = 7", want_latex=False, capture_stdout=False)
+        assert await session.interrupt() is True
+        await asyncio.sleep(0.3)
+        result = await session.evaluate("kept", want_latex=False, capture_stdout=False)
+        assert result.result == "7"
+    finally:
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_named_sessions_are_isolated(python_settings):
+    """Workspaces under one client must not share variables."""
+    manager = SageSessionManager(python_settings)
+    try:
+        curves = await manager.get(manager.key_for("client", "curves"))
+        scratch = await manager.get(manager.key_for("client", "scratch"))
+        assert curves is not scratch
+
+        await curves.evaluate("only_here = 1", want_latex=False, capture_stdout=False)
+        with pytest.raises(SageEvaluationError):
+            await scratch.evaluate("only_here", want_latex=False, capture_stdout=False)
+    finally:
+        await manager.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_default_session_key_is_unchanged(python_settings):
+    """The default workspace keys on the bare scope.
+
+    Journal filenames derive from the key, so changing this would orphan every
+    previously persisted session.
+    """
+    manager = SageSessionManager(python_settings)
+    assert manager.key_for("client") == "client"
+    assert manager.key_for("client", "default") == "client"
+    assert manager.key_for("client", "curves") == "client::curves"
+    assert manager.split_key("client") == ("client", "default")
+    assert manager.split_key("client::curves") == ("client", "curves")
+
+
+@pytest.mark.asyncio
+async def test_list_and_stop_named_sessions(python_settings):
+    manager = SageSessionManager(python_settings)
+    try:
+        await manager.get(manager.key_for("alice", "a"))
+        await manager.get(manager.key_for("alice", "b"))
+        await manager.get(manager.key_for("bob", "c"))
+
+        listed = await manager.list_for_scope("alice")
+        assert [entry["name"] for entry in listed] == ["a", "b"]
+        assert all(entry["alive"] for entry in listed)
+
+        assert await manager.stop("alice", "a") is True
+        assert [e["name"] for e in await manager.list_for_scope("alice")] == ["b"]
+        # Other clients are unaffected.
+        assert [e["name"] for e in await manager.list_for_scope("bob")] == ["c"]
+        # Stopping something that is not there reports it rather than raising.
+        assert await manager.stop("alice", "a") is False
+    finally:
+        await manager.shutdown()
+
+
+def test_named_session_journal_filename_is_safe(tmp_path):
+    """"::" must not reach the filesystem."""
+    settings = SageSettings(
+        force_python_worker=True, persist_sessions=True, persist_dir=str(tmp_path)
+    )
+    session = SageSession("client::curves", settings)
+    path = session._persist_path()
+    assert path is not None
+    assert "::" not in path.name
+    assert path.name == "client__curves.journal.json"

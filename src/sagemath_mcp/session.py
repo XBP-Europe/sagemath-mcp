@@ -7,7 +7,9 @@ import contextlib
 import json
 import logging
 import os
+import re
 import shutil
+import signal
 import sys
 import time
 import uuid
@@ -18,6 +20,12 @@ from .config import DEFAULT_SETTINGS, SageSettings
 
 LOGGER = logging.getLogger(__name__)
 _PROJECT_ROOT = str(Path(__file__).resolve().parents[1])
+
+# Workspace used when a caller does not name one.
+DEFAULT_SESSION_NAME = "default"
+# Separates the MCP client scope from the workspace name in a storage key.
+# Chosen so it cannot collide with a name a caller might pick.
+_NAME_SEPARATOR = "::"
 
 # Buffer for a single JSON response line from the worker. asyncio defaults to
 # 64 KiB, which is smaller than legitimate results such as a base64-encoded
@@ -180,7 +188,11 @@ class SageSession:
             return None
         d = Path(self.settings.persist_dir)
         d.mkdir(parents=True, exist_ok=True)
-        return d / f"{self.session_id}.journal.json"
+        # Named workspaces carry "scope::name" as their id, and neither ":" nor
+        # a path separator belongs in a filename. Default sessions key on the
+        # bare scope, so their filenames are unchanged.
+        safe_id = re.sub(r"[^A-Za-z0-9._-]", "_", self.session_id)
+        return d / f"{safe_id}.journal.json"
 
     def save_journal(self) -> None:
         """Write the code journal to disk for later restoration."""
@@ -232,8 +244,37 @@ class SageSession:
         self._code_journal.clear()
         self.last_used_at = time.time()
 
+    async def interrupt(self) -> bool:
+        """Abort the running computation but keep the namespace.
+
+        Deliberately does not take ``self._lock``: the evaluation being
+        interrupted is holding it, so waiting for it would deadlock until the
+        computation everyone is trying to stop finishes on its own.
+
+        The worker turns the resulting KeyboardInterrupt into an "Interrupted"
+        error response, so the in-flight ``evaluate`` returns normally and every
+        variable defined so far survives. Contrast ``cancel``, which restarts
+        the worker and discards the namespace.
+
+        Returns False when there is no live worker to signal. POSIX only.
+        """
+        if not self._process or self._process.returncode is not None:
+            return False
+        LOGGER.info("Interrupting Sage session %s (pid=%s)", self.session_id, self._process.pid)
+        try:
+            self._process.send_signal(signal.SIGINT)
+        except (ProcessLookupError, OSError) as exc:
+            LOGGER.warning("Could not interrupt session %s: %s", self.session_id, exc)
+            return False
+        self.last_used_at = time.time()
+        return True
+
     async def cancel(self) -> None:
-        """Restart the worker to cooperatively cancel any in-flight computation."""
+        """Restart the worker to cooperatively cancel any in-flight computation.
+
+        This discards the namespace. Prefer ``interrupt`` unless the worker is
+        wedged badly enough that signalling it does not help.
+        """
         LOGGER.info("Cancelling Sage session %s", self.session_id)
         await self._restart_worker()
         self.last_used_at = time.time()
@@ -293,6 +334,53 @@ class SageSessionManager:
         self._sessions: dict[str, SageSession] = {}
         self._lock = asyncio.Lock()
 
+    @staticmethod
+    def key_for(scope: str, name: str = DEFAULT_SESSION_NAME) -> str:
+        """Storage key for a named workspace within an MCP client scope.
+
+        The default workspace keys on the bare scope, so keys and their journal
+        filenames are unchanged from before named sessions existed.
+        """
+        name = (name or DEFAULT_SESSION_NAME).strip() or DEFAULT_SESSION_NAME
+        return scope if name == DEFAULT_SESSION_NAME else f"{scope}{_NAME_SEPARATOR}{name}"
+
+    @staticmethod
+    def split_key(key: str) -> tuple[str, str]:
+        """Inverse of key_for: recover (scope, name)."""
+        scope, sep, name = key.partition(_NAME_SEPARATOR)
+        return (scope, name) if sep else (key, DEFAULT_SESSION_NAME)
+
+    async def list_for_scope(self, scope: str) -> list[dict[str, object]]:
+        """Describe every workspace belonging to one MCP client."""
+        async with self._lock:
+            items = [
+                (key, session)
+                for key, session in self._sessions.items()
+                if self.split_key(key)[0] == scope
+            ]
+        return [
+            {
+                "name": self.split_key(key)[1],
+                "alive": session.is_alive(),
+                "started_at": session.started_at,
+                "last_used_at": session.last_used_at,
+                "statements": len(session._code_journal),
+            }
+            for key, session in sorted(items, key=lambda pair: self.split_key(pair[0])[1])
+        ]
+
+    async def stop(self, scope: str, name: str) -> bool:
+        """Shut down one named workspace. Returns False if it did not exist."""
+        key = self.key_for(scope, name)
+        async with self._lock:
+            session = self._sessions.pop(key, None)
+        if session is None:
+            return False
+        with contextlib.suppress(Exception):
+            session.save_journal()
+        await session.shutdown()
+        return True
+
     async def get(self, session_id: str) -> SageSession:
         async with self._lock:
             session = self._sessions.get(session_id)
@@ -320,6 +408,14 @@ class SageSessionManager:
     async def cancel(self, session_id: str) -> None:
         session = await self.get(session_id)
         await session.cancel()
+
+    async def interrupt(self, session_id: str) -> bool:
+        """Signal a running computation without creating a session if absent."""
+        async with self._lock:
+            session = self._sessions.get(session_id)
+        if session is None:
+            return False
+        return await session.interrupt()
 
     async def cull_idle(self) -> None:
         now = time.time()

@@ -5,6 +5,22 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`interrupt_sage_session`** stops a running computation while keeping every variable
+  defined so far. The worker turns the signal into an `Interrupted` response rather than
+  exiting, so the namespace survives. `cancel_sage_session` still restarts the worker and
+  is now documented as the escape hatch for a wedged one, not the first resort. POSIX
+  only.
+- **Named workspaces.** `start_sage_session`, `list_sage_sessions` and
+  `stop_sage_session`, plus an optional `session` argument on the tools that carry state.
+  Workspaces have independent variables, so a long exploration and a scratch calculation
+  no longer collide. Omitting `session` uses `default`, which behaves exactly as before,
+  and the default workspace still keys on the bare client scope so persisted journals
+  keep working.
+
 ## [0.4.0] - 2026-08-13
 
 A correctness release. Several tools returned wrong values or did not work at all,

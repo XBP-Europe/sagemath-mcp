@@ -77,7 +77,7 @@ jobs:
     needs: [lint, test]
     services:
       sage:
-        image: sagemath/sagemath:10.5
+        image: sagemath/sagemath:10.9
         options: --name sage-mcp-ci
     steps:
       - uses: actions/checkout@v6

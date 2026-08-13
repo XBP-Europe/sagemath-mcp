@@ -11,7 +11,7 @@ The project delivers a comprehensive mathematics MCP server with 33 tools (31 Sa
 - **33 MCP tools** (30 Sage-backed) covering calculus, algebra, linear algebra, ODEs, number theory, combinatorics, graph theory, group theory, elliptic curves, coding theory, boolean algebra, polynomial rings, geometry, probability, vector calculus, statistics, and visualization — plus the open-ended `evaluate_sage` escape hatch
 - **Stateful sessions** — persistent Sage worker per client, variables survive across calls
 - **Security** — AST-based validation blocking dangerous operations, configurable policy
-- **Infrastructure** — Docker (pinned to SageMath 10.5), Helm with health probes, CI/CD with 6 parallel jobs, pip-audit, coverage reporting
+- **Infrastructure** — Docker (pinned to SageMath 10.9), Helm with health probes, CI/CD with 6 parallel jobs, pip-audit, coverage reporting
 - **Testing** — 242 unit tests at 99% branch coverage, plus 43 CLI integration tests across 9 math domains
 - **`evaluate_sage`** — enriched tool description with domain-specific examples so LLMs know what Sage can do
 

@@ -1,0 +1,19 @@
+# Keep the build context small. Without this, `COPY . /workspace` ingests the
+# local .venv and .git, which makes the `chown -R` layer extremely slow and
+# bakes a host-built virtualenv into the image. CI creates .venv before running
+# `docker compose up --build`, so this matters there too.
+.venv
+.git
+.github
+.pytest_cache
+.ruff_cache
+.mypy_cache
+__pycache__/
+*.pyc
+.coverage
+htmlcov
+dist
+build
+*.egg-info
+integration.log
+integration-artifacts.tar.gz

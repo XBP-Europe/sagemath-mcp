@@ -8,7 +8,7 @@
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-purple)](https://modelcontextprotocol.io/)
 [![FastMCP](https://img.shields.io/badge/FastMCP-3.2-green.svg)](https://gofastmcp.com/)
-[![SageMath](https://img.shields.io/badge/SageMath-10.5-orange)](https://www.sagemath.org/)
+[![SageMath](https://img.shields.io/badge/SageMath-10.9-orange)](https://www.sagemath.org/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://docs.astral.sh/ruff/)
 [![Typed](https://img.shields.io/badge/type--checked-py.typed-blue)](https://peps.python.org/pep-0561/)
 
@@ -1110,7 +1110,7 @@ A new end-to-end test suite validates the MCP server through real LLM CLI invoca
 - **GitHub Actions Node.js 24** --- all actions bumped: `checkout@v5`, `setup-uv@v7`, `setup-python@v6`, `download-artifact@v6`, `build-push-action@v6`, `upload-artifact@v4`.
 
 **Docker:**
-- Base image pinned from `sagemath/sagemath:latest` to `sagemath/sagemath:10.5` for reproducible builds. The `latest` tag was non-deterministic and could break builds when SageMath released new versions.
+- Base image pinned from `sagemath/sagemath:latest` to a pinned release (currently `sagemath/sagemath:10.9`) for reproducible builds. The `latest` tag was non-deterministic and could break builds when SageMath released new versions.
 
 **Kubernetes (Helm chart):**
 - Added **liveness probe** (TCP socket on HTTP port, 30s initial delay, 15s period, 3 failure threshold) --- restarts the pod if the server becomes unresponsive.

@@ -44,7 +44,19 @@ def _build_namespace() -> dict[str, Any]:
                 file=sys.stderr,
             )
     ns["__builtins__"] = _restricted_builtins()
+    _strip_forbidden_modules(ns)
     return ns
+
+
+def _strip_forbidden_modules(ns: dict[str, Any]) -> None:
+    """Drop module objects the policy forbids from the user namespace.
+
+    `from sage.all import *` binds os, sys and friends as ordinary globals, so
+    `m = os` handed caller code the real module. The validator now refuses to
+    read those names, and this makes the object unreachable even if it does.
+    """
+    for name in SECURITY_POLICY.forbidden_attribute_parents:
+        ns.pop(name, None)
 
 
 # Builtins that are dangerous in this context and have no place in a maths

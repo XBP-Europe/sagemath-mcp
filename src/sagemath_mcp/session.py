@@ -21,6 +21,12 @@ from pathlib import Path
 from .config import DEFAULT_SETTINGS, SageSettings
 
 LOGGER = logging.getLogger(__name__)
+
+# Subdirectory holding journals written by the current naming scheme.
+_JOURNAL_NAMESPACE = "v2"
+
+# How many non-matching lines to skip before declaring the worker unusable.
+_MAX_DISCARDED_RESPONSES = 64
 _PROJECT_ROOT = str(Path(__file__).resolve().parents[1])
 
 # Workspace used when a caller does not name one.
@@ -146,6 +152,7 @@ class SageSession:
         replay after completion.
         """
         assert self._process and self._process.stdout
+        discarded = 0
         while True:
             raw = await self._process.stdout.readline()
             if not raw:
@@ -160,9 +167,21 @@ class SageSession:
                     await on_stdout(message.get("text", ""))
                 continue
             incoming = message.get("id")
-            if incoming is not None and incoming != request_id:
+            if incoming != request_id:
+                # Including id-less lines. Accepting those let anything the
+                # worker printed stand in for the answer to this request.
+                discarded += 1
+                if discarded > _MAX_DISCARDED_RESPONSES:
+                    # Bounded, because "keep reading until the right id turns
+                    # up" is unbounded when the peer keeps repeating itself: a
+                    # worker stuck on one line spun here until the process ran
+                    # out of memory.
+                    raise SageProcessError(
+                        f"Sage worker sent {discarded} responses that do not answer "
+                        f"request {request_id}; abandoning it."
+                    )
                 LOGGER.warning(
-                    "Discarding stale worker response %s in %s (waiting for %s)",
+                    "Discarding stale worker response %r in %s (waiting for %s)",
                     incoming, self.session_id, request_id,
                 )
                 continue
@@ -205,6 +224,16 @@ class SageSession:
                 raise TimeoutError(
                     f"Sage evaluation timed out after {effective_timeout:.2f}s"
                 ) from exc
+            except asyncio.CancelledError:
+                # The caller went away, but the worker is still computing: the
+                # next request would queue behind a computation nobody wants.
+                # Only evaluate_sage used to handle this, by restarting the
+                # worker; streaming and the specialised tools left it running.
+                # Interrupting here covers all three and keeps the namespace,
+                # and the resulting "Interrupted" response is discarded by the
+                # id check in _read_response.
+                await self.interrupt()
+                raise
             if not raw:
                 raise SageProcessError("Sage worker terminated unexpectedly.")
         self.last_used_at = time.time()
@@ -229,7 +258,11 @@ class SageSession:
         """Return the journal file path if persistence is enabled."""
         if not self.settings.persist_sessions or not self.settings.persist_dir:
             return None
-        d = Path(self.settings.persist_dir)
+        # Versioned namespace: digest-named files live in their own directory
+        # so they cannot collide with a legacy flat file that happens to share a
+        # name, and so a future scheme change is a new directory rather than
+        # another round of ambiguity.
+        d = Path(self.settings.persist_dir) / _JOURNAL_NAMESPACE
         d.mkdir(parents=True, exist_ok=True)
         return d / f"{self._journal_stem()}.journal.json"
 
@@ -245,12 +278,17 @@ class SageSession:
         if not self.settings.persist_sessions or not self.settings.persist_dir:
             return []
         d = Path(self.settings.persist_dir)
-        candidates = [
-            d / f"{self.session_id}.journal.json",
-            d / f"{re.sub(r'[^A-Za-z0-9._-]', '_', self.session_id)}.journal.json",
-        ]
-        # Deduplicate while preserving order; for default sessions the two are
-        # the same path.
+        # The un-namespaced digest file, from the scheme between the two. The
+        # digest covers the whole session id, so this one names its owner
+        # unambiguously and is always safe to adopt.
+        candidates = [d / f"{self._journal_stem()}.journal.json"]
+        # The oldest scheme sanitised unsafe characters away, which is exactly
+        # why it was replaced: "a/b" and "a?b" both wrote "a_b.journal.json".
+        # Adopting such a file would be guessing whose state it is, so fall back
+        # only when the sanitisation changed nothing and the name proves identity.
+        sanitized = re.sub(r"[^A-Za-z0-9._-]", "_", self.session_id)
+        if sanitized == self.session_id and self.session_id:
+            candidates.append(d / f"{self.session_id}.journal.json")
         seen: set[Path] = set()
         return [p for p in candidates if not (p in seen or seen.add(p))]
 
@@ -292,7 +330,11 @@ class SageSession:
                         legacy.unlink()
         if path is None:
             return
-        path.write_text(json.dumps(self._code_journal))
+        # Atomic: a crash or a full disk mid-write previously left a truncated
+        # journal that failed to parse on the next start, losing the session.
+        tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+        tmp.write_text(json.dumps(self._code_journal))
+        os.replace(tmp, path)
         LOGGER.debug("Saved journal for %s (%d entries)", self.session_id, len(self._code_journal))
 
     @classmethod
@@ -328,10 +370,13 @@ class SageSession:
         async with self._lock:
             self._process.stdin.write(data)
             await self._process.stdin.drain()
-            raw = await self._process.stdout.readline()
+            # Match the response id, exactly as evaluate() does. Reading the next
+            # line unconditionally meant a cancelled evaluation's response was
+            # consumed here: reset saw someone else's failure and reported
+            # "Failed to reset Sage session" for a reset that was fine.
+            raw, response = await self._read_response(payload["id"])
             if not raw:
                 raise SageProcessError("Sage worker terminated during reset.")
-        response = json.loads(raw.decode("utf-8"))
         if not response.get("ok", False):
             raise SageProcessError("Failed to reset Sage session.")
         self._code_journal.clear()

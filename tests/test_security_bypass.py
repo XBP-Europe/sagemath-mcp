@@ -124,3 +124,77 @@ def test_restricted_builtins_exclude_the_dangerous_ones() -> None:
     # Ordinary mathematics must keep working.
     for needed in ("abs", "len", "range", "sum", "int", "float", "print", "sorted", "__import__"):
         assert needed in available, f"{needed} was removed and normal code will break"
+
+
+# Aliasing a forbidden MODULE, which the first alias fix did not cover: it
+# checked forbidden call names only, so `m = os` still handed over the module.
+MODULE_ALIAS_PAYLOADS = [
+    ("bare module load", "os"),
+    ("module alias", "m = os\nm.getuid()"),
+    ("module alias via tuple", "(a, b) = (os, sys)\na.getuid()"),
+    ("module in a container", "[os][0].getuid()"),
+    ("module as a default", "(lambda m=os: m.getuid())()"),
+    ("import-as alias", "from sage.all import os as m\nm.getuid()"),
+    ("import-as under another name", "from sage.all import subprocess as sp"),
+    ("sys alias", "s = sys\ns.modules"),
+    ("shutil alias", "sh = shutil\nsh.rmtree('/tmp/x')"),
+    ("socket alias", "sk = socket\nsk.socket()"),
+    ("pathlib alias", "pl = pathlib\npl.Path('/etc/passwd').read_text()"),
+    ("builtins alias", "b = builtins\nb.open('/etc/passwd')"),
+]
+
+
+@pytest.mark.parametrize(
+    "label,payload", MODULE_ALIAS_PAYLOADS, ids=[p[0] for p in MODULE_ALIAS_PAYLOADS]
+)
+def test_module_aliases_are_blocked(label: str, payload: str) -> None:
+    """`m = os` returned the container uid from real SageMath before this."""
+    with pytest.raises(SecurityViolation):
+        validate_module(ast.parse(payload), code=payload, policy=SECURITY_POLICY)
+
+
+def test_forbidden_modules_are_absent_from_the_worker_namespace() -> None:
+    """Second layer: even if a spelling slips past, there is nothing to bind.
+
+    `from sage.all import *` binds os, sys and friends as ordinary globals.
+    """
+    from sagemath_mcp._sage_worker import _build_namespace
+
+    namespace = _build_namespace()
+    present = [
+        name for name in SECURITY_POLICY.forbidden_attribute_parents if name in namespace
+    ]
+    assert not present, f"forbidden modules reachable in the worker namespace: {present}"
+
+
+def test_specialized_tool_rejects_an_aliased_payload() -> None:
+    """The public path, not just the validator.
+
+    calculate_expression embeds its argument into generated code that runs under
+    the trusted policy, so a fragment that escapes _validated_expression is not
+    validated again downstream.
+    """
+    from fastmcp.exceptions import ToolError
+
+    from sagemath_mcp.server import _validated_expression
+
+    for payload in (
+        "(lambda f=open: f('/etc/passwd').readline())()",
+        "[os][0].getuid()",
+        "(lambda m=os: m.getuid())()",
+    ):
+        with pytest.raises(ToolError, match="security policy"):
+            _validated_expression(payload)
+
+
+def test_unparseable_fragments_are_screened_not_waved_through() -> None:
+    """A fragment that will not parse used to skip validation entirely."""
+    from fastmcp.exceptions import ToolError
+
+    from sagemath_mcp.server import _validated_expression
+
+    # Still accepted: the documented equation spelling is not a Python expression.
+    assert _validated_expression("x^2 - 1 = 0") == "x^2 - 1 = 0"
+    # Screened at token level once no parse tree is available.
+    with pytest.raises(ToolError):
+        _validated_expression("R.<a> = os.getuid()")

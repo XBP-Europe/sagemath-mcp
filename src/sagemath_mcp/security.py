@@ -286,6 +286,23 @@ def validate_module(
                     code=code,
                     policy=policy,
                 )
+            # An allowed module can re-export a forbidden one. `sage` is on the
+            # allowlist and `from sage.all import os as m` bound the real os
+            # module under a fresh name, which then passed every later rule
+            # because the name being read was `m`. Judge what is imported, not
+            # only where it comes from.
+            for alias in node.names:
+                root = alias.name.split(".", 1)[0]
+                if (
+                    root in policy.forbidden_attribute_parents
+                    or root in policy.forbidden_call_names
+                ):
+                    _raise_violation(
+                        f"Importing '{alias.name}' is blocked "
+                        f"('{root}' is not permitted in Sage executions)",
+                        code=code,
+                        policy=policy,
+                    )
         if isinstance(node, ast.Global) and policy.forbid_global_stmt:
             _raise_violation(
                 "Global statements are not permitted in Sage executions",
@@ -341,16 +358,27 @@ def validate_module(
         # through calculate_expression. Any expression that stores, defaults,
         # or packs the name into a container works the same way, so the check
         # belongs on the Name node itself.
-        if (
-            isinstance(node, ast.Name)
-            and isinstance(node.ctx, ast.Load)
-            and node.id in policy.forbidden_call_names
-        ):
-            _raise_violation(
-                f"Reference to forbidden name '{node.id}' is blocked",
-                code=code,
-                policy=policy,
-            )
+        # The same reasoning applies to the forbidden MODULES, and the first fix
+        # missed them: the attribute rule above inspects an ast.Attribute chain,
+        # so it saw os.getuid() but not
+        #     m = os;                      m.getuid()
+        #     from sage.all import os as m;m.getuid()
+        # Both returned the container uid from real SageMath. Once the module
+        # object is bound to an unremarkable name there is no chain left to
+        # inspect, so the module name has to be unreadable in the first place.
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+            if node.id in policy.forbidden_call_names:
+                _raise_violation(
+                    f"Reference to forbidden name '{node.id}' is blocked",
+                    code=code,
+                    policy=policy,
+                )
+            if node.id in policy.forbidden_attribute_parents:
+                _raise_violation(
+                    f"Reference to forbidden module '{node.id}' is blocked",
+                    code=code,
+                    policy=policy,
+                )
         if isinstance(node, ast.Call):
             func = node.func
             if isinstance(func, ast.Name) and func.id in policy.forbidden_call_names:

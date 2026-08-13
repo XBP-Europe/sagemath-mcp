@@ -105,22 +105,24 @@ async def test_session_cancel_restarts_worker(python_settings):
 
 def test_truncate_stdout():
     server = pytest.importorskip("sagemath_mcp.server")
-    original_limit = server.SESSION_MANAGER.settings.max_stdout_chars
-    server.SESSION_MANAGER.settings.max_stdout_chars = 8
+    runtime = pytest.importorskip("sagemath_mcp.runtime")
+    original_limit = runtime.SESSION_MANAGER.settings.max_stdout_chars
+    runtime.SESSION_MANAGER.settings.max_stdout_chars = 8
     try:
         truncated = server._truncate_stdout("0123456789")
         assert truncated.startswith("01234567")
         assert "output truncated" in truncated
     finally:
-        server.SESSION_MANAGER.settings.max_stdout_chars = original_limit
+        runtime.SESSION_MANAGER.settings.max_stdout_chars = original_limit
 
 
 def test_truncate_stdout_with_non_int_limit(monkeypatch):
     server = pytest.importorskip("sagemath_mcp.server")
+    runtime = pytest.importorskip("sagemath_mcp.runtime")
     import types
 
     monkeypatch.setattr(server, "DEFAULT_SETTINGS", types.SimpleNamespace(max_stdout_chars=5))
-    monkeypatch.setattr(server.SESSION_MANAGER.settings, "max_stdout_chars", 5.5)
+    monkeypatch.setattr(runtime.SESSION_MANAGER.settings, "max_stdout_chars", 5.5)
     result = server._truncate_stdout("0123456789")
     assert result.endswith("[output truncated]")
 

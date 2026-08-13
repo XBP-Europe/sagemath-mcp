@@ -12,22 +12,15 @@ import logging
 import re
 import textwrap
 import tokenize
-from collections.abc import AsyncIterator, Iterable
+from collections.abc import Iterable
 from typing import Annotated
 
-from fastmcp import Context, FastMCP
+from fastmcp import Context
 from fastmcp.exceptions import ToolError
-from fastmcp.server.middleware.caching import (
-    CallToolSettings,
-    GetPromptSettings,
-    ReadResourceSettings,
-    ResponseCachingMiddleware,
-)
-from fastmcp.server.middleware.logging import LoggingMiddleware
-from fastmcp.server.middleware.timing import TimingMiddleware
 from pydantic import Field
 
-from . import __version__, monitoring
+from . import __version__, monitoring, runtime
+from .app import mcp
 from .config import DEFAULT_SETTINGS
 from .models import (
     DocumentationLink,
@@ -41,7 +34,6 @@ from .session import (
     DEFAULT_SESSION_NAME,
     SageEvaluationError,
     SageProcessError,
-    SageSessionManager,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -51,37 +43,6 @@ _SESSION_ARG_DESC = (
     f"omit for '{DEFAULT_SESSION_NAME}'."
 )
 
-MCP_INSTRUCTIONS = """
-You are connected to a dedicated SageMath runtime. Each MCP session gets its own
-stateful Sage process, so variables, functions, and assumptions persist between calls
-to `evaluate_sage` and the helper tools. Typical workflows include:
-
-- General symbolic/numeric computation via `evaluate_sage` (supports optional LaTeX).
-- High-level helpers: `calculate_expression`, `solve_equation`, `differentiate_expression`,
-  `integrate_expression`, `matrix_multiply`, and `statistics_summary`.
-- Session management: `reset_sage_session` clears state; `cancel_sage_session` restarts the
-  worker; monitoring data is exposed via `resource://sagemath/monitoring/metrics`.
-
-Guidance for best results:
-
-- Always provide explicit Sage code; avoid relying on ambient imports beyond standard
-  Sage libraries. Use `var('x')`/`matrix(...)` etc. inside the code snippet.
-- Chain computations within the same MCP session to reuse definitions (e.g., assign `f =` and
-  call `evaluate_sage` again to operate on `f`).
-- Long-running jobs emit progress heartbeat events roughly every 1.5 seconds. You can adjust
-  timeouts via the `timeout` parameter.
-- Capture stdout only when needed; disabling it speeds up large iterations.
-- The security policy rejects arbitrary imports, `eval`/`exec`, the indirection helpers
-  (`getattr`, `sage_eval`), dunder access, and the `os`/`sys`/`subprocess`/`shutil`/
-  `socket`/`pathlib` modules -- wherever those names are read, not only where they are
-  called. It is defence in depth against accidents, not a boundary against adversarial
-  code; the container is the boundary. If you hit a security violation, rewrite the
-  computation with Sage primitives instead.
-""".strip()
-
-SETTINGS = DEFAULT_SETTINGS
-SESSION_MANAGER = SageSessionManager(SETTINGS)
-_CULL_TASK: asyncio.Task[None] | None = None
 DOC_LINKS: list[DocumentationLink] = [
     DocumentationLink(
         title="SageMath Reference Manual",
@@ -98,68 +59,6 @@ DOC_LINKS: list[DocumentationLink] = [
 ]
 
 
-async def _cull_loop(interval: float = 60.0) -> None:
-    """Periodically cull idle Sage sessions according to the manager policy."""
-    try:
-        while True:
-            await asyncio.sleep(interval)
-            await SESSION_MANAGER.cull_idle()
-    except asyncio.CancelledError:  # pragma: no cover - background task shutdown
-        LOGGER.debug("Session culler cancelled")
-
-
-@contextlib.asynccontextmanager
-async def _lifespan(app: FastMCP) -> AsyncIterator[None]:
-    """Manage background tasks and shutdown for the MCP server."""
-    del app  # unused but kept for signature compatibility
-    global _CULL_TASK
-    LOGGER.info("Starting SageMath MCP server (version %s)", __version__)
-    _CULL_TASK = asyncio.create_task(_cull_loop())
-    try:
-        yield
-    finally:
-        if _CULL_TASK:
-            _CULL_TASK.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await _CULL_TASK
-        _CULL_TASK = None
-        await SESSION_MANAGER.shutdown()
-
-
-mcp = FastMCP(
-    name="sagemath-mcp",
-    instructions=MCP_INSTRUCTIONS,
-    version=__version__,
-    lifespan=_lifespan,
-)
-mcp.add_middleware(TimingMiddleware())
-mcp.add_middleware(
-    LoggingMiddleware(include_payloads=False, include_payload_length=True)
-)
-# Tool-call and resource caching are OFF, deliberately.
-#
-# The cache key covers the tool name, arguments and auth identity, but NOT the
-# MCP session id, and unauthenticated clients share one anonymous partition.
-# Every tool here is stateful, so with the defaults (one hour, all tools) two
-# clients making the same call collide: the second gets the first's cached
-# response in microseconds without its own worker ever executing, and then finds
-# the variable undefined. The reverse is a confidentiality problem -- a
-# state-dependent expression can return another client's value.
-#
-# Repeated reset/cancel/start/stop calls were also skipped while reporting
-# success, and the session and monitoring resources served stale snapshots.
-#
-# Only the list_* caches remain: the tool, resource and prompt catalogues are
-# identical for every caller and do not change at runtime.
-mcp.add_middleware(
-    ResponseCachingMiddleware(
-        call_tool_settings=CallToolSettings(enabled=False),
-        read_resource_settings=ReadResourceSettings(enabled=False),
-        get_prompt_settings=GetPromptSettings(enabled=False),
-    )
-)
-
-
 # ---------------------------------------------------------------------------
 # HTTP health check endpoint (non-MCP, for Kubernetes probes)
 # ---------------------------------------------------------------------------
@@ -169,7 +68,7 @@ async def health_check(request: object) -> object:
     """Return 200 with server status for liveness/readiness probes."""
     from starlette.responses import JSONResponse
 
-    sessions = SESSION_MANAGER.snapshot()
+    sessions = runtime.SESSION_MANAGER.snapshot()
     return JSONResponse(
         {
             "status": "ok",
@@ -244,8 +143,8 @@ async def evaluate_sage(
     # Compute the key once and reuse it. Cancelling used to pass ctx.session_id,
     # which restarts the DEFAULT workspace: cancelling work in 'curves' destroyed
     # unrelated default state while the curves worker kept running.
-    session_key = SESSION_MANAGER.key_for(ctx.session_id, session)
-    sage_session = await SESSION_MANAGER.get(session_key)
+    session_key = runtime.SESSION_MANAGER.key_for(ctx.session_id, session)
+    sage_session = await runtime.SESSION_MANAGER.get(session_key)
     progress_task: asyncio.Task[None] | None = None
     if ctx is not None:
         await ctx.info("Starting SageMath evaluation")
@@ -259,7 +158,7 @@ async def evaluate_sage(
         )
     except asyncio.CancelledError:
         monitoring.record_failure("cancelled", is_security=False, details="evaluation cancelled")
-        await SESSION_MANAGER.cancel(session_key)
+        await runtime.SESSION_MANAGER.cancel(session_key)
         if ctx is not None:
             await ctx.warning(f"Sage evaluation cancelled; session '{session}' restarted")
         raise
@@ -311,7 +210,7 @@ async def reset_sage_session(
     """Reset the Sage session associated with the current MCP session."""
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required to reset state")
-    await SESSION_MANAGER.reset(SESSION_MANAGER.key_for(ctx.session_id, session))
+    await runtime.SESSION_MANAGER.reset(runtime.SESSION_MANAGER.key_for(ctx.session_id, session))
     await ctx.info(f"Sage session '{session}' reset")
     return ResetResponse()
 
@@ -331,8 +230,8 @@ async def interrupt_sage_session(
     """
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required to interrupt work")
-    key = SESSION_MANAGER.key_for(ctx.session_id, session)
-    interrupted = await SESSION_MANAGER.interrupt(key)
+    key = runtime.SESSION_MANAGER.key_for(ctx.session_id, session)
+    interrupted = await runtime.SESSION_MANAGER.interrupt(key)
     if not interrupted:
         # No worker to signal: either nothing has run yet in this workspace, or
         # it has already exited. Not an error, but say which.
@@ -354,7 +253,7 @@ async def cancel_sage_session(
     """
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required to cancel work")
-    await SESSION_MANAGER.cancel(SESSION_MANAGER.key_for(ctx.session_id, session))
+    await runtime.SESSION_MANAGER.cancel(runtime.SESSION_MANAGER.key_for(ctx.session_id, session))
     await ctx.warning(f"Sage session '{session}' cancelled and restarted")
     return ResetResponse(message="Session cancelled and restarted")
 
@@ -373,7 +272,7 @@ async def start_sage_session(
         raise ToolError("MCP context with session_id is required to start a session")
     if not name.strip():
         raise ToolError("Session name must not be empty")
-    await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, name))
+    await runtime.resolve_session(ctx.session_id, name)
     await ctx.info(f"Started Sage session '{name}'")
     return ResetResponse(message=f"Session '{name}' ready")
 
@@ -383,7 +282,7 @@ async def list_sage_sessions(ctx: Context | None = None) -> dict:
     """Report every workspace for this client, with liveness and statement counts."""
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required to list sessions")
-    sessions = await SESSION_MANAGER.list_for_scope(ctx.session_id)
+    sessions = await runtime.SESSION_MANAGER.list_for_scope(ctx.session_id)
     return {"sessions": sessions, "count": len(sessions)}
 
 
@@ -395,7 +294,7 @@ async def stop_sage_session(
     """Terminate one workspace. Other workspaces are unaffected."""
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required to stop a session")
-    stopped = await SESSION_MANAGER.stop(ctx.session_id, name)
+    stopped = await runtime.SESSION_MANAGER.stop(ctx.session_id, name)
     if not stopped:
         raise ToolError(f"No Sage session named '{name}' for this client")
     await ctx.info(f"Stopped Sage session '{name}'")
@@ -408,7 +307,7 @@ async def session_resource(scope: str, ctx: Context | None = None) -> str:
     import json as _json
 
     del ctx  # resource does not require request context
-    data = SESSION_MANAGER.snapshot()
+    data = runtime.SESSION_MANAGER.snapshot()
     if scope != "all":
         data = [entry for entry in data if entry["session_id"] == scope]
     snapshots = [
@@ -448,7 +347,8 @@ async def _progress_heartbeat(ctx: Context, interval: float = 1.5) -> None:
 
 def _truncate_stdout(stdout: str) -> str:
     """Clamp stdout to the configured limit while signalling truncation."""
-    limit = getattr(SESSION_MANAGER.settings, "max_stdout_chars", DEFAULT_SETTINGS.max_stdout_chars)
+    settings = runtime.get_session_manager().settings
+    limit = getattr(settings, "max_stdout_chars", DEFAULT_SETTINGS.max_stdout_chars)
     if not isinstance(limit, int):  # defensive: shared settings may be class-level descriptors
         limit = DEFAULT_SETTINGS.max_stdout_chars
     if len(stdout) <= limit:
@@ -839,7 +739,7 @@ async def calculate_expression(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     code = (
         _sage_prelude()
         + textwrap.dedent(
@@ -883,7 +783,7 @@ async def solve_equation(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     equations = [equation] if isinstance(equation, str) else equation
     variables = [variable] if isinstance(variable, str) else variable
     code = (
@@ -925,7 +825,7 @@ async def differentiate_expression(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     code = (
         _sage_prelude([variable])
         + textwrap.dedent(
@@ -959,7 +859,7 @@ async def integrate_expression(
         raise ToolError("MCP context with session_id is required for stateful execution")
     if (lower_bound is None) != (upper_bound is None):
         raise ToolError("Both lower_bound and upper_bound must be provided for a definite integral")
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     definite = lower_bound is not None
     if definite:
         code = (
@@ -1006,7 +906,7 @@ async def statistics_summary(
     # from the median calculation, which says nothing about what to send instead.
     if not data:
         raise ToolError("statistics_summary requires at least one value in 'data'")
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     code = (
         _sage_prelude()
         + textwrap.dedent(
@@ -1055,7 +955,7 @@ async def matrix_multiply(
             f"{len(matrix_b)}x{len(matrix_b[0])} matrix: the number of columns in "
             "matrix_a must equal the number of rows in matrix_b"
         )
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     code = textwrap.dedent(
         f"""
         from sage.all import *
@@ -1077,7 +977,7 @@ async def simplify_expression(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     code = (
         _sage_prelude()
         + textwrap.dedent(
@@ -1099,7 +999,7 @@ async def expand_expression(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     code = (
         _sage_prelude()
         + textwrap.dedent(
@@ -1121,7 +1021,7 @@ async def factor_expression(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     code = (
         _sage_prelude()
         + textwrap.dedent(
@@ -1149,7 +1049,7 @@ async def limit_expression(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     dir_arg = f", dir={_encode_literal(direction)}" if direction else ""
     code = (
         _sage_prelude([variable])
@@ -1178,7 +1078,7 @@ async def series_expansion(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     code = (
         _sage_prelude([variable])
         + textwrap.dedent(
@@ -1220,7 +1120,7 @@ async def matrix_operation(
             f"Unknown operation '{operation}'. "
             f"Must be one of: {', '.join(sorted(allowed_ops))}"
         )
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     _row_repr = (
         "[[float(e) if e in RR else str(e) for e in row] for row in {obj}.rows()]"
     )
@@ -1264,7 +1164,7 @@ async def solve_ode(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     code = (
         _sage_prelude([variable])
         + textwrap.dedent(
@@ -1343,7 +1243,7 @@ async def number_theory_operation(
         )
     if operation in {"gcd", "lcm"} and b is None:
         raise ToolError(f"Operation '{operation}' requires both 'a' and 'b' arguments")
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     op_code = {
         "is_prime": f"bool(is_prime({a}))",
         "factor_integer": f"str(factor({a}))",
@@ -1373,7 +1273,7 @@ async def symbolic_sum(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     op = "product" if product else "sum"
     code = (
         _sage_prelude([variable])
@@ -1422,7 +1322,7 @@ async def combinatorics_operation(
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
     operation = operation.strip()
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     op_code = {
         "binomial": f"int(binomial({n}, {k or 0}))",
         "permutations": f"int(Permutations({n}).cardinality())"
@@ -1458,7 +1358,7 @@ async def plot3d_expression(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     code = (
         _sage_prelude([x_variable, y_variable])
         + textwrap.dedent(
@@ -1545,7 +1445,7 @@ async def distribution_operation(
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
     operation = operation.strip()
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     params_str = ", ".join(str(p) for p in parameters)
     # "normal" takes [mu, sigma]. The previous mapping passed parameters[0] as
     # sigma only when exactly one parameter was given and otherwise hardcoded
@@ -1635,7 +1535,7 @@ async def find_root(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     code = (
         _sage_prelude([variable])
         + textwrap.dedent(
@@ -1663,7 +1563,7 @@ async def plot_multi_expression(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     code = (
         _sage_prelude([variable])
         + textwrap.dedent(
@@ -1716,7 +1616,7 @@ async def vector_calculus_operation(
     # Also quoted into var('...') below, so gate them here rather than relying on
     # whichever branch happens to call _sage_prelude.
     variables = [_validated_identifier(v, "variables") for v in variables]
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     vars_str = ", ".join(f"var('{v}')" for v in variables)
 
     if operation == "gradient":
@@ -1804,7 +1704,7 @@ async def plot_expression(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     code = (
         _sage_prelude([variable])
         + textwrap.dedent(
@@ -1861,7 +1761,7 @@ async def graph_operation(
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required")
     operation = operation.strip()
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     # A named graph is an identifier, optionally already called with arguments.
     # Matching on a "Graph" suffix missed every parameterised constructor:
     # "CompleteGraph(4)" ends in ")", so it fell through to Graph(CompleteGraph(4))
@@ -1931,7 +1831,7 @@ async def group_operation(
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required")
     operation = operation.strip()
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     ops = {
         "order": "int(_G.order())",
         "is_abelian": "bool(_G.is_abelian())",
@@ -1980,7 +1880,7 @@ async def elliptic_curve_operation(
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required")
     operation = operation.strip()
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     ops = {
         "rank": "int(_E.rank())",
         "torsion_order": "int(_E.torsion_order())",
@@ -2035,7 +1935,7 @@ async def coding_theory_operation(
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required")
     operation = operation.strip()
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     ops = {
         "length": "int(_C.length())",
         "dimension": "int(_C.dimension())",
@@ -2089,7 +1989,7 @@ async def boolean_algebra_operation(
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required")
     operation = operation.strip()
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     var_names = ", ".join(f"'x{i}'" for i in range(num_variables))
     # The ring generators are x0, x1, ..., but the documented example uses
     # x, y, z. Expose both spellings so either parses, rather than failing
@@ -2148,7 +2048,7 @@ async def polynomial_ring_operation(
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required")
     operation = operation.strip()
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     ring_vars = [_validated_identifier(v, "ring_vars") for v in ring_vars]
     var_list = ", ".join(ring_vars)
     ops = {
@@ -2216,7 +2116,7 @@ async def geometry_operation(
         raise ToolError(
             f"Operation 'distance' requires two points, got {len(points)}"
         )
-    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    session = await runtime.resolve_session(ctx.session_id, session)
     pts = _encode_literal(points)
     ops = {
         "distance": (
@@ -2269,7 +2169,7 @@ async def evaluate_sage_streaming(
     """Like evaluate_sage but emits each stdout line as a progress event."""
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required")
-    sage_session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    sage_session = await runtime.resolve_session(ctx.session_id, session)
 
     # Forward each line the moment the worker produces it. This used to await
     # the whole evaluation and only then split the accumulated stdout, so a

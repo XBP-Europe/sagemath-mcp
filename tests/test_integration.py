@@ -5,7 +5,7 @@ import time
 
 import pytest
 
-from sagemath_mcp import server
+from sagemath_mcp import runtime, server
 from sagemath_mcp.config import SageSettings
 from sagemath_mcp.monitoring import reset_metrics
 from sagemath_mcp.session import SageEvaluationError, SageSession, SageSessionManager
@@ -60,7 +60,7 @@ async def test_security_violation_keeps_session_alive():
 async def test_server_monitoring_resource_with_real_sage(monkeypatch):
     settings = SageSettings(force_python_worker=False)
     manager = SageSessionManager(settings)
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
     reset_metrics()
     ctx = FakeContext("integration-monitoring")
 
@@ -87,7 +87,7 @@ async def test_monitoring_metrics_on_timeout(monkeypatch):
     """Validate monitoring metrics capture timeout from a real Sage session."""
     settings = SageSettings(force_python_worker=False, eval_timeout=1.0)
     manager = SageSessionManager(settings)
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
     reset_metrics()
     ctx = FakeContext("integration-timeout")
 
@@ -114,7 +114,7 @@ async def test_monitoring_metrics_on_cancellation(monkeypatch):
 
     settings = SageSettings(force_python_worker=False)
     manager = SageSessionManager(settings)
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
     reset_metrics()
     ctx = FakeContext("integration-cancel")
 
@@ -166,7 +166,7 @@ async def test_solve_ode_equation_forms(monkeypatch, equation, function, variabl
 
     settings = SageSettings(force_python_worker=False)
     manager = SageSessionManager(settings)
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
     ctx = FakeContext("integration-ode-forms")
 
     try:
@@ -190,7 +190,7 @@ async def test_solve_ode_applied_and_bare_agree(monkeypatch):
 
     settings = SageSettings(force_python_worker=False)
     manager = SageSessionManager(settings)
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
     ctx = FakeContext("integration-ode-agree")
 
     try:
@@ -239,7 +239,7 @@ async def test_interrupt_preserves_state_with_real_sage(monkeypatch):
     """
     settings = SageSettings(force_python_worker=False, eval_timeout=120.0)
     manager = SageSessionManager(settings)
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
     ctx = FakeContext("integration-interrupt")
 
     try:
@@ -274,7 +274,7 @@ def factorial_20() -> int:
 async def test_named_sessions_isolated_with_real_sage(monkeypatch):
     settings = SageSettings(force_python_worker=False, eval_timeout=120.0)
     manager = SageSessionManager(settings)
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
     ctx = FakeContext("integration-named")
 
     try:
@@ -309,7 +309,7 @@ async def test_streaming_emits_output_before_completion(monkeypatch):
     """
     settings = SageSettings(force_python_worker=False, eval_timeout=120.0)
     manager = SageSessionManager(settings)
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
     ctx = FakeContext("integration-streaming")
 
     code = (

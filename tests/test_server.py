@@ -6,7 +6,7 @@ import shutil
 import pytest
 from fastmcp.exceptions import ToolError
 
-from sagemath_mcp import server
+from sagemath_mcp import app, runtime, server
 from sagemath_mcp.config import SageSettings
 from sagemath_mcp.models import EvaluateResult
 from sagemath_mcp.monitoring import reset_metrics
@@ -22,9 +22,9 @@ async def test_cull_loop_runs_until_cancelled(monkeypatch):
     async def fake_cull_idle():
         calls.append(1)
 
-    monkeypatch.setattr(server.SESSION_MANAGER, "cull_idle", fake_cull_idle)
+    monkeypatch.setattr(runtime.SESSION_MANAGER, "cull_idle", fake_cull_idle)
 
-    task = asyncio.create_task(server._cull_loop(interval=0.01))
+    task = asyncio.create_task(app._cull_loop(interval=0.01))
     await asyncio.sleep(0.03)
     task.cancel()
     with contextlib.suppress(asyncio.CancelledError):
@@ -40,9 +40,9 @@ async def test_lifespan_starts_and_stops(monkeypatch):
     async def fake_cull_loop(interval: float = 60.0) -> None:
         started.append(interval)
 
-    monkeypatch.setattr(server, "_cull_loop", fake_cull_loop)
+    monkeypatch.setattr(app, "_cull_loop", fake_cull_loop)
 
-    async with server._lifespan(server.mcp):
+    async with app._lifespan(server.mcp):
         await asyncio.sleep(0)
 
     assert started == [60.0]
@@ -60,9 +60,9 @@ async def test_lifespan_cancels_running_cull_loop(monkeypatch):
             events.append("cancelled")
             raise
 
-    monkeypatch.setattr(server, "_cull_loop", fake_cull_loop)
+    monkeypatch.setattr(app, "_cull_loop", fake_cull_loop)
 
-    async with server._lifespan(server.mcp):
+    async with app._lifespan(server.mcp):
         await asyncio.sleep(0)
 
     assert events == ["cancelled"]
@@ -95,7 +95,7 @@ async def test_evaluate_sage_reports_progress(monkeypatch):
             await asyncio.sleep(0)
             return fake_result
 
-    monkeypatch.setattr(server, "SESSION_MANAGER", SageSessionManager(server.DEFAULT_SETTINGS))
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", SageSessionManager(server.DEFAULT_SETTINGS))
 
     async def fake_get(session_id: str) -> FakeSession:
         return FakeSession()
@@ -103,8 +103,8 @@ async def test_evaluate_sage_reports_progress(monkeypatch):
     async def fake_cancel(session_id: str) -> None:
         raise AssertionError("cancel should not be called")
 
-    monkeypatch.setattr(server.SESSION_MANAGER, "get", fake_get)
-    monkeypatch.setattr(server.SESSION_MANAGER, "cancel", fake_cancel)
+    monkeypatch.setattr(runtime.SESSION_MANAGER, "get", fake_get)
+    monkeypatch.setattr(runtime.SESSION_MANAGER, "cancel", fake_cancel)
 
     ctx = FakeContext()
     payload: EvaluateResult = await server.evaluate_sage("x = 6", ctx=ctx)
@@ -130,12 +130,12 @@ async def test_evaluate_sage_with_latex(monkeypatch):
             assert kwargs.get("want_latex") is True
             return fake_result
 
-    monkeypatch.setattr(server, "SESSION_MANAGER", SageSessionManager(server.DEFAULT_SETTINGS))
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", SageSessionManager(server.DEFAULT_SETTINGS))
 
     async def fake_get(session_id: str) -> FakeSession:
         return FakeSession()
 
-    monkeypatch.setattr(server.SESSION_MANAGER, "get", fake_get)
+    monkeypatch.setattr(runtime.SESSION_MANAGER, "get", fake_get)
 
     ctx = FakeContext()
     payload = await server.evaluate_sage("x^2", want_latex=True, ctx=ctx)
@@ -160,9 +160,9 @@ async def test_evaluate_sage_handles_cancel(monkeypatch):
     async def fake_cancel(session_id: str) -> None:
         fake_session.cancelled = True
 
-    monkeypatch.setattr(server, "SESSION_MANAGER", SageSessionManager(server.DEFAULT_SETTINGS))
-    monkeypatch.setattr(server.SESSION_MANAGER, "get", fake_get)
-    monkeypatch.setattr(server.SESSION_MANAGER, "cancel", fake_cancel)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", SageSessionManager(server.DEFAULT_SETTINGS))
+    monkeypatch.setattr(runtime.SESSION_MANAGER, "get", fake_get)
+    monkeypatch.setattr(runtime.SESSION_MANAGER, "cancel", fake_cancel)
 
     ctx = FakeContext()
     with pytest.raises(asyncio.CancelledError):
@@ -184,9 +184,9 @@ async def test_evaluate_sage_process_error(monkeypatch):
     async def fake_cancel(session_id: str) -> None:
         pass
 
-    monkeypatch.setattr(server, "SESSION_MANAGER", SageSessionManager(server.DEFAULT_SETTINGS))
-    monkeypatch.setattr(server.SESSION_MANAGER, "get", fake_get)
-    monkeypatch.setattr(server.SESSION_MANAGER, "cancel", fake_cancel)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", SageSessionManager(server.DEFAULT_SETTINGS))
+    monkeypatch.setattr(runtime.SESSION_MANAGER, "get", fake_get)
+    monkeypatch.setattr(runtime.SESSION_MANAGER, "cancel", fake_cancel)
 
     ctx = FakeContext()
     with pytest.raises(server.ToolError):
@@ -245,9 +245,9 @@ async def _stub_manager(monkeypatch, session: StubSession):
     async def fake_cancel(session_id: str):
         return None
 
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
-    monkeypatch.setattr(server.SESSION_MANAGER, "get", fake_get)
-    monkeypatch.setattr(server.SESSION_MANAGER, "cancel", fake_cancel)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime.SESSION_MANAGER, "get", fake_get)
+    monkeypatch.setattr(runtime.SESSION_MANAGER, "cancel", fake_cancel)
     return manager
 
 
@@ -388,8 +388,8 @@ async def test_evaluate_sage_security_violation(monkeypatch):
     async def fake_get(session_id: str):
         return ViolatingSession()
 
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
-    monkeypatch.setattr(server.SESSION_MANAGER, "get", fake_get)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime.SESSION_MANAGER, "get", fake_get)
 
     ctx = FakeContext("violation")
     with pytest.raises(ToolError):
@@ -491,7 +491,7 @@ async def test_llm_stateful_average_workflow(monkeypatch):
     )
     manager = SageSessionManager(settings)
 
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
 
     ctx = FakeContext("llm-sequence")
     try:
@@ -527,7 +527,7 @@ async def test_llm_reuses_defined_function(monkeypatch):
     )
     manager = SageSessionManager(settings)
 
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
 
     ctx = FakeContext("llm-function")
     try:
@@ -856,8 +856,8 @@ async def test_reset_sage_session(monkeypatch):
         reset_called = True
 
     manager = SageSessionManager(server.DEFAULT_SETTINGS)
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
-    monkeypatch.setattr(server.SESSION_MANAGER, "reset", fake_reset)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime.SESSION_MANAGER, "reset", fake_reset)
 
     ctx = FakeContext("reset-test")
     result = await server.reset_sage_session(ctx=ctx)
@@ -874,8 +874,8 @@ async def test_cancel_sage_session(monkeypatch):
         cancel_called = True
 
     manager = SageSessionManager(server.DEFAULT_SETTINGS)
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
-    monkeypatch.setattr(server.SESSION_MANAGER, "cancel", fake_cancel)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime.SESSION_MANAGER, "cancel", fake_cancel)
 
     ctx = FakeContext("cancel-test")
     result = await server.cancel_sage_session(ctx=ctx)
@@ -889,7 +889,7 @@ async def test_cancel_sage_session(monkeypatch):
 @pytest.mark.asyncio
 async def test_session_resource_all(monkeypatch):
     manager = SageSessionManager(server.DEFAULT_SETTINGS)
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
 
     def fake_snapshot():
         return [
@@ -902,7 +902,7 @@ async def test_session_resource_all(monkeypatch):
             }
         ]
 
-    monkeypatch.setattr(server.SESSION_MANAGER, "snapshot", fake_snapshot)
+    monkeypatch.setattr(runtime.SESSION_MANAGER, "snapshot", fake_snapshot)
     raw = await server.session_resource("all", None)
     result = json.loads(raw)
     assert len(result) == 1
@@ -912,7 +912,7 @@ async def test_session_resource_all(monkeypatch):
 @pytest.mark.asyncio
 async def test_session_resource_filtered(monkeypatch):
     manager = SageSessionManager(server.DEFAULT_SETTINGS)
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
 
     def fake_snapshot():
         return [
@@ -932,7 +932,7 @@ async def test_session_resource_filtered(monkeypatch):
             },
         ]
 
-    monkeypatch.setattr(server.SESSION_MANAGER, "snapshot", fake_snapshot)
+    monkeypatch.setattr(runtime.SESSION_MANAGER, "snapshot", fake_snapshot)
     raw = await server.session_resource("s2", None)
     result = json.loads(raw)
     assert len(result) == 1
@@ -972,8 +972,8 @@ async def test_evaluate_sage_security_violation_branch(monkeypatch):
     async def fake_get(session_id: str):
         return FakeSession()
 
-    monkeypatch.setattr(server, "SESSION_MANAGER", SageSessionManager(server.DEFAULT_SETTINGS))
-    monkeypatch.setattr(server.SESSION_MANAGER, "get", fake_get)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", SageSessionManager(server.DEFAULT_SETTINGS))
+    monkeypatch.setattr(runtime.SESSION_MANAGER, "get", fake_get)
 
     ctx = FakeContext("sec-violation")
     with pytest.raises(ToolError):
@@ -999,8 +999,8 @@ async def test_evaluate_sage_non_security_error_branch(monkeypatch):
     async def fake_get(session_id: str):
         return FakeSession()
 
-    monkeypatch.setattr(server, "SESSION_MANAGER", SageSessionManager(server.DEFAULT_SETTINGS))
-    monkeypatch.setattr(server.SESSION_MANAGER, "get", fake_get)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", SageSessionManager(server.DEFAULT_SETTINGS))
+    monkeypatch.setattr(runtime.SESSION_MANAGER, "get", fake_get)
 
     ctx = FakeContext("name-error")
     with pytest.raises(ToolError):
@@ -1022,8 +1022,8 @@ async def test_evaluate_sage_process_error_with_cause(monkeypatch):
     async def fake_get(session_id: str):
         return FakeSession()
 
-    monkeypatch.setattr(server, "SESSION_MANAGER", SageSessionManager(server.DEFAULT_SETTINGS))
-    monkeypatch.setattr(server.SESSION_MANAGER, "get", fake_get)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", SageSessionManager(server.DEFAULT_SETTINGS))
+    monkeypatch.setattr(runtime.SESSION_MANAGER, "get", fake_get)
 
     ctx = FakeContext("process-error-cause")
     with pytest.raises(ToolError):
@@ -1893,8 +1893,8 @@ async def test_evaluate_sage_streaming(monkeypatch):
     async def fake_get(session_id):
         return FakeSession()
 
-    monkeypatch.setattr(server, "SESSION_MANAGER", SageSessionManager(server.DEFAULT_SETTINGS))
-    monkeypatch.setattr(server.SESSION_MANAGER, "get", fake_get)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", SageSessionManager(server.DEFAULT_SETTINGS))
+    monkeypatch.setattr(runtime.SESSION_MANAGER, "get", fake_get)
 
     ctx = FakeContext("streaming")
     result = await server.evaluate_sage_streaming("for i in range(3): print(i)", ctx=ctx)
@@ -1933,8 +1933,8 @@ async def test_evaluate_sage_streaming_empty_stdout(monkeypatch):
     async def fake_get(session_id):
         return FakeSession()
 
-    monkeypatch.setattr(server, "SESSION_MANAGER", SageSessionManager(server.DEFAULT_SETTINGS))
-    monkeypatch.setattr(server.SESSION_MANAGER, "get", fake_get)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", SageSessionManager(server.DEFAULT_SETTINGS))
+    monkeypatch.setattr(runtime.SESSION_MANAGER, "get", fake_get)
 
     ctx = FakeContext("stream-empty")
     result = await server.evaluate_sage_streaming("42", ctx=ctx)
@@ -1979,10 +1979,10 @@ def test_register_health_route(monkeypatch):
 @pytest.mark.asyncio
 async def test_lifespan_without_cull_task(monkeypatch):
     """Cover branch 102->106: _CULL_TASK is None when lifespan exits."""
-    monkeypatch.setattr(server, "_CULL_TASK", None)
-    async with server._lifespan(server.mcp):
+    monkeypatch.setattr(app, "_CULL_TASK", None)
+    async with app._lifespan(server.mcp):
         # Force _CULL_TASK to None to test the branch
-        monkeypatch.setattr(server, "_CULL_TASK", None)
+        monkeypatch.setattr(app, "_CULL_TASK", None)
 
 
 # ---------------------------------------------------------------------------
@@ -2007,9 +2007,9 @@ async def test_calculate_expression_with_sage(monkeypatch):
         await session.cancel()
 
     manager = SageSessionManager(settings)
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
-    monkeypatch.setattr(server.SESSION_MANAGER, "get", fake_get)
-    monkeypatch.setattr(server.SESSION_MANAGER, "cancel", fake_cancel)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime.SESSION_MANAGER, "get", fake_get)
+    monkeypatch.setattr(runtime.SESSION_MANAGER, "cancel", fake_cancel)
 
     ctx = FakeContext("sage-integration")
     try:
@@ -2044,7 +2044,7 @@ async def test_start_sage_session_rejects_blank_name(monkeypatch):
 async def test_stop_unknown_session_reports_clearly(monkeypatch):
     """Stopping a workspace that does not exist must say so, not fail silently."""
     manager = SageSessionManager(SageSettings(force_python_worker=True))
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
     with pytest.raises(ToolError, match="No Sage session named"):
         await server.stop_sage_session("absent", ctx=FakeContext("scope"))
 
@@ -2053,7 +2053,7 @@ async def test_stop_unknown_session_reports_clearly(monkeypatch):
 async def test_interrupt_without_worker_is_not_an_error(monkeypatch):
     """Nothing running is a normal outcome, reported rather than raised."""
     manager = SageSessionManager(SageSettings(force_python_worker=True))
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
     result = await server.interrupt_sage_session(ctx=FakeContext("scope"))
     assert "No running computation" in result.message
 
@@ -2061,7 +2061,7 @@ async def test_interrupt_without_worker_is_not_an_error(monkeypatch):
 @pytest.mark.asyncio
 async def test_named_sessions_listed_per_client(monkeypatch):
     manager = SageSessionManager(SageSettings(force_python_worker=True))
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
     ctx = FakeContext("client-a")
     try:
         await server.start_sage_session("alpha", ctx=ctx)
@@ -2166,7 +2166,7 @@ async def test_cancelled_streaming_then_reset_then_evaluate_on_a_named_workspace
     """
     settings = SageSettings(force_python_worker=True, eval_timeout=30.0)
     manager = SageSessionManager(settings)
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
     ctx = FakeContext("cancel-stream-client")
     try:
         await server.evaluate_sage("anchor = 5", session="bench", ctx=ctx)
@@ -2186,3 +2186,17 @@ async def test_cancelled_streaming_then_reset_then_evaluate_on_a_named_workspace
         assert result.result == "42", "the workspace was unusable after cancel + reset"
     finally:
         await manager.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_sage_manager_fixture_reaches_a_specialized_tool(sage_manager):
+    """The fixture must actually be what the tools use.
+
+    Patching the wrong module is silent: the tool runs against the real manager
+    and the test still passes. Asserting through a *specialized* tool (not
+    evaluate_sage) proves the swap reaches the whole tool surface.
+    """
+    ctx = FakeContext("fixture-client")
+    await server.evaluate_sage("fixture_marker = 7", session="fx", ctx=ctx)
+    keys = [key for key in sage_manager.snapshot()]
+    assert keys, "the tool did not use the fixture's manager"

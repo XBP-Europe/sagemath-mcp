@@ -242,14 +242,14 @@ async def test_trusted_templates_reject_sage_eval_payloads(
     """Rejected before the code is ever built, so no Sage runtime is needed."""
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp import server
+    from sagemath_mcp import runtime, server
     from sagemath_mcp.config import SageSettings
     from sagemath_mcp.session import SageSessionManager
 
     from .conftest import FakeContext
 
     manager = SageSessionManager(SageSettings(force_python_worker=True))
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
     tool = getattr(server, tool_name)
     try:
         with pytest.raises(ToolError, match="security policy"):

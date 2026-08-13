@@ -14,7 +14,7 @@ from __future__ import annotations
 import pytest
 from fastmcp import Client
 
-from sagemath_mcp import server
+from sagemath_mcp import runtime, server
 from sagemath_mcp.config import SageSettings
 from sagemath_mcp.session import SageSessionManager
 
@@ -23,7 +23,7 @@ from sagemath_mcp.session import SageSessionManager
 def python_manager(monkeypatch):
     """Route tools through the pure-Python worker so no Sage install is needed."""
     manager = SageSessionManager(SageSettings(force_python_worker=True))
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
     yield manager
 
 

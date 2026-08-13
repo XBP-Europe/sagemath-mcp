@@ -1,0 +1,62 @@
+name: Scheduled audit
+
+# pip-audit is blocking in CI, which is deliberate: a known-vulnerable
+# dependency should stop a merge. The side effect is that a new upstream
+# advisory turns someone's unrelated pull request red, with no change of theirs
+# to blame. This runs the same audit against main on a schedule so an advisory
+# is found on its own timetable, and opens an issue rather than ambushing a
+# contributor.
+
+on:
+  schedule:
+    # Mondays, 07:00 UTC.
+    - cron: "0 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.0.0
+        with:
+          enable-cache: true
+      - name: Create virtual environment
+        run: uv venv
+      - name: Install dependencies
+        run: uv pip install -e .[dev]
+      - name: Audit dependencies
+        id: audit
+        # Do not fail the job here: the report is wanted either way, and the
+        # issue below is more useful than a red schedule nobody is watching.
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          uv run pip-audit --skip-editable --desc | tee audit-report.txt
+      - name: Open an issue when something is found
+        if: steps.audit.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="Dependency advisory found by the scheduled audit"
+          # One open issue at a time; append rather than pile up duplicates.
+          EXISTING=$(gh issue list --state open --search "$TITLE in:title" \
+            --json number --jq '.[0].number // empty')
+          BODY=$(printf '%s\n\n```\n%s\n```\n' \
+            "The weekly audit found advisories against \`main\`. CI blocks on pip-audit, so this will also fail any open pull request until the lock is updated (\`uv lock --upgrade\`)." \
+            "$(head -60 audit-report.txt)")
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: audit-report
+          path: audit-report.txt
+          if-no-files-found: ignore

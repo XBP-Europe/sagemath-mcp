@@ -4,6 +4,15 @@ on:
   push:
     tags:
       - "v*"
+  # The registry and release jobs otherwise run for the first time during a real
+  # release, which is a poor place to discover a typo. This exercises both
+  # without publishing anything.
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Validate the publish paths without publishing"
+        type: boolean
+        default: true
 
 jobs:
   test:
@@ -100,6 +109,8 @@ jobs:
 
   publish:
     needs: [build, docker, helm]
+    # PyPI is irreversible; never reachable from a manual dispatch.
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -120,6 +131,13 @@ jobs:
   # published PyPI description, so this can only run once the package is live.
   mcp-registry:
     needs: [publish]
+    # On a tag, still gated on a successful PyPI publish so a release object can
+    # never announce a version that was not shipped. On a manual dispatch,
+    # publish is skipped and this runs anyway in dry-run mode.
+    if: >-
+      always() &&
+      ((startsWith(github.ref, 'refs/tags/v') && needs.publish.result == 'success')
+       || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
       id-token: write   # OIDC, so no long-lived registry token is stored
@@ -129,6 +147,7 @@ jobs:
       - name: Align server.json with the tag
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${VERSION:-0.0.0-dryrun}"
           jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' \
             server.json > server.tmp && mv server.tmp server.json
           cat server.json
@@ -137,9 +156,18 @@ jobs:
           curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" \
             | tar xz mcp-publisher
       - name: Publish to the MCP registry
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
           ./mcp-publisher login github-oidc
           ./mcp-publisher publish
+      - name: Dry run - validate the manifest and login only
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          python3 -c "import json,sys; d=json.load(open('server.json')); \
+            assert d['name'] and d['version'] and d['packages'], 'server.json incomplete'; \
+            print('server.json parses:', d['name'], d['version'])"
+          ./mcp-publisher login github-oidc
+          echo "Dry run: authenticated successfully, not publishing."
 
   # Runs last so a failed publish cannot leave a release announcing a version
   # that was never shipped. Until this existed, every release object was created
@@ -147,6 +175,13 @@ jobs:
   # v0.3.1 as Latest -- which is also where pyproject points its Changelog URL.
   github-release:
     needs: [publish]
+    # On a tag, still gated on a successful PyPI publish so a release object can
+    # never announce a version that was not shipped. On a manual dispatch,
+    # publish is skipped and this runs anyway in dry-run mode.
+    if: >-
+      always() &&
+      ((startsWith(github.ref, 'refs/tags/v') && needs.publish.result == 'success')
+       || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -177,7 +212,13 @@ jobs:
             echo "::warning::No CHANGELOG.md entry for ${VERSION}; using generated notes."
             echo "found=false" >> "$GITHUB_OUTPUT"
           fi
+      - name: Dry run - render the notes without creating a release
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          echo "Would create a release with these notes:"
+          head -40 release-notes.md || echo "(no changelog entry; generated notes would be used)"
       - name: Create the GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

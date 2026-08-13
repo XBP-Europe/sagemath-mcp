@@ -301,6 +301,12 @@ GROUPS: dict[str, list] = {
          "result", 5),
         ("C6 exponent is 6",
          lambda c: S.group_operation("CyclicPermutationGroup(6)", "exponent", ctx=c), "result", 6),
+        # doc: 'AlternatingGroup(5)' -- order 5!/2, and the smallest
+        # non-abelian simple group, so its centre is trivial.
+        ("doc:A5 order is 60",
+         lambda c: S.group_operation("AlternatingGroup(5)", "order", ctx=c), "result", 60),
+        ("A5 is not abelian",
+         lambda c: S.group_operation("AlternatingGroup(5)", "is_abelian", ctx=c), "result", False),
     ],
     "elliptic_curve_operation": [
         # doc: short Weierstrass [a, b] for y^2 = x^3 + a*x + b

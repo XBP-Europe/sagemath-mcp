@@ -1,32 +1,57 @@
 # Review actions — 2026-08-13
 
-Findings from a review of `345906d`, with a suggested fix and a way to verify each.
-Every claim here was measured against a real SageMath 10.9 runtime, not inferred
-from reading the code; the commands to reproduce are included so nobody has to
-take this document's word for it.
+Findings from a review of the 50-commit range `2eac01e..345906d`, with a
+suggested fix and a way to verify each. Runtime claims were measured against a
+real SageMath 10.9 worker where relevant; protocol, session and persistence
+claims were reproduced with MCP clients or focused worker/manager probes. The
+full Sage-backed suite passed, which is why the missing regression cases are
+called out explicitly below.
 
 Severity is about consequence, not effort.
 
 | # | Severity | Item | Status |
 |---|----------|------|--------|
-| 1 | **Critical** | The AST validator is bypassable in at least six ways | open |
-| 2 | **Critical** | README documents protections that do not exist | open |
-| 3 | High | The container, not the validator, is the real boundary — and it is not hardened | open |
+| 1 | **Critical** | The AST validator is bypassable in at least seven ways | **done** |
+| 2 | **Critical** | README documents protections that do not exist | **done** |
+| 3 | High | The container, not the validator, is the real boundary — and it is not hardened | **done** |
 | 4 | Medium | `server.py` is 2147 lines and the least-covered module | open |
 | 5 | Medium | Two release paths cannot be exercised before a tag push | open |
 | 6 | Low | 104 dependencies, with pip-audit now blocking | open |
 | 7 | Low | Distribution: Smithery and Glama listings | open |
 | 8 | Low | Codex still routes two questions to `evaluate_sage` | accepted |
 | 9 | Low | Jupyter kernel `debug_request` question left unresolved | deferred |
+| 10 | **Critical** | Response caching breaks state and isolation across MCP clients | open |
+| 11 | High | Cancelling a named workspace restarts the default workspace | open |
+| 12 | High | The large-integer corruption guard accepts corrupted JSON integers | open |
+| 13 | Medium | `evaluate_sage_streaming` emits output only after completion | open |
+| 14 | Medium | Idle culling discards journals instead of persisting them | open |
+| 15 | Medium | Sanitized journal filenames collide | open |
+| 16 | Medium | Specialized tools cannot select named workspaces | open |
+| 17 | Medium | Version bumps leave `server.json` stale | open |
 
 ---
 
-## 1. The AST validator is bypassable — **critical**
+## 1. The AST validator is bypassable — **critical** — DONE
+
+**Fixed.** An eighth bypass was found while fixing the seven listed: every
+specialised tool `sage_eval`s its caller's expression, so
+`calculate_expression("__import__('os').getuid()")` returned the container uid.
+The validator only ever saw a string constant, which means the sandbox had never
+covered the 30 helper tools at all — only `evaluate_sage`.
+
+Caller fragments are now validated as expressions before being embedded, and
+server-generated snippets run under a separate trusted policy that permits
+`sage_eval` and nothing else extra. All eight vectors are blocked against the
+real worker, and 368 integration tests pass, so nothing legitimate broke.
+
+Original finding follows.
+
 
 ### What is wrong
 
-Six vectors, each confirmed returning the container uid (`1001`) from inside the
-sandbox:
+At least seven vectors were confirmed against the real worker. UID probes
+returned the container uid (`1001`), and the builtins-subscript probe wrote a
+file despite the documented `open()` block:
 
 | Vector | Payload |
 |--------|---------|
@@ -34,6 +59,7 @@ sandbox:
 | `getattr` is not forbidden | `getattr(os, 'getuid')()` |
 | Dunder traversal | `().__class__.__bases__[0].__subclasses__()` → reaches `subprocess.Popen` |
 | Builtins by attribute | `__builtins__.__import__('os').getuid()` |
+| Builtins by subscript | `__builtins__['open']('/tmp/probe', 'w').write('escaped')` |
 | String eval after validation | `sage_eval("__import__('os').getuid()")` |
 | Attribute chain | `sage.misc.temporary_file.os.getuid()` |
 
@@ -69,18 +95,26 @@ In `security.py`, in rough order of value for effort:
 
 Beware of over-blocking: `polynomial_ring_operation` and friends legitimately
 touch Sage internals, and `_sage_worker` itself uses `io` and `base64`. The
-integration suite (333 tests) is the regression net for that.
+integration suite (342 tests) is the regression net for that.
 
 ### How to verify
 
-Write `tests/test_security_bypass.py` with the six payloads above, each asserting
+Write `tests/test_security_bypass.py` with the seven payloads above, each asserting
 `SecurityViolation`. They must fail against today's code before the fix lands —
 that is the only proof the tests are testing anything. Then run the full
 integration suite to confirm nothing legitimate broke.
 
 ---
 
-## 2. README documents protections that do not exist — **critical**
+## 2. README documents protections that do not exist — **critical** — DONE
+
+**Fixed.** The table now states what is enforced, and says plainly that the
+validator is defence in depth rather than a boundary. Two tests keep it honest:
+one asserts every documented protection is enforced, the other that no enforced
+module is missing from the docs. The second failed immediately on `builtins`.
+
+Original finding follows.
+
 
 ### What is wrong
 
@@ -120,7 +154,14 @@ class of drift impossible to reintroduce silently.
 
 ---
 
-## 3. The container is the real boundary, and it is not hardened — high
+## 3. The container is the real boundary, and it is not hardened — high — DONE
+
+**Fixed.** The compose stack now mounts the checkout read-only, drops all
+capabilities, sets no-new-privileges, and bounds pids and memory. Verified by
+bringing the hardened stack up and running the smoke script against it.
+
+Original finding follows.
+
 
 ### What is wrong
 
@@ -169,7 +210,7 @@ middleware and `/health`. Do it in one mechanical move with no behaviour change,
 so the diff is reviewable and the test suite is the proof.
 
 **Verify:** tool count stays 37, `test_generated_code_lint.py` still finds every
-documented example, and the integration suite stays green.
+documented example, and all 342 tests stay green against SageMath 10.9.
 
 ---
 
@@ -233,6 +274,223 @@ established.
 
 **Suggestion:** only worth answering if the transport is revisited for rich
 display, which is the one argument that would justify it.
+
+---
+
+## 10. Response caching breaks state and client isolation — **critical**
+
+### What is wrong
+
+`server.py` installs `ResponseCachingMiddleware()` with its defaults. In FastMCP
+3.4.7 those defaults cache every successful tool call for one hour. A tool cache
+key contains the tool name, arguments and authorization identity, but not the MCP
+session id; unauthenticated clients share one anonymous partition.
+
+Reproduced with two independent in-process MCP clients:
+
+1. Client A called `evaluate_sage(code="cache_probe = 41")`.
+2. Client B made the identical call. It returned from the cache in 0.14 ms and
+   never executed in B's worker.
+3. Client B then evaluated `cache_probe` and received `NameError`.
+
+The reverse failure is a confidentiality problem: a state-dependent expression
+can return client A's value to client B. Repeated `reset`, `cancel`, `start` and
+`stop` calls can also be skipped while returning a cached success response.
+Session and monitoring resources are similarly stale under the default resource
+cache.
+
+### Suggested fix
+
+- Disable `tools/call` caching globally. If caching is kept, allowlist only tools
+  that are proven pure and include every state input in their arguments.
+- Disable caching for session and monitoring resources, or explicitly invalidate
+  them after every state transition.
+- Treat authentication partitioning as additional isolation, not a replacement
+  for including the MCP session in stateful behavior.
+
+### How to verify
+
+Add an end-to-end test using two unauthenticated `fastmcp.Client` instances. Make
+the same assignment in each client and verify that both workers actually acquire
+the variable. Add repeated reset/cancel tests and verify that each invocation
+changes state rather than returning a cached response.
+
+---
+
+## 11. Named-workspace cancellation targets the wrong worker — high
+
+### What is wrong
+
+`evaluate_sage` correctly obtains a named workspace with
+`key_for(ctx.session_id, session)`, but its `CancelledError` handler calls
+`SESSION_MANAGER.cancel(ctx.session_id)`. Cancelling work in `curves` therefore
+restarts the default workspace, losing unrelated default state, while the
+`curves` worker continues running.
+
+When that worker eventually writes the cancelled request's response, the next
+request can consume it because `SageSession.evaluate` decodes the response but
+does not verify that its `id` matches the request. The result can therefore be
+from the previous, cancelled computation.
+
+### Suggested fix
+
+Compute the workspace key once and use it for both `get` and cancellation. Also
+validate every worker response id before accepting it; a mismatched response
+should be drained or treated as a protocol error, never returned as the current
+request's result.
+
+### How to verify
+
+Start work in both `default` and `curves`, cancel a long `curves` request, and
+assert that default state survives, the named worker is actually restarted, and
+the next named evaluation returns its own result. Run this against the real Sage
+worker as well as the pure-Python shim.
+
+---
+
+## 12. The large-integer corruption guard does not guard JSON integers — high
+
+### What is wrong
+
+`_exact_int` rejects a `float` above `2^53`, but accepts any Python `int`.
+JavaScript clients round the value before serialization and commonly emit the
+rounded decimal digits as a JSON integer. Python then parses those digits as an
+`int`, so the float-only branch is never reached.
+
+The exact corrupted value named in the tool description,
+`1000000000000000019884624838656`, was accepted unchanged by `_exact_int`.
+`next_prime` can therefore still return a plausible but incorrect answer for the
+originally intended `10^30`.
+
+### Suggested fix
+
+Reject every numeric argument whose absolute value exceeds `2^53`, whether it
+arrives as `int` or `float`, and require the documented decimal-string form.
+Keep booleans and non-integral floats rejected.
+
+### How to verify
+
+Test through the MCP schema rather than calling `_exact_int` directly. Send the
+known rounded JSON integer and assert a `ToolError` requesting a decimal string;
+send the same exact digits as a string and assert they are accepted without
+alteration.
+
+---
+
+## 13. The streaming tool buffers all output — medium
+
+### What is wrong
+
+`evaluate_sage_streaming` awaits `session.evaluate()` before it splits and emits
+`worker_result.stdout`. The worker protocol returns one JSON response only after
+execution finishes, so a caller receives no intermediate output during a long
+computation. The tool, README and usage guide currently promise real-time,
+line-by-line output that does not occur.
+
+### Suggested fix
+
+Extend the worker protocol with stdout event messages and have `SageSession`
+dispatch those events while waiting for the final response. If that protocol
+work is not planned, rename the tool and documentation to describe post-run
+progress replay rather than streaming.
+
+### How to verify
+
+Run code that prints one marker, performs a multi-second computation, then prints
+a second marker. Assert that the first progress event arrives before computation
+completion and before the second marker.
+
+---
+
+## 14. Idle culling bypasses persistence — medium
+
+### What is wrong
+
+`SageSessionManager.shutdown` and `stop` save journals, but `cull_idle` removes
+stale sessions and calls `session.shutdown()` directly. With persistence enabled,
+the normal 15-minute idle lifecycle therefore discards state. A focused manager
+probe with a populated journal produced no file after culling.
+
+### Suggested fix
+
+Save each journal before shutting down a culled worker, using the same guarded
+logic as manager shutdown. Prefer an atomic temporary-file-and-rename write so a
+crash cannot leave half a JSON journal.
+
+### How to verify
+
+Create a persistent session with a one-second TTL, assign a variable, cull it,
+then obtain the same session again and assert that the variable is restored.
+
+---
+
+## 15. Journal filename sanitization is not injective — medium
+
+### What is wrong
+
+`_persist_path` replaces every character outside `[A-Za-z0-9._-]` with `_`.
+Distinct named workspaces such as `a/b` and `a?b` consequently map to the same
+`client__a_b.journal.json` path. One workspace can overwrite another's journal
+and later restore the wrong code into its namespace.
+
+### Suggested fix
+
+Use an injective encoding of the full storage key, such as URL-safe base64, or a
+readable prefix plus a cryptographic hash. Do not rely on lossy character
+replacement for identity.
+
+### How to verify
+
+Parameterize workspace names containing slashes, question marks, colons,
+Unicode and existing underscores. Assert that every distinct key has a distinct
+path and that each journal restores only its own variables.
+
+---
+
+## 16. Specialized tools cannot use named workspaces — medium
+
+### What is wrong
+
+The README says every tool that touches session state accepts the optional
+`session` argument. In practice, specialized tools such as
+`calculate_expression`, `solve_equation` and `graph_operation` expose no such
+argument and always call `SESSION_MANAGER.get(ctx.session_id)`. Named workspaces
+are therefore usable only through raw evaluation and the few session-management
+tools that were updated.
+
+### Suggested fix
+
+Add the same validated `session` argument to every helper that uses a worker and
+resolve it through `key_for`. If specialized helpers are intentionally stateless,
+run them in an explicitly stateless worker path and narrow the README claim.
+
+### How to verify
+
+Define different values in `default` and a named workspace, invoke representative
+tools from every domain with `session=...`, and assert both routing and isolation.
+Also inspect the published MCP schemas to ensure the argument is exposed.
+
+---
+
+## 17. Version bumps leave the registry manifest stale — medium
+
+### What is wrong
+
+`scripts/bump_version.py::_write_all` updates `pyproject.toml`, the package
+fallback version and both Helm chart fields, but not the two version fields in
+`server.json`. The release workflow patches the manifest only in its temporary
+checkout, so the version committed by the bump pull request remains stale.
+
+### Suggested fix
+
+Teach the bump script to update `server.json.version` and
+`server.json.packages[0].version`, then make a version-consistency test compare all
+package, chart and registry fields.
+
+### How to verify
+
+Run the bump script against temporary copies and assert that every version-bearing
+file changes to the same value while `--dry-run` changes none of them.
 
 ---
 

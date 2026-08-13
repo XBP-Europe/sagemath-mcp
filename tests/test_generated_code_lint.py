@@ -179,3 +179,57 @@ def test_every_documented_example_is_exercised(server_tree: ast.Module) -> None:
         "exercised by a test. Add a case, or stop documenting the spelling:\n"
         + "\n".join(f"  - {example!r}" for example in missing)
     )
+
+
+# Modules the README's security table promises are blocked wholesale. The table
+# previously claimed subprocess.*, pathlib.* and socket.* while the validator
+# allowed every one of them, so this asserts the promise against the code.
+README_BLOCKED_MODULES = ["os", "sys", "subprocess", "shutil", "socket", "pathlib"]
+
+README_BLOCKED_BUILTINS = [
+    "eval", "exec", "compile", "open", "input", "globals", "locals", "vars",
+    "getattr", "setattr", "delattr", "sage_eval", "preparse", "sage_input",
+]
+
+
+def test_readme_security_table_matches_the_policy() -> None:
+    """Every protection the README advertises must actually be enforced."""
+    import ast as _ast
+
+    from sagemath_mcp.security import SECURITY_POLICY, SecurityViolation, validate_module
+
+    def rejects(code: str) -> bool:
+        try:
+            validate_module(_ast.parse(code), code=code, policy=SECURITY_POLICY)
+        except SecurityViolation:
+            return True
+        return False
+
+    unenforced: list[str] = []
+    for module in README_BLOCKED_MODULES:
+        # An arbitrary attribute, not one of the historically named ones.
+        if not rejects(f"{module}.some_arbitrary_attribute"):
+            unenforced.append(f"{module}.* is documented as blocked but is allowed")
+    for builtin in README_BLOCKED_BUILTINS:
+        if not rejects(f"{builtin}('x')"):
+            unenforced.append(f"{builtin}() is documented as blocked but is allowed")
+    for payload in ("().__class__", "obj.__globals__", "__builtins__.__import__"):
+        if not rejects(payload):
+            unenforced.append(f"dunder access {payload!r} is documented as blocked but is allowed")
+
+    assert not unenforced, "README promises protections the policy does not enforce:\n" + "\n".join(
+        f"  - {item}" for item in unenforced
+    )
+
+
+def test_readme_documents_the_modules_the_policy_blocks() -> None:
+    """The reverse direction: no silently-enforced module missing from the docs."""
+    from sagemath_mcp.security import SECURITY_POLICY
+
+    readme = (Path(__file__).resolve().parents[1] / "README.md").read_text(encoding="utf-8")
+    missing = [
+        module
+        for module in SECURITY_POLICY.forbidden_attribute_parents
+        if f"`{module}`" not in readme
+    ]
+    assert not missing, f"policy blocks modules the README never mentions: {missing}"

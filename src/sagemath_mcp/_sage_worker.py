@@ -13,7 +13,7 @@ import traceback
 from types import SimpleNamespace
 from typing import Any
 
-from sagemath_mcp.security import SECURITY_POLICY, validate_module
+from sagemath_mcp.security import SECURITY_POLICY, trusted_policy, validate_module
 
 PURE_PYTHON = os.getenv("SAGEMATH_MCP_PURE_PYTHON") == "1"
 STARTUP_CODE = os.getenv("SAGEMATH_MCP_STARTUP", "from sage.all import *")
@@ -59,14 +59,19 @@ def _latex(result: Any) -> str | None:
         return None
 
 
-def _split_code(code: str) -> SimpleNamespace:
-    """Return the executable and tail expression chunks for *code*."""
+def _split_code(code: str, trusted: bool = False) -> SimpleNamespace:
+    """Return the executable and tail expression chunks for *code*.
+
+    *trusted* selects the policy for code this server generated itself, which
+    needs sage_eval. Caller-supplied code never sets it.
+    """
 
     module = ast.parse(code, mode="exec", type_comments=True)
     # NOTE: validate_module enforces our safety policy before compiling. This
     # runs once per request, keeping the execution fast while guarding against
     # disallowed imports/constructs early.
-    validate_module(module, code=code, policy=SECURITY_POLICY)
+    policy = trusted_policy() if trusted else SECURITY_POLICY
+    validate_module(module, code=code, policy=policy)
     ast.fix_missing_locations(module)
     if module.body and isinstance(module.body[-1], ast.Expr):
         prefix = ast.Module(
@@ -85,6 +90,7 @@ def _execute(
     want_latex: bool,
     capture_stdout: bool,
     namespace: dict[str, Any],
+    trusted: bool = False,
 ) -> dict[str, Any]:
     if _STARTUP_ERROR:
         return {
@@ -100,7 +106,7 @@ def _execute(
     start = time.perf_counter()
 
     try:
-        compiled = _split_code(code)
+        compiled = _split_code(code, trusted=trusted)
     except Exception as exc:
         return {
             "ok": False,
@@ -198,6 +204,7 @@ def _main() -> int:
                 want_latex=bool(message.get("want_latex", False)),
                 capture_stdout=bool(message.get("capture_stdout", True)),
                 namespace=namespace,
+                trusted=bool(message.get("trusted", False)),
             )
             response["id"] = msg_id
             print(json.dumps(response), flush=True)

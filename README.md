@@ -720,14 +720,34 @@ Every tool that touches session state accepts the same optional `session` argume
 
 All code --- whether from `evaluate_sage` or generated internally by helper tools --- passes through an AST-based security validator before execution.
 
+> **What this is, and is not.** The validator is defence in depth against
+> accidents and casual misuse. It is **not** a boundary against determined
+> adversarial code, and it should not be the only thing standing between an
+> untrusted caller and your host. **The container is the security boundary** ---
+> run the server in one, and see [Container hardening](#container-hardening).
+>
+> This section was previously inaccurate: it claimed `subprocess.*`, `pathlib.*`
+> and `socket.*` were blocked when none of them were, because a rule required a
+> module *and* a specific attribute name to match. Seven further bypasses were
+> found and closed at the same time. The table below is now covered by a test
+> that fails if the code stops enforcing it.
+
 **What is blocked:**
 
 | Category | Details |
 |----------|---------|
 | Dangerous builtins | `eval()`, `exec()`, `compile()`, `__import__()`, `open()`, `input()`, `globals()`, `locals()`, `vars()` |
-| Filesystem/process ops | `os.system`, `os.popen`, `os.remove`, `os.fork`, `subprocess.*`, `shutil.rmtree`, `pathlib.*`, `socket.*` |
+| Attribute indirection | `getattr()`, `setattr()`, `delattr()` --- these defeat every attribute rule by naming the attribute at runtime |
+| Runtime string evaluation | `sage_eval()`, `preparse()`, `sage_input()` --- these evaluate a string *after* the AST has been approved |
+| Dunder access | Any `__dunder__` name or attribute, which blocks `().__class__.__bases__[0].__subclasses__()` and `__builtins__` |
+| Forbidden modules | **Every** attribute of `os`, `sys`, `subprocess`, `shutil`, `socket`, `pathlib`, `builtins` --- at any depth, so `sage.misc.temporary_file.os` is caught too |
 | Unauthorized imports | All imports except those in the allowlist (see below) |
 | Scope manipulation | `global` and `nonlocal` statements (configurable) |
+
+Caller-supplied expressions passed to the specialised tools are validated as
+expressions in their own right before they are embedded in generated code.
+Without that, `calculate_expression("__import__('os').getuid()")` reached the
+operating system, because the validator saw only a string constant.
 
 **What is allowed:**
 
@@ -737,6 +757,26 @@ All code --- whether from `evaluate_sage` or generated internally by helper tool
 | `statistics` | Used by `statistics_summary` |
 | `base64`, `io` | Used by `plot_expression` for in-memory PNG encoding |
 | `sage`, `sage.all`, `sage.*` | Full SageMath library |
+
+### Container hardening
+
+The validator narrows what caller code can express. The container is what
+actually contains it, so `docker-compose.yml` sets:
+
+| Setting | Why |
+|---------|-----|
+| `./:/workspace:ro` | The server runs from the package installed in the image; an escaped process should not be able to edit the checkout it reads. |
+| `cap_drop: [ALL]` | No Linux capabilities are needed to do mathematics. |
+| `security_opt: [no-new-privileges:true]` | Blocks privilege escalation via setuid binaries. |
+| `pids_limit: 256` | A fork bomb cannot exhaust the host. |
+| `mem_limit: 4g` | Neither can a runaway computation. |
+
+An escape was measured reading all environment variables, reading the mounted
+checkout and opening outbound sockets. If the server is exposed to untrusted
+callers, also consider `network_mode: none` where the workload allows it, and
+avoid passing secrets in the environment of this container.
+
+The Helm chart applies the equivalent `securityContext`.
 
 **Enforced limits:**
 

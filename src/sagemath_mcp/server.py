@@ -29,6 +29,7 @@ from .models import (
     ResetResponse,
     SessionSnapshot,
 )
+from .security import SECURITY_POLICY, SecurityViolation, validate_module
 from .session import (
     DEFAULT_SESSION_NAME,
     SageEvaluationError,
@@ -452,7 +453,47 @@ def _normalize_source(value):
     return value
 
 
+def _validated_expression(text: str) -> str:
+    """Check a caller-supplied fragment before it is embedded in generated code.
+
+    The helper tools wrap caller input in sage_eval("<text>"). The AST validator
+    sees only a string constant there, so until this existed the entire
+    specialised tool surface evaluated caller code unchecked:
+    calculate_expression("__import__('os').getuid()") returned the container uid.
+
+    Validating the fragment as an expression in its own right closes that, and
+    is what makes the trusted worker path in _evaluate_structured safe.
+    """
+    if not isinstance(text, str):
+        return text
+    stripped = text.strip()
+    if not stripped:
+        return text
+    try:
+        parsed = ast.parse(stripped, mode="eval")
+    except SyntaxError:
+        # Not parseable as a Python expression. Sage's preparser accepts things
+        # Python does not (R.<a,b> = ...), so this is not automatically a
+        # violation; let the worker report the real error.
+        return text
+    try:
+        validate_module(
+            ast.Module(body=[ast.Expr(value=parsed.body)], type_ignores=[]),
+            code=stripped,
+            policy=SECURITY_POLICY,
+        )
+    except SecurityViolation as exc:
+        raise ToolError(f"Rejected by the security policy: {exc}") from exc
+    return text
+
+
 def _encode_literal(value: str | Iterable) -> str:
+    if isinstance(value, str):
+        _validated_expression(value)
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            if isinstance(item, str):
+                _validated_expression(item)
     return json.dumps(_normalize_source(value))
 
 
@@ -642,8 +683,20 @@ def _distribution_variance(distribution: str, parameters: list[float]) -> float:
 async def _evaluate_structured(
     session, code: str, timeout_seconds: float | None = None
 ) -> object:
+    """Run a snippet this server generated.
+
+    trusted=True permits sage_eval, which every helper template is built on.
+    That is only safe because the caller-supplied fragments interpolated into
+    the template are validated separately by _validated_expression before they
+    get here -- otherwise the helpers would be an unguarded path straight past
+    the AST policy, which is exactly what they were.
+    """
     worker_result = await session.evaluate(
-        code, want_latex=False, capture_stdout=False, timeout_seconds=timeout_seconds
+        code,
+        want_latex=False,
+        capture_stdout=False,
+        timeout_seconds=timeout_seconds,
+        trusted=True,
     )
     if worker_result.result is None:
         return None

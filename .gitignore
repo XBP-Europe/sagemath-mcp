@@ -217,3 +217,10 @@ prototypes/**/__pycache__/
 
 # Written by `gemini mcp add/remove`, which the CLI integration harness drives.
 .gemini/
+
+# Claude Code local state. settings.local.json is per-developer by convention;
+# a shared settings.json stays committable so team permissions can be checked in.
+# Note the trailing /*: excluding the directory itself would make the negation
+# below unreachable, because git will not descend into an excluded directory.
+.claude/*
+!.claude/settings.json

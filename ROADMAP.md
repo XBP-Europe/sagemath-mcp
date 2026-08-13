@@ -53,7 +53,7 @@ All items from the initial evaluation and TODO have been implemented:
 - [x] 242 unit tests at 99% branch coverage
 - [x] FastMCP 3.x upgrade with full API migration
 - [x] CI modernization (6 parallel jobs, matrix testing, uv caching, pip-audit, coverage)
-- [x] Docker image pinned to SageMath 10.5
+- [x] Docker image pinned to SageMath 10.9
 - [x] Helm chart health probes (liveness, readiness, startup)
 - [x] Python 3.12+ minimum
 - [x] All GitHub Actions on Node.js 24

@@ -54,7 +54,7 @@ Ruff with line-length 100, target Python 3.12. Rules: E, F, W, B, UP, ASYNC, RUF
 - **stdio** (default, for Claude Desktop): `uv run sagemath-mcp`
 - **HTTP**: `uv run sagemath-mcp --transport streamable-http --host 127.0.0.1 --port 8314`
 - **Docker Compose**: `docker compose up --build` (port 8314)
-- **Kubernetes**: Helm chart in `charts/sagemath-mcp/`; enforces non-root user (UID/GID 1000)
+- **Kubernetes**: Helm chart in `charts/sagemath-mcp/`; enforces non-root user (UID/GID 1001, matching `sage` in SageMath 10.9)
 
 ## CI/CD
 
@@ -67,4 +67,4 @@ Ruff with line-length 100, target Python 3.12. Rules: E, F, W, B, UP, ASYNC, RUF
 - Configure Git hooks after cloning: `git config core.hooksPath .githooks` (pre-push runs ruff).
 - Update `README.md`, `USAGE.md`, and monitoring docs when changing CLI flags, security toggles, or observability.
 - Use `cancel_sage_session` instead of force-stopping long computations.
-- Containerized workflows expect writable volumes for UID/GID 1000.
+- Containerized workflows expect writable volumes for UID/GID 1001 (the `sage` user in SageMath 10.9).

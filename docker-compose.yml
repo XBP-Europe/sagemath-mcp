@@ -5,7 +5,10 @@ services:
       dockerfile: Dockerfile
     image: sagemath-mcp:local
     container_name: sage-mcp
-    user: "1000:1000"
+    # No hardcoded user: the image already runs as the base image's `sage`
+    # account. Pinning a numeric UID here breaks whenever upstream renumbers it
+    # (sage moved from uid 1000 to 1001 between SageMath 10.5 and 10.9, and
+    # /home/sage is mode 0750, so a wrong UID cannot even reach /usr/bin/sage).
     restart: unless-stopped
     ports:
       - "8314:8314"

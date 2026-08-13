@@ -17,16 +17,20 @@ serviceAccount:
 podAnnotations: {}
 podLabels: {}
 
+# UID/GID must match the `sage` account in the base image (SageMath 10.9 uses
+# 1001; 10.5 and earlier used 1000). /home/sage is mode 0750, so a mismatched
+# UID cannot traverse it and the container fails to start. Update these
+# together with the base image in the Dockerfile.
 podSecurityContext:
   runAsNonRoot: true
-  runAsUser: 1000
-  runAsGroup: 1000
-  fsGroup: 1000
+  runAsUser: 1001
+  runAsGroup: 1001
+  fsGroup: 1001
 
 securityContext:
   runAsNonRoot: true
-  runAsUser: 1000
-  runAsGroup: 1000
+  runAsUser: 1001
+  runAsGroup: 1001
   allowPrivilegeEscalation: false
   capabilities:
     drop:

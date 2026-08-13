@@ -7,6 +7,48 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- **Caller strings interpolated into trusted code no longer reach `sage_eval`.** Four
+  tool parameters -- `graph_operation.graph`, `group_operation.group`,
+  `coding_theory_operation.code_type` and `polynomial_ring_operation.base_ring` -- were
+  embedded into generated Sage without validation. Generated code runs under a policy
+  that re-permits `sage_eval` (every helper template is built on it), so a crafted
+  parameter reached arbitrary execution: reading files, running shell commands and
+  opening outbound connections were all demonstrated against a real SageMath runtime.
+  All four now pass the same validation gate as every other expression, variable names
+  must be plain identifiers, and a test fails the build if any future tool interpolates
+  a caller string without a gate.
+- **Forbidden names are rejected wherever they are read**, not only where they are
+  called. `f = open` followed by `f("/etc/passwd")`, a `lambda` default, or a list
+  literal all bypassed the previous check, through the specialized tools as well as
+  `evaluate_sage`. The same applies to module names: `m = os` and
+  `from sage.all import os as m` both returned the container uid.
+- The worker namespace no longer contains `open`, `eval`, `exec`, `compile`, `input`,
+  `breakpoint`, `globals`, `locals`, `vars`, `memoryview`, `help`, `exit` or `quit`, as a
+  backstop for spellings the validator does not see.
+
+### Changed
+
+- **`interrupt_sage_session` no longer signals an idle worker.** When nothing is running
+  it returns `No running computation in session '<name>'` instead of claiming state was
+  preserved. Signalling an idle worker was not harmless: it is blocked reading its input,
+  where the signal has no computation to abort, and a real Sage worker was left unable to
+  answer the next request -- which then timed out and restarted it, destroying the
+  namespace the interrupt exists to protect.
+- The container runs with a read-only root filesystem, writable `tmpfs` for `/tmp` and
+  Sage's own directory only. The Helm chart gained `readOnlyRootFilesystem`, matching
+  `emptyDir` scratch, and default CPU and memory requests and limits.
+
+### Internal
+
+- `server.py` split from 2327 lines into `app.py` (the FastMCP object and lifecycle),
+  `runtime.py` (settings and session manager), `codegen.py` (the code-building helpers)
+  and a `tools/` package by domain. Tool names, schemas and descriptions are unchanged
+  and held that way by a committed snapshot test; `from sagemath_mcp import server`
+  still works.
+- Coverage raised to 100% of statements and branches, enforced in CI.
+
 ### Added
 
 - **`interrupt_sage_session`** stops a running computation while keeping every variable

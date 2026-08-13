@@ -2,6 +2,13 @@
 
 **Date:** 2026-04-02 (initial) | **Updated:** 2026-04-03
 
+> **This is a snapshot, not the current state.** Its figures were true on that date
+> and are kept as a record of the evaluation. Since then the sandbox findings in
+> `REVIEW_ACTIONS.md` (items 1-3, 18, 19) were fixed, `server.py` was split into
+> `app`/`runtime`/`codegen` and a `tools/` package, and the suites grew to 449 unit
+> tests at 100% statement and branch coverage plus 517 against SageMath 10.9.
+> For current numbers see `README.md` and `ROADMAP.md`.
+
 ## Overall Verdict
 
 The project delivers a comprehensive mathematics MCP server with 37 tools (31 Sage-backed, 6 infrastructure), robust infrastructure, and thorough testing. All recommendations from the initial evaluation have been implemented, including Phase 4 niche domain tools.

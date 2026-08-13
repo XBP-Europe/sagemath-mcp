@@ -96,13 +96,38 @@ computation everyone is trying to stop finishes on its own. And the worker's
 handling it explicitly the worker exited and took the namespace with it, defeating the
 purpose.
 
-## Under consideration — Tier 3: Jupyter kernel transport
+## Tier 3: Jupyter kernel transport — prototyped, not adopted (2026-08-13)
 
-Replacing the JSON-over-stdio worker with `jupyter_client` would retire a class of bugs
-this project keeps paying for: stream framing, interrupt handling and multi-line input.
-It is also a rewrite of `session.py` and `_sage_worker.py`, and the AST validator would
-have to be re-integrated into that path, since the sandbox is the main differentiator and
-cannot be lost in the move. Prototype before committing.
+Prototyped under `prototypes/jupyter_transport/`; see its `FINDINGS.md`. **Recommendation
+is not to adopt now**, on evidence rather than taste.
+
+The motivating benefits were already banked by cheaper means. Interrupt with state
+preservation shipped in Tier 2 using plain SIGINT. The framing failure was fixed by
+sizing the stream limit to 8 MiB. Multi-line input already worked. Of the four advantages
+szeider/mcp-sage cites, only "ZMQ framing has no arbitrary ceiling" is still outstanding,
+against our large one.
+
+What the prototype established:
+
+- A Jupyter kernel listens on five local TCP ports. A second client holding only the
+  connection file executed `import os; os.getuid()` against a stock kernel — so
+  client-side validation would be **advisory only**.
+- **IPython's `ast_transformers` cannot serve as the gate.** A transformer that raises is
+  not a veto: IPython warns, runs the original code anyway, and unregisters the
+  transformer.
+- Keeping the sandbox therefore requires subclassing the kernel and validating in
+  `do_execute`. That works and closes the bypass, but means owning a kernel subclass and
+  tracking ipykernel internals indefinitely.
+- Startup goes from 463 ms to 1010 ms, on a path users wait for.
+- The threat model worsens: today a worker has no listening socket, so a same-user
+  process cannot reach another session. With kernels it can, even if only with validated
+  code.
+
+Revisit for **capability**, not robustness: kernels emit `display_data` with `image/png`
+and `text/latex` natively, which is exactly what the plot tools hand-roll today, and
+`plot3d_expression` had to sample a surface by hand because `Graphics3d` has no
+in-memory export. Notebook interoperability and multi-language kernels are the other
+reasons that would justify the move.
 
 ## Explicitly not planned
 

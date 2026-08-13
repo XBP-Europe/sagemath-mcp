@@ -211,3 +211,6 @@ __marimo__/
 # Integration artifacts
 integration.log
 integration-artifacts.tar.gz
+
+# Prototype spikes are runnable but not part of the package build.
+prototypes/**/__pycache__/

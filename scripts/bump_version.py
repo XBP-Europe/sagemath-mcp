@@ -12,12 +12,21 @@ from re import Pattern
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"
 INIT_PATH = PROJECT_ROOT / "src" / "sagemath_mcp" / "__init__.py"
+CHART_PATH = PROJECT_ROOT / "charts" / "sagemath-mcp" / "Chart.yaml"
 
 PYPROJECT_VERSION_PATTERN: Pattern[str] = re.compile(
     r'^(version\s*=\s*)"(?P<version>\d+\.\d+\.\d+)"\s*$', re.MULTILINE
 )
 INIT_VERSION_PATTERN: Pattern[str] = re.compile(
     r'^(\s*__version__\s*=\s*)"(?P<version>\d+\.\d+\.\d+)"\s*$', re.MULTILINE
+)
+# The chart carries the version twice. Both were left behind by this script,
+# so the chart silently drifted from the package at every release.
+CHART_VERSION_PATTERN: Pattern[str] = re.compile(
+    r"^(version:\s*)(?P<version>\d+\.\d+\.\d+)\s*$", re.MULTILINE
+)
+CHART_APP_VERSION_PATTERN: Pattern[str] = re.compile(
+    r'^(appVersion:\s*)"(?P<version>\d+\.\d+\.\d+)"\s*$', re.MULTILINE
 )
 
 
@@ -59,20 +68,34 @@ def _read_version(path: Path, pattern: Pattern[str]) -> str:
     return match.group("version")
 
 
-def _write_version(path: Path, pattern: Pattern[str], new_version: str) -> None:
+def _write_version(
+    path: Path, pattern: Pattern[str], new_version: str, *, quoted: bool = True
+) -> None:
     content = path.read_text(encoding="utf-8")
     if not pattern.search(content):
         raise RuntimeError(f"Unable to locate version declaration in {path}")
-    updated = pattern.sub(lambda m: f'{m.group(1)}"{new_version}"', content)
+    replacement = f'"{new_version}"' if quoted else new_version
+    updated = pattern.sub(lambda m: f"{m.group(1)}{replacement}", content)
     path.write_text(updated, encoding="utf-8")
+
+
+def _write_all(new_version: str) -> None:
+    """Update every file that carries the version.
+
+    Keep this list complete: the Helm chart was missing, so it stayed on the
+    previous version through every release.
+    """
+    _write_version(PYPROJECT_PATH, PYPROJECT_VERSION_PATTERN, new_version)
+    _write_version(INIT_PATH, INIT_VERSION_PATTERN, new_version)
+    _write_version(CHART_PATH, CHART_VERSION_PATTERN, new_version, quoted=False)
+    _write_version(CHART_PATH, CHART_APP_VERSION_PATTERN, new_version)
 
 
 def bump_version(segment: str) -> Version:
     current_raw = _read_version(PYPROJECT_PATH, PYPROJECT_VERSION_PATTERN)
     current = Version.parse(current_raw)
     bumped = current.bump(segment)
-    _write_version(PYPROJECT_PATH, PYPROJECT_VERSION_PATTERN, str(bumped))
-    _write_version(INIT_PATH, INIT_VERSION_PATTERN, str(bumped))
+    _write_all(str(bumped))
     return bumped
 
 
@@ -99,8 +122,7 @@ def main(argv: list[str] | None = None) -> int:
         print(bumped)
         return 0
 
-    _write_version(PYPROJECT_PATH, PYPROJECT_VERSION_PATTERN, str(bumped))
-    _write_version(INIT_PATH, INIT_VERSION_PATTERN, str(bumped))
+    _write_all(str(bumped))
 
     print(bumped)
     return 0

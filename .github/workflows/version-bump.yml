@@ -19,7 +19,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Ensure clean working tree
@@ -28,9 +28,9 @@ jobs:
             echo "Working tree has uncommitted changes. Please commit or stash before running the bump."
             exit 1
           fi
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
+          python-version: "3.12"
       - name: Bump version
         id: bump
         run: |

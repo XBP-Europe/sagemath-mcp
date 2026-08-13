@@ -88,17 +88,35 @@ spec:
           envFrom:
             {{- toYaml .Values.extraEnvFrom | nindent 12 }}
           {{- end }}
-          {{- if .Values.extraVolumeMounts }}
+          {{- if or .Values.extraVolumeMounts .Values.scratchVolumes.enabled }}
           volumeMounts:
-            {{- toYaml .Values.extraVolumeMounts | nindent 12 }}
+            {{- if .Values.scratchVolumes.enabled }}
+            - name: tmp
+              mountPath: /tmp
+            - name: sage-home
+              mountPath: {{ .Values.scratchVolumes.sageHomePath }}
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           {{- end }}
           {{- with .Values.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-      {{- if .Values.extraVolumes }}
+      {{- if or .Values.extraVolumes .Values.scratchVolumes.enabled }}
       volumes:
-        {{- toYaml .Values.extraVolumes | nindent 8 }}
+        {{- if .Values.scratchVolumes.enabled }}
+        - name: tmp
+          emptyDir:
+            sizeLimit: {{ .Values.scratchVolumes.tmpSizeLimit }}
+        - name: sage-home
+          emptyDir:
+            sizeLimit: {{ .Values.scratchVolumes.sageHomeSizeLimit }}
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- end }}
       {{- if .Values.nodeSelector }}
       nodeSelector:

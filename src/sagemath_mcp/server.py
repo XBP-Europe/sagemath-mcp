@@ -6,10 +6,12 @@ import argparse
 import ast
 import asyncio
 import contextlib
+import io
 import json
 import logging
 import re
 import textwrap
+import tokenize
 from collections.abc import AsyncIterator, Iterable
 from typing import Annotated
 
@@ -69,8 +71,12 @@ Guidance for best results:
 - Long-running jobs emit progress heartbeat events roughly every 1.5 seconds. You can adjust
   timeouts via the `timeout` parameter.
 - Capture stdout only when needed; disabling it speeds up large iterations.
-- The security sandbox blocks arbitrary imports, `eval`, and filesystem/process APIs. If you
-  hit a security violation, rewrite the computation with Sage primitives instead.
+- The security policy rejects arbitrary imports, `eval`/`exec`, the indirection helpers
+  (`getattr`, `sage_eval`), dunder access, and the `os`/`sys`/`subprocess`/`shutil`/
+  `socket`/`pathlib` modules -- wherever those names are read, not only where they are
+  called. It is defence in depth against accidents, not a boundary against adversarial
+  code; the container is the boundary. If you hit a security violation, rewrite the
+  computation with Sage primitives instead.
 """.strip()
 
 SETTINGS = DEFAULT_SETTINGS
@@ -483,6 +489,39 @@ def _normalize_source(value):
     return value
 
 
+# A single "=" that is not part of ==, <=, >= or !=. Sage accepts it as an
+# equation; Python does not accept it as an expression at all.
+_EQUALS_NOT_COMPARISON = re.compile(r"(?<![=<>!])=(?!=)")
+
+
+def _screen_unparseable_fragment(fragment: str) -> None:
+    """Reject forbidden names in a fragment that would not parse.
+
+    Full AST validation needs a parse tree. When there is none, screen the token
+    stream instead: a name is a name whatever surrounds it, and this is the last
+    gate before the fragment is interpolated into trusted, sage_eval'd code.
+    """
+    forbidden = set(SECURITY_POLICY.forbidden_call_names) | set(
+        SECURITY_POLICY.forbidden_attribute_parents
+    )
+    try:
+        tokens = list(tokenize.generate_tokens(io.StringIO(fragment).readline))
+    except (tokenize.TokenError, IndentationError) as exc:
+        raise ToolError(
+            f"Could not read {fragment!r} as an expression: {exc}"
+        ) from exc
+    for token in tokens:
+        if token.type != tokenize.NAME:
+            continue
+        if token.string in forbidden or (
+            token.string.startswith("__") and token.string.endswith("__")
+        ):
+            raise ToolError(
+                f"Rejected by the security policy: reference to "
+                f"'{token.string}' is blocked"
+            )
+
+
 def _validated_expression(text: str) -> str:
     """Check a caller-supplied fragment before it is embedded in generated code.
 
@@ -502,10 +541,22 @@ def _validated_expression(text: str) -> str:
     try:
         parsed = ast.parse(stripped, mode="eval")
     except SyntaxError:
-        # Not parseable as a Python expression. Sage's preparser accepts things
-        # Python does not (R.<a,b> = ...), so this is not automatically a
-        # violation; let the worker report the real error.
-        return text
+        # Returning the fragment unvalidated here made "unparseable" a way to
+        # skip validation entirely, since it is then interpolated into sage_eval
+        # under the trusted policy. But rejecting outright is wrong too: the
+        # documented equation form "x^2 - 1 = 0" is deliberately not a Python
+        # expression. So try the Sage spelling first, and screen whatever is
+        # left at token level rather than waving it through.
+        equation = _EQUALS_NOT_COMPARISON.sub("==", stripped)
+        if equation != stripped:
+            try:
+                parsed = ast.parse(equation, mode="eval")
+            except SyntaxError:
+                _screen_unparseable_fragment(stripped)
+                return text
+        else:
+            _screen_unparseable_fragment(stripped)
+            return text
     try:
         validate_module(
             ast.Module(body=[ast.Expr(value=parsed.body)], type_ignores=[]),

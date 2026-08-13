@@ -126,4 +126,4 @@ For HTTP transports, point the client at `http://HOST:PORT/mcp` and enable strea
 - **ModuleNotFoundError for `sage`**: ensure the server is launched via `sage -python ...` so Sage’s site-packages are on `PYTHONPATH`.
 - **Long-running jobs**: use `cancel_sage_session`; the server restarts the worker and logs a warning for the calling context.
 - **Idle sessions**: the background culler removes sessions after `SAGEMATH_MCP_IDLE_TTL` seconds (default 900). Adjust via environment variables as documented in `README.md`.
-- **Permission denied on volume mounts**: confirm the host path is writable by UID/GID 1001; adjust ownership with `chown -R 1001:1001 <path>` when using Docker Compose or Helm.
+- **Permission denied on volume mounts**: the checkout is mounted read-only on purpose, so a write failure there is usually the application trying to write where it should not. If the path really is meant to be writable (a persistence volume), give that single path to UID/GID 1001 — not the whole tree.

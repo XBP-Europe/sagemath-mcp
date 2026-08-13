@@ -1,0 +1,46 @@
+# Smithery listing configuration.
+#
+# Smithery reads this from the repository root to work out how to launch the
+# server. Publishing still requires connecting this repository at smithery.ai
+# with an account that owns it; this file is the half that lives in git.
+#
+# SageMath itself is a large dependency and is not bundled here: the command
+# below assumes `sage` is on PATH. Callers who do not have it should use the
+# published container image instead, which carries the runtime.
+
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      sageBinary:
+        type: string
+        default: sage
+        description: >-
+          Path to the SageMath executable. Leave as "sage" to use PATH.
+      evalTimeout:
+        type: number
+        default: 30
+        description: Seconds before a single evaluation is abandoned.
+      idleTtl:
+        type: number
+        default: 900
+        description: Seconds an idle session is kept before its worker is reclaimed.
+      securityEnabled:
+        type: boolean
+        default: true
+        description: >-
+          Keep the AST policy on. It is defence in depth against accidents, not
+          a boundary against adversarial code -- run the container for that.
+    required: []
+  commandFunction: |-
+    (config) => ({
+      command: 'sagemath-mcp',
+      args: [],
+      env: {
+        SAGEMATH_MCP_SAGE_BINARY: config.sageBinary || 'sage',
+        SAGEMATH_MCP_EVAL_TIMEOUT: String(config.evalTimeout ?? 30),
+        SAGEMATH_MCP_IDLE_TTL: String(config.idleTtl ?? 900),
+        SAGEMATH_MCP_SECURITY_ENABLED: String(config.securityEnabled ?? true)
+      }
+    })

@@ -9,6 +9,11 @@ called out explicitly below.
 
 Severity is about consequence, not effort.
 
+**Second review round.** A re-check found items 1, 2, 3, 11 and 15 partial and
+item 1 still exploitable. What was missing in each is recorded in that item's
+section, under a "second round" heading, along with what closed it. Items 10,
+12, 13, 14, 16 and 17 were confirmed complete.
+
 | # | Severity | Item | Status |
 |---|----------|------|--------|
 | 1 | **Critical** | The AST validator is bypassable in at least seven ways | **done** |
@@ -17,7 +22,7 @@ Severity is about consequence, not effort.
 | 4 | Medium | `server.py` is 2147 lines and the least-covered module | open |
 | 5 | Medium | Two release paths cannot be exercised before a tag push | **done** |
 | 6 | Low | 104 dependencies, with pip-audit now blocking | **done** |
-| 7 | Low | Distribution: Smithery and Glama listings | open |
+| 7 | Low | Distribution: Smithery and Glama listings | **partly done** |
 | 8 | Low | Codex still routes two questions to `evaluate_sage` | accepted |
 | 9 | Low | Jupyter kernel `debug_request` question left unresolved | deferred |
 | 10 | **Critical** | Response caching breaks state and isolation across MCP clients | **done** |
@@ -32,6 +37,24 @@ Severity is about consequence, not effort.
 ---
 
 ## 1. The AST validator is bypassable — **critical** — DONE
+
+**Reopened once, now closed.** The first fix rejected forbidden names only where
+they were the direct target of an `ast.Call`, so aliasing walked through both raw
+`evaluate_sage` and the specialised tools: `f = open` then `f("/etc/passwd")`,
+`(lambda f=open: f("/etc/passwd").readline())()` and `[open][0](...)` all
+succeeded against real SageMath — the lambda payload returned the first line of
+`/etc/passwd` via `calculate_expression`. Two changes closed it:
+
+1. `security.py` now rejects a forbidden name in **any load context**, not just
+   call position.
+2. `_sage_worker.py` builds user code's `__builtins__` without the dangerous
+   names at all, so a missed spelling has nothing to reach. `__import__` stays —
+   Sage imports lazily during ordinary mathematics — and is unreachable anyway
+   because no dunder can be named.
+
+Eleven aliasing payloads were added to `tests/test_security_bypass.py` (38 tests
+total), each confirmed failing before the fix and passing after, and re-verified
+against real Sage rather than the pure-Python shim.
 
 **Fixed.** An eighth bypass was found while fixing the seven listed: every
 specialised tool `sage_eval`s its caller's expression, so
@@ -108,6 +131,14 @@ integration suite to confirm nothing legitimate broke.
 
 ## 2. README documents protections that do not exist — **critical** — DONE
 
+**Reopened with item 1, now closed.** While the validator only checked call
+position, the README's claim that `open()` and the indirection helpers were
+blocked overstated enforcement — and the consistency test agreed with it, because
+it too probed only the `name('x')` spelling. The table now states that forbidden
+names are rejected wherever they are *read*, documents the restricted worker
+builtins, and the test probes alias assignment, `lambda` defaults and container
+literals for every documented name.
+
 **Fixed.** The table now states what is enforced, and says plainly that the
 validator is defence in depth rather than a boundary. Two tests keep it honest:
 one asserts every documented protection is enforced, the other that no enforced
@@ -155,6 +186,20 @@ class of drift impossible to reintroduce silently.
 ---
 
 ## 3. The container is the real boundary, and it is not hardened — high — DONE
+
+**Second round.** The first pass added `cap_drop`, `no-new-privileges`,
+`pids_limit`, `mem_limit` and the read-only mount, but left the root filesystem
+writable, the Helm chart without a read-only root or resource limits, and three
+documents still recommending `chown -R 1001:1001 .`. Now: `read_only: true` with
+tmpfs for `/tmp` and `/home/sage/.sage` (verified by running Sage, a real
+evaluation and a plot under it — without the tmpfs mounts the container fails
+with "No usable temporary directory found", which is how they were sized);
+`readOnlyRootFilesystem`, `emptyDir` scratch and default CPU/memory
+requests/limits in the chart; and the blanket-chown guidance replaced in
+INSTALLATION.md, DISTRIBUTION.md and USAGE.md with "only a dedicated persistence
+volume should be writable". The README no longer claims Helm is "equivalent" —
+it lists what the chart sets and names the one gap (`pids_limit` has no chart
+equivalent).
 
 **Fixed.** The compose stack now mounts the checkout read-only, drops all
 capabilities, sets no-new-privileges, and bounds pids and memory. Verified by
@@ -265,7 +310,29 @@ in whoever's PR happens to be open. Keep the blocking behaviour.
 
 ---
 
-## 7. Distribution: Smithery and Glama listings — low
+## 7. Distribution: Smithery and Glama listings — low — PARTLY DONE
+
+**The half that lives in git is done.** `smithery.yaml` declares the stdio launch
+command and the four settings worth exposing, and it names the `sagemath-mcp`
+entry point that `pyproject.toml` actually defines.
+
+**The remaining half needs an account and cannot be automated from here.**
+
+- **Smithery**: connect the repository at <https://smithery.ai/new> with an
+  account that owns `XBP-Europe/sagemath-mcp`. It reads `smithery.yaml` from the
+  default branch.
+- **Glama**: indexes public MCP servers from GitHub automatically and ranks on
+  metadata quality. The repository topics, description and README added earlier
+  are what it reads; claim the listing at <https://glama.ai/mcp/servers> to edit
+  it.
+
+Note that SageMath is a large runtime and is not bundled: the Smithery command
+assumes `sage` is on PATH, so the container image remains the better route for
+callers who do not have it. Worth saying on the listing rather than leaving
+people to discover it.
+
+Original finding follows.
+
 
 The remaining Tier 1 item from the competitive survey. `fermat-mcp` carries both
 badges and has 20 stars against our 12 with a far smaller tool surface.
@@ -347,6 +414,16 @@ changes state rather than returning a cached response.
 ---
 
 ## 11. Named-workspace cancellation targets the wrong worker — high — DONE
+
+**Second round.** Evaluation used `_read_response`, but `reset()` still read the
+next line unconditionally, so it consumed a cancelled evaluation's response and
+reported "Failed to reset Sage session" for a reset that had worked. `reset()`
+now matches ids too, an id-less line is no longer accepted as any request's
+answer, and cancellation cleanup moved into `SageSession.evaluate` so streaming
+and the specialised tools stop abandoning a running computation. The strict id
+rule needed a bound — waiting for a matching id is unbounded when the peer
+repeats itself, and a stubbed worker spun there until the process ran out of
+memory — so it gives up after 64 non-matching lines.
 
 **Fixed.** The workspace key is computed once and used for both `get` and
 cancellation. Worker responses are now matched to their request id, and stale
@@ -492,6 +569,13 @@ then obtain the same session again and assert that the variable is restored.
 full key, so distinct workspaces cannot share a file. Tests cover slashes,
 question marks, colons, spaces, backslashes, Unicode, existing underscores and
 over-long names.
+
+**Follow-up:** the rename orphaned every journal written by an earlier version,
+including plain default sessions. `existing_journal_path()` falls back to the two
+previous filename schemes when no digest-named journal exists, and
+`save_journal()` retires the legacy file once state has been written under the
+new name, so the two schemes cannot diverge. Covered by a lookup test and an
+end-to-end restore-and-migrate test.
 
 Original finding follows.
 

@@ -213,6 +213,16 @@ def test_readme_security_table_matches_the_policy() -> None:
     for builtin in README_BLOCKED_BUILTINS:
         if not rejects(f"{builtin}('x')"):
             unenforced.append(f"{builtin}() is documented as blocked but is allowed")
+        # Call position is not enough. This test used to check only the spelling
+        # above, which is why `f = open` survived it: the README said "blocked"
+        # and the test agreed, while an alias walked straight through.
+        for spelling, label in (
+            (f"f = {builtin}", "alias assignment"),
+            (f"(lambda f={builtin}: f)()", "lambda default"),
+            (f"[{builtin}][0]", "container literal"),
+        ):
+            if not rejects(spelling):
+                unenforced.append(f"{builtin} is reachable by {label}: {spelling!r}")
     for payload in ("().__class__", "obj.__globals__", "__builtins__.__import__"):
         if not rejects(payload):
             unenforced.append(f"dunder access {payload!r} is documented as blocked but is allowed")

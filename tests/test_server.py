@@ -2152,3 +2152,37 @@ async def test_number_theory_accepts_big_integers_as_strings(monkeypatch):
     # The generated code must carry the exact value, not a float repr.
     assert "1000000000000000000000000000000" in session.calls[0]["code"]
     assert "e+30" not in session.calls[0]["code"]
+
+
+@pytest.mark.asyncio
+async def test_cancelled_streaming_then_reset_then_evaluate_on_a_named_workspace(
+    monkeypatch,
+):
+    """The whole sequence through the public tools, on one named workspace.
+
+    Streaming and the specialised tools did not clean up after a cancellation
+    the way evaluate_sage did, so an abandoned computation stayed running and
+    its response sat in the pipe for whoever read next.
+    """
+    settings = SageSettings(force_python_worker=True, eval_timeout=30.0)
+    manager = SageSessionManager(settings)
+    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    ctx = FakeContext("cancel-stream-client")
+    try:
+        await server.evaluate_sage("anchor = 5", session="bench", ctx=ctx)
+
+        task = asyncio.create_task(
+            server.evaluate_sage_streaming(
+                "sum(range(60000000))\nnonexistent_name", session="bench", ctx=ctx
+            )
+        )
+        await asyncio.sleep(0.2)
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
+        await server.reset_sage_session(session="bench", ctx=ctx)
+        result = await server.evaluate_sage("3 * 14", session="bench", ctx=ctx)
+        assert result.result == "42", "the workspace was unusable after cancel + reset"
+    finally:
+        await manager.shutdown()

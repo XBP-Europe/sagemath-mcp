@@ -1,4 +1,6 @@
 import asyncio
+import contextlib
+import json
 import sys
 
 import pytest
@@ -137,16 +139,42 @@ class _FakeWriter:
     def close(self) -> None:
         self.closed = True
 
+    def last_request_id(self) -> str | None:
+        """The id of the most recent request written, if any."""
+        lines = [line for line in bytes(self.data).splitlines() if line.strip()]
+        for line in reversed(lines):
+            try:
+                return json.loads(line.decode("utf-8")).get("id")
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                continue
+        return None
+
     async def wait_closed(self) -> None:
         return None
 
 
 class _FakeReader:
-    def __init__(self, data: bytes = b""):
+    """A stand-in worker stdout.
+
+    *echo_id_from* lets the canned response carry the id of the request that was
+    just written, which is what the real worker does. Without it the reader
+    answers with a line that belongs to no request, and the session correctly
+    refuses to accept it.
+    """
+
+    def __init__(self, data: bytes = b"", echo_id_from: "_FakeWriter | None" = None):
         self._data = data
+        self._echo_id_from = echo_id_from
 
     async def readline(self) -> bytes:
-        return self._data
+        if self._echo_id_from is None:
+            return self._data
+        request_id = self._echo_id_from.last_request_id()
+        if request_id is None:
+            return self._data
+        message = json.loads(self._data.decode("utf-8"))
+        message["id"] = request_id
+        return json.dumps(message).encode("utf-8") + b"\n"
 
 
 class _FakeProcess:
@@ -435,7 +463,9 @@ async def test_reset_worker_returns_failure(monkeypatch, python_settings):
 
     session = SageSession("reset-fail", python_settings)
     fake_process = _FakeProcess()
-    fake_process.stdout = _FakeReader(json.dumps({"ok": False}).encode() + b"\n")
+    fake_process.stdout = _FakeReader(
+        json.dumps({"ok": False}).encode() + b"\n", echo_id_from=fake_process.stdin
+    )
 
     async def fake_ensure_started():
         session._process = fake_process
@@ -878,3 +908,109 @@ async def test_idle_culling_persists_the_journal(tmp_path):
         assert result.result == "4321", "culling discarded the journal"
     finally:
         await manager.shutdown()
+
+
+def test_legacy_journal_is_still_found_after_the_rename(tmp_path):
+    """Upgrading must not orphan journals written by earlier versions.
+
+    The digest was added so distinct workspaces cannot collide, but it changed
+    every filename -- including plain default sessions, whose journal used to be
+    named after the session id alone.
+    """
+    settings = SageSettings(
+        force_python_worker=True, persist_sessions=True, persist_dir=str(tmp_path)
+    )
+    session = SageSession("legacy-client", settings)
+
+    # A journal written by the previous scheme.
+    legacy = tmp_path / "legacy-client.journal.json"
+    legacy.write_text(json.dumps(["heirloom = 11"]), encoding="utf-8")
+
+    found = session.existing_journal_path()
+    assert found == legacy, "the pre-digest journal was not found"
+    assert SageSession.load_journal(found) == ["heirloom = 11"]
+
+
+@pytest.mark.asyncio
+async def test_legacy_journal_is_restored_and_migrated(tmp_path):
+    settings = SageSettings(
+        force_python_worker=True, persist_sessions=True, persist_dir=str(tmp_path)
+    )
+    (tmp_path / "migrate-me.journal.json").write_text(
+        json.dumps(["heirloom = 11"]), encoding="utf-8"
+    )
+
+    manager = SageSessionManager(settings)
+    try:
+        session = await manager.get("migrate-me")
+        result = await session.evaluate("heirloom", want_latex=False, capture_stdout=False)
+        assert result.result == "11", "legacy state was not restored"
+
+        session.save_journal()
+        assert session._persist_path().exists(), "journal was not written under the new name"
+        assert not (tmp_path / "migrate-me.journal.json").exists(), (
+            "the legacy file should be retired so the two schemes cannot diverge"
+        )
+    finally:
+        await manager.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_reset_after_a_cancelled_evaluation_does_not_read_the_stale_response(tmp_path):
+    """reset() must match response IDs like evaluate() does.
+
+    A cancelled evaluation leaves its response in the pipe. reset() read the
+    next line unconditionally, so it consumed that stale line, saw a response
+    for a different request and failed -- and the evaluation after it then had
+    to drain the reset's own response.
+    """
+    settings = SageSettings(force_python_worker=True, eval_timeout=30.0)
+    session = SageSession("stale-reset", settings)
+    await session.ensure_started()
+    try:
+        await session.evaluate("marker = 1", want_latex=False, capture_stdout=False)
+
+        # Cancel mid-flight; the worker still answers, into an empty pipe.
+        task = asyncio.create_task(
+            session.evaluate(
+                "sum(range(60000000))\nnonexistent_name",
+                want_latex=False,
+                capture_stdout=False,
+            )
+        )
+        await asyncio.sleep(0.2)
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
+        await session.reset()          # used to raise SageProcessError
+        result = await session.evaluate("2 + 2", want_latex=False, capture_stdout=False)
+        assert result.result == "4", "the evaluation after reset read a stale response"
+    finally:
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_worker_responses_without_the_expected_id_are_not_accepted(tmp_path):
+    """An ID-less line must not be taken as a request's final response."""
+    settings = SageSettings(force_python_worker=True, eval_timeout=30.0)
+    session = SageSession("id-required", settings)
+    await session.ensure_started()
+    try:
+        reader = session._process.stdout
+        original = reader.readline
+        lines = [
+            json.dumps({"ok": True, "result_type": "expression", "result": "'spoofed'"}).encode()
+            + b"\n"
+        ]
+
+        async def fake_readline():
+            if lines:
+                return lines.pop(0)
+            return await original()
+
+        reader.readline = fake_readline
+        result = await session.evaluate("6 * 7", want_latex=False, capture_stdout=False)
+        assert result.result == "42", "an ID-less response was accepted as the answer"
+    finally:
+        await session.shutdown()

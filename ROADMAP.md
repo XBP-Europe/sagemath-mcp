@@ -2,7 +2,7 @@
 
 This document tracks planned improvements to the SageMath MCP server, organized by priority and effort. The goal is to strengthen the server's position as a universal mathematics MCP server that enables LLMs to perform any symbolic or discrete mathematical operation.
 
-**Current state (v0.4.0):** 37 MCP tools (31 Sage-backed, 6 infrastructure) covering calculus, algebra, linear algebra, ODEs, number theory, combinatorics, graph theory, group theory, elliptic curves, coding theory, boolean algebra, polynomial rings, geometry, probability, vector calculus, statistics, 2D/3D plotting, numeric root-finding, and a buffered streaming facade. The current suites pass 267 pure-Python tests and all 342 tests against a real SageMath 10.9 runtime, plus 43 CLI integration tests.
+**Current state (v0.4.0):** 37 MCP tools (31 Sage-backed, 6 infrastructure) covering calculus, algebra, linear algebra, ODEs, number theory, combinatorics, graph theory, group theory, elliptic curves, coding theory, boolean algebra, polynomial rings, geometry, probability, vector calculus, statistics, 2D/3D plotting, numeric root-finding, and incremental streaming. The current suites pass 267 pure-Python tests and all 342 tests against a real SageMath 10.9 runtime, plus 43 CLI integration tests.
 
 Integration coverage now includes every tool exercised against the examples in its own
 documentation, and a syntax matrix over the input spellings each tool must accept. Both
@@ -19,8 +19,14 @@ default response cache breaks state and isolation across clients. It also found
 correctness gaps in named-workspace cancellation, exact large integers, streaming,
 persistence, workspace routing and version synchronization. All are tracked with
 evidence, a suggested fix and a verification step in
-[REVIEW_ACTIONS.md](REVIEW_ACTIONS.md). Review items 1, 2 and 10 outrank everything
-below.
+[REVIEW_ACTIONS.md](REVIEW_ACTIONS.md).
+
+**Status: fifteen of seventeen closed.** The validator took three rounds — direct
+spellings, then aliases of forbidden functions (`f = open`), then aliases of
+forbidden modules (`m = os`) — because each fix was checked only against the
+payloads that motivated it. The two that remain are item 4 (splitting `server.py`,
+deferred until the open PR stack merges) and the account-side half of item 7
+(Smithery and Glama submissions, which need repository-owner access).
 
 ## Competitive position (surveyed 2026-08-13)
 
@@ -98,7 +104,7 @@ architectural change.
 - [x] **Named multi-sessions.** `start_sage_session`, `list_sage_sessions` and
       `stop_sage_session`, with workspace selection on raw evaluation and session
       controls. The default workspace keys on the bare scope.
-- [ ] **Correct named-session routing.** Cancellation must target the selected
+- [x] **Correct named-session routing.** Cancellation must target the selected
       workspace, response ids must be verified, and specialized tools must expose
       the same `session` selector (review items 11 and 16).
 
@@ -166,10 +172,10 @@ distribution and session ergonomics, not coverage.
 
 - [x] **Enriched `evaluate_sage` description** — 14 domain examples (was 8): added symbolic sums, Laplace/inverse Laplace transforms, modular arithmetic, vector calculus, numeric root finding, recurrence relations
 - [x] **HTTP `/health` endpoint** — returns `{"status": "ok", "version": "...", "active_sessions": N}` for Kubernetes liveness/readiness probes (Starlette route on HTTP transports)
-- [x] **`evaluate_sage_streaming` facade** — currently replays captured stdout as progress events after execution finishes.
-- [ ] **True incremental streaming** — extend the worker protocol so stdout events arrive while execution is running (review item 13).
+- [x] **`evaluate_sage_streaming`** — shipped first as a facade that replayed captured stdout after completion; now streams each line as it is produced (see the entry below).
+- [x] **True incremental streaming** — the worker emits a stdout event per completed line while execution is running, and the session dispatches them as they arrive (review item 13).
 - [x] **Disk-backed session persistence foundation** — code journals are saved on explicit stop/server shutdown and replayed on restore. Controlled by `SAGEMATH_MCP_PERSIST_SESSIONS` and `SAGEMATH_MCP_PERSIST_DIR`.
-- [ ] **Complete persistence lifecycle and isolation** — save journals during idle culling and replace lossy filename sanitization with collision-free identities (review items 14 and 15).
+- [x] **Complete persistence lifecycle and isolation** — journals are saved during idle culling, filenames carry a digest of the full session id in a versioned namespace, writes are atomic, and journals from the previous naming schemes are still restored (review items 14 and 15).
 
 ## Phase 4 — Niche Domains (Not Planned)
 

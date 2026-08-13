@@ -739,10 +739,19 @@ All code --- whether from `evaluate_sage` or generated internally by helper tool
 > This section was previously inaccurate: it claimed `subprocess.*`, `pathlib.*`
 > and `socket.*` were blocked when none of them were, because a rule required a
 > module *and* a specific attribute name to match. Seven further bypasses were
-> found and closed at the same time. The table below is now covered by a test
-> that fails if the code stops enforcing it.
+> found and closed at the same time. It was inaccurate a second time, more
+> subtly: the forbidden names were rejected only where they were *called*, so
+> `f = open` followed by `f("/etc/passwd")` passed --- through the specialised
+> tools as well as `evaluate_sage`. Forbidden names are now rejected wherever
+> they are read, and the worker's namespace no longer contains them at all.
+> The table below is covered by a test that fails if the code stops enforcing
+> it, and that test now checks aliases, not just call sites.
 
 **What is blocked:**
+
+Names in the first three rows are rejected **anywhere they are read** --- called,
+assigned, aliased, defaulted into a `lambda`, or placed in a list --- not only in
+call position.
 
 | Category | Details |
 |----------|---------|
@@ -753,6 +762,7 @@ All code --- whether from `evaluate_sage` or generated internally by helper tool
 | Forbidden modules | **Every** attribute of `os`, `sys`, `subprocess`, `shutil`, `socket`, `pathlib`, `builtins` --- at any depth, so `sage.misc.temporary_file.os` is caught too |
 | Unauthorized imports | All imports except those in the allowlist (see below) |
 | Scope manipulation | `global` and `nonlocal` statements (configurable) |
+| Namespace removal | The worker's `__builtins__` omits `open`, `eval`, `exec`, `compile`, `input`, `breakpoint`, `globals`, `locals`, `vars`, `memoryview`, `help`, `exit` and `quit` outright --- a backstop for spellings the AST pass misses. `__import__` deliberately stays, because Sage imports lazily during ordinary mathematics; it is unreachable from caller code, which cannot name any dunder. |
 
 Caller-supplied expressions passed to the specialised tools are validated as
 expressions in their own right before they are embedded in generated code.
@@ -775,6 +785,8 @@ actually contains it, so `docker-compose.yml` sets:
 
 | Setting | Why |
 |---------|-----|
+| `read_only: true` | The root filesystem is immutable. Sage needs only a writable temp dir and its own dot-directory, supplied as the two `tmpfs` mounts below; without them it fails outright, which is how they were sized. |
+| `tmpfs: /tmp`, `/home/sage/.sage` | The only writable paths, in memory, capped at 512 MB and 256 MB. |
 | `./:/workspace:ro` | The server runs from the package installed in the image; an escaped process should not be able to edit the checkout it reads. |
 | `cap_drop: [ALL]` | No Linux capabilities are needed to do mathematics. |
 | `security_opt: [no-new-privileges:true]` | Blocks privilege escalation via setuid binaries. |
@@ -786,7 +798,12 @@ checkout and opening outbound sockets. If the server is exposed to untrusted
 callers, also consider `network_mode: none` where the workload allows it, and
 avoid passing secrets in the environment of this container.
 
-The Helm chart applies the equivalent `securityContext`.
+The Helm chart applies `runAsNonRoot`, `allowPrivilegeEscalation: false`,
+`capabilities.drop: [ALL]` and `readOnlyRootFilesystem: true`, with `emptyDir`
+volumes for the same two writable paths and default CPU/memory requests and
+limits. It is close but not identical: compose's `pids_limit` has no direct
+chart equivalent (pod PID limits are a kubelet setting), so set one on the node
+if you need it.
 
 **Enforced limits:**
 

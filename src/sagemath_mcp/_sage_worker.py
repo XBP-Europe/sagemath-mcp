@@ -32,6 +32,9 @@ def _build_namespace() -> dict[str, Any]:
     preload = "from math import *" if PURE_PYTHON else STARTUP_CODE
     if preload:
         try:
+            # The preload needs real builtins: importing sage.all uses
+            # __import__, open and more. Restrict only afterwards, so user code
+            # never sees them.
             exec(preload, ns)
             _STARTUP_ERROR = None
         except Exception as exc:
@@ -40,7 +43,54 @@ def _build_namespace() -> dict[str, Any]:
                 json.dumps({"ok": False, "startup_error": _STARTUP_ERROR}),
                 file=sys.stderr,
             )
+    ns["__builtins__"] = _restricted_builtins()
+    _strip_forbidden_modules(ns)
     return ns
+
+
+def _strip_forbidden_modules(ns: dict[str, Any]) -> None:
+    """Drop module objects the policy forbids from the user namespace.
+
+    `from sage.all import *` binds os, sys and friends as ordinary globals, so
+    `m = os` handed caller code the real module. The validator now refuses to
+    read those names, and this makes the object unreachable even if it does.
+    """
+    for name in SECURITY_POLICY.forbidden_attribute_parents:
+        ns.pop(name, None)
+
+
+# Builtins that are dangerous in this context and have no place in a maths
+# expression. The AST policy blocks these names too; removing them from the
+# namespace is the backstop for when it misses a spelling -- as it did for
+# `f = open`, which the validator only caught in call position.
+_DENIED_BUILTINS = frozenset(
+    {
+        "open",
+        "eval",
+        "exec",
+        "compile",
+        "input",
+        "breakpoint",
+        "globals",
+        "locals",
+        "vars",
+        "memoryview",
+        "help",
+        "exit",
+        "quit",
+    }
+)
+
+
+def _restricted_builtins() -> dict[str, Any]:
+    """Builtins for user code: everything except the dangerous handful.
+
+    __import__ deliberately stays. Sage imports lazily on first use, so removing
+    it breaks ordinary mathematics well after startup. The name is unreachable
+    from caller code anyway: the policy blocks dunder references outright.
+    """
+    source = __builtins__ if isinstance(__builtins__, dict) else vars(__builtins__)
+    return {name: value for name, value in source.items() if name not in _DENIED_BUILTINS}
 
 
 def _latex(result: Any) -> str | None:

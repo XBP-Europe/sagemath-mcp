@@ -69,12 +69,17 @@ def _non_code_strings(tree: ast.Module) -> set[str]:
         if isinstance(node, ast.Call):
             func = node.func
             is_compile = isinstance(func, ast.Attribute) and func.attr == "compile"
+            # Error messages are prose shown to the caller, never executed, and
+            # they legitimately mention notation such as 2^53.
+            is_error = isinstance(func, ast.Name) and func.id in {
+                "ToolError", "ValueError", "RuntimeError", "SageProcessError",
+            }
             for keyword in node.keywords:
                 if keyword.arg == "description":
                     for sub in ast.walk(keyword.value):
                         if isinstance(sub, ast.Constant) and isinstance(sub.value, str):
                             excluded.add(sub.value)
-            if is_compile:
+            if is_compile or is_error:
                 for arg in node.args:
                     for sub in ast.walk(arg):
                         if isinstance(sub, ast.Constant) and isinstance(sub.value, str):

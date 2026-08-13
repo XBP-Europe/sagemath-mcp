@@ -755,17 +755,31 @@ async def solve_ode(
         + textwrap.dedent(
             f"""
         _x = var({_encode_literal(variable)})
-        _y = function({_encode_literal(function)})(_x)
-        _ode_locals = dict(_locals)
-        _ode_locals[{_encode_literal(function)}] = _y
-        _ode_locals['diff'] = diff
-        parts = {_encode_literal(equation)}.split('=')
-        if len(parts) == 2:
-            left = sage_eval(parts[0].strip(), locals=_ode_locals)
-            right = sage_eval(parts[1].strip(), locals=_ode_locals)
-            _ode = left == right
-        else:
-            _ode = sage_eval({_encode_literal(equation)}, locals=_ode_locals)
+        _ode_function = function({_encode_literal(function)})
+        _y = _ode_function(_x)
+        _ode_text = {_encode_literal(equation)}
+
+        def _build_ode(_binding):
+            _ode_locals = dict(_locals)
+            _ode_locals[{_encode_literal(function)}] = _binding
+            _ode_locals['diff'] = diff
+            parts = _ode_text.split('=')
+            if len(parts) == 2:
+                left = sage_eval(parts[0].strip(), locals=_ode_locals)
+                right = sage_eval(parts[1].strip(), locals=_ode_locals)
+                return left == right
+            return sage_eval(_ode_text, locals=_ode_locals)
+
+        # Bind the bare name to the undefined function so the documented
+        # "diff(y(x), x)" form parses. Binding the applied expression instead
+        # turns "y(x)" into "(y(x))(x)", which Sage rejects with "Substitution
+        # using function-call syntax and unnamed arguments has been removed".
+        # Fall back to the applied expression so a bare "diff(y, x)" still
+        # works, since that form cannot be parsed against the function itself.
+        try:
+            _ode = _build_ode(_ode_function)
+        except Exception:
+            _ode = _build_ode(_y)
         str(desolve(_ode, _y, ivar=_x))
         """
         )

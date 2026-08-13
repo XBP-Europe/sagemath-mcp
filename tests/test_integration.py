@@ -130,3 +130,74 @@ async def test_monitoring_metrics_on_cancellation(monkeypatch):
         assert snapshot["successes"] >= 1
     finally:
         await manager.shutdown()
+
+
+@requires_sage
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("equation", "function", "variable", "expected"),
+    [
+        # The documented form from the tool's own docstring. This is the exact
+        # call reported in issue #12.
+        ("diff(y(x), x) + y(x) = cos(x)", "y", "x", ("_C", "cos(x)", "sin(x)")),
+        # The bare form, which worked before the fix and must keep working:
+        # the fix must not simply trade one broken spelling for another.
+        ("diff(y, x) + y = cos(x)", "y", "x", ("_C", "cos(x)", "sin(x)")),
+        # Second order, both spellings.
+        ("diff(y(x), x, 2) + y(x) = 0", "y", "x", ("_K1", "_K2")),
+        ("diff(y, x, 2) + y = 0", "y", "x", ("_K1", "_K2")),
+        # "==" takes the non-split branch through the generated code.
+        ("diff(y(x), x) == y(x)", "y", "x", ("_C", "e^x")),
+        # The applied/bare handling must not assume the names y and x.
+        ("diff(f(t), t) = f(t)", "f", "t", ("_C", "e^t")),
+        ("diff(y(x), x) = x*y(x)", "y", "x", ("_C", "e^")),
+    ],
+)
+async def test_solve_ode_equation_forms(monkeypatch, equation, function, variable, expected):
+    """Regression test for #12: solve_ode rejected the documented "y(x)" form.
+
+    The generated Sage code bound the dependent name to the *applied*
+    expression y(x), so "y(x)" in the user's equation became "(y(x))(x)" and
+    Sage raised "Substitution using function-call syntax and unnamed arguments
+    has been removed". Every spelling below must now solve.
+    """
+
+    settings = SageSettings(force_python_worker=False)
+    manager = SageSessionManager(settings)
+    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    ctx = FakeContext("integration-ode-forms")
+
+    try:
+        result = await server.solve_ode(
+            equation, function=function, variable=variable, ctx=ctx
+        )
+        solution = str(result["solution"])
+
+        # The exact failure reported in #12 must not resurface.
+        assert "Substitution using function-call syntax" not in solution
+        for fragment in expected:
+            assert fragment in solution, f"{fragment!r} missing from {solution!r}"
+    finally:
+        await manager.shutdown()
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_solve_ode_applied_and_bare_agree(monkeypatch):
+    """#12: the two spellings describe one ODE, so they must solve identically."""
+
+    settings = SageSettings(force_python_worker=False)
+    manager = SageSessionManager(settings)
+    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    ctx = FakeContext("integration-ode-agree")
+
+    try:
+        applied = await server.solve_ode(
+            "diff(y(x), x) + y(x) = cos(x)", function="y", variable="x", ctx=ctx
+        )
+        bare = await server.solve_ode(
+            "diff(y, x) + y = cos(x)", function="y", variable="x", ctx=ctx
+        )
+        assert str(applied["solution"]) == str(bare["solution"])
+    finally:
+        await manager.shutdown()

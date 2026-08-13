@@ -647,6 +647,28 @@ async def test_solve_ode(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_solve_ode_binds_undefined_function(monkeypatch):
+    """Regression guard for #12 that does not need a Sage runtime.
+
+    Binding the dependent name to the applied expression turns the documented
+    "y(x)" spelling into "(y(x))(x)", which Sage rejects. The generated code
+    must bind the undefined function and only fall back to the applied form.
+    """
+
+    session = StubSession("'_C*e^(-x)'")
+    await _stub_manager(monkeypatch, session)
+    ctx = FakeContext()
+    await server.solve_ode("diff(y(x), x) + y(x) = cos(x)", ctx=ctx)
+
+    code = session.calls[0]["code"]
+    assert "_ode_function = function(\"y\")" in code
+    assert "_build_ode(_ode_function)" in code
+    # The applied expression is still available as the fallback binding.
+    assert "_y = _ode_function(_x)" in code
+    assert "_build_ode(_y)" in code
+
+
+@pytest.mark.asyncio
 async def test_number_theory_is_prime(monkeypatch):
     session = StubSession("True")
     await _stub_manager(monkeypatch, session)

@@ -31,6 +31,12 @@ cli-integration:
 	docker compose up -d
 	uv run python -m tests.cli_integration.run_cli_tests --cli both
 
+# Tool-forcing cases across Claude, Gemini and Codex. Unlike cli-integration,
+# these assert from the proxy's wire log that a tool was actually called, so a
+# model answering from memory fails instead of passing.
+cli-extended:
+	uv run python -m tests.cli_integration.run_extended --cli all
+
 all: test integration-test
 
-.PHONY: test sage-deps integration-test lint build sage-container cli-integration all
+.PHONY: test sage-deps integration-test lint build sage-container cli-integration cli-extended all

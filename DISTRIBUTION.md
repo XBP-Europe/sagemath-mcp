@@ -53,8 +53,14 @@ docker pull ghcr.io/xbp-europe/sagemath-mcp:latest
 ```
 
 Images inherit the upstream `sagemath/sagemath` base and run as the non-root `sage`
-user (UID/GID 1000). Ensure repository directories mounted into the container are
-writable by that user (`chown -R 1000:1000 .` before `docker run`/`docker compose up`).
+user (UID/GID 1001). Ensure repository directories mounted into the container are
+writable by that user (`chown -R 1001:1001 .` before `docker run`/`docker compose up`).
+
+This number comes from the base image and is not ours to choose: `sage` was UID 1000
+through SageMath 10.5 and is 1001 from 10.9. Check it after any base image bump with
+`docker run --rm sagemath/sagemath:<tag> id sage`, and update the Helm chart's
+`runAsUser`/`runAsGroup` to match. `/home/sage` is mode 0750, so a mismatched UID
+cannot even reach the `sage` executable and the container exits immediately.
 
 Helm deployments reference the same image via `charts/sagemath-mcp/values.yaml`. Adjust
 `image.tag` in values or `--set image.tag=<version>` when installing a specific release.

@@ -25,8 +25,8 @@ cd sagemath-mcp
 docker compose up --build
 ```
 
-The container exposes `http://127.0.0.1:8314/mcp` and runs as the non-root `sage` user (UID/GID 1000).
-If you mount the repository from the host, ensure it is writable by that UID (`chown -R 1000:1000 .`
+The container exposes `http://127.0.0.1:8314/mcp` and runs as the non-root `sage` user (UID/GID 1001).
+If you mount the repository from the host, ensure it is writable by that UID (`chown -R 1001:1001 .`
 before launching).
 
 ### Kubernetes (Helm)
@@ -105,6 +105,6 @@ make test
   docker rm -f sage-mcp
   ```
 - When mounting directories into Docker or running via `docker compose`, ensure the host path is
-  writable by UID/GID 1000 to satisfy the non-root `sage` user (e.g., `sudo chown -R 1000:1000 <path>`).
+  writable by UID/GID 1001 to satisfy the non-root `sage` user (e.g., `sudo chown -R 1001:1001 <path>`).
 - Security policy errors (e.g., "Import statements are disabled") typically indicate unsupported
   operations; rewrite the Sage code using whitelisted modules or helper tools.

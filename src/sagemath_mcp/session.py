@@ -137,6 +137,7 @@ class SageSession:
         want_latex: bool,
         capture_stdout: bool,
         timeout_seconds: float | None = None,
+        trusted: bool = False,
     ) -> WorkerResult:
         await self.ensure_started()
         assert self._process and self._process.stdin and self._process.stdout
@@ -146,6 +147,8 @@ class SageSession:
             "code": code,
             "want_latex": want_latex,
             "capture_stdout": capture_stdout,
+            # Server-generated snippets may use sage_eval; caller code may not.
+            "trusted": trusted,
         }
         data = json.dumps(payload).encode("utf-8") + b"\n"
         effective_timeout = timeout_seconds or self.settings.eval_timeout

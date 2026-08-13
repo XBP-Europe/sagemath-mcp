@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 LOGGER = logging.getLogger(__name__)
 
@@ -64,6 +64,17 @@ class SecurityPolicy:
         "globals",
         "locals",
         "vars",
+        # Attribute access by name defeats every attribute rule below:
+        # getattr(os, 'system')('id') never produces an ast.Attribute node.
+        "getattr",
+        "setattr",
+        "delattr",
+        # sage_eval and preparse evaluate a *string* at runtime, long after this
+        # validator has approved the AST. They are the sharpest bypass of all,
+        # since the payload is invisible at validation time.
+        "sage_eval",
+        "preparse",
+        "sage_input",
     )
     forbidden_attribute_parents: tuple[str, ...] = (
         "os",
@@ -171,6 +182,52 @@ def _raise_violation(
     raise SecurityViolation(message)
 
 
+def trusted_policy(policy: SecurityPolicy | None = None) -> SecurityPolicy:
+    """Policy for code this server generates itself.
+
+    The helper tools build their Sage snippets around sage_eval, which is
+    forbidden to callers precisely because it evaluates a string after this
+    validator has approved the AST. Server-generated code is not attacker
+    controlled, so it may use it -- but only after the *user* fragments
+    interpolated into it have been validated in their own right. See
+    server._validated_expression.
+
+    Everything else in the policy still applies: generated code cannot import
+    os, reach dunders, or call the other forbidden builtins.
+    """
+    base = policy or SECURITY_POLICY
+    relaxed = tuple(name for name in base.forbidden_call_names if name not in _TRUSTED_CALLS)
+    return replace(base, forbidden_call_names=relaxed)
+
+
+# Evaluation entry points the server itself needs, and callers must not have.
+_TRUSTED_CALLS = frozenset({"sage_eval", "preparse", "sage_input"})
+
+
+def _is_dunder(name: str) -> bool:
+    """True for names like __class__, __globals__, __builtins__."""
+    return len(name) > 4 and name.startswith("__") and name.endswith("__")
+
+
+def _attribute_segments(node: ast.Attribute) -> list[str]:
+    """Return every dotted segment of an attribute chain, root first.
+
+    Checking only one level let sage.misc.temporary_file.os.getuid() through,
+    because func.value was an Attribute rather than a Name. Checking only the
+    root is not enough either: there the root is the permitted `sage` and the
+    forbidden `os` sits in the middle of the chain.
+    """
+    segments: list[str] = []
+    current: ast.expr = node
+    while isinstance(current, ast.Attribute):
+        segments.append(current.attr)
+        current = current.value
+    if isinstance(current, ast.Name):
+        segments.append(current.id)
+    segments.reverse()
+    return segments
+
+
 def _is_allowed_import(module: str, policy: SecurityPolicy) -> bool:
     module = module or ""
     if module in policy.allowed_import_modules:
@@ -241,6 +298,40 @@ def validate_module(
                 code=code,
                 policy=policy,
             )
+        # Dunder access is the shortest path out of the sandbox:
+        # ().__class__.__bases__[0].__subclasses__() reaches subprocess.Popen,
+        # and __builtins__ reaches __import__ by attribute or by subscript.
+        # Blocking the whole namespace closes both in one rule.
+        if isinstance(node, ast.Attribute) and _is_dunder(node.attr):
+            _raise_violation(
+                f"Access to dunder attribute '{node.attr}' is blocked",
+                code=code,
+                policy=policy,
+            )
+        if isinstance(node, ast.Name) and _is_dunder(node.id):
+            _raise_violation(
+                f"Access to dunder name '{node.id}' is blocked",
+                code=code,
+                policy=policy,
+            )
+
+        # A forbidden module is forbidden entirely. Requiring the attribute to
+        # ALSO be on a list of eighteen names meant os.system was blocked while
+        # os.listdir, os.environ and os.chmod were not -- and the README claimed
+        # subprocess.*, pathlib.* and socket.* were blocked when none of them were.
+        if isinstance(node, ast.Attribute):
+            # Any segment, not just the root: sage.misc.temporary_file.os.getuid()
+            # is rooted at the permitted `sage` and reaches os in the middle.
+            for segment in _attribute_segments(node)[:-1]:
+                if segment in policy.forbidden_attribute_parents:
+                    _raise_violation(
+                        f"Access through '{segment}' is blocked "
+                        f"('{segment}' is not permitted in Sage executions)",
+                        code=code,
+                        policy=policy,
+                    )
+                    break
+
         if isinstance(node, ast.Call):
             func = node.func
             if isinstance(func, ast.Name) and func.id in policy.forbidden_call_names:
@@ -249,17 +340,14 @@ def validate_module(
                     code=code,
                     policy=policy,
                 )
-            if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
-                parent = func.value.id
-                if (
-                    parent in policy.forbidden_attribute_parents
-                    and func.attr in policy.forbidden_attribute_names
-                ):
-                    _raise_violation(
-                        f"Call to forbidden attribute '{parent}.{func.attr}' is blocked",
-                        code=code,
-                        policy=policy,
-                    )
+            # Kept for bare calls such as system(...) that arrive via a star
+            # import rather than through a module attribute.
+            if isinstance(func, ast.Attribute) and func.attr in policy.forbidden_attribute_names:
+                _raise_violation(
+                    f"Call to forbidden attribute '{func.attr}' is blocked",
+                    code=code,
+                    policy=policy,
+                )
 
     if policy.log_violations:
         LOGGER.debug(

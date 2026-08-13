@@ -10,6 +10,17 @@ services:
     # (sage moved from uid 1000 to 1001 between SageMath 10.5 and 10.9, and
     # /home/sage is mode 0750, so a wrong UID cannot even reach /usr/bin/sage).
     restart: unless-stopped
+    # The AST validator is defence in depth, not a boundary: this container is
+    # the boundary. A sandbox escape was demonstrated reading every environment
+    # variable, reading the mounted checkout and opening outbound sockets, so
+    # the blast radius is bounded here rather than in the validator alone.
+    read_only: false          # Sage writes to $HOME; the mount below is ro
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256           # a fork bomb cannot exhaust the host
+    mem_limit: 4g             # a runaway computation cannot either
     ports:
       - "8314:8314"
     environment:
@@ -21,4 +32,8 @@ services:
       SAGEMATH_MCP_SHUTDOWN_GRACE: "2"
       SAGEMATH_MCP_MAX_STDOUT: "100000"
     volumes:
-      - ./:/workspace
+      # Read-only. The server runs from the package installed into the image,
+      # not from this mount, so nothing here needs to be writable -- and an
+      # escaped process should not be able to edit the checkout it is reading.
+      # Drop the :ro only if you are deliberately developing against the mount.
+      - ./:/workspace:ro

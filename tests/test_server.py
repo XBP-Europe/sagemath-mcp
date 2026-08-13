@@ -213,6 +213,7 @@ class StubSession:
         want_latex: bool,
         capture_stdout: bool,
         timeout_seconds: float | None = None,
+        trusted: bool = False,
     ):
         self.calls.append(
             {

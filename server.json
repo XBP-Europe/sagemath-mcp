@@ -1,0 +1,22 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.XBP-Europe/sagemath-mcp",
+  "title": "SageMath",
+  "description": "Stateful SageMath MCP server with 33 symbolic math tools and a sandboxed Sage session per client.",
+  "version": "0.4.0",
+  "websiteUrl": "https://github.com/XBP-Europe/sagemath-mcp",
+  "repository": {
+    "url": "https://github.com/XBP-Europe/sagemath-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "sagemath-mcp",
+      "version": "0.4.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

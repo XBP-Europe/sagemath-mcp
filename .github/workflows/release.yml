@@ -116,6 +116,31 @@ jobs:
         with:
           packages-dir: dist
 
+  # The registry verifies ownership by looking for an "mcp-name:" marker in the
+  # published PyPI description, so this can only run once the package is live.
+  mcp-registry:
+    needs: [publish]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # OIDC, so no long-lived registry token is stored
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: Align server.json with the tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' \
+            server.json > server.tmp && mv server.tmp server.json
+          cat server.json
+      - name: Install mcp-publisher
+        run: |
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" \
+            | tar xz mcp-publisher
+      - name: Publish to the MCP registry
+        run: |
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish
+
   # Runs last so a failed publish cannot leave a release announcing a version
   # that was never shipped. Until this existed, every release object was created
   # by hand, and v0.4.0 shipped to PyPI while the releases page still advertised

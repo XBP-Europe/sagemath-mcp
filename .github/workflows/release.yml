@@ -115,3 +115,61 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist
+
+  # Runs last so a failed publish cannot leave a release announcing a version
+  # that was never shipped. Until this existed, every release object was created
+  # by hand, and v0.4.0 shipped to PyPI while the releases page still advertised
+  # v0.3.1 as Latest -- which is also where pyproject points its Changelog URL.
+  github-release:
+    needs: [publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+      - name: Extract release notes from the changelog
+        id: notes
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          # Print the body of the "## [VERSION]" section, stopping at the next one.
+          awk -v ver="$VERSION" '
+            index($0, "## [" ver "]") == 1 { flag = 1; next }
+            flag && index($0, "## [") == 1 { exit }
+            # Link-reference definitions live at the foot of the file; for the
+            # newest entry there is no following section to stop at.
+            flag && /^\[[0-9]+\.[0-9]+\.[0-9]+\]:/ { exit }
+            flag { print }
+          ' CHANGELOG.md > release-notes.md
+          if [ -s release-notes.md ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            # Missing entry is worth surfacing, but not worth failing a release
+            # that has already been published to PyPI.
+            echo "::warning::No CHANGELOG.md entry for ${VERSION}; using generated notes."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            echo "Release ${GITHUB_REF_NAME} already exists; nothing to do."
+            exit 0
+          fi
+          if [ "${{ steps.notes.outputs.found }}" = "true" ]; then
+            gh release create "${GITHUB_REF_NAME}" \
+              --title "${GITHUB_REF_NAME}" \
+              --verify-tag \
+              --notes-file release-notes.md \
+              dist/*
+          else
+            gh release create "${GITHUB_REF_NAME}" \
+              --title "${GITHUB_REF_NAME}" \
+              --verify-tag \
+              --generate-notes \
+              dist/*
+          fi

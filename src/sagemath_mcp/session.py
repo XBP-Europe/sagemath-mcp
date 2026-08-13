@@ -233,6 +233,40 @@ class SageSession:
         d.mkdir(parents=True, exist_ok=True)
         return d / f"{self._journal_stem()}.journal.json"
 
+    def _legacy_persist_paths(self) -> list[Path]:
+        """Journal paths written by earlier versions of this code.
+
+        Two schemes preceded the digest: the raw session id, and a lossy
+        sanitisation of it. Both are still on disk for anyone upgrading, and
+        without this the rename silently orphans every persisted session --
+        including plain default ones, whose filename was previously just the
+        session id.
+        """
+        if not self.settings.persist_sessions or not self.settings.persist_dir:
+            return []
+        d = Path(self.settings.persist_dir)
+        candidates = [
+            d / f"{self.session_id}.journal.json",
+            d / f"{re.sub(r'[^A-Za-z0-9._-]', '_', self.session_id)}.journal.json",
+        ]
+        # Deduplicate while preserving order; for default sessions the two are
+        # the same path.
+        seen: set[Path] = set()
+        return [p for p in candidates if not (p in seen or seen.add(p))]
+
+    def existing_journal_path(self) -> Path | None:
+        """The journal to restore from, preferring the current scheme."""
+        current = self._persist_path()
+        if current is not None and current.exists():
+            return current
+        for legacy in self._legacy_persist_paths():
+            if legacy.exists():
+                LOGGER.info(
+                    "Restoring %s from a legacy journal path (%s)", self.session_id, legacy.name
+                )
+                return legacy
+        return None
+
     def _journal_stem(self) -> str:
         """A filename that is unique per session id.
 
@@ -250,6 +284,12 @@ class SageSession:
     def save_journal(self) -> None:
         """Write the code journal to disk for later restoration."""
         path = self._persist_path()
+        if path is not None:
+            # Retire any pre-digest file so the two schemes cannot diverge.
+            for legacy in self._legacy_persist_paths():
+                if legacy != path and legacy.exists():
+                    with contextlib.suppress(OSError):
+                        legacy.unlink()
         if path is None:
             return
         path.write_text(json.dumps(self._code_journal))
@@ -443,8 +483,9 @@ class SageSessionManager:
         await session.ensure_started()
         # Restore persisted journal if available
         if not session._code_journal:
-            path = session._persist_path()
-            if path and path.exists():
+            # Falls back to pre-digest filenames so upgrading does not lose state.
+            path = session.existing_journal_path()
+            if path:
                 journal = SageSession.load_journal(path)
                 if journal:
                     LOGGER.info(

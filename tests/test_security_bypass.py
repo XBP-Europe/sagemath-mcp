@@ -80,3 +80,47 @@ ALLOWED = [
 @pytest.mark.parametrize(("case_id", "payload"), ALLOWED, ids=[c for c, _ in ALLOWED])
 def test_legitimate_code_still_passes(case_id: str, payload: str) -> None:
     _validate(payload)
+
+
+# Every spelling below reaches a forbidden builtin WITHOUT naming it in call
+# position. The first two were reported as still exploitable after the initial
+# hardening: both returned the first line of /etc/passwd, through evaluate_sage
+# and through calculate_expression. Checking ast.Call.func alone is not enough --
+# the name has to be rejected wherever it is referenced.
+ALIASING_PAYLOADS = [
+    ("alias-assignment", "f = open\nf('/etc/passwd').readline()"),
+    ("lambda-default", "(lambda f=open: f('/etc/passwd').readline())()"),
+    ("alias-getattr", "g = getattr\ng(os, 'getuid')()"),
+    ("list-literal", "[open][0]('/etc/passwd').readline()"),
+    ("tuple-literal", "(open,)[0]('/etc/passwd').read()"),
+    ("dict-value", "{'k': open}['k']('/etc/passwd').read()"),
+    ("comprehension", "[fn for fn in (open,)][0]('/etc/passwd').read()"),
+    ("bare-reference", "open"),
+    ("default-in-def", "def g(h=eval):\n    return h('1+1')\ng()"),
+    ("conditional-alias", "f = open if True else print\nf('/etc/passwd')"),
+    ("alias-sage-eval", "se = sage_eval\nse(\"__import__('os').getuid()\")"),
+]
+
+
+@pytest.mark.parametrize(
+    ("case_id", "payload"), ALIASING_PAYLOADS, ids=[c for c, _ in ALIASING_PAYLOADS]
+)
+def test_forbidden_names_cannot_be_aliased(case_id: str, payload: str) -> None:
+    with pytest.raises(SecurityViolation):
+        _validate(payload)
+
+
+def test_restricted_builtins_exclude_the_dangerous_ones() -> None:
+    """The namespace backstop, independent of the AST rules.
+
+    If a spelling ever slips past the validator again, the object should not be
+    reachable in the first place.
+    """
+    from sagemath_mcp._sage_worker import _restricted_builtins
+
+    available = _restricted_builtins()
+    for denied in ("open", "eval", "exec", "compile", "input", "globals", "locals", "vars"):
+        assert denied not in available, f"{denied} is still reachable in the worker namespace"
+    # Ordinary mathematics must keep working.
+    for needed in ("abs", "len", "range", "sum", "int", "float", "print", "sorted", "__import__"):
+        assert needed in available, f"{needed} was removed and normal code will break"

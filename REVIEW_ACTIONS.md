@@ -33,6 +33,24 @@ Severity is about consequence, not effort.
 
 ## 1. The AST validator is bypassable — **critical** — DONE
 
+**Reopened once, now closed.** The first fix rejected forbidden names only where
+they were the direct target of an `ast.Call`, so aliasing walked through both raw
+`evaluate_sage` and the specialised tools: `f = open` then `f("/etc/passwd")`,
+`(lambda f=open: f("/etc/passwd").readline())()` and `[open][0](...)` all
+succeeded against real SageMath — the lambda payload returned the first line of
+`/etc/passwd` via `calculate_expression`. Two changes closed it:
+
+1. `security.py` now rejects a forbidden name in **any load context**, not just
+   call position.
+2. `_sage_worker.py` builds user code's `__builtins__` without the dangerous
+   names at all, so a missed spelling has nothing to reach. `__import__` stays —
+   Sage imports lazily during ordinary mathematics — and is unreachable anyway
+   because no dunder can be named.
+
+Eleven aliasing payloads were added to `tests/test_security_bypass.py` (38 tests
+total), each confirmed failing before the fix and passing after, and re-verified
+against real Sage rather than the pure-Python shim.
+
 **Fixed.** An eighth bypass was found while fixing the seven listed: every
 specialised tool `sage_eval`s its caller's expression, so
 `calculate_expression("__import__('os').getuid()")` returned the container uid.
@@ -107,6 +125,14 @@ integration suite to confirm nothing legitimate broke.
 ---
 
 ## 2. README documents protections that do not exist — **critical** — DONE
+
+**Reopened with item 1, now closed.** While the validator only checked call
+position, the README's claim that `open()` and the indirection helpers were
+blocked overstated enforcement — and the consistency test agreed with it, because
+it too probed only the `name('x')` spelling. The table now states that forbidden
+names are rejected wherever they are *read*, documents the restricted worker
+builtins, and the test probes alias assignment, `lambda` defaults and container
+literals for every documented name.
 
 **Fixed.** The table now states what is enforced, and says plainly that the
 validator is defence in depth rather than a boundary. Two tests keep it honest:
@@ -514,6 +540,13 @@ then obtain the same session again and assert that the variable is restored.
 full key, so distinct workspaces cannot share a file. Tests cover slashes,
 question marks, colons, spaces, backslashes, Unicode, existing underscores and
 over-long names.
+
+**Follow-up:** the rename orphaned every journal written by an earlier version,
+including plain default sessions. `existing_journal_path()` falls back to the two
+previous filename schemes when no digest-named journal exists, and
+`save_journal()` retires the legacy file once state has been written under the
+new name, so the two schemes cannot diverge. Covered by a lookup test and an
+end-to-end restore-and-migrate test.
 
 Original finding follows.
 

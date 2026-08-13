@@ -1,4 +1,5 @@
 import asyncio
+import json
 import sys
 
 import pytest
@@ -876,5 +877,50 @@ async def test_idle_culling_persists_the_journal(tmp_path):
         restored = await manager.get("cull-persist")
         result = await restored.evaluate("survivor", want_latex=False, capture_stdout=False)
         assert result.result == "4321", "culling discarded the journal"
+    finally:
+        await manager.shutdown()
+
+
+def test_legacy_journal_is_still_found_after_the_rename(tmp_path):
+    """Upgrading must not orphan journals written by earlier versions.
+
+    The digest was added so distinct workspaces cannot collide, but it changed
+    every filename -- including plain default sessions, whose journal used to be
+    named after the session id alone.
+    """
+    settings = SageSettings(
+        force_python_worker=True, persist_sessions=True, persist_dir=str(tmp_path)
+    )
+    session = SageSession("legacy-client", settings)
+
+    # A journal written by the previous scheme.
+    legacy = tmp_path / "legacy-client.journal.json"
+    legacy.write_text(json.dumps(["heirloom = 11"]), encoding="utf-8")
+
+    found = session.existing_journal_path()
+    assert found == legacy, "the pre-digest journal was not found"
+    assert SageSession.load_journal(found) == ["heirloom = 11"]
+
+
+@pytest.mark.asyncio
+async def test_legacy_journal_is_restored_and_migrated(tmp_path):
+    settings = SageSettings(
+        force_python_worker=True, persist_sessions=True, persist_dir=str(tmp_path)
+    )
+    (tmp_path / "migrate-me.journal.json").write_text(
+        json.dumps(["heirloom = 11"]), encoding="utf-8"
+    )
+
+    manager = SageSessionManager(settings)
+    try:
+        session = await manager.get("migrate-me")
+        result = await session.evaluate("heirloom", want_latex=False, capture_stdout=False)
+        assert result.result == "11", "legacy state was not restored"
+
+        session.save_journal()
+        assert session._persist_path().exists(), "journal was not written under the new name"
+        assert not (tmp_path / "migrate-me.journal.json").exists(), (
+            "the legacy file should be retired so the two schemes cannot diverge"
+        )
     finally:
         await manager.shutdown()

@@ -332,6 +332,25 @@ def validate_module(
                     )
                     break
 
+        # A forbidden builtin is forbidden wherever it is REFERENCED, not only
+        # where it is called. Checking ast.Call.func alone let the name be
+        # aliased first and called through the alias:
+        #     f = open;                    f('/etc/passwd').readline()
+        #     (lambda f=open: f('/etc/passwd').readline())()
+        # Both returned the first line of /etc/passwd, through evaluate_sage and
+        # through calculate_expression. Any expression that stores, defaults,
+        # or packs the name into a container works the same way, so the check
+        # belongs on the Name node itself.
+        if (
+            isinstance(node, ast.Name)
+            and isinstance(node.ctx, ast.Load)
+            and node.id in policy.forbidden_call_names
+        ):
+            _raise_violation(
+                f"Reference to forbidden name '{node.id}' is blocked",
+                code=code,
+                policy=policy,
+            )
         if isinstance(node, ast.Call):
             func = node.func
             if isinstance(func, ast.Name) and func.id in policy.forbidden_call_names:

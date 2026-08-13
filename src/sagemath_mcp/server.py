@@ -146,25 +146,42 @@ async def health_check(request: object) -> object:
     )
 
 
+# NOTE ON THIS DESCRIPTION. It used to say "use this for anything not covered by
+# the specialized helpers" and then demonstrate fourteen domains that ARE covered
+# by them, including codes.HammingCode(...).minimum_distance(). One line of
+# instruction against fourteen lines of demonstration: measured against the CLI
+# suite, Codex chose evaluate_sage for every single question. The examples below
+# are deliberately restricted to work no dedicated tool performs, so that what
+# this tool shows and what it says agree.
 @mcp.tool(description="""\
-Execute arbitrary SageMath code within a persistent session. Variables and definitions \
-persist across calls. Use this for any computation not covered by the specialized helpers. \
-Examples by domain:
+Run arbitrary SageMath code in a persistent session; variables persist across calls.
 
-Combinatorics: binomial(10, 3); Permutations(4).cardinality(); Combinations([1,2,3,4], 2).list()
-Graph theory: G = graphs.PetersenGraph(); G.chromatic_number()
-Number theory: prime_range(100); euler_phi(60); continued_fraction(pi, nterms=10)
-Geometry: polytopes.cube().volume(); EllipticCurve([0,0,1,-1,0]).rank()
-Probability: RealDistribution('gaussian', 1).cum_distribution_function(1.96)
-Group theory: SymmetricGroup(5).order(); AlternatingGroup(4).is_abelian()
-Polynomial rings: R.<a,b> = PolynomialRing(QQ); (a+b)^3
-Coding theory: codes.HammingCode(GF(2), 3).minimum_distance()
-Symbolic sums: var('n'); sum(1/n^2, n, 1, oo)
+LAST RESORT. A dedicated tool exists for most tasks and should be preferred: it \
+validates arguments and returns a typed result instead of a repr string. Reach for \
+one of these first:
+
+- calculus: differentiate_expression, integrate_expression, limit_expression, \
+series_expansion, symbolic_sum, solve_ode
+- algebra: solve_equation, simplify_expression, expand_expression, \
+factor_expression, find_root
+- linear algebra: matrix_operation (determinant, inverse, eigenvalues, rank, rref, \
+transpose), matrix_multiply
+- discrete: number_theory_operation, combinatorics_operation (binomial, partitions, \
+catalan, fibonacci, bell), graph_operation, group_operation
+- specialised: elliptic_curve_operation, coding_theory_operation, \
+polynomial_ring_operation, boolean_algebra_operation, geometry_operation, \
+vector_calculus_operation
+- data: statistics_summary, distribution_operation
+- plots: plot_expression, plot3d_expression, plot_multi_expression
+
+Use evaluate_sage only for what those do not cover, for example:
+
 Transforms: laplace(sin(t), t, s); inverse_laplace(1/(s^2+1), s, t)
 Modular arithmetic: Mod(17, 5); power_mod(3, 100, 97)
-Vector calculus: var('x y z'); f = x^2+y^2+z^2; diff(f,x), diff(f,y), diff(f,z)
-Numeric root finding: find_root(x - cos(x), 0, 1)
 Recurrences: desolve_rsolve(f(n+2)-f(n+1)-f(n), f, [0, 1])
+Continued fractions: continued_fraction(pi, nterms=10)
+Number fields: K.<a> = NumberField(x^3 - 2); K.class_number()
+Multi-step work that builds on values defined earlier in the same session.
 """)
 async def evaluate_sage(
     code: Annotated[str, Field(description="SageMath code to execute")],
@@ -771,7 +788,11 @@ async def integrate_expression(
     return {"integral": result, "definite": definite}
 
 
-@mcp.tool(description="Compute descriptive statistics for a dataset")
+@mcp.tool(description=(
+        "Descriptive statistics for a list of numbers: mean, median, population "
+        "and sample variance and standard deviation, min and max. Prefer this "
+        "over evaluate_sage for summary statistics."
+    ))
 async def statistics_summary(
     data: Annotated[list[float], Field(description="List of numeric values")],
     ctx: Context | None = None,
@@ -965,7 +986,10 @@ async def series_expansion(
     return {"series": result, "point": point, "order": order}
 
 
-@mcp.tool(description="Perform a matrix operation (det, inverse, eigenvalues, ...)")
+@mcp.tool(description=(
+        "Linear algebra on one matrix: determinant, inverse, eigenvalues, rank, "
+        "reduced row echelon form, transpose. Prefer this over evaluate_sage."
+    ))
 async def matrix_operation(
     matrix: Annotated[
         list[list[float]], Field(description="Matrix as nested list of numbers")
@@ -1014,7 +1038,10 @@ async def matrix_operation(
     return {"operation": operation, "result": result}
 
 
-@mcp.tool(description="Solve an ordinary differential equation")
+@mcp.tool(description=(
+        "Solve an ordinary differential equation of any order, returning the "
+        "general solution with arbitrary constants. Prefer this over evaluate_sage."
+    ))
 async def solve_ode(
     equation: Annotated[
         str,
@@ -1065,7 +1092,10 @@ async def solve_ode(
     return {"solution": result}
 
 
-@mcp.tool(description="Number theory operations: is_prime, factor_integer, next_prime, gcd, lcm")
+@mcp.tool(description=(
+        "Number theory: primality testing, integer factorisation, the next "
+        "prime above n, gcd and lcm. Prefer this over evaluate_sage for any of these."
+    ))
 async def number_theory_operation(
     operation: Annotated[
         str,
@@ -1099,7 +1129,10 @@ async def number_theory_operation(
     return {"operation": operation, "result": result}
 
 
-@mcp.tool(description="Compute a symbolic sum or product over an index variable")
+@mcp.tool(description=(
+        "Closed form of a symbolic sum or product over an index variable, "
+        "including infinite series. Prefer this over evaluate_sage for summations."
+    ))
 async def symbolic_sum(
     expression: Annotated[str, Field(description="Expression to sum (e.g. '1/n^2')")],
     variable: Annotated[str, Field(description="Index variable (e.g. 'n')")] = "n",
@@ -1131,7 +1164,11 @@ async def symbolic_sum(
     return {"result": result, "operation": op}
 
 
-@mcp.tool(description="Combinatorics: binomial, permutations, combinations, partitions, and more")
+@mcp.tool(description=(
+        "Combinatorics: binomial coefficients, permutations, combinations, "
+        "integer partitions, factorial, Catalan, Fibonacci and Bell numbers. "
+        "Prefer this over evaluate_sage for any of these."
+    ))
 async def combinatorics_operation(
     operation: Annotated[
         str,
@@ -1666,8 +1703,11 @@ async def group_operation(
 
 
 @mcp.tool(
-    description="Elliptic curve operations: rank, torsion, "
-    "discriminant, j_invariant, rational points"
+    description=(
+        "Elliptic curves over Q: rank, torsion order, discriminant, j-invariant, "
+        "conductor and generators, from Weierstrass coefficients. Prefer this "
+        "over evaluate_sage for curve invariants."
+    )
 )
 async def elliptic_curve_operation(
     coefficients: Annotated[
@@ -1714,8 +1754,11 @@ async def elliptic_curve_operation(
 
 
 @mcp.tool(
-    description="Coding theory: construct error-correcting codes "
-    "and compute properties"
+    description=(
+        "Error-correcting codes: length, dimension, minimum distance, rate and "
+        "generator matrix for Hamming and generalized Reed-Solomon codes. Prefer "
+        "this over evaluate_sage for code parameters."
+    )
 )
 async def coding_theory_operation(
     code_type: Annotated[
@@ -1767,7 +1810,10 @@ async def coding_theory_operation(
 
 
 @mcp.tool(
-    description="Boolean algebra: operations on boolean polynomials"
+    description=(
+        "Boolean polynomials over GF(2): evaluate, list variables, degree, and "
+        "zero/one tests. Prefer this over evaluate_sage for boolean algebra."
+    )
 )
 async def boolean_algebra_operation(
     expression: Annotated[
@@ -1883,8 +1929,11 @@ async def polynomial_ring_operation(
 
 
 @mcp.tool(
-    description="Geometry: distances, areas, volumes, convex hulls "
-    "for points and polytopes"
+    description=(
+        "Computational geometry on point sets: euclidean distance, polygon area, "
+        "polytope volume, convex hull vertices and convexity tests. Prefer this "
+        "over evaluate_sage for these."
+    )
 )
 async def geometry_operation(
     operation: Annotated[

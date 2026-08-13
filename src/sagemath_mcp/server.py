@@ -71,8 +71,12 @@ Guidance for best results:
 - Long-running jobs emit progress heartbeat events roughly every 1.5 seconds. You can adjust
   timeouts via the `timeout` parameter.
 - Capture stdout only when needed; disabling it speeds up large iterations.
-- The security sandbox blocks arbitrary imports, `eval`, and filesystem/process APIs. If you
-  hit a security violation, rewrite the computation with Sage primitives instead.
+- The security policy rejects arbitrary imports, `eval`/`exec`, the indirection helpers
+  (`getattr`, `sage_eval`), dunder access, and the `os`/`sys`/`subprocess`/`shutil`/
+  `socket`/`pathlib` modules -- wherever those names are read, not only where they are
+  called. It is defence in depth against accidents, not a boundary against adversarial
+  code; the container is the boundary. If you hit a security violation, rewrite the
+  computation with Sage primitives instead.
 """.strip()
 
 SETTINGS = DEFAULT_SETTINGS

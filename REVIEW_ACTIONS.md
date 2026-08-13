@@ -9,6 +9,11 @@ called out explicitly below.
 
 Severity is about consequence, not effort.
 
+**Second review round.** A re-check found items 1, 2, 3, 11 and 15 partial and
+item 1 still exploitable. What was missing in each is recorded in that item's
+section, under a "second round" heading, along with what closed it. Items 10,
+12, 13, 14, 16 and 17 were confirmed complete.
+
 | # | Severity | Item | Status |
 |---|----------|------|--------|
 | 1 | **Critical** | The AST validator is bypassable in at least seven ways | **done** |
@@ -181,6 +186,20 @@ class of drift impossible to reintroduce silently.
 ---
 
 ## 3. The container is the real boundary, and it is not hardened — high — DONE
+
+**Second round.** The first pass added `cap_drop`, `no-new-privileges`,
+`pids_limit`, `mem_limit` and the read-only mount, but left the root filesystem
+writable, the Helm chart without a read-only root or resource limits, and three
+documents still recommending `chown -R 1001:1001 .`. Now: `read_only: true` with
+tmpfs for `/tmp` and `/home/sage/.sage` (verified by running Sage, a real
+evaluation and a plot under it — without the tmpfs mounts the container fails
+with "No usable temporary directory found", which is how they were sized);
+`readOnlyRootFilesystem`, `emptyDir` scratch and default CPU/memory
+requests/limits in the chart; and the blanket-chown guidance replaced in
+INSTALLATION.md, DISTRIBUTION.md and USAGE.md with "only a dedicated persistence
+volume should be writable". The README no longer claims Helm is "equivalent" —
+it lists what the chart sets and names the one gap (`pids_limit` has no chart
+equivalent).
 
 **Fixed.** The compose stack now mounts the checkout read-only, drops all
 capabilities, sets no-new-privileges, and bounds pids and memory. Verified by
@@ -395,6 +414,16 @@ changes state rather than returning a cached response.
 ---
 
 ## 11. Named-workspace cancellation targets the wrong worker — high — DONE
+
+**Second round.** Evaluation used `_read_response`, but `reset()` still read the
+next line unconditionally, so it consumed a cancelled evaluation's response and
+reported "Failed to reset Sage session" for a reset that had worked. `reset()`
+now matches ids too, an id-less line is no longer accepted as any request's
+answer, and cancellation cleanup moved into `SageSession.evaluate` so streaming
+and the specialised tools stop abandoning a running computation. The strict id
+rule needed a bound — waiting for a matching id is unbounded when the peer
+repeats itself, and a stubbed worker spun there until the process ran out of
+memory — so it gives up after 64 non-matching lines.
 
 **Fixed.** The workspace key is computed once and used for both `get` and
 cancellation. Worker responses are now matched to their request id, and stale

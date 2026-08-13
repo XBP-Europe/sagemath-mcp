@@ -32,9 +32,21 @@ securityContext:
   runAsUser: 1001
   runAsGroup: 1001
   allowPrivilegeEscalation: false
+  # Sage needs a writable temp dir and its own dot-directory, and nothing else.
+  # The emptyDir mounts below supply both; without them the container fails with
+  # "No usable temporary directory found". Verified against the real image.
+  readOnlyRootFilesystem: true
   capabilities:
     drop:
       - ALL
+
+# Writable scratch for a read-only root filesystem. Sized to match the tmpfs
+# mounts in docker-compose.yml so the two deployments behave the same.
+scratchVolumes:
+  enabled: true
+  tmpSizeLimit: 512Mi
+  sageHomeSizeLimit: 256Mi
+  sageHomePath: /home/sage/.sage
 
 service:
   type: ClusterIP
@@ -67,7 +79,16 @@ startupProbe:
   timeoutSeconds: 5
   failureThreshold: 12
 
-resources: {}
+# Defaults, not an empty map: an unbounded pod is one runaway computation away
+# from evicting its neighbours, and mem_limit/pids_limit are already set on the
+# compose side. Raise for heavy workloads; Sage itself wants ~1Gi at rest.
+resources:
+  requests:
+    cpu: 250m
+    memory: 1Gi
+  limits:
+    cpu: "2"
+    memory: 4Gi
 
 nodeSelector: {}
 tolerations: []

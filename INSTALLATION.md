@@ -25,9 +25,14 @@ cd sagemath-mcp
 docker compose up --build
 ```
 
-The container exposes `http://127.0.0.1:8314/mcp` and runs as the non-root `sage` user (UID/GID 1001).
-If you mount the repository from the host, ensure it is writable by that UID (`chown -R 1001:1001 .`
-before launching).
+The container exposes `http://127.0.0.1:8314/mcp` and runs as the non-root `sage` user (UID/GID 1001),
+with a read-only root filesystem.
+
+The bundled compose file mounts the repository read-only, so it needs no ownership
+change. Do **not** `chown -R` the checkout to make it writable: the server runs from
+the package installed in the image, not from the mount, and a writable checkout is
+something an escaped process can edit. If you deliberately develop against the mount,
+drop the `:ro` on that one volume rather than changing ownership of the tree.
 
 ### Kubernetes (Helm)
 
@@ -104,7 +109,8 @@ make test
   docker exec -it sage-mcp bash
   docker rm -f sage-mcp
   ```
-- When mounting directories into Docker or running via `docker compose`, ensure the host path is
-  writable by UID/GID 1001 to satisfy the non-root `sage` user (e.g., `sudo chown -R 1001:1001 <path>`).
+- Only a dedicated persistence or scratch volume should ever be writable, and only that
+  path needs to belong to UID/GID 1001 (`chown 1001:1001 <that-path>`). The checkout
+  itself is mounted read-only by design; do not widen it to fix a permission error.
 - Security policy errors (e.g., "Import statements are disabled") typically indicate unsupported
   operations; rewrite the Sage code using whitelisted modules or helper tools.

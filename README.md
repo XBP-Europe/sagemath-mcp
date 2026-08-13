@@ -785,6 +785,8 @@ actually contains it, so `docker-compose.yml` sets:
 
 | Setting | Why |
 |---------|-----|
+| `read_only: true` | The root filesystem is immutable. Sage needs only a writable temp dir and its own dot-directory, supplied as the two `tmpfs` mounts below; without them it fails outright, which is how they were sized. |
+| `tmpfs: /tmp`, `/home/sage/.sage` | The only writable paths, in memory, capped at 512 MB and 256 MB. |
 | `./:/workspace:ro` | The server runs from the package installed in the image; an escaped process should not be able to edit the checkout it reads. |
 | `cap_drop: [ALL]` | No Linux capabilities are needed to do mathematics. |
 | `security_opt: [no-new-privileges:true]` | Blocks privilege escalation via setuid binaries. |
@@ -796,7 +798,12 @@ checkout and opening outbound sockets. If the server is exposed to untrusted
 callers, also consider `network_mode: none` where the workload allows it, and
 avoid passing secrets in the environment of this container.
 
-The Helm chart applies the equivalent `securityContext`.
+The Helm chart applies `runAsNonRoot`, `allowPrivilegeEscalation: false`,
+`capabilities.drop: [ALL]` and `readOnlyRootFilesystem: true`, with `emptyDir`
+volumes for the same two writable paths and default CPU/memory requests and
+limits. It is close but not identical: compose's `pids_limit` has no direct
+chart equivalent (pod PID limits are a kubelet setting), so set one on the node
+if you need it.
 
 **Enforced limits:**
 

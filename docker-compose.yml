@@ -14,7 +14,13 @@ services:
     # the boundary. A sandbox escape was demonstrated reading every environment
     # variable, reading the mounted checkout and opening outbound sockets, so
     # the blast radius is bounded here rather than in the validator alone.
-    read_only: false          # Sage writes to $HOME; the mount below is ro
+    # Verified working: Sage needs a writable temp dir and its own dot-directory
+    # and nothing else. Without the two tmpfs mounts below it fails outright
+    # ("No usable temporary directory found"), which is how they were sized.
+    read_only: true
+    tmpfs:
+      - /tmp:rw,size=512m
+      - /home/sage/.sage:rw,size=256m
     cap_drop:
       - ALL
     security_opt:

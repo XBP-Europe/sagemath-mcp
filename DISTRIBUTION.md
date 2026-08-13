@@ -53,8 +53,9 @@ docker pull ghcr.io/xbp-europe/sagemath-mcp:latest
 ```
 
 Images inherit the upstream `sagemath/sagemath` base and run as the non-root `sage`
-user (UID/GID 1001). Ensure repository directories mounted into the container are
-writable by that user (`chown -R 1001:1001 .` before `docker run`/`docker compose up`).
+user (UID/GID 1001), with a read-only root filesystem and writable scratch supplied
+as tmpfs. Mounted repository directories are read-only and need no ownership change;
+grant UID/GID 1001 write access only to a dedicated persistence volume, if you use one.
 
 This number comes from the base image and is not ours to choose: `sage` was UID 1000
 through SageMath 10.5 and is 1001 from 10.9. Check it after any base image bump with

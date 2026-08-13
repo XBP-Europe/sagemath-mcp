@@ -22,12 +22,12 @@
 
 ## Current priority queue
 
-- [ ] **Release blocker:** disable stateful tool/resource response caching and add two-client isolation tests ([review item 10](REVIEW_ACTIONS.md)).
-- [ ] **Release blocker:** close the AST-validator bypasses, correct the public sandbox claims, and harden the real container boundary ([review items 1-3](REVIEW_ACTIONS.md)).
-- [ ] Fix named-workspace cancellation and validate worker response ids ([review item 11](REVIEW_ACTIONS.md)).
-- [ ] Reject every numeric integer above `2^53`; require decimal strings for exact large values ([review item 12](REVIEW_ACTIONS.md)).
-- [ ] Implement actual incremental stdout events or rename the buffered streaming facade ([review item 13](REVIEW_ACTIONS.md)).
-- [ ] Persist idle-culled sessions and make journal filenames collision-free ([review items 14-15](REVIEW_ACTIONS.md)).
-- [ ] Add named-workspace selection to every specialized worker-backed tool ([review item 16](REVIEW_ACTIONS.md)).
-- [ ] Synchronize both `server.json` versions in `scripts/bump_version.py` and add a consistency test ([review item 17](REVIEW_ACTIONS.md)).
-- [ ] Work through the remaining maintainability, release-dry-run, dependency-audit and distribution actions in [REVIEW_ACTIONS.md](REVIEW_ACTIONS.md).
+- [x] **Release blocker:** disable stateful tool/resource response caching and add two-client isolation tests ([review item 10](REVIEW_ACTIONS.md)).
+- [x] **Release blocker:** close the AST-validator bypasses, correct the public sandbox claims, and harden the real container boundary ([review items 1-3](REVIEW_ACTIONS.md)). Took three rounds: direct spellings, then aliases of forbidden functions, then aliases of forbidden modules.
+- [x] Fix named-workspace cancellation and validate worker response ids ([review item 11](REVIEW_ACTIONS.md)). Includes `reset()`, which was still reading the next line unconditionally.
+- [x] Reject every numeric integer above `2^53`; require decimal strings for exact large values ([review item 12](REVIEW_ACTIONS.md)).
+- [x] Implement actual incremental stdout events or rename the buffered streaming facade ([review item 13](REVIEW_ACTIONS.md)) — implemented, not renamed.
+- [x] Persist idle-culled sessions and make journal filenames collision-free ([review items 14-15](REVIEW_ACTIONS.md)), with a fallback so the rename does not orphan journals written by earlier versions.
+- [x] Add named-workspace selection to every specialized worker-backed tool ([review item 16](REVIEW_ACTIONS.md)).
+- [x] Synchronize both `server.json` versions in `scripts/bump_version.py` and add a consistency test ([review item 17](REVIEW_ACTIONS.md)).
+- [ ] Remaining from the review: split `server.py` (item 4, deferred until the PR stack merges) and the account-side Smithery/Glama submissions (item 7).

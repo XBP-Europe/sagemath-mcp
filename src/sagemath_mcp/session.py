@@ -130,6 +130,32 @@ class SageSession:
                 break
             LOGGER.warning("sage[%s] stderr: %s", self.session_id, line.decode().rstrip())
 
+    async def _read_response(self, request_id: str) -> tuple[bytes, dict]:
+        """Read until the response for *request_id* arrives, discarding stragglers.
+
+        A cancelled or timed-out request leaves its response in the pipe. Without
+        this the next request read that stale line and returned the previous
+        computation's result as its own.
+        """
+        assert self._process and self._process.stdout
+        while True:
+            raw = await self._process.stdout.readline()
+            if not raw:
+                return raw, {}
+            try:
+                message = json.loads(raw.decode("utf-8"))
+            except json.JSONDecodeError:
+                LOGGER.warning("Discarding unparsable worker line in %s", self.session_id)
+                continue
+            incoming = message.get("id")
+            if incoming is not None and incoming != request_id:
+                LOGGER.warning(
+                    "Discarding stale worker response %s in %s (waiting for %s)",
+                    incoming, self.session_id, request_id,
+                )
+                continue
+            return raw, message
+
     async def evaluate(
         self,
         code: str,
@@ -156,8 +182,8 @@ class SageSession:
             self._process.stdin.write(data)
             await self._process.stdin.drain()
             try:
-                raw = await asyncio.wait_for(
-                    self._process.stdout.readline(), timeout=effective_timeout
+                raw, response = await asyncio.wait_for(
+                    self._read_response(payload["id"]), timeout=effective_timeout
                 )
             except TimeoutError as exc:
                 await self._handle_timeout()
@@ -166,7 +192,6 @@ class SageSession:
                 ) from exc
             if not raw:
                 raise SageProcessError("Sage worker terminated unexpectedly.")
-        response = json.loads(raw.decode("utf-8"))
         self.last_used_at = time.time()
         if not response.get("ok", False):
             error = response.get("error", {})

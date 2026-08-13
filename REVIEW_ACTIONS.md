@@ -20,9 +20,9 @@ Severity is about consequence, not effort.
 | 7 | Low | Distribution: Smithery and Glama listings | open |
 | 8 | Low | Codex still routes two questions to `evaluate_sage` | accepted |
 | 9 | Low | Jupyter kernel `debug_request` question left unresolved | deferred |
-| 10 | **Critical** | Response caching breaks state and isolation across MCP clients | open |
-| 11 | High | Cancelling a named workspace restarts the default workspace | open |
-| 12 | High | The large-integer corruption guard accepts corrupted JSON integers | open |
+| 10 | **Critical** | Response caching breaks state and isolation across MCP clients | **done** |
+| 11 | High | Cancelling a named workspace restarts the default workspace | **done** |
+| 12 | High | The large-integer corruption guard accepts corrupted JSON integers | **done** |
 | 13 | Medium | `evaluate_sage_streaming` emits output only after completion | open |
 | 14 | Medium | Idle culling discards journals instead of persisting them | open |
 | 15 | Medium | Sanitized journal filenames collide | open |
@@ -277,7 +277,14 @@ display, which is the one argument that would justify it.
 
 ---
 
-## 10. Response caching breaks state and client isolation — **critical**
+## 10. Response caching breaks state and client isolation — **critical** — DONE
+
+**Fixed.** Tool-call, resource and prompt caching are disabled; only the list_*
+catalogues stay cached, since those are identical for every caller. Three tests
+cover it and all three fail with FastMCP's defaults restored.
+
+Original finding follows.
+
 
 ### What is wrong
 
@@ -317,7 +324,15 @@ changes state rather than returning a cached response.
 
 ---
 
-## 11. Named-workspace cancellation targets the wrong worker — high
+## 11. Named-workspace cancellation targets the wrong worker — high — DONE
+
+**Fixed.** The workspace key is computed once and used for both `get` and
+cancellation. Worker responses are now matched to their request id, and stale
+lines from a cancelled computation are discarded rather than returned as the
+next request's result.
+
+Original finding follows.
+
 
 ### What is wrong
 
@@ -348,7 +363,16 @@ worker as well as the pure-Python shim.
 
 ---
 
-## 12. The large-integer corruption guard does not guard JSON integers — high
+## 12. The large-integer corruption guard does not guard JSON integers — high — DONE
+
+**Fixed.** Any numeric argument above 2^53 is refused whether it arrives as int
+or float, because the server cannot tell an exact value from one a JavaScript
+client already rounded. Decimal strings remain exact at any size. Verified
+against real Sage: the string form returns the correct prime for 10^30 and the
+rounded integer from the review is rejected.
+
+Original finding follows.
+
 
 ### What is wrong
 

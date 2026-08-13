@@ -2073,7 +2073,6 @@ async def test_named_sessions_listed_per_client(monkeypatch):
         ("12", 12),
         (12.0, 12),
         ("1000000000000000000000000000000", 10**30),
-        (10**30, 10**30),
         ("1_000", 1000),
     ],
 )
@@ -2082,21 +2081,37 @@ async def test_exact_int_accepts_lossless_forms(value, expected):
 
 
 @pytest.mark.asyncio
-async def test_exact_int_rejects_a_value_that_already_lost_precision():
-    """A float above 2^53 has already been mangled; refuse rather than round.
+@pytest.mark.parametrize(
+    "value",
+    [
+        1e30,                                # float: already through a double
+        10**30,                              # int: exact here, but unverifiable
+        1000000000000000019884624838656,     # the value a JS client actually sends
+        2**53 + 1,                           # first integer a double cannot hold
+    ],
+)
+async def test_exact_int_rejects_values_json_cannot_carry(value):
+    """Above 2^53 the server cannot tell an exact value from a rounded one.
 
-    JSON numbers are IEEE doubles in JavaScript-based MCP clients, so 10^30
-    arrives as 1000000000000000019884624838656. next_prime() on that returns a
-    perfectly plausible wrong answer, which is worse than an error.
+    A JavaScript client rounds BEFORE serialising and emits the rounded digits as
+    a JSON integer, so checking only floats missed the real case: 10^30 arrives
+    as the int 1000000000000000019884624838656 and looks ordinary.
     """
-    with pytest.raises(ToolError, match="larger than 2\\^53"):
-        server._exact_int(1e30, "a")
+    with pytest.raises(ToolError, match="2\\^53"):
+        server._exact_int(value, "a")
 
     # The message has to tell the caller what to do instead.
     try:
-        server._exact_int(1e30, "a")
+        server._exact_int(value, "a")
     except ToolError as exc:
         assert "decimal string" in str(exc)
+
+
+@pytest.mark.asyncio
+async def test_exact_int_accepts_any_size_as_a_string():
+    """Strings are exact by construction, so no ceiling applies."""
+    assert server._exact_int("1000000000000000000000000000000", "a") == 10**30
+    assert server._exact_int(str(2**200), "a") == 2**200
 
 
 @pytest.mark.asyncio

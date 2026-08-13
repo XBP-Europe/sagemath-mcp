@@ -20,4 +20,14 @@
 - [x] Add CI smoke tests that bring up `docker compose` services (pure-Python mode) and exercise `scripts/exercise_mcp.py`.
 - [x] Add Dependabot (or Renovate) configuration for Python, GitHub Actions, and Docker dependencies.
 
-- [ ] Work through [REVIEW_ACTIONS.md](REVIEW_ACTIONS.md); items 1 and 2 (sandbox bypasses, README security claims) are critical.
+## Current priority queue
+
+- [ ] **Release blocker:** disable stateful tool/resource response caching and add two-client isolation tests ([review item 10](REVIEW_ACTIONS.md)).
+- [ ] **Release blocker:** close the AST-validator bypasses, correct the public sandbox claims, and harden the real container boundary ([review items 1-3](REVIEW_ACTIONS.md)).
+- [ ] Fix named-workspace cancellation and validate worker response ids ([review item 11](REVIEW_ACTIONS.md)).
+- [ ] Reject every numeric integer above `2^53`; require decimal strings for exact large values ([review item 12](REVIEW_ACTIONS.md)).
+- [ ] Implement actual incremental stdout events or rename the buffered streaming facade ([review item 13](REVIEW_ACTIONS.md)).
+- [ ] Persist idle-culled sessions and make journal filenames collision-free ([review items 14-15](REVIEW_ACTIONS.md)).
+- [ ] Add named-workspace selection to every specialized worker-backed tool ([review item 16](REVIEW_ACTIONS.md)).
+- [ ] Synchronize both `server.json` versions in `scripts/bump_version.py` and add a consistency test ([review item 17](REVIEW_ACTIONS.md)).
+- [ ] Work through the remaining maintainability, release-dry-run, dependency-audit and distribution actions in [REVIEW_ACTIONS.md](REVIEW_ACTIONS.md).

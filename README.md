@@ -9,10 +9,16 @@
 [![License](https://img.shields.io/github/license/XBP-Europe/sagemath-mcp.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-purple)](https://modelcontextprotocol.io/)
-[![FastMCP](https://img.shields.io/badge/FastMCP-3.2-green.svg)](https://gofastmcp.com/)
+[![FastMCP](https://img.shields.io/badge/FastMCP-3.4%2B-green.svg)](https://gofastmcp.com/)
 [![SageMath](https://img.shields.io/badge/SageMath-10.9-orange)](https://www.sagemath.org/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://docs.astral.sh/ruff/)
 [![Typed](https://img.shields.io/badge/type--checked-py.typed-blue)](https://peps.python.org/pep-0561/)
+[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)](https://github.com/XBP-Europe/sagemath-mcp/actions/workflows/ci.yml)
+[![Downloads](https://img.shields.io/pypi/dm/sagemath-mcp.svg)](https://pypi.org/project/sagemath-mcp/)
+[![MCP Registry](https://img.shields.io/badge/MCP%20Registry-published-purple)](https://registry.modelcontextprotocol.io/)
+[![Signed](https://img.shields.io/badge/images-cosign%20signed-blueviolet?logo=sigstore)](https://github.com/XBP-Europe/sagemath-mcp/blob/main/.github/workflows/release.yml)
+[![Dependabot](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot)](https://github.com/XBP-Europe/sagemath-mcp/blob/main/.github/dependabot.yml)
+[![Last commit](https://img.shields.io/github/last-commit/XBP-Europe/sagemath-mcp.svg)](https://github.com/XBP-Europe/sagemath-mcp/commits/main)
 
 A universal mathematics [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that gives LLM clients full access to [SageMath](https://www.sagemath.org/) --- one of the most comprehensive open-source mathematics systems available. Built on [FastMCP 3.x](https://gofastmcp.com/), the server maintains a dedicated SageMath process for each MCP session so variables, functions, and assumptions persist across tool calls.
 

@@ -226,3 +226,44 @@ def test_declare_free_symbols_handles_both_kinds_of_name() -> None:
     declared = _declare_free_symbols("sum(k, k, 1, n)")
     assert "_sage_ns" in declared
     assert _declare_free_symbols(None) == "" or "_sage_ns" in _declare_free_symbols(None)
+
+
+def test_validated_expression_screens_a_fragment_with_no_equals_to_rewrite() -> None:
+    """The other unparseable route: no "=" to rewrite, so screen the tokens.
+
+    "R.<a,b>" is Sage's generator syntax. Python cannot parse it, but it
+    tokenizes cleanly, so it reaches the token screen rather than the
+    unreadable-input error.
+    """
+    assert _validated_expression("R.<a,b>") == "R.<a,b>"
+    with pytest.raises(ToolError, match="security policy"):
+        _validated_expression("R.<a,b> os.getuid()")
+
+
+def test_validated_expression_allows_sage_generator_syntax_with_an_equals() -> None:
+    """"=" is rewritten to "==", that still will not parse, and the tokens are clean."""
+    assert _validated_expression("R.<a,b> = QQ[]") == "R.<a,b> = QQ[]"
+
+
+def test_encode_literal_passes_non_string_values_straight_to_json() -> None:
+    """Numbers carry no code, so there is nothing to validate."""
+    assert _encode_literal(5) == "5"
+    assert _encode_literal([1, 2.5]) == "[1, 2.5]"
+
+
+def test_declare_free_symbols_with_only_short_names_emits_no_conditional_clause() -> None:
+    """Short index names are declared outright; only longer ones get the guard.
+
+    "n" and "N" are numerical_approx in Sage's namespace, so summing to n used
+    to resolve the bound to a function instead of a symbol. Short names
+    therefore win, and need no hasattr check.
+    """
+    declared = _declare_free_symbols("k + n")
+    assert "'k', 'n'" in declared
+    assert "hasattr" not in declared, "a short name should not need the Sage-name check"
+
+
+def test_declare_free_symbols_guards_names_sage_might_already_define() -> None:
+    """gamma, sin and friends must keep meaning the Sage object."""
+    declared = _declare_free_symbols("gamma(alpha)")
+    assert "hasattr" in declared, "a spelled-out name must be checked before shadowing"

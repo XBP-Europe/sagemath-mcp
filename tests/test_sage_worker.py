@@ -278,7 +278,7 @@ def test_streaming_stdout_flush_emits_a_trailing_line_without_a_newline() -> Non
     assert len(sink.lines) == 1
 
 
-def test_execute_streams_while_it_runs() -> None:
+def test_execute_streams_while_it_runs(pure_python_worker) -> None:
     from sagemath_mcp._sage_worker import _build_namespace, _execute
 
     sink = _Sink()
@@ -300,7 +300,7 @@ def test_execute_streams_while_it_runs() -> None:
     assert response["stdout"] == "0\n1\n2\n"
 
 
-def test_interrupting_a_computation_keeps_the_session_alive() -> None:
+def test_interrupting_a_computation_keeps_the_session_alive(pure_python_worker) -> None:
     """SIGINT means abandon this computation, not lose the namespace.
 
     KeyboardInterrupt is a BaseException, so without an explicit handler the
@@ -335,3 +335,33 @@ def test_execute_reports_a_startup_failure_instead_of_running(monkeypatch) -> No
     assert response["ok"] is False
     assert response["error"]["type"] == "StartupError"
     assert "boom" in response["error"]["message"]
+
+
+def test_an_interrupt_while_idle_does_not_kill_the_worker(
+    monkeypatch, capsys, pure_python_worker
+) -> None:
+    """SIGINT can land between requests, where there is nothing to cancel.
+
+    Letting KeyboardInterrupt escape the read would end the process and take the
+    namespace with it, which is exactly what interrupting must not do.
+    """
+    from sagemath_mcp import _sage_worker
+
+    script = [
+        KeyboardInterrupt,                                    # arrives while idle
+        json.dumps({"id": "a", "type": "execute", "code": "2 + 2",
+                    "want_latex": False, "capture_stdout": False}) + "\n",
+        "",                                                   # EOF ends the loop
+    ]
+
+    def fake_readline():
+        step = script.pop(0)
+        if step is KeyboardInterrupt:
+            raise KeyboardInterrupt
+        return step
+
+    monkeypatch.setattr(_sage_worker.sys.stdin, "readline", fake_readline)
+    assert _sage_worker._main() == 0
+
+    responses = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.strip()]
+    assert responses[-1]["result"] == "4", "the worker did not survive the idle interrupt"

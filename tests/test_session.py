@@ -105,7 +105,7 @@ async def test_session_cancel_restarts_worker(python_settings):
 
 
 def test_truncate_stdout():
-    server = pytest.importorskip("sagemath_mcp.server")
+    pytest.importorskip("sagemath_mcp.server")
     runtime = pytest.importorskip("sagemath_mcp.runtime")
     original_limit = runtime.SESSION_MANAGER.settings.max_stdout_chars
     runtime.SESSION_MANAGER.settings.max_stdout_chars = 8
@@ -118,7 +118,7 @@ def test_truncate_stdout():
 
 
 def test_truncate_stdout_with_non_int_limit(monkeypatch):
-    server = pytest.importorskip("sagemath_mcp.server")
+    pytest.importorskip("sagemath_mcp.server")
     runtime = pytest.importorskip("sagemath_mcp.runtime")
     import types
 
@@ -772,11 +772,18 @@ async def test_interrupt_reports_when_no_worker(python_settings):
 
 @pytest.mark.asyncio
 async def test_interrupt_while_idle_leaves_worker_usable(python_settings):
-    """A stray interrupt with nothing running must not kill the worker."""
+    """A stray interrupt with nothing running must not kill the worker.
+
+    This asserted True until the idle worker was found to wedge under real
+    Sage: the SIGINT arrived while it was blocked in readline(), where there is
+    no computation to abort, and it could not answer the next request. The
+    pure-Python worker swallowed it, which is why only the Sage suite showed it.
+    Now nothing is signalled at all and False means "nothing was running".
+    """
     session = SageSession("interrupt-idle", python_settings)
     try:
         await session.evaluate("kept = 7", want_latex=False, capture_stdout=False)
-        assert await session.interrupt() is True
+        assert await session.interrupt() is False
         await asyncio.sleep(0.3)
         result = await session.evaluate("kept", want_latex=False, capture_stdout=False)
         assert result.result == "7"
@@ -1084,6 +1091,7 @@ async def test_interrupt_reports_false_when_the_worker_is_gone(tmp_path, monkeyp
             raise ProcessLookupError("no such process")
 
         monkeypatch.setattr(session._process, "send_signal", boom)
+        session._in_flight = "pretend-a-request-is-running"
         assert await session.interrupt() is False
     finally:
         await session.shutdown()
@@ -1120,3 +1128,151 @@ async def test_culling_still_reclaims_a_worker_when_the_journal_cannot_be_saved(
         assert not session.is_alive(), "the worker survived a failed journal save"
     finally:
         await manager.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_stdout_events_are_dropped_when_nobody_is_listening(tmp_path):
+    """A non-streaming caller still has to skip the worker's stdout events."""
+    settings = SageSettings(force_python_worker=True, eval_timeout=30.0)
+    session = SageSession("no-listener", settings)
+    await session.ensure_started()
+    try:
+        reader = session._process.stdout
+        original = reader.readline
+        held: list[bytes] = []
+
+        async def fake_readline():
+            if held:
+                return held.pop(0)
+            raw = await original()
+            request_id = json.loads(raw.decode("utf-8")).get("id")
+            held.append(raw)          # give the real answer back next time
+            # A stdout event for this very request, with nobody listening.
+            return json.dumps(
+                {"type": "stdout", "id": request_id, "text": "ignored"}
+            ).encode() + b"\n"
+
+        reader.readline = fake_readline
+        result = await session.evaluate("11 * 11", want_latex=False, capture_stdout=False)
+        assert result.result == "121"
+    finally:
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_interrupting_an_idle_worker_signals_nothing(tmp_path):
+    """An idle worker must not be signalled at all.
+
+    It is blocked in readline(), where a SIGINT has no computation to abort.
+    Sending one anyway left a real Sage worker unable to answer the next
+    request: that evaluation timed out and the worker was restarted, losing
+    exactly the namespace the interrupt was supposed to protect -- while the
+    tool reported "state preserved".
+    """
+    manager = SageSessionManager(SageSettings(force_python_worker=True))
+    try:
+        session = await manager.get("idle")
+        await session.evaluate("marker = 1", want_latex=False, capture_stdout=False)
+
+        assert await manager.interrupt("idle") is False, "signalled an idle worker"
+
+        # And the session is still perfectly usable afterwards.
+        result = await session.evaluate("marker", want_latex=False, capture_stdout=False)
+        assert result.result == "1"
+    finally:
+        await manager.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_interrupting_a_running_computation_keeps_the_namespace(tmp_path):
+    """The case interrupt exists for: stop the work, keep the variables."""
+    manager = SageSessionManager(SageSettings(force_python_worker=True, eval_timeout=30.0))
+    try:
+        session = await manager.get("busy")
+        await session.evaluate("marker = 2", want_latex=False, capture_stdout=False)
+
+        task = asyncio.create_task(
+            session.evaluate("sum(range(80000000))", want_latex=False, capture_stdout=False)
+        )
+        await asyncio.sleep(0.2)
+        assert await manager.interrupt("busy") is True, "a running computation was not signalled"
+
+        with contextlib.suppress(Exception):
+            await task
+        result = await session.evaluate("marker", want_latex=False, capture_stdout=False)
+        assert result.result == "2", "the namespace did not survive the interrupt"
+    finally:
+        await manager.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_stdout_events_reach_the_callback_as_they_arrive(tmp_path):
+    """The streaming path: each completed line is dispatched while the code runs."""
+    settings = SageSettings(force_python_worker=True, eval_timeout=30.0)
+    session = SageSession("streamer", settings)
+    seen: list[str] = []
+
+    async def on_stdout(text: str) -> None:
+        seen.append(text)
+
+    await session.ensure_started()
+    try:
+        result = await session.evaluate(
+            "for _i in range(3):\n    print(_i)\n",
+            want_latex=False,
+            capture_stdout=True,
+            on_stdout=on_stdout,
+        )
+        assert seen == ["0", "1", "2"]
+        assert result.stdout == "0\n1\n2\n"
+    finally:
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_a_missing_sage_binary_is_reported_clearly(monkeypatch):
+    """The message has to name the binary and the setting that changes it."""
+    import shutil as shutil_module
+
+    settings = SageSettings(force_python_worker=False, sage_binary="definitely-not-sage")
+    session = SageSession("no-sage", settings)
+    monkeypatch.setattr(shutil_module, "which", lambda _name: None)
+    with pytest.raises(SageProcessError, match="definitely-not-sage"):
+        await session.ensure_started()
+
+
+@pytest.mark.asyncio
+async def test_the_sage_worker_is_launched_through_the_configured_binary(monkeypatch):
+    """Not force_python_worker: the real command is `sage -python -m ...`."""
+    import shutil as shutil_module
+
+    from sagemath_mcp import session as session_module
+
+    recorded: dict[str, tuple] = {}
+
+    async def fake_exec(*command, **kwargs):
+        recorded["command"] = command
+        recorded["kwargs"] = kwargs
+        raise SageProcessError("stopped before spawning")
+
+    monkeypatch.setattr(shutil_module, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(session_module.asyncio, "create_subprocess_exec", fake_exec)
+
+    settings = SageSettings(force_python_worker=False, sage_binary="sage")
+    session = SageSession("real-sage", settings)
+    with pytest.raises(SageProcessError):
+        await session.ensure_started()
+
+    assert recorded["command"][:4] == ("sage", "-python", "-m", "sagemath_mcp._sage_worker")
+
+
+def test_a_workspace_with_unsafe_characters_adopts_no_ambiguous_legacy_journal(tmp_path):
+    """"a/b" and "a?b" both sanitised to "a_b", so that filename proves nothing."""
+    settings = SageSettings(
+        force_python_worker=True, persist_sessions=True, persist_dir=str(tmp_path)
+    )
+    session = SageSession("a/b", settings)
+    legacy_names = [path.name for path in session._legacy_persist_paths()]
+    assert "a_b.journal.json" not in legacy_names, (
+        "adopted a legacy file that could belong to a different workspace"
+    )

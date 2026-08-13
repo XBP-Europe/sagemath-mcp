@@ -676,7 +676,11 @@ Prefer this over `cancel_sage_session` — cancelling discards state that may ha
 
 **Returns:** `{"message": "Interrupted session 'default'; state preserved"}`
 
-Interrupting when nothing is running is reported, not an error. POSIX only.
+Interrupting when nothing is running is reported, not an error, and no signal is
+sent: `{"message": "No running computation in session 'default'"}`. That matters
+beyond tidiness — an idle worker is blocked reading its input, where a SIGINT has
+no computation to abort, and signalling it anyway left real Sage workers unable
+to answer the next request. POSIX only.
 
 #### `cancel_sage_session`
 

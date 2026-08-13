@@ -106,10 +106,8 @@ async def evaluate_sage(
     # unrelated default state while the curves worker kept running.
     session_key = runtime.SESSION_MANAGER.key_for(ctx.session_id, session)
     sage_session = await runtime.SESSION_MANAGER.get(session_key)
-    progress_task: asyncio.Task[None] | None = None
-    if ctx is not None:
-        await ctx.info("Starting SageMath evaluation")
-        progress_task = asyncio.create_task(_progress_heartbeat(ctx))
+    await ctx.info("Starting SageMath evaluation")
+    progress_task = asyncio.create_task(_progress_heartbeat(ctx))
     try:
         worker_result = await sage_session.evaluate(
             code,
@@ -120,8 +118,7 @@ async def evaluate_sage(
     except asyncio.CancelledError:
         monitoring.record_failure("cancelled", is_security=False, details="evaluation cancelled")
         await runtime.SESSION_MANAGER.cancel(session_key)
-        if ctx is not None:
-            await ctx.warning(f"Sage evaluation cancelled; session '{session}' restarted")
+        await ctx.warning(f"Sage evaluation cancelled; session '{session}' restarted")
         raise
     except SageEvaluationError as exc:
         monitoring.record_failure(
@@ -129,11 +126,10 @@ async def evaluate_sage(
             is_security=exc.error_type == "SecurityViolation",
             details=exc.traceback or exc.stdout,
         )
-        if ctx is not None:
-            if exc.error_type == "SecurityViolation":
-                await ctx.error(f"Sage security policy violation: {exc}")
-            else:
-                await ctx.error(f"SageMath error: {exc}")
+        if exc.error_type == "SecurityViolation":
+            await ctx.error(f"Sage security policy violation: {exc}")
+        else:
+            await ctx.error(f"SageMath error: {exc}")
         raise ToolError(exc.args[0]) from exc
     except SageProcessError as exc:
         cause = getattr(exc, "__cause__", None)
@@ -143,16 +139,13 @@ async def evaluate_sage(
             is_security=False,
             details=details,
         )
-        if ctx is not None:
-            await ctx.error("SageMath process became unavailable; restarting may help")
+        await ctx.error("SageMath process became unavailable; restarting may help")
         raise ToolError(str(exc)) from exc
     finally:
-        if progress_task:
-            progress_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await progress_task
-        if ctx is not None:
-            await ctx.report_progress(1.0, 1.0, "Sage evaluation complete")
+        progress_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await progress_task
+        await ctx.report_progress(1.0, 1.0, "Sage evaluation complete")
     monitoring.record_success(worker_result.elapsed_ms)
     return EvaluateResult(
         result_type=worker_result.result_type,
@@ -346,8 +339,7 @@ async def evaluate_sage_streaming(
     async def _forward(line: str) -> None:
         nonlocal emitted
         emitted += 1
-        if ctx is not None:
-            await ctx.report_progress(float(emitted), None, line)
+        await ctx.report_progress(float(emitted), None, line)
 
     worker_result = await sage_session.evaluate(
         code,

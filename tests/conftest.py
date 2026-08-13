@@ -1,5 +1,6 @@
 """Shared test fixtures for the sagemath-mcp test suite."""
 
+import pytest
 import pytest_asyncio
 
 
@@ -45,9 +46,29 @@ async def sage_manager(monkeypatch):
     from sagemath_mcp.config import SageSettings
     from sagemath_mcp.session import SageSessionManager
 
-    manager = SageSessionManager(SageSettings(force_python_worker=True))
+    manager = SageSessionManager(
+        # startup_code matters: without it the worker runs the default
+        # "from sage.all import *" and fails on any machine without Sage.
+        SageSettings(force_python_worker=True, startup_code="from math import *")
+    )
     monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
     try:
         yield manager
     finally:
         await manager.shutdown()
+
+
+@pytest.fixture
+def pure_python_worker(monkeypatch):
+    """Build worker namespaces without a Sage runtime.
+
+    ``_build_namespace`` reads these at call time, and the module-level values
+    were resolved from the environment at import. Tests that call it directly
+    must set them, or they raise StartupError("No module named 'sage'") on any
+    machine without Sage -- which is every CI unit runner.
+    """
+    from sagemath_mcp import _sage_worker
+
+    monkeypatch.setattr(_sage_worker, "PURE_PYTHON", True)
+    monkeypatch.setattr(_sage_worker, "_STARTUP_ERROR", None)
+    return _sage_worker

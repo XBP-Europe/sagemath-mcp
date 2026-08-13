@@ -2197,7 +2197,101 @@ async def test_sage_manager_fixture_reaches_a_specialized_tool(sage_manager):
     and the test still passes. Asserting through a *specialized* tool (not
     evaluate_sage) proves the swap reaches the whole tool surface.
     """
-    ctx = FakeContext("fixture-client")
-    await server.evaluate_sage("fixture_marker = 7", session="fx", ctx=ctx)
-    keys = [key for key in sage_manager.snapshot()]
-    assert keys, "the tool did not use the fixture's manager"
+    # A specialized tool, not evaluate_sage: they resolve their session on a
+    # different path, and that path is the one worth pinning. Their generated
+    # prelude imports sage.all, so the evaluation itself cannot succeed without
+    # a Sage runtime -- but routing happens first, and routing is the claim.
+    # Whatever the evaluation raises without Sage is irrelevant here.
+    with contextlib.suppress(Exception):
+        await server.calculate_expression(
+            "6 * 7", session="fx", ctx=FakeContext("fixture-client")
+        )
+
+    workspaces = [entry["session_id"] for entry in sage_manager.snapshot()]
+    assert any("fx" in name for name in workspaces), (
+        "the specialized tool resolved its session somewhere other than the "
+        f"fixture's manager; it holds {workspaces}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Argument-shape errors that must be reported, not computed around
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_matrix_multiply_rejects_incompatible_shapes(sage_manager):
+    """2x3 by 2x2 has no product; the message names both shapes."""
+    with pytest.raises(ToolError, match="2x3 matrix by a 2x2"):
+        await server.matrix_multiply(
+            matrix_a=[[1, 2, 3], [4, 5, 6]],
+            matrix_b=[[1, 2], [3, 4]],
+            ctx=FakeContext("shape-client"),
+        )
+
+
+@pytest.mark.asyncio
+async def test_statistics_summary_rejects_an_empty_dataset(sage_manager):
+    with pytest.raises(ToolError, match="at least one value"):
+        await server.statistics_summary(data=[], ctx=FakeContext("stats-client"))
+
+
+@pytest.mark.asyncio
+async def test_geometry_rejects_an_empty_point_set(sage_manager):
+    with pytest.raises(ToolError, match="at least one point"):
+        await server.geometry_operation(
+            operation="area", points=[], ctx=FakeContext("geo-client")
+        )
+
+
+@pytest.mark.asyncio
+async def test_geometry_distance_needs_two_points(sage_manager):
+    """It used to generate the literal "None" and return it as an answer."""
+    with pytest.raises(ToolError, match="requires two points"):
+        await server.geometry_operation(
+            operation="distance", points=[[0, 0]], ctx=FakeContext("geo-client")
+        )
+
+
+@pytest.mark.asyncio
+async def test_interrupting_a_session_with_no_worker_is_not_an_error(sage_manager):
+    """Nothing is running, so there is nothing to abandon."""
+    ctx = FakeContext("idle-client")
+    response = await server.interrupt_sage_session(session="never-used", ctx=ctx)
+    assert "No running computation" in response.message
+
+
+@pytest.mark.asyncio
+async def test_interrupting_an_idle_workspace_says_nothing_was_running(sage_manager):
+    """It used to signal the idle worker and claim "state preserved" regardless."""
+    ctx = FakeContext("busy-client")
+    await server.evaluate_sage("kept = 5", session="busy", ctx=ctx)
+    response = await server.interrupt_sage_session(session="busy", ctx=ctx)
+    assert "No running computation" in response.message
+
+
+def test_health_route_registration_is_skipped_when_there_is_no_app(monkeypatch):
+    """stdio transports have no HTTP app; that is not an error."""
+    monkeypatch.setattr(server.mcp, "http_app", None, raising=False)
+    monkeypatch.setattr(server.mcp, "_app", None, raising=False)
+    monkeypatch.setattr(server.mcp, "app", object(), raising=False)
+    server._register_health_route()  # must not raise
+
+
+@pytest.mark.asyncio
+async def test_interrupting_a_running_computation_reports_state_preserved(sage_manager):
+    """The other half: something IS running, so the signal is real."""
+    ctx = FakeContext("interrupt-client")
+    await server.evaluate_sage("kept = 9", session="work", ctx=ctx)
+
+    task = asyncio.create_task(
+        server.evaluate_sage("sum(range(80000000))", session="work", ctx=ctx)
+    )
+    await asyncio.sleep(0.2)
+    response = await server.interrupt_sage_session(session="work", ctx=ctx)
+    with contextlib.suppress(Exception):
+        await task
+
+    assert "state preserved" in response.message
+    survived = await server.evaluate_sage("kept", session="work", ctx=ctx)
+    assert survived.result == "9", "the namespace did not survive the interrupt"

@@ -34,6 +34,7 @@ section, under a "second round" heading, along with what closed it. Items 10,
 | 16 | Medium | Specialized tools cannot select named workspaces | **done** |
 | 17 | Medium | Version bumps leave `server.json` stale | **done** |
 | 18 | **Critical** | Four specialized tools interpolate caller strings into trusted, `sage_eval`-enabled code | **done** |
+| 19 | High | Interrupting an idle worker wedges it and loses the state it claims to preserve | **done** |
 
 ---
 
@@ -807,6 +808,35 @@ raise a type error after the payload has already run. Then a structural test tha
 walks `server.py` and fails if any caller-supplied string reaches generated code
 without passing through `_encode_literal` or an equivalent gate, so the next tool
 added cannot reintroduce this.
+
+---
+
+## 19. Interrupting an idle worker wedges it — high — DONE
+
+Found reviewing the split branch, and reproduced independently by a test in that
+same branch timing out against real SageMath.
+
+### What was wrong
+
+`SageSession.interrupt()` signalled whenever a worker process was alive, without
+knowing whether it was computing anything. An idle worker is blocked in
+`readline()`, where a SIGINT has no computation to abort. The worker's handler
+swallows it and continues — under the pure-Python worker. Under real Sage the
+worker could not answer the next request at all: that evaluation hit the 30s
+timeout and the worker was restarted, destroying exactly the namespace the
+interrupt exists to protect. The tool reported "state preserved" throughout.
+
+Only the Sage suite could see it, which is why the pure-Python unit tests had
+asserted the broken behaviour as correct (`assert await session.interrupt() is
+True` on an idle session).
+
+### Fix
+
+The session tracks the request id currently executing and `interrupt()` returns
+False without signalling when there is none. The tool then reports "No running
+computation", which is both safe and true. Covered from both directions: idle
+returns False and the session stays usable; a real in-flight computation is
+signalled, returns `Interrupted`, and its variables survive.
 
 SSH authentication to GitHub broke during this session (`ssh -T git@github.com`
 returns `Permission denied (publickey)` with keys loaded). `gh` still works

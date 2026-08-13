@@ -33,6 +33,7 @@ section, under a "second round" heading, along with what closed it. Items 10,
 | 15 | Medium | Sanitized journal filenames collide | **done** |
 | 16 | Medium | Specialized tools cannot select named workspaces | **done** |
 | 17 | Medium | Version bumps leave `server.json` stale | **done** |
+| 18 | **Critical** | Four specialized tools interpolate caller strings into trusted, `sage_eval`-enabled code | open |
 
 ---
 
@@ -671,6 +672,93 @@ file changes to the same value while `--dry-run` changes none of them.
 ---
 
 ## Not a project issue
+
+---
+
+## 18. Four specialized tools interpolate caller strings into trusted code — **critical** — OPEN
+
+Found by an external review on 2026-08-13, after items 1-3 were reported closed,
+and reproduced here end to end against real SageMath 10.9.
+
+### What is wrong
+
+`_evaluate_structured` runs generated code with `trusted=True`, and
+`trusted_policy()` deliberately re-permits `sage_eval`, `preparse` and
+`sage_input` because every helper template is built on `sage_eval`. Its own
+docstring states the condition that makes that safe:
+
+> That is only safe because the caller-supplied fragments interpolated into the
+> template are validated separately by `_validated_expression` before they get
+> here.
+
+That validation lives inside `_encode_literal`. Four parameters never call it and
+are interpolated raw:
+
+| Tool | Parameter | Line |
+|------|-----------|------|
+| `graph_operation` | `graph` (both the named-graph arguments and the literal branch) | `server.py:1849`, `1852` |
+| `group_operation` | `group` | `server.py:1923` |
+| `coding_theory_operation` | `code_type` | `server.py:2029` |
+| `polynomial_ring_operation` | `base_ring` | `server.py:2148` |
+
+The chain: the raw string lands in generated code -> that code is validated under
+the trusted policy, which permits `sage_eval` -> `sage_eval("...")` evaluates a
+string at runtime, invisible to the AST validator -> inside that string
+`__import__` is reachable, because it was deliberately kept in the worker
+namespace for Sage's lazy imports. That reasoning ("caller code cannot name a
+dunder") holds for AST-validated code and fails for a runtime-evaluated string.
+
+Measured through the public tool path, via `graph_operation`:
+
+| Probe | Result |
+|-------|--------|
+| `__import__("os").getuid()` | `1001`, the container uid |
+| read `/etc/passwd` | 942 bytes |
+| `__import__("os").popen("id").read()` | 48 bytes |
+| `socket().connect_ex(("1.1.1.1", 443))` | `0` — outbound connection succeeded |
+| write `/tmp/pwned` | file present on disk |
+
+All 13 string parameters a static scan flagged were probed individually with a
+side-effect payload, so a type mismatch at the sink could not hide execution.
+Exactly four executed. The other nine are protected by `_encode_literal` and
+returned "Rejected by the security policy". Two further parameters
+(`polynomial_ring_operation.ring_vars`, `vector_calculus_operation.variables`)
+are interpolated inside quotes; escape attempts died on syntax errors, so they
+are unproven rather than shown safe.
+
+Why the earlier work missed it: every regression test added for items 1 and 2
+drives `evaluate_sage` or `calculate_expression`, and both validate. These four
+tools are precisely the ones that never call `_encode_literal`. The aliasing
+fixes are irrelevant here — the payload is a string literal the validator never
+parses.
+
+The container bounds this but does not close it: under the compose deployment
+the write lands in tmpfs on a read-only root filesystem, yet the outbound socket
+succeeded, so exfiltration does not need the filesystem.
+
+### Suggested fix
+
+1. Validate all four parameters before interpolation. `_validated_expression` is
+   the wrong gate as-is for `SymmetricGroup(5)` or `HammingCode(GF(2), 3)`: those
+   are constructor calls, so allow a call whose callee is a bare name from a
+   per-tool allowlist and whose arguments are literals or nested allowed calls,
+   and reject everything else.
+2. Reconsider keeping `__import__` in the worker namespace. It was retained for
+   Sage's lazy imports on the argument that no caller can name a dunder; a
+   runtime-evaluated string can. If it must stay, `sage_eval` needs a restricted
+   globals mapping rather than the session namespace.
+3. Treat "interpolated into a trusted template" as the property to test, not
+   "reachable from evaluate_sage".
+
+### How to verify
+
+A test per affected parameter, each asserting the payload is rejected, and each
+confirmed to FAIL against today's code first. Use a side-effect payload (write a
+file, then assert it is absent) rather than a return value, since several sinks
+raise a type error after the payload has already run. Then a structural test that
+walks `server.py` and fails if any caller-supplied string reaches generated code
+without passing through `_encode_literal` or an equivalent gate, so the next tool
+added cannot reintroduce this.
 
 SSH authentication to GitHub broke during this session (`ssh -T git@github.com`
 returns `Permission denied (publickey)` with keys loaded). `gh` still works

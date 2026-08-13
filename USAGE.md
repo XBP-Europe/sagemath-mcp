@@ -11,7 +11,7 @@
   the Docker image automatically.
 - Optional: `sage` on your `PATH` if running outside Docker.
 - `docker compose up --build` launches the bundled stack on `http://127.0.0.1:8314/mcp` using the
-  non-root `sage` user (UID/GID 1000); ensure the mounted project directory is writable by that UID.
+  non-root `sage` user (UID/GID 1001); ensure the mounted project directory is writable by that UID.
 - To deploy to Kubernetes, use the Helm chart in `charts/sagemath-mcp` and set
   `image.repository`/`image.tag` to the published container (non-root execution is enforced by default).
 
@@ -126,4 +126,4 @@ For HTTP transports, point the client at `http://HOST:PORT/mcp` and enable strea
 - **ModuleNotFoundError for `sage`**: ensure the server is launched via `sage -python ...` so Sage’s site-packages are on `PYTHONPATH`.
 - **Long-running jobs**: use `cancel_sage_session`; the server restarts the worker and logs a warning for the calling context.
 - **Idle sessions**: the background culler removes sessions after `SAGEMATH_MCP_IDLE_TTL` seconds (default 900). Adjust via environment variables as documented in `README.md`.
-- **Permission denied on volume mounts**: confirm the host path is writable by UID/GID 1000; adjust ownership with `chown -R 1000:1000 <path>` when using Docker Compose or Helm.
+- **Permission denied on volume mounts**: confirm the host path is writable by UID/GID 1001; adjust ownership with `chown -R 1001:1001 <path>` when using Docker Compose or Helm.

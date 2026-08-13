@@ -60,15 +60,15 @@ Whether the task is symbolic calculus, number theory, linear algebra, differenti
 | **Differential equations** | `solve_ode` | Sage | First- and higher-order ODEs via Sage's `desolve()` |
 | **Number theory** | `number_theory_operation` | Sage | Primality testing, integer factorization, next prime, GCD, LCM |
 | **Combinatorics** | `combinatorics_operation` | Sage | Binomial, permutations, combinations, partitions, factorial, Catalan, Fibonacci, Bell numbers |
-| **Graph theory** | `graph_operation` | Sage | Named graphs and adjacency dicts; chromatic number, connectivity, planarity, diameter, shortest path |
+| **Graph theory** | `graph_operation` | Sage | Named graphs including parameterised constructors (`CompleteGraph(4)`) and adjacency dicts; chromatic number, connectivity, planarity, diameter, shortest path |
 | **Group theory** | `group_operation` | Sage | Symmetric, dihedral, cyclic, alternating groups; order, abelian/cyclic test, center, exponent |
 | **Elliptic curves** | `elliptic_curve_operation` | Sage | Rank, torsion, discriminant, j-invariant, conductor, generators |
-| **Coding theory** | `coding_theory_operation` | Sage | Hamming, Reed-Solomon codes; length, dimension, minimum distance, generator matrix, rate |
+| **Coding theory** | `coding_theory_operation` | Sage | Hamming and generalized Reed-Solomon codes; length, dimension, minimum distance, generator matrix, rate |
 | **Polynomial rings** | `polynomial_ring_operation` | Sage | Groebner bases, ideal dimension/variety, reduction, Groebner test |
-| **Boolean algebra** | `boolean_algebra_operation` | Sage | Boolean polynomial ring; evaluate, variables, degree, zero/one test |
+| **Boolean algebra** | `boolean_algebra_operation` | Sage | Boolean polynomial ring, addressed as `x, y, z` or `x0, x1, x2`; evaluate, variables, degree, zero/one test |
 | **Geometry** | `geometry_operation` | Sage | Distance, polygon area, polytope volume, convex hull, compactness via `Polyhedron` |
 | **Statistics** | `statistics_summary` | Sage | Mean, median, population & sample variance/std dev, min, max |
-| **Probability** | `distribution_operation` | Sage | Normal, exponential, Poisson, chi-squared, Student-t, uniform, beta, gamma; PDF, CDF, quantile, sampling |
+| **Probability** | `distribution_operation` | Sage | Normal, exponential, Poisson, chi-squared, Student-t, uniform, beta, gamma; PDF, CDF, quantile, analytic mean/variance, sampling |
 | **Visualization** | `plot_expression`, `plot3d_expression`, `plot_multi_expression` | Sage | 2D plots, 3D surface plots, multi-function overlays as base64-encoded PNG |
 | **Numeric methods** | `find_root` | Sage | Numeric root-finding in an interval via Sage's `find_root()` |
 | **Vector calculus** | `vector_calculus_operation` | Sage | Gradient, divergence, curl, Laplacian on scalar/vector fields |
@@ -200,7 +200,7 @@ cosign verify ghcr.io/xbp-europe/sagemath-mcp:latest \
 docker compose up --build
 ```
 
-The compose service exposes port `8314` on both host and container and mounts the repository at `/workspace`. Containers run as the non-root `sage` user (UID/GID 1000) to match the base image. Tweak runtime settings by editing the environment block (for example, increase `SAGEMATH_MCP_EVAL_TIMEOUT` or adjust `SAGEMATH_MCP_MAX_STDOUT`) before launch.
+The compose service exposes port `8314` on both host and container and mounts the repository at `/workspace`. Containers run as the non-root `sage` user (UID/GID 1001) to match the base image. Tweak runtime settings by editing the environment block (for example, increase `SAGEMATH_MCP_EVAL_TIMEOUT` or adjust `SAGEMATH_MCP_MAX_STDOUT`) before launch.
 
 ---
 
@@ -295,6 +295,10 @@ Compute indefinite or definite integrals. Calls Sage's `integrate()` function.
 | `lower_bound` | `string` or `null` | `null` | Lower bound for definite integrals. Accepts symbolic values like `"0"`, `"-oo"` (negative infinity), or expressions like `"-pi"`. |
 | `upper_bound` | `string` or `null` | `null` | Upper bound for definite integrals. Accepts `"1"`, `"oo"` (infinity), `"pi/2"`, etc. |
 
+Bounds may also be free symbols, so `upper_bound="a"` integrates to a symbolic limit.
+Names Sage already defines keep their meaning: `e`, `pi` and `oo` are the constants,
+not new variables.
+
 Both `lower_bound` and `upper_bound` must be provided together for a definite integral, or both omitted for an indefinite integral. Providing only one raises an error.
 
 **Returns:** `{"integral": "...", "definite": true/false}`
@@ -308,6 +312,9 @@ Both `lower_bound` and `upper_bound` must be provided together for a definite in
 
 > integrate_expression(expression="e^(-x^2)", lower_bound="-oo", upper_bound="oo")
   {"integral": "sqrt(pi)", "definite": true}
+
+> integrate_expression(expression="x", lower_bound="0", upper_bound="a")
+  {"integral": "1/2*a^2", "definite": true}
 ```
 
 #### `limit_expression`
@@ -524,10 +531,16 @@ Solve an ordinary differential equation using Sage's `desolve()`. The equation i
 | `function` | `string` | `"y"` | Name of the dependent function being solved for. |
 | `variable` | `string` | `"x"` | Name of the independent variable. |
 
+The dependent function may be written either applied (`diff(y(x), x) + y(x)`) or bare
+(`diff(y, x) + y`). Both describe the same equation and return identical solutions.
+
 **Returns:** `{"solution": "..."}`
 
 ```
 > solve_ode(equation="diff(y(x),x) + y(x) = 0")
+  {"solution": "_C*e^(-x)"}
+
+> solve_ode(equation="diff(y,x) + y = 0")     # bare form, same result
   {"solution": "_C*e^(-x)"}
 
 > solve_ode(equation="diff(y(x),x,x) - y(x) = 0")
@@ -778,7 +791,7 @@ Best for remote clients, browser-based tools, or shared environments. Supports s
 docker compose up --build
 ```
 
-Exposes `http://127.0.0.1:8314/mcp`. Runs as non-root `sage` user (UID/GID 1000). The compose file mounts the repository at `/workspace` and accepts environment variable overrides for all `SAGEMATH_MCP_*` settings.
+Exposes `http://127.0.0.1:8314/mcp`. Runs as non-root `sage` user (UID/GID 1001). The compose file mounts the repository at `/workspace` and accepts environment variable overrides for all `SAGEMATH_MCP_*` settings.
 
 ### Kubernetes (Helm)
 
@@ -1160,7 +1173,7 @@ Remaining 1% is defensive `if ctx is not None` branches that are always true in 
 - **AST-based security sandbox** --- every code snippet is validated before execution, blocking `eval`/`exec`, filesystem operations, process spawning, and unauthorized imports. Configurable via environment variables.
 - **Progress heartbeats** --- long-running computations emit periodic progress events (~1.5s) so clients can display activity indicators.
 - **Multiple transports** --- stdio (for Claude Desktop), HTTP, streamable-HTTP, and SSE.
-- **Docker deployment** --- Dockerfile, Docker Compose, and Helm chart for Kubernetes with non-root execution (UID/GID 1000).
+- **Docker deployment** --- Dockerfile, Docker Compose, and Helm chart for Kubernetes with non-root execution (UID/GID 1001).
 - **CI/CD pipeline** --- GitHub Actions with lint, unit tests, integration tests (real Sage in Docker), Docker Compose smoke test, Helm validation, signed GHCR image publishing, and PyPI publishing.
 - **Monitoring resources** --- MCP resources for session snapshots, aggregated metrics, and SageMath documentation links.
 

@@ -18,6 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # Needed to open the bump pull request, since main is protected and
+      # cannot be pushed to directly.
+      pull-requests: write
     steps:
       - uses: actions/checkout@v7
         with:
@@ -36,30 +39,40 @@ jobs:
         run: |
           NEW_VERSION=$(python scripts/bump_version.py --segment "${{ inputs.segment }}")
           echo "new_version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
-      - name: Commit version bump
+      # main is a protected branch with required status checks, so a direct
+      # push is rejected. The bump goes through a pull request like any other
+      # change, and the release tag is pushed once that merges.
+      - name: Open a version-bump pull request
         env:
           NEW_VERSION: ${{ steps.bump.outputs.new_version }}
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add pyproject.toml src/sagemath_mcp/__init__.py
-          if git diff --cached --quiet; then
-            echo "No version changes detected; aborting."
-            exit 1
-          fi
-          git commit -m "Bump version to ${NEW_VERSION}"
-      - name: Create git tag
-        env:
-          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           if git rev-parse "v${NEW_VERSION}" >/dev/null 2>&1; then
             echo "Tag v${NEW_VERSION} already exists; aborting."
             exit 1
           fi
-          git tag "v${NEW_VERSION}"
-      - name: Push changes
-        env:
-          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
-        run: |
-          git push origin HEAD
-          git push origin "v${NEW_VERSION}"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          BRANCH="release/v${NEW_VERSION}"
+          git checkout -b "${BRANCH}"
+          # Stage every file the bump script touches. Listing files by hand is
+          # what let the Helm chart drift out of sync in earlier releases.
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No version changes detected; aborting."
+            exit 1
+          fi
+          git commit -m "Bump version to ${NEW_VERSION}"
+          git push origin "${BRANCH}"
+          gh pr create \
+            --base "${GITHUB_REF_NAME}" \
+            --head "${BRANCH}" \
+            --title "Bump version to ${NEW_VERSION}" \
+            --body "$(printf '%s\n' \
+              "Automated version bump to \`${NEW_VERSION}\`." \
+              "" \
+              "Merge this, then push the release tag to publish:" \
+              "" \
+              '```' \
+              "git tag v${NEW_VERSION} && git push origin v${NEW_VERSION}" \
+              '```')"

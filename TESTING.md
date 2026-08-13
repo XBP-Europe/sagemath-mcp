@@ -1,55 +1,98 @@
 # Testing Guide
 
 ## Overview
-The test suite verifies Sage session management, MCP tooling, and HTTP-facing helpers.  
-Primary goals:
-- Validate stateful execution, reset/cancel semantics, and timeout handling (`tests/test_session.py`).
-- Confirm MCP bindings emit progress, surface errors, and expose documentation resources (`tests/test_server.py`).
+
+The suite has two halves. Unit tests stub the Sage worker and run anywhere; integration
+tests evaluate real Sage code and only run where Sage is available.
+
+That split matters, because the stubbed half cannot see the code the server *generates*.
+Issue #12 was a tool rejecting the exact input its own documentation advertised, and it
+was invisible to unit tests for precisely that reason. The suites below exist to close
+that gap.
+
+| File | Needs Sage | Covers |
+|------|-----------|--------|
+| `test_session.py` | no | Stateful execution, reset/cancel, timeouts, idle culling |
+| `test_server.py` | no | MCP bindings, progress events, error surfacing, doc resources |
+| `test_security.py` | no | AST policy: blocked imports, calls, attributes |
+| `test_config.py` | no | Environment overrides and invalid values |
+| `test_generated_code_lint.py` | no | Static checks over the code `server.py` generates |
+| `test_integration.py` | **yes** | Real Sage session lifecycle, monitoring, large payloads |
+| `test_math_examples.py` | **yes** | Every tool against the examples in its own documentation |
+| `test_syntax_variants.py` | **yes** | The input spellings each tool must accept or reject |
+| `test_use_cases.py` | **yes** | End-to-end workflows mirroring real LLM usage |
 
 ## Requirements
-- Python 3.12+ and `uv`.  
-- Development extras installed:  
-  ```bash
-  uv pip install -e .[dev]
-  ```
-- For pure unit tests no Sage install is required—the suite forces `SAGEMATH_MCP_PURE_PYTHON=1` and runs the worker in Python mode.
 
-## Running Tests
-```bash
-uv run pytest            # execute entire suite
-uv run pytest tests/test_session.py::test_session_stateful_evaluation  # single test
-```
-Pytest discovers modules inside the `tests/` directory. The configuration is defined in `pyproject.toml` (`asyncio_mode = "auto"`).
+- Python 3.12+ and `uv`
+- Development extras: `uv pip install -e .[dev]`
+- Unit tests need no Sage; they force `SAGEMATH_MCP_PURE_PYTHON=1` and run the worker in
+  Python mode
 
-For integration coverage with a real Sage runtime, either start the helper container (`make sage-container`)
-or bring up the compose stack:
+## Running
 
 ```bash
-docker compose up --build -d
-uv run pytest tests/test_integration.py
+make test                      # unit suite, no Sage required
+make lint                      # ruff
+uv run pytest tests/test_session.py -k test_session_stateful_evaluation   # one test
 ```
 
-CI runs `make all` (unit + integration targets) and captures logs in `integration-artifacts.tar.gz`.
+Integration tests need a Sage container with the repository mounted at `/workspace`:
 
-## Key Fixtures & Patterns
-- `python_settings` fixture in `tests/test_session.py`: injects `force_python_worker=True` to bypass Sage dependencies.
-- `FakeContext` in `tests/test_server.py`: captures info/warning/progress events emitted via the MCP `Context` during tool execution.
-- Async tests use `@pytest.mark.asyncio`; avoid direct `asyncio.run` in tests.
-- `tests/test_config.py` exercises invalid environment overrides to guard the new non-root and timeout
-  settings exposed through `SageSettings`.
-- CI smoke tests also hit `resource://sagemath/monitoring/metrics` via the docker-compose stack to
-  ensure observability endpoints remain healthy.
+```bash
+make sage-container            # start it (reads the image from the Dockerfile)
+make sage-deps                 # install the dev extras into Sage's own Python
+make integration-test          # run the suite inside the container
+```
 
-## Coverage Focus
-- Session lifecycle: `evaluate`, `reset`, `cancel`, idle culling, graceful shutdown.
-- Stateful chat workflows: `tests/test_server.py::test_llm_stateful_average_workflow` and `test_llm_reuses_defined_function` mirror real LLM usage.
-- Error translation & security: `SageEvaluationError` for security violations, metrics recording, and monitoring resource snapshots.
-- Documentation/resource exposure: confirm `resource://sagemath/docs/all` and `resource://sagemath/monitoring/metrics` respond as expected.
+`make sage-deps` is not optional. Sage bundles `pytest` but **not** `pytest-asyncio`, so
+without it every async test errors with *"async def functions are not natively
+supported"*. `make integration-test` depends on it, so running that target alone is
+enough.
 
-## Maintaining Tests
-- Mirror new modules with corresponding files under `tests/` to keep scope targeted.
-- Prefer dependency injection (monkeypatching `SESSION_MANAGER.get/cancel`) over hitting live Sage for unit coverage.
-- When adding features that depend on actual Sage behavior, extend `tests/test_integration.py` and run them inside the Sage container.
-- Ensure new tests run cleanly with `uv run pytest` before submission; lint additional files with `uv run ruff check`.
-- When touching container orchestration or Helm manifests, add smoke coverage by invoking the compose
-  stack or port-forwarding a Helm release and re-running `scripts/exercise_mcp.py` against it.
+To point at a different container, set `SAGEMATH_MCP_DOCKER_CONTAINER`; both the Makefile
+and `scripts/setup_sage_container.sh` honour it, and they must agree. They did not for a
+long period, and because the command was piped to `tee`, the failure was masked by
+`tee`'s exit status and CI reported success while running nothing.
+
+## Writing tests
+
+**Assert a value, not the absence of an exception.** `distribution_operation` returned a
+random sample as the distribution's mean and `null` as its variance. Both would pass a
+check that only confirmed no exception was raised.
+
+**Prove a regression test fails without its fix.** Stash the change, run the test, confirm
+it fails with the expected error, restore. A test that has never failed is not known to
+test anything.
+
+**Document a spelling and it becomes required.** `test_generated_code_lint.py` extracts
+every example from the tools' `Field(description=...)` text and asserts each appears in a
+test. Adding an example to a docstring without a matching test fails the unit suite.
+
+**Prefer equivalence over expected values where possible.** `test_syntax_variants.py`
+asserts that spellings meaning the same thing produce the same answer. That needs no
+hardcoded expectation and catches silently-wrong results, not just errors.
+
+## Key fixtures
+
+- `FakeContext` (`tests/conftest.py`) — captures info/warning/progress events emitted
+  through the MCP `Context`
+- `python_settings` (`tests/test_session.py`) — injects `force_python_worker=True`
+- `requires_sage` — skips when no `sage` executable is on PATH
+- Async tests use `asyncio_mode = "auto"`; do not call `asyncio.run` directly
+
+## CI
+
+Seven jobs, all required by branch protection on `main`: `lint`, `test (3.12)`,
+`test (3.13)`, `security`, `helm`, `integration`, `smoke`.
+
+- `integration` starts the Sage container itself and reads the image from the Dockerfile,
+  so the Sage version has a single source of truth
+- `security` runs `pip-audit` and is **blocking**; a new upstream advisory turns CI red
+  with no repository change
+- `smoke` brings up the compose stack and runs `scripts/exercise_mcp.py` plus the
+  monitoring resource check
+
+Renaming a CI job means updating the required-checks list in branch protection too.
+Otherwise the old name stays required and every pull request waits forever on a check
+that will never report.

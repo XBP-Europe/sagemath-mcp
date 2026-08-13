@@ -51,8 +51,29 @@ Thank you for your interest in improving the SageMath MCP server! This guide exp
 
 ## Releasing
 
-- Follow the instructions in [DISTRIBUTION.md](DISTRIBUTION.md) for PyPI and container releases.
-- Tag releases using `vX.Y.Z` to trigger the GitHub Actions workflows.
+`main` is protected and requires all CI checks, so a release cannot be pushed to it
+directly. The flow is:
+
+1. Run the **Version bump** workflow (`workflow_dispatch`) with the segment to bump. It
+   updates `pyproject.toml`, `src/sagemath_mcp/__init__.py` and
+   `charts/sagemath-mcp/Chart.yaml`, then opens a pull request.
+2. Merge that pull request once CI passes.
+3. Push the tag to publish:
+
+   ```bash
+   git tag vX.Y.Z && git push origin vX.Y.Z
+   ```
+
+Pushing the tag triggers `release.yml`, which publishes to PyPI and pushes a
+Cosign-signed image to GHCR. **A PyPI version number can never be reused**, so treat the
+tag push as the point of no return; if something is wrong the only remedy is another
+version.
+
+Record user-visible changes in [CHANGELOG.md](CHANGELOG.md) before tagging. Choose the
+segment by whether *output* changes: a tool returning a different value than the previous
+release is a minor bump even when the new value is the correction of a bug.
+
+See [DISTRIBUTION.md](DISTRIBUTION.md) for the packaging details.
 
 ## Community Expectations
 

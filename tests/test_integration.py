@@ -201,3 +201,27 @@ async def test_solve_ode_applied_and_bare_agree(monkeypatch):
         assert str(applied["solution"]) == str(bare["solution"])
     finally:
         await manager.shutdown()
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_large_result_exceeds_asyncio_default_stream_limit():
+    """A result larger than asyncio's 64 KiB default must survive the round trip.
+
+    One JSON response is read with a single readline(), so the whole payload
+    has to fit in the subprocess stream buffer. With asyncio's default limit
+    this raised LimitOverrunError, which is what broke plot3d_expression: its
+    base64 PNG is around 100 KiB.
+    """
+
+    settings = SageSettings(force_python_worker=False)
+    session = SageSession("integration-large-result", settings)
+    try:
+        # Comfortably past the 64 KiB default.
+        result = await session.evaluate(
+            "'x' * 200000", want_latex=False, capture_stdout=False
+        )
+        assert result.result is not None
+        assert len(result.result) >= 200000
+    finally:
+        await session.shutdown()

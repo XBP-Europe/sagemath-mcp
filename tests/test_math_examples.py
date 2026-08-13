@@ -23,7 +23,7 @@ import pytest
 
 from sagemath_mcp import server
 from sagemath_mcp.config import SageSettings
-from sagemath_mcp.session import SageEvaluationError, SageSessionManager
+from sagemath_mcp.session import SageSessionManager
 
 from .conftest import FakeContext
 
@@ -454,16 +454,28 @@ async def test_documented_examples(monkeypatch, tool):
 
 @requires_sage
 @pytest.mark.asyncio
-async def test_plot3d_expression_cannot_render_in_sandbox(monkeypatch):
-    """plot3d_expression is known broken; this pins the failure until it is fixed.
+@pytest.mark.parametrize(
+    ("label", "expression"),
+    [
+        # doc: 'sin(x)*cos(y)'
+        ("doc:sin*cos", "sin(x)*cos(y)"),
+        ("paraboloid", "x^2 + y^2"),
+        # Singular and partly complex surfaces must render with gaps rather
+        # than failing the whole plot.
+        ("singular at the axes", "1/(x*y)"),
+        ("complex for x < 0", "sqrt(x)"),
+        # Degenerate inputs: no variables, and only one of the two.
+        ("constant", "1"),
+        ("single variable", "x"),
+    ],
+)
+async def test_plot3d_expression_renders_png(monkeypatch, label, expression):
+    """plot3d_expression must return a PNG payload.
 
-    Graphics3d.save()/save_image() require a filesystem path and reject a
-    BytesIO, and unlike 2D Graphics there is no .matplotlib() figure to render
-    into memory. A temp file is not an option either: `open` is a forbidden
-    call and `tempfile`/`os` are not in allowed_import_modules. Fixing this
-    needs a security-policy change or rendering outside the sandboxed worker.
-
-    When that is resolved, replace this with an assertion on the PNG payload.
+    This previously failed for every input: Graphics3d.save()/save_image()
+    require a filesystem path and reject a BytesIO, there is no .matplotlib()
+    figure on a Graphics3d, and a temp file is unreachable from the sandbox.
+    It now samples the surface and renders through matplotlib's 3D axes.
     """
 
     settings = SageSettings(force_python_worker=False, eval_timeout=120.0)
@@ -472,8 +484,11 @@ async def test_plot3d_expression_cannot_render_in_sandbox(monkeypatch):
     ctx = FakeContext("examples-plot3d")
 
     try:
-        with pytest.raises(SageEvaluationError) as excinfo:
-            await S.plot3d_expression("sin(x)*cos(y)", ctx=ctx)
-        assert "os.PathLike" in str(excinfo.value)
+        result = await S.plot3d_expression(expression, ctx=ctx)
+        assert result["format"] == "png"
+        payload = result["image_base64"]
+        # Base64 of the PNG magic bytes.
+        assert payload.startswith("iVBORw0KGgo"), f"{label}: not a PNG payload"
+        assert len(payload) > 1000, f"{label}: payload suspiciously small"
     finally:
         await manager.shutdown()

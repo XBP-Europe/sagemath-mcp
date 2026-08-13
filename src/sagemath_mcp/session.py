@@ -19,6 +19,12 @@ from .config import DEFAULT_SETTINGS, SageSettings
 LOGGER = logging.getLogger(__name__)
 _PROJECT_ROOT = str(Path(__file__).resolve().parents[1])
 
+# Buffer for a single JSON response line from the worker. asyncio defaults to
+# 64 KiB, which is smaller than legitimate results such as a base64-encoded
+# plot. 8 MiB leaves generous headroom above the default max_stdout_chars
+# without letting a runaway worker consume unbounded memory.
+_STREAM_LIMIT = 8 * 1024 * 1024
+
 
 class SageProcessError(RuntimeError):
     """Raised when the underlying Sage process terminates unexpectedly."""
@@ -95,6 +101,13 @@ class SageSession:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env=env,
+            # One JSON response is read with a single readline(), so the whole
+            # payload must fit in the stream buffer. asyncio's 64 KiB default
+            # raises LimitOverrunError on larger results -- a base64 PNG from
+            # plot3d_expression is around 100 KiB, and matrices or series can
+            # also exceed it. Sized against max_stdout, which already bounds
+            # how much a result may carry.
+            limit=_STREAM_LIMIT,
         )
         self._stderr_task = asyncio.create_task(self._consume_stderr())
         self.started_at = time.time()

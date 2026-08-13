@@ -11,6 +11,14 @@ nothing at all.
 
 ---
 
+## Open review actions
+
+A review on 2026-08-13 found the AST validator bypassable in six ways, and the
+README documenting protections that are not enforced. Both are tracked with
+evidence, a suggested fix and a verification step in
+[REVIEW_ACTIONS.md](REVIEW_ACTIONS.md). The security items outrank everything
+below.
+
 ## Competitive position (surveyed 2026-08-13)
 
 ### The SageMath MCP field

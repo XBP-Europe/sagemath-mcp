@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling>=1.29.0"]
+requires = ["hatchling>=1.32.0"]
 build-backend = "hatchling.build"
 
 [project]
@@ -9,9 +9,9 @@ description = "Model Context Protocol server that provides stateful SageMath com
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "fastmcp>=3.2.0",
-    "pydantic>=2.12.5",
-    "anyio>=4.13.0",
+    "fastmcp>=3.4.7",
+    "pydantic>=2.13.4",
+    "anyio>=4.14.2",
 ]
 authors = [
     { name = "XBP Europe" }
@@ -37,16 +37,17 @@ Changelog = "https://github.com/XBP-Europe/sagemath-mcp/releases"
 
 [project.optional-dependencies]
 cli = [
-    "mcp[cli]>=1.27.0",
+    # Capped below 2.0 by fastmcp-slim (mcp<2.0,>=1.24.0); do not raise past 1.x.
+    "mcp[cli]>=1.29.0",
 ]
 dev = [
-    "pytest>=9.0.2",
-    "pytest-asyncio>=1.3.0",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
-    "coverage>=7.13.5",
-    "ruff>=0.15.9",
-    "build>=1.4.2",
-    "pip-audit>=2.9.0",
+    "coverage>=7.15.4",
+    "ruff>=0.16.2",
+    "build>=1.5.0",
+    "pip-audit>=2.10.1",
 ]
 
 [project.scripts]

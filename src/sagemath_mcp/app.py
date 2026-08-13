@@ -125,5 +125,3 @@ mcp.add_middleware(
         get_prompt_settings=GetPromptSettings(enabled=False),
     )
 )
-
-

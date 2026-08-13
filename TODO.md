@@ -32,4 +32,5 @@
 - [x] Synchronize both `server.json` versions in `scripts/bump_version.py` and add a consistency test ([review item 17](REVIEW_ACTIONS.md)).
 - [x] Split `server.py` into `app`/`runtime`/`codegen` and a `tools/` package ([review item 4](REVIEW_ACTIONS.md)); coverage work on the extracted helpers is deliberately separate.
 - [ ] Raise coverage on the helpers now that they are isolated in `codegen.py` (distribution mean/variance, matrix and integer rejection paths, expression fallbacks).
+- [ ] Confirm the MCP registry listing goes live on the next tagged release; the job has never executed.
 - [ ] Account-side Smithery and Glama submissions ([review item 7](REVIEW_ACTIONS.md)) — needs repository-owner access.

@@ -152,12 +152,47 @@ class SageSession:
         Interleaved {"type": "stdout"} events are dispatched to *on_stdout* as
         they arrive, which is what makes streaming actually stream rather than
         replay after completion.
+
+        Delivery runs through a queue rather than being awaited inline. A
+        caller's callback is arbitrary code and may be slow, and awaiting it here
+        stopped the read loop: the worker could finish, print its response and go
+        back to waiting for input -- genuinely idle -- while this session still
+        believed a computation was running, so interrupt() would signal it. One
+        consumer keeps the lines in order.
         """
+        queue: asyncio.Queue[str | None] | None = None
+        pump: asyncio.Task[None] | None = None
+        if on_stdout is not None:
+            queue = asyncio.Queue()
+            pump = asyncio.create_task(self._pump_stdout(queue, on_stdout))
+        try:
+            return await self._read_matching_response(request_id, queue)
+        finally:
+            if pump is not None and queue is not None:
+                queue.put_nowait(None)          # sentinel: no more lines
+                with contextlib.suppress(Exception):
+                    await pump
+
+    async def _pump_stdout(
+        self, queue: asyncio.Queue[str | None], on_stdout: Callable[[str], Awaitable[None]]
+    ) -> None:
+        """Deliver stdout lines in order, off the read loop's critical path."""
+        while True:
+            text = await queue.get()
+            if text is None:
+                return
+            with contextlib.suppress(Exception):
+                await on_stdout(text)
+
+    async def _read_matching_response(
+        self, request_id: str, queue: asyncio.Queue[str | None] | None
+    ) -> tuple[bytes, dict]:
         assert self._process and self._process.stdout
         discarded = 0
         while True:
             raw = await self._process.stdout.readline()
             if not raw:
+                self._in_flight = None      # the worker is gone, not computing
                 return raw, {}
             try:
                 message = json.loads(raw.decode("utf-8"))
@@ -165,8 +200,8 @@ class SageSession:
                 LOGGER.warning("Discarding unparsable worker line in %s", self.session_id)
                 continue
             if message.get("type") == "stdout" and message.get("id") == request_id:
-                if on_stdout is not None:
-                    await on_stdout(message.get("text", ""))
+                if queue is not None:
+                    queue.put_nowait(message.get("text", ""))
                 continue
             incoming = message.get("id")
             if incoming != request_id:
@@ -187,6 +222,9 @@ class SageSession:
                     incoming, self.session_id, request_id,
                 )
                 continue
+            # The worker has answered and is back waiting for input: it is idle
+            # from here, whatever the caller still has to do with the result.
+            self._in_flight = None
             return raw, message
 
     async def evaluate(

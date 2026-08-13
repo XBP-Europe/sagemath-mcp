@@ -5,8 +5,8 @@
 > **This is a snapshot, not the current state.** Its figures were true on that date
 > and are kept as a record of the evaluation. Since then the sandbox findings in
 > `REVIEW_ACTIONS.md` (items 1-3, 18, 19) were fixed, `server.py` was split into
-> `app`/`runtime`/`codegen` and a `tools/` package, and the suites grew to 449 unit
-> tests at 100% statement and branch coverage plus 517 against SageMath 10.9.
+> `app`/`runtime`/`codegen` and a `tools/` package, and the suites grew to 450 unit
+> tests at 100% statement and branch coverage plus 526 against SageMath 10.9.
 > For current numbers see `README.md` and `ROADMAP.md`.
 
 ## Overall Verdict

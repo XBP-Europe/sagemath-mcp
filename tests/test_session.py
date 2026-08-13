@@ -1276,3 +1276,48 @@ def test_a_workspace_with_unsafe_characters_adopts_no_ambiguous_legacy_journal(t
     assert "a_b.journal.json" not in legacy_names, (
         "adopted a legacy file that could belong to a different workspace"
     )
+
+
+@pytest.mark.asyncio
+async def test_a_slow_stdout_callback_does_not_keep_the_worker_marked_busy(tmp_path):
+    """The computing flag must end when the worker's answer arrives.
+
+    A streaming caller's callback is arbitrary code and can be slow. If awaiting
+    it blocks the read loop, the worker can finish, print its response and go
+    back to waiting for input -- genuinely idle -- while the session still
+    believes a computation is running. interrupt() then signals an idle worker,
+    which is the exact unsafe path this flag was introduced to close.
+    """
+    settings = SageSettings(force_python_worker=True, eval_timeout=30.0)
+    session = SageSession("slow-callback", settings)
+    await session.ensure_started()
+    release = asyncio.Event()
+    first_line = asyncio.Event()
+
+    async def blocking_on_stdout(text: str) -> None:
+        first_line.set()
+        await release.wait()          # hold the callback open
+
+    try:
+        task = asyncio.create_task(
+            session.evaluate(
+                "print('one')\nprint('two')\n42\n",
+                want_latex=False,
+                capture_stdout=True,
+                on_stdout=blocking_on_stdout,
+            )
+        )
+        await asyncio.wait_for(first_line.wait(), timeout=10)
+        # Give the worker time to finish and answer while the callback is held.
+        await asyncio.sleep(0.5)
+
+        assert await session.interrupt() is False, (
+            "signalled a worker that had already answered and gone idle"
+        )
+
+        release.set()
+        result = await asyncio.wait_for(task, timeout=10)
+        assert result.result == "42"
+    finally:
+        release.set()
+        await session.shutdown()

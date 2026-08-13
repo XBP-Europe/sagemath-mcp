@@ -2,7 +2,7 @@
 
 This document tracks planned improvements to the SageMath MCP server, organized by priority and effort. The goal is to strengthen the server's position as a universal mathematics MCP server that enables LLMs to perform any symbolic or discrete mathematical operation.
 
-**Current state (v0.4.0):** 37 MCP tools (31 Sage-backed, 6 infrastructure) covering calculus, algebra, linear algebra, ODEs, number theory, combinatorics, graph theory, group theory, elliptic curves, coding theory, boolean algebra, polynomial rings, geometry, probability, vector calculus, statistics, 2D/3D plotting, numeric root-finding, and incremental streaming. The current suites pass 449 unit tests at 100% statement and branch coverage, 517 tests against a real SageMath 10.9 runtime, plus the CLI integration suite.
+**Current state (v0.4.0):** 37 MCP tools (31 Sage-backed, 6 infrastructure) covering calculus, algebra, linear algebra, ODEs, number theory, combinatorics, graph theory, group theory, elliptic curves, coding theory, boolean algebra, polynomial rings, geometry, probability, vector calculus, statistics, 2D/3D plotting, numeric root-finding, and incremental streaming. The current suites pass 450 unit tests at 100% statement and branch coverage, 526 tests against a real SageMath 10.9 runtime, plus the CLI integration suite.
 
 Integration coverage now includes every tool exercised against the examples in its own
 documentation, and a syntax matrix over the input spellings each tool must accept. Both
@@ -57,7 +57,7 @@ The adjacent market is roughly five times larger and is where attention actually
   is not currently an adversarial sandbox. Do not treat sandboxing as a competitive
   differentiator until the bypass tests and container hardening are complete.
 - **Tool surface.** 37 against 3, 5 and 10 for the SageMath peers.
-- **Verification.** 449 unit and 517 real-runtime tests; peer test coverage is largely
+- **Verification.** 450 unit and 526 real-runtime tests; peer test coverage is largely
   invisible.
 - **Documentation.** 1218 README lines against 481, 284, 187 and 89.
 - **Operations.** Helm chart, Cosign-signed images, monitoring resource, health endpoint.
@@ -89,6 +89,11 @@ typo in the one sentence GitHub indexes for search.
 - [x] Fix the repository description, add a homepage, add 14 discovery topics
 - [x] Add `server.json` and the `mcp-name` ownership marker for the official MCP registry
 - [x] Automate registry publication from the release workflow using OIDC
+  - **Not yet listed.** The job was added after the v0.4.0 tag, so it has never
+    run; the registry returns no server for `io.github.XBP-Europe/sagemath-mcp`.
+    The next tagged release is its first execution. A README badge claiming
+    publication was removed for exactly this reason -- check the registry, not
+    the workflow, before reinstating it.
 - [ ] List on Smithery and Glama, as fermat-mcp does
 
 At the time of the survey the only SageMath server in the official registry was

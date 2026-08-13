@@ -88,6 +88,16 @@ def test_the_signed_badge_means_the_release_actually_signs() -> None:
     assert "cosign sign" in release, "the badge claims signed images but nothing signs them"
 
 
-def test_the_registry_badge_means_the_release_actually_publishes() -> None:
-    release = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
-    assert "mcp-registry" in release, "the badge claims a registry listing but nothing publishes"
+def test_no_badge_claims_an_mcp_registry_listing_we_do_not_have() -> None:
+    """A workflow job is not a listing.
+
+    The badge said "MCP Registry - published" and this test checked only that
+    release.yml mentions mcp-registry. The registry itself returns no server for
+    this name, and the v0.4.0 release ran no such job, so the badge asserted
+    something that had never happened. Reinstate it by checking the registry,
+    not the workflow.
+    """
+    assert "MCP%20Registry" not in README, (
+        "the registry badge is back; verify the listing exists at "
+        "registry.modelcontextprotocol.io before claiming it"
+    )

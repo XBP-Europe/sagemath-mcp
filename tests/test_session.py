@@ -1020,3 +1020,103 @@ async def test_worker_responses_without_the_expected_id_are_not_accepted(tmp_pat
         assert result.result == "42", "an ID-less response was accepted as the answer"
     finally:
         await session.shutdown()
+
+
+# ---------------------------------------------------------------------------
+# Worker protocol edge cases
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_unparsable_worker_lines_are_skipped_not_fatal(tmp_path):
+    """Anything non-JSON on the pipe is noise, not this request's answer."""
+    settings = SageSettings(force_python_worker=True, eval_timeout=30.0)
+    session = SageSession("noisy", settings)
+    await session.ensure_started()
+    try:
+        reader = session._process.stdout
+        original = reader.readline
+        junk = [b"not json at all\n", b"<<< banner >>>\n"]
+
+        async def fake_readline():
+            if junk:
+                return junk.pop(0)
+            return await original()
+
+        reader.readline = fake_readline
+        result = await session.evaluate("6 * 7", want_latex=False, capture_stdout=False)
+        assert result.result == "42"
+    finally:
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_a_worker_that_never_answers_this_request_is_abandoned(tmp_path):
+    """Waiting for a matching id is unbounded if the peer repeats itself.
+
+    A stub doing exactly that once spun here until the process ran out of
+    memory, so the wait gives up after a fixed number of stale lines.
+    """
+    settings = SageSettings(force_python_worker=True, eval_timeout=30.0)
+    session = SageSession("broken-record", settings)
+    await session.ensure_started()
+    try:
+        stale = json.dumps({"ok": True, "id": "someone-else", "result": "'x'"}).encode() + b"\n"
+
+        async def fake_readline():
+            return stale
+
+        session._process.stdout.readline = fake_readline
+        with pytest.raises(SageProcessError, match="do not answer"):
+            await session.evaluate("1 + 1", want_latex=False, capture_stdout=False)
+    finally:
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_interrupt_reports_false_when_the_worker_is_gone(tmp_path, monkeypatch):
+    """A dead process cannot be interrupted, and that is not an error."""
+    settings = SageSettings(force_python_worker=True, eval_timeout=30.0)
+    session = SageSession("gone", settings)
+    await session.ensure_started()
+    try:
+        def boom(_signal):
+            raise ProcessLookupError("no such process")
+
+        monkeypatch.setattr(session._process, "send_signal", boom)
+        assert await session.interrupt() is False
+    finally:
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_manager_interrupt_is_false_for_an_unknown_session(tmp_path):
+    manager = SageSessionManager(SageSettings(force_python_worker=True))
+    try:
+        assert await manager.interrupt("never-started") is False
+    finally:
+        await manager.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_culling_still_reclaims_a_worker_when_the_journal_cannot_be_saved(
+    tmp_path, monkeypatch
+):
+    """A persistence failure must not strand the worker it was culling."""
+    settings = SageSettings(
+        force_python_worker=True, idle_ttl=0.0, persist_sessions=True,
+        persist_dir=str(tmp_path),
+    )
+    manager = SageSessionManager(settings)
+    try:
+        session = await manager.get("doomed")
+        await session.evaluate("kept = 1", want_latex=False, capture_stdout=False)
+
+        def boom():
+            raise OSError("disk full")
+
+        monkeypatch.setattr(session, "save_journal", boom)
+        await manager.cull_idle()
+        assert not session.is_alive(), "the worker survived a failed journal save"
+    finally:
+        await manager.shutdown()

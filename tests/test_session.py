@@ -12,6 +12,7 @@ from sagemath_mcp.session import (
     SageSession,
     SageSessionManager,
 )
+from sagemath_mcp.tools import core as core_tools
 
 
 @pytest.fixture(scope="module")
@@ -109,7 +110,7 @@ def test_truncate_stdout():
     original_limit = runtime.SESSION_MANAGER.settings.max_stdout_chars
     runtime.SESSION_MANAGER.settings.max_stdout_chars = 8
     try:
-        truncated = server._truncate_stdout("0123456789")
+        truncated = core_tools._truncate_stdout("0123456789")
         assert truncated.startswith("01234567")
         assert "output truncated" in truncated
     finally:
@@ -121,9 +122,12 @@ def test_truncate_stdout_with_non_int_limit(monkeypatch):
     runtime = pytest.importorskip("sagemath_mcp.runtime")
     import types
 
-    monkeypatch.setattr(server, "DEFAULT_SETTINGS", types.SimpleNamespace(max_stdout_chars=5))
+    # Patch where _truncate_stdout reads it, which is its own module now.
+    monkeypatch.setattr(
+        core_tools, "DEFAULT_SETTINGS", types.SimpleNamespace(max_stdout_chars=5)
+    )
     monkeypatch.setattr(runtime.SESSION_MANAGER.settings, "max_stdout_chars", 5.5)
-    result = server._truncate_stdout("0123456789")
+    result = core_tools._truncate_stdout("0123456789")
     assert result.endswith("[output truncated]")
 
 

@@ -6,11 +6,12 @@ import shutil
 import pytest
 from fastmcp.exceptions import ToolError
 
-from sagemath_mcp import app, runtime, server
+from sagemath_mcp import app, codegen, runtime, server
 from sagemath_mcp.config import SageSettings
 from sagemath_mcp.models import EvaluateResult
 from sagemath_mcp.monitoring import reset_metrics
 from sagemath_mcp.session import SageEvaluationError, SageSessionManager, WorkerResult
+from sagemath_mcp.tools import core as core_tools
 
 from .conftest import FakeContext
 
@@ -71,7 +72,7 @@ async def test_lifespan_cancels_running_cull_loop(monkeypatch):
 @pytest.mark.asyncio
 async def test_progress_heartbeat_emits(monkeypatch):
     ctx = FakeContext("heartbeat")
-    task = asyncio.create_task(server._progress_heartbeat(ctx, interval=0.01))
+    task = asyncio.create_task(core_tools._progress_heartbeat(ctx, interval=0.01))
     await asyncio.sleep(0.03)
     task.cancel()
     with contextlib.suppress(asyncio.CancelledError):
@@ -313,7 +314,7 @@ async def test_statistics_summary(monkeypatch):
 @pytest.mark.asyncio
 async def test_evaluate_structured_parses_literal():
     session = StubSession("[1, {'value': 2}]")
-    value = await server._evaluate_structured(session, "ignored")
+    value = await codegen._evaluate_structured(session, "ignored")
     assert value == [1, {"value": 2}]
     call = session.calls[-1]
     assert call["want_latex"] is False
@@ -323,14 +324,14 @@ async def test_evaluate_structured_parses_literal():
 @pytest.mark.asyncio
 async def test_evaluate_structured_returns_none():
     session = StubSession(None)
-    value = await server._evaluate_structured(session, "ignored")
+    value = await codegen._evaluate_structured(session, "ignored")
     assert value is None
 
 
 @pytest.mark.asyncio
 async def test_evaluate_structured_falls_back_to_string():
     session = StubSession("Decimal('1.234')")
-    value = await server._evaluate_structured(session, "ignored")
+    value = await codegen._evaluate_structured(session, "ignored")
     assert value == "Decimal('1.234')"
 
 
@@ -734,7 +735,7 @@ async def test_plot_expression(monkeypatch):
 @pytest.mark.asyncio
 async def test_evaluate_structured_forwards_timeout():
     session = StubSession("42")
-    await server._evaluate_structured(session, "ignored", timeout_seconds=5.0)
+    await codegen._evaluate_structured(session, "ignored", timeout_seconds=5.0)
     call = session.calls[-1]
     assert call["timeout_seconds"] == 5.0
 
@@ -2092,7 +2093,7 @@ async def test_named_sessions_listed_per_client(monkeypatch):
     ],
 )
 async def test_exact_int_accepts_lossless_forms(value, expected):
-    assert server._exact_int(value, "a") == expected
+    assert codegen._exact_int(value, "a") == expected
 
 
 @pytest.mark.asyncio
@@ -2113,11 +2114,11 @@ async def test_exact_int_rejects_values_json_cannot_carry(value):
     as the int 1000000000000000019884624838656 and looks ordinary.
     """
     with pytest.raises(ToolError, match="2\\^53"):
-        server._exact_int(value, "a")
+        codegen._exact_int(value, "a")
 
     # The message has to tell the caller what to do instead.
     try:
-        server._exact_int(value, "a")
+        codegen._exact_int(value, "a")
     except ToolError as exc:
         assert "decimal string" in str(exc)
 
@@ -2125,18 +2126,18 @@ async def test_exact_int_rejects_values_json_cannot_carry(value):
 @pytest.mark.asyncio
 async def test_exact_int_accepts_any_size_as_a_string():
     """Strings are exact by construction, so no ceiling applies."""
-    assert server._exact_int("1000000000000000000000000000000", "a") == 10**30
-    assert server._exact_int(str(2**200), "a") == 2**200
+    assert codegen._exact_int("1000000000000000000000000000000", "a") == 10**30
+    assert codegen._exact_int(str(2**200), "a") == 2**200
 
 
 @pytest.mark.asyncio
 async def test_exact_int_rejects_non_integers():
     with pytest.raises(ToolError, match="whole number"):
-        server._exact_int(12.5, "a")
+        codegen._exact_int(12.5, "a")
     with pytest.raises(ToolError, match="not a decimal integer"):
-        server._exact_int("twelve", "a")
+        codegen._exact_int("twelve", "a")
     with pytest.raises(ToolError, match="boolean"):
-        server._exact_int(True, "a")
+        codegen._exact_int(True, "a")
 
 
 @pytest.mark.asyncio

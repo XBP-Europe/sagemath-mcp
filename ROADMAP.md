@@ -2,7 +2,7 @@
 
 This document tracks planned improvements to the SageMath MCP server, organized by priority and effort. The goal is to strengthen the server's position as a universal mathematics MCP server that enables LLMs to perform any symbolic or discrete mathematical operation.
 
-**Current state (v0.4.0):** 37 MCP tools (31 Sage-backed, 6 infrastructure) covering calculus, algebra, linear algebra, ODEs, number theory, combinatorics, graph theory, group theory, elliptic curves, coding theory, boolean algebra, polynomial rings, geometry, probability, vector calculus, statistics, 2D/3D plotting, numeric root-finding, and streaming execution. 258 unit tests, and 333 tests against a real SageMath 10.9 runtime, plus 43 CLI integration tests.
+**Current state (v0.4.0):** 37 MCP tools (31 Sage-backed, 6 infrastructure) covering calculus, algebra, linear algebra, ODEs, number theory, combinatorics, graph theory, group theory, elliptic curves, coding theory, boolean algebra, polynomial rings, geometry, probability, vector calculus, statistics, 2D/3D plotting, numeric root-finding, and a buffered streaming facade. The current suites pass 267 pure-Python tests and all 342 tests against a real SageMath 10.9 runtime, plus 43 CLI integration tests.
 
 Integration coverage now includes every tool exercised against the examples in its own
 documentation, and a syntax matrix over the input spellings each tool must accept. Both
@@ -13,10 +13,13 @@ nothing at all.
 
 ## Open review actions
 
-A review on 2026-08-13 found the AST validator bypassable in six ways, and the
-README documenting protections that are not enforced. Both are tracked with
+A review on 2026-08-13 found three release-blocking issues: the AST validator is
+bypassable, the public security claims overstate the controls, and FastMCP's
+default response cache breaks state and isolation across clients. It also found
+correctness gaps in named-workspace cancellation, exact large integers, streaming,
+persistence, workspace routing and version synchronization. All are tracked with
 evidence, a suggested fix and a verification step in
-[REVIEW_ACTIONS.md](REVIEW_ACTIONS.md). The security items outrank everything
+[REVIEW_ACTIONS.md](REVIEW_ACTIONS.md). Review items 1, 2 and 10 outrank everything
 below.
 
 ## Competitive position (surveyed 2026-08-13)
@@ -40,12 +43,12 @@ The adjacent market is roughly five times larger and is where attention actually
 
 ### Where this project leads
 
-- **Sandboxing.** sympy-mcp documents that its parser "uses `eval` under the hood,
-  effectively allowing arbitrary code execution". No SageMath peer documents a sandbox at
-  all. The AST validator with a configurable policy is the clearest differentiator, and
-  only [Eis4TY/Sym-MCP](https://github.com/Eis4TY/Sym-MCP) shares the approach.
+- **Security posture under repair.** The configurable AST validator is useful
+  defence in depth against accidental misuse, but review items 1-3 show that it
+  is not currently an adversarial sandbox. Do not treat sandboxing as a competitive
+  differentiator until the bypass tests and container hardening are complete.
 - **Tool surface.** 37 against 3, 5 and 10 for the SageMath peers.
-- **Verification.** 258 unit and 333 real-runtime tests; peer test coverage is largely
+- **Verification.** 267 pure-Python and 342 real-runtime tests; peer test coverage is largely
   invisible.
 - **Documentation.** 1218 README lines against 481, 284, 187 and 89.
 - **Operations.** Helm chart, Cosign-signed images, monitoring resource, health endpoint.
@@ -84,7 +87,7 @@ At the time of the survey the only SageMath server in the official registry was
 publication requires the ownership marker to be present in the *published* PyPI
 description, so it takes effect from the first release after this change.
 
-## Tier 2: Session ergonomics (done 2026-08-13)
+## Tier 2: Session ergonomics (shipped; corrective work open)
 
 The two capabilities where a one-star project was genuinely ahead. Neither needed an
 architectural change.
@@ -93,9 +96,11 @@ architectural change.
       turns the resulting KeyboardInterrupt into an `Interrupted` response and keeps its
       namespace. `cancel_sage_session` remains the escape hatch for a wedged worker.
 - [x] **Named multi-sessions.** `start_sage_session`, `list_sage_sessions` and
-      `stop_sage_session`, with an optional `session` argument on the state-bearing
-      tools. The default workspace keys on the bare scope, so existing behaviour and
-      persisted journals are unchanged.
+      `stop_sage_session`, with workspace selection on raw evaluation and session
+      controls. The default workspace keys on the bare scope.
+- [ ] **Correct named-session routing.** Cancellation must target the selected
+      workspace, response ids must be verified, and specialized tools must expose
+      the same `session` selector (review items 11 and 16).
 
 Two details worth remembering. `interrupt` deliberately does not take the session lock:
 the evaluation being interrupted holds it, so waiting would deadlock until the
@@ -161,8 +166,10 @@ distribution and session ergonomics, not coverage.
 
 - [x] **Enriched `evaluate_sage` description** — 14 domain examples (was 8): added symbolic sums, Laplace/inverse Laplace transforms, modular arithmetic, vector calculus, numeric root finding, recurrence relations
 - [x] **HTTP `/health` endpoint** — returns `{"status": "ok", "version": "...", "active_sessions": N}` for Kubernetes liveness/readiness probes (Starlette route on HTTP transports)
-- [x] **`evaluate_sage_streaming`** — executes code and emits each stdout line as a progress event for real-time partial output display
-- [x] **Disk-backed session persistence** — code journal saved to `SAGEMATH_MCP_PERSIST_DIR` on shutdown, replayed on restore. Controlled by `SAGEMATH_MCP_PERSIST_SESSIONS` and `SAGEMATH_MCP_PERSIST_DIR` environment variables.
+- [x] **`evaluate_sage_streaming` facade** — currently replays captured stdout as progress events after execution finishes.
+- [ ] **True incremental streaming** — extend the worker protocol so stdout events arrive while execution is running (review item 13).
+- [x] **Disk-backed session persistence foundation** — code journals are saved on explicit stop/server shutdown and replayed on restore. Controlled by `SAGEMATH_MCP_PERSIST_SESSIONS` and `SAGEMATH_MCP_PERSIST_DIR`.
+- [ ] **Complete persistence lifecycle and isolation** — save journals during idle culling and replace lossy filename sanitization with collision-free identities (review items 14 and 15).
 
 ## Phase 4 — Niche Domains (Not Planned)
 
@@ -188,7 +195,7 @@ All items from the initial evaluation and TODO have been implemented:
 
 - [x] 18 MCP math tools (calculus, algebra, linear algebra, ODEs, number theory, statistics, plotting)
 - [x] CLI integration test suite (43 cases, Claude + Gemini)
-- [x] 242 unit tests at 99% branch coverage
+- [x] 267 pure-Python tests and 342 tests against SageMath 10.9
 - [x] FastMCP 3.x upgrade with full API migration
 - [x] CI modernization (6 parallel jobs, matrix testing, uv caching, pip-audit, coverage)
 - [x] Docker image pinned to SageMath 10.9
@@ -202,3 +209,4 @@ All items from the initial evaluation and TODO have been implemented:
 - [x] Project metadata, classifiers, URLs
 - [x] MIT LICENSE file (was Apache 2.0)
 - [x] Version synchronization across pyproject.toml, __init__.py, Helm chart
+- [ ] Include both `server.json` version fields in automated version synchronization

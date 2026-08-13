@@ -15,7 +15,12 @@ from typing import Annotated
 
 from fastmcp import Context, FastMCP
 from fastmcp.exceptions import ToolError
-from fastmcp.server.middleware.caching import ResponseCachingMiddleware
+from fastmcp.server.middleware.caching import (
+    CallToolSettings,
+    GetPromptSettings,
+    ReadResourceSettings,
+    ResponseCachingMiddleware,
+)
 from fastmcp.server.middleware.logging import LoggingMiddleware
 from fastmcp.server.middleware.timing import TimingMiddleware
 from pydantic import Field
@@ -125,7 +130,28 @@ mcp.add_middleware(TimingMiddleware())
 mcp.add_middleware(
     LoggingMiddleware(include_payloads=False, include_payload_length=True)
 )
-mcp.add_middleware(ResponseCachingMiddleware())
+# Tool-call and resource caching are OFF, deliberately.
+#
+# The cache key covers the tool name, arguments and auth identity, but NOT the
+# MCP session id, and unauthenticated clients share one anonymous partition.
+# Every tool here is stateful, so with the defaults (one hour, all tools) two
+# clients making the same call collide: the second gets the first's cached
+# response in microseconds without its own worker ever executing, and then finds
+# the variable undefined. The reverse is a confidentiality problem -- a
+# state-dependent expression can return another client's value.
+#
+# Repeated reset/cancel/start/stop calls were also skipped while reporting
+# success, and the session and monitoring resources served stale snapshots.
+#
+# Only the list_* caches remain: the tool, resource and prompt catalogues are
+# identical for every caller and do not change at runtime.
+mcp.add_middleware(
+    ResponseCachingMiddleware(
+        call_tool_settings=CallToolSettings(enabled=False),
+        read_resource_settings=ReadResourceSettings(enabled=False),
+        get_prompt_settings=GetPromptSettings(enabled=False),
+    )
+)
 
 
 # ---------------------------------------------------------------------------
@@ -209,7 +235,11 @@ async def evaluate_sage(
     """Run SageMath code, preserving state within the caller's MCP session."""
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    sage_session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    # Compute the key once and reuse it. Cancelling used to pass ctx.session_id,
+    # which restarts the DEFAULT workspace: cancelling work in 'curves' destroyed
+    # unrelated default state while the curves worker kept running.
+    session_key = SESSION_MANAGER.key_for(ctx.session_id, session)
+    sage_session = await SESSION_MANAGER.get(session_key)
     progress_task: asyncio.Task[None] | None = None
     if ctx is not None:
         await ctx.info("Starting SageMath evaluation")
@@ -223,9 +253,9 @@ async def evaluate_sage(
         )
     except asyncio.CancelledError:
         monitoring.record_failure("cancelled", is_security=False, details="evaluation cancelled")
-        await SESSION_MANAGER.cancel(ctx.session_id)
+        await SESSION_MANAGER.cancel(session_key)
         if ctx is not None:
-            await ctx.warning("Sage evaluation cancelled; session restarted")
+            await ctx.warning(f"Sage evaluation cancelled; session '{session}' restarted")
         raise
     except SageEvaluationError as exc:
         monitoring.record_failure(
@@ -580,14 +610,23 @@ def _exact_int(value: int | str | float, name: str) -> int:
     if isinstance(value, float):
         if not value.is_integer():
             raise ToolError(f"'{name}' must be a whole number, got {value!r}")
-        if abs(value) > _EXACT_JSON_INT_LIMIT:
-            raise ToolError(
-                f"'{name}' arrived as a floating-point number larger than 2^53, so its "
-                "exact value is already lost. Pass it as a decimal string instead, "
-                f'for example "{int(value)}".'
-            )
-        return int(value)
-    return int(value)
+        return _reject_if_inexact(int(value), name)
+    # An int is not automatically safe. A JavaScript client rounds the value
+    # BEFORE serialising and then emits the rounded digits as a JSON integer, so
+    # the float branch above is never reached: 10^30 arrives as the int
+    # 1000000000000000019884624838656 and looks perfectly ordinary.
+    return _reject_if_inexact(int(value), name)
+
+
+def _reject_if_inexact(value: int, name: str) -> int:
+    """Refuse any JSON-borne number too large to have survived a double."""
+    if abs(value) > _EXACT_JSON_INT_LIMIT:
+        raise ToolError(
+            f"'{name}' is larger than 2^53, where JSON numbers stop being exact: "
+            "a JavaScript-based client will already have rounded it before sending. "
+            f'Pass it as a decimal string instead, for example "{value}".'
+        )
+    return value
 
 
 def _check_matrix(rows: list[list[float]], name: str) -> None:

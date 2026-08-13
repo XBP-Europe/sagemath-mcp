@@ -23,11 +23,11 @@ Severity is about consequence, not effort.
 | 10 | **Critical** | Response caching breaks state and isolation across MCP clients | **done** |
 | 11 | High | Cancelling a named workspace restarts the default workspace | **done** |
 | 12 | High | The large-integer corruption guard accepts corrupted JSON integers | **done** |
-| 13 | Medium | `evaluate_sage_streaming` emits output only after completion | open |
-| 14 | Medium | Idle culling discards journals instead of persisting them | open |
-| 15 | Medium | Sanitized journal filenames collide | open |
-| 16 | Medium | Specialized tools cannot select named workspaces | open |
-| 17 | Medium | Version bumps leave `server.json` stale | open |
+| 13 | Medium | `evaluate_sage_streaming` emits output only after completion | **done** |
+| 14 | Medium | Idle culling discards journals instead of persisting them | **done** |
+| 15 | Medium | Sanitized journal filenames collide | **done** |
+| 16 | Medium | Specialized tools cannot select named workspaces | **done** |
+| 17 | Medium | Version bumps leave `server.json` stale | **done** |
 
 ---
 
@@ -401,7 +401,16 @@ alteration.
 
 ---
 
-## 13. The streaming tool buffers all output — medium
+## 13. The streaming tool buffers all output — medium — DONE
+
+**Fixed by implementing streaming, not by renaming it.** The worker now emits a
+`{"type": "stdout"}` event per completed line, and the session dispatches those
+while still awaiting the final response. The integration test prints a marker,
+computes for several seconds, prints a second marker, and asserts the first event
+arrives well before completion — it fails against the old buffered code.
+
+Original finding follows.
+
 
 ### What is wrong
 
@@ -426,7 +435,14 @@ completion and before the second marker.
 
 ---
 
-## 14. Idle culling bypasses persistence — medium
+## 14. Idle culling bypasses persistence — medium — DONE
+
+**Fixed.** `cull_idle` saves each journal before terminating the worker, with the
+same guarded handling as manager shutdown. Test: a session with a zero TTL is
+populated, culled, then re-obtained and its variable restored.
+
+Original finding follows.
+
 
 ### What is wrong
 
@@ -448,7 +464,15 @@ then obtain the same session again and assert that the variable is restored.
 
 ---
 
-## 15. Journal filename sanitization is not injective — medium
+## 15. Journal filename sanitization is not injective — medium — DONE
+
+**Fixed.** The filename is now a readable prefix plus a SHA-256 digest of the
+full key, so distinct workspaces cannot share a file. Tests cover slashes,
+question marks, colons, spaces, backslashes, Unicode, existing underscores and
+over-long names.
+
+Original finding follows.
+
 
 ### What is wrong
 
@@ -471,7 +495,22 @@ path and that each journal restores only its own variables.
 
 ---
 
-## 16. Specialized tools cannot use named workspaces — medium
+## 16. Specialized tools cannot use named workspaces — medium — DONE
+
+**Fixed, and the README claim narrowed to the truth.** All 30 worker-backed
+tools now take the validated `session` argument and resolve it through
+`key_for`, so a call can be routed to a chosen workspace.
+
+Worth recording what that does and does not buy: the specialised tools evaluate
+their input through `sage_eval` against Sage's own globals, so they have never
+been able to see variables defined by `evaluate_sage` — confirmed against the
+default session, so this is by design rather than a regression. `session`
+therefore selects *which worker runs the call*, which matters for isolation,
+interrupt and cancel. The README now says exactly that instead of implying
+shared state.
+
+Original finding follows.
+
 
 ### What is wrong
 
@@ -496,7 +535,14 @@ Also inspect the published MCP schemas to ensure the argument is exposed.
 
 ---
 
-## 17. Version bumps leave the registry manifest stale — medium
+## 17. Version bumps leave the registry manifest stale — medium — DONE
+
+**Fixed.** `bump_version.py` updates both `server.json` fields. Three tests: all
+declared versions agree today, the real script against temporary copies leaves
+nothing stale, and `--dry-run` changes nothing.
+
+Original finding follows.
+
 
 ### What is wrong
 

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,6 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"
 INIT_PATH = PROJECT_ROOT / "src" / "sagemath_mcp" / "__init__.py"
 CHART_PATH = PROJECT_ROOT / "charts" / "sagemath-mcp" / "Chart.yaml"
+SERVER_JSON_PATH = PROJECT_ROOT / "server.json"
 
 PYPROJECT_VERSION_PATTERN: Pattern[str] = re.compile(
     r'^(version\s*=\s*)"(?P<version>\d+\.\d+\.\d+)"\s*$', re.MULTILINE
@@ -79,16 +81,33 @@ def _write_version(
     path.write_text(updated, encoding="utf-8")
 
 
+def _write_server_json(new_version: str) -> None:
+    """Update both version fields in the MCP registry manifest.
+
+    The release workflow rewrites these in its own temporary checkout, so the
+    version committed by the bump pull request stayed stale -- the manifest in
+    git disagreed with the package it describes.
+    """
+    if not SERVER_JSON_PATH.exists():
+        return
+    manifest = json.loads(SERVER_JSON_PATH.read_text(encoding="utf-8"))
+    manifest["version"] = new_version
+    for package in manifest.get("packages", []):
+        package["version"] = new_version
+    SERVER_JSON_PATH.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
+
 def _write_all(new_version: str) -> None:
     """Update every file that carries the version.
 
     Keep this list complete: the Helm chart was missing, so it stayed on the
-    previous version through every release.
+    previous version through every release, and server.json had the same bug.
     """
     _write_version(PYPROJECT_PATH, PYPROJECT_VERSION_PATTERN, new_version)
     _write_version(INIT_PATH, INIT_VERSION_PATTERN, new_version)
     _write_version(CHART_PATH, CHART_VERSION_PATTERN, new_version, quoted=False)
     _write_version(CHART_PATH, CHART_APP_VERSION_PATTERN, new_version)
+    _write_server_json(new_version)
 
 
 def bump_version(segment: str) -> Version:

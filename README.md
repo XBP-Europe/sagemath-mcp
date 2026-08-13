@@ -704,7 +704,17 @@ One client can hold several independent workspaces. Variables defined in one are
 > stop_sage_session(name="curves")
 ```
 
-Every tool that touches session state accepts the same optional `session` argument. Omitting it uses the `default` workspace, which is the behaviour of every earlier version.
+Every tool that runs on a worker accepts the same optional `session` argument.
+Omitting it uses the `default` workspace, which is the behaviour of every earlier
+version.
+
+**What `session` does, precisely.** It selects which worker process runs the
+call, so a long computation in one workspace can be interrupted or cancelled
+without disturbing another. It does **not** give the specialised tools access to
+variables you defined with `evaluate_sage`: those tools evaluate their input in a
+fresh Sage namespace, so `calculate_expression("myvar")` will not see a `myvar`
+assigned earlier. Use `evaluate_sage` for anything that has to build on previous
+state.
 
 #### MCP Resources
 

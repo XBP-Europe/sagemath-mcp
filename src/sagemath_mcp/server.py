@@ -762,11 +762,12 @@ def _sage_prelude(extra_locals: Iterable[str] | None = None) -> str:
 @mcp.tool(description="Evaluate a SageMath expression and return numeric/string forms")
 async def calculate_expression(
     expression: Annotated[str, Field(description="SageMath expression to evaluate")],
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     code = (
         _sage_prelude()
         + textwrap.dedent(
@@ -805,11 +806,12 @@ async def solve_equation(
         str | list[str],
         Field(description="Variable or list of variables to solve for", default="x"),
     ] = "x",
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     equations = [equation] if isinstance(equation, str) else equation
     variables = [variable] if isinstance(variable, str) else variable
     code = (
@@ -846,11 +848,12 @@ async def differentiate_expression(
         int,
         Field(description="Order of differentiation (1 = first, 2 = second, etc.)", ge=1),
     ] = 1,
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     code = (
         _sage_prelude([variable])
         + textwrap.dedent(
@@ -877,13 +880,14 @@ async def integrate_expression(
         str | None,
         Field(description="Upper bound for definite integral (e.g., '1', 'oo')"),
     ] = None,
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
     if (lower_bound is None) != (upper_bound is None):
         raise ToolError("Both lower_bound and upper_bound must be provided for a definite integral")
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     definite = lower_bound is not None
     if definite:
         code = (
@@ -921,6 +925,7 @@ async def integrate_expression(
     ))
 async def statistics_summary(
     data: Annotated[list[float], Field(description="List of numeric values")],
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
@@ -929,7 +934,7 @@ async def statistics_summary(
     # from the median calculation, which says nothing about what to send instead.
     if not data:
         raise ToolError("statistics_summary requires at least one value in 'data'")
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     code = (
         _sage_prelude()
         + textwrap.dedent(
@@ -962,6 +967,7 @@ async def statistics_summary(
 async def matrix_multiply(
     matrix_a: Annotated[list[list[float]], Field(description="Left matrix (rows of numbers)")],
     matrix_b: Annotated[list[list[float]], Field(description="Right matrix (rows of numbers)")],
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
@@ -977,7 +983,7 @@ async def matrix_multiply(
             f"{len(matrix_b)}x{len(matrix_b[0])} matrix: the number of columns in "
             "matrix_a must equal the number of rows in matrix_b"
         )
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     code = textwrap.dedent(
         f"""
         from sage.all import *
@@ -994,11 +1000,12 @@ async def matrix_multiply(
 @mcp.tool(description="Simplify a mathematical expression")
 async def simplify_expression(
     expression: Annotated[str, Field(description="Expression to simplify")],
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     code = (
         _sage_prelude()
         + textwrap.dedent(
@@ -1015,11 +1022,12 @@ async def simplify_expression(
 @mcp.tool(description="Expand a mathematical expression")
 async def expand_expression(
     expression: Annotated[str, Field(description="Expression to expand")],
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     code = (
         _sage_prelude()
         + textwrap.dedent(
@@ -1036,11 +1044,12 @@ async def expand_expression(
 @mcp.tool(description="Factor a mathematical expression or integer")
 async def factor_expression(
     expression: Annotated[str, Field(description="Expression to factor (e.g., 'x^2 - 1' or '60')")],
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     code = (
         _sage_prelude()
         + textwrap.dedent(
@@ -1063,11 +1072,12 @@ async def limit_expression(
         str | None,
         Field(description="Direction: 'plus' (right), 'minus' (left), or omit for both"),
     ] = None,
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     dir_arg = f", dir={_encode_literal(direction)}" if direction else ""
     code = (
         _sage_prelude([variable])
@@ -1091,11 +1101,12 @@ async def series_expansion(
     variable: Annotated[str, Field(description="Variable for expansion")] = "x",
     point: Annotated[str, Field(description="Point around which to expand")] = "0",
     order: Annotated[int, Field(description="Number of terms in the expansion", ge=1)] = 6,
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     code = (
         _sage_prelude([variable])
         + textwrap.dedent(
@@ -1124,6 +1135,7 @@ async def matrix_operation(
         str,
         Field(description="One of: determinant, inverse, eigenvalues, rank, rref, transpose"),
     ],
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
@@ -1136,7 +1148,7 @@ async def matrix_operation(
             f"Unknown operation '{operation}'. "
             f"Must be one of: {', '.join(sorted(allowed_ops))}"
         )
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     _row_repr = (
         "[[float(e) if e in RR else str(e) for e in row] for row in {obj}.rows()]"
     )
@@ -1175,11 +1187,12 @@ async def solve_ode(
     ],
     function: Annotated[str, Field(description="Dependent function name (e.g., 'y')")] = "y",
     variable: Annotated[str, Field(description="Independent variable (e.g., 'x')")] = "x",
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     code = (
         _sage_prelude([variable])
         + textwrap.dedent(
@@ -1242,6 +1255,7 @@ async def number_theory_operation(
         int | str | None,
         Field(description="Second integer, required for gcd and lcm. Same string rule."),
     ] = None,
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
@@ -1257,7 +1271,7 @@ async def number_theory_operation(
         )
     if operation in {"gcd", "lcm"} and b is None:
         raise ToolError(f"Operation '{operation}' requires both 'a' and 'b' arguments")
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     op_code = {
         "is_prime": f"bool(is_prime({a}))",
         "factor_integer": f"str(factor({a}))",
@@ -1282,11 +1296,12 @@ async def symbolic_sum(
     product: Annotated[
         bool, Field(description="If true, compute a product instead of a sum")
     ] = False,
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     op = "product" if product else "sum"
     code = (
         _sage_prelude([variable])
@@ -1329,12 +1344,13 @@ async def combinatorics_operation(
     k: Annotated[
         int | None, Field(description="Secondary argument (for binomial, combinations)")
     ] = None,
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
     operation = operation.strip()
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     op_code = {
         "binomial": f"int(binomial({n}, {k or 0}))",
         "permutations": f"int(Permutations({n}).cardinality())"
@@ -1365,11 +1381,12 @@ async def plot3d_expression(
     x_range_max: Annotated[float, Field(description="X upper bound")] = 5.0,
     y_range_min: Annotated[float, Field(description="Y lower bound")] = -5.0,
     y_range_max: Annotated[float, Field(description="Y upper bound")] = 5.0,
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     code = (
         _sage_prelude([x_variable, y_variable])
         + textwrap.dedent(
@@ -1450,12 +1467,13 @@ async def distribution_operation(
     ],
     x: Annotated[float | None, Field(description="Point for pdf/cdf/quantile evaluation")] = None,
     n: Annotated[int | None, Field(description="Number of samples (for sample operation)")] = None,
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
     operation = operation.strip()
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     params_str = ", ".join(str(p) for p in parameters)
     # "normal" takes [mu, sigma]. The previous mapping passed parameters[0] as
     # sigma only when exactly one parameter was given and otherwise hardcoded
@@ -1540,11 +1558,12 @@ async def find_root(
     variable: Annotated[str, Field(description="Variable")] = "x",
     lower_bound: Annotated[float, Field(description="Left bound of search interval")] = -10.0,
     upper_bound: Annotated[float, Field(description="Right bound of search interval")] = 10.0,
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     code = (
         _sage_prelude([variable])
         + textwrap.dedent(
@@ -1567,11 +1586,12 @@ async def plot_multi_expression(
     variable: Annotated[str, Field(description="Plot variable")] = "x",
     range_min: Annotated[float, Field(description="Lower bound of plot range")] = -10.0,
     range_max: Annotated[float, Field(description="Upper bound of plot range")] = 10.0,
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     code = (
         _sage_prelude([variable])
         + textwrap.dedent(
@@ -1613,6 +1633,7 @@ async def vector_calculus_operation(
         list[str] | None,
         Field(description="Variable names (e.g. ['x', 'y', 'z'])"),
     ] = None,
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
@@ -1620,7 +1641,7 @@ async def vector_calculus_operation(
     operation = operation.strip()
     if variables is None:
         variables = ["x", "y", "z"]
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     vars_str = ", ".join(f"var('{v}')" for v in variables)
 
     if operation == "gradient":
@@ -1703,11 +1724,12 @@ async def plot_expression(
     variable: Annotated[str, Field(description="Plot variable")] = "x",
     range_min: Annotated[float, Field(description="Lower bound of plot range")] = -10.0,
     range_max: Annotated[float, Field(description="Upper bound of plot range")] = 10.0,
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     code = (
         _sage_prelude([variable])
         + textwrap.dedent(
@@ -1758,12 +1780,13 @@ async def graph_operation(
     ],
     source: Annotated[int | None, Field(description="Source vertex")] = None,
     target: Annotated[int | None, Field(description="Target vertex")] = None,
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required")
     operation = operation.strip()
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     # A named graph is an identifier, optionally already called with arguments.
     # Matching on a "Graph" suffix missed every parameterised constructor:
     # "CompleteGraph(4)" ends in ")", so it fell through to Graph(CompleteGraph(4))
@@ -1824,12 +1847,13 @@ async def group_operation(
             "center_order, conjugacy_classes_count, exponent"
         ),
     ],
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required")
     operation = operation.strip()
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     ops = {
         "order": "int(_G.order())",
         "is_abelian": "bool(_G.is_abelian())",
@@ -1872,12 +1896,13 @@ async def elliptic_curve_operation(
             "j_invariant, conductor, gens"
         ),
     ],
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required")
     operation = operation.strip()
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     ops = {
         "rank": "int(_E.rank())",
         "torsion_order": "int(_E.torsion_order())",
@@ -1926,12 +1951,13 @@ async def coding_theory_operation(
             "minimum_distance, generator_matrix, rate"
         ),
     ],
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required")
     operation = operation.strip()
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     ops = {
         "length": "int(_C.length())",
         "dimension": "int(_C.dimension())",
@@ -1979,12 +2005,13 @@ async def boolean_algebra_operation(
         int,
         Field(description="Number of boolean variables", ge=1),
     ] = 3,
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required")
     operation = operation.strip()
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     var_names = ", ".join(f"'x{i}'" for i in range(num_variables))
     # The ring generators are x0, x1, ..., but the documented example uses
     # x, y, z. Expose both spellings so either parses, rather than failing
@@ -2037,12 +2064,13 @@ async def polynomial_ring_operation(
         ),
     ],
     base_ring: Annotated[str, Field(description="Base ring")] = "QQ",
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required")
     operation = operation.strip()
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     var_list = ", ".join(ring_vars)
     ops = {
         "groebner_basis": "[str(g) for g in _I.groebner_basis()]",
@@ -2095,6 +2123,7 @@ async def geometry_operation(
         list[list[float]],
         Field(description="List of points as coordinate lists"),
     ],
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
@@ -2108,7 +2137,7 @@ async def geometry_operation(
         raise ToolError(
             f"Operation 'distance' requires two points, got {len(points)}"
         )
-    session = await SESSION_MANAGER.get(ctx.session_id)
+    session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     pts = _encode_literal(points)
     ops = {
         "distance": (
@@ -2155,25 +2184,33 @@ async def evaluate_sage_streaming(
         float | None,
         Field(description="Override timeout in seconds", gt=0.0),
     ] = None,
+    session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> EvaluateResult:
     """Like evaluate_sage but emits each stdout line as a progress event."""
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required")
-    session = await SESSION_MANAGER.get(ctx.session_id)
-    worker_result = await session.evaluate(
+    sage_session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+
+    # Forward each line the moment the worker produces it. This used to await
+    # the whole evaluation and only then split the accumulated stdout, so a
+    # caller saw nothing until the computation had already finished -- which is
+    # the opposite of what the tool promises.
+    emitted = 0
+
+    async def _forward(line: str) -> None:
+        nonlocal emitted
+        emitted += 1
+        if ctx is not None:
+            await ctx.report_progress(float(emitted), None, line)
+
+    worker_result = await sage_session.evaluate(
         code,
         want_latex=False,
         capture_stdout=True,
         timeout_seconds=timeout_seconds,
+        on_stdout=_forward,
     )
-    # Emit each stdout line as a progress event so clients can show
-    # partial output while the result is being assembled.
-    if worker_result.stdout and ctx is not None:
-        for i, line in enumerate(worker_result.stdout.splitlines()):
-            await ctx.report_progress(
-                float(i + 1), None, line,
-            )
     monitoring.record_success(worker_result.elapsed_ms)
     return EvaluateResult(
         result_type=worker_result.result_type,

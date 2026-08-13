@@ -1,6 +1,7 @@
 import asyncio
 import json
 import shutil
+import time
 
 import pytest
 
@@ -291,5 +292,61 @@ async def test_named_sessions_isolated_with_real_sage(monkeypatch):
 
         listed = await server.list_sage_sessions(ctx=ctx)
         assert {entry["name"] for entry in listed["sessions"]} == {"curves", "graphs"}
+    finally:
+        await manager.shutdown()
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_streaming_emits_output_before_completion(monkeypatch):
+    """A progress event must arrive while the computation is still running.
+
+    The tool used to await the whole evaluation and only then split the
+    accumulated stdout, so nothing reached the caller until the work had already
+    finished. Printing a marker, computing for several seconds, then printing a
+    second marker distinguishes the two: with real streaming the first event
+    lands well before the result.
+    """
+    settings = SageSettings(force_python_worker=False, eval_timeout=120.0)
+    manager = SageSessionManager(settings)
+    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    ctx = FakeContext("integration-streaming")
+
+    code = (
+        "print('FIRST')\n"
+        "import math\n"
+        "total = 0\n"
+        "for i in range(3 * 10**6):\n"
+        "    total += i\n"
+        "print('SECOND')\n"
+        "total"
+    )
+
+    started = time.monotonic()
+    first_event_at: list[float] = []
+
+    original = ctx.report_progress
+
+    async def timed(progress, total=None, message=None):
+        if not first_event_at:
+            first_event_at.append(time.monotonic() - started)
+        await original(progress, total, message)
+
+    ctx.report_progress = timed
+
+    try:
+        result = await server.evaluate_sage_streaming(code, ctx=ctx)
+        finished = time.monotonic() - started
+
+        messages = [event[2] for event in ctx.progress_events]
+        assert "FIRST" in messages and "SECOND" in messages
+        assert result.result is not None
+
+        assert first_event_at, "no progress event was emitted at all"
+        # The first line must not have waited for the whole computation.
+        assert first_event_at[0] < finished * 0.9, (
+            f"first event at {first_event_at[0]:.2f}s of a {finished:.2f}s run: "
+            "output was buffered until completion"
+        )
     finally:
         await manager.shutdown()

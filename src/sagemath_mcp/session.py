@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hashlib
 import json
 import logging
 import os
@@ -13,6 +14,7 @@ import signal
 import sys
 import time
 import uuid
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -130,12 +132,18 @@ class SageSession:
                 break
             LOGGER.warning("sage[%s] stderr: %s", self.session_id, line.decode().rstrip())
 
-    async def _read_response(self, request_id: str) -> tuple[bytes, dict]:
+    async def _read_response(
+        self, request_id: str, on_stdout: Callable[[str], Awaitable[None]] | None = None
+    ) -> tuple[bytes, dict]:
         """Read until the response for *request_id* arrives, discarding stragglers.
 
         A cancelled or timed-out request leaves its response in the pipe. Without
         this the next request read that stale line and returned the previous
         computation's result as its own.
+
+        Interleaved {"type": "stdout"} events are dispatched to *on_stdout* as
+        they arrive, which is what makes streaming actually stream rather than
+        replay after completion.
         """
         assert self._process and self._process.stdout
         while True:
@@ -146,6 +154,10 @@ class SageSession:
                 message = json.loads(raw.decode("utf-8"))
             except json.JSONDecodeError:
                 LOGGER.warning("Discarding unparsable worker line in %s", self.session_id)
+                continue
+            if message.get("type") == "stdout" and message.get("id") == request_id:
+                if on_stdout is not None:
+                    await on_stdout(message.get("text", ""))
                 continue
             incoming = message.get("id")
             if incoming is not None and incoming != request_id:
@@ -164,6 +176,7 @@ class SageSession:
         capture_stdout: bool,
         timeout_seconds: float | None = None,
         trusted: bool = False,
+        on_stdout: Callable[[str], Awaitable[None]] | None = None,
     ) -> WorkerResult:
         await self.ensure_started()
         assert self._process and self._process.stdin and self._process.stdout
@@ -175,6 +188,8 @@ class SageSession:
             "capture_stdout": capture_stdout,
             # Server-generated snippets may use sage_eval; caller code may not.
             "trusted": trusted,
+            # Ask the worker to emit stdout line events as they happen.
+            "stream": on_stdout is not None,
         }
         data = json.dumps(payload).encode("utf-8") + b"\n"
         effective_timeout = timeout_seconds or self.settings.eval_timeout
@@ -183,7 +198,7 @@ class SageSession:
             await self._process.stdin.drain()
             try:
                 raw, response = await asyncio.wait_for(
-                    self._read_response(payload["id"]), timeout=effective_timeout
+                    self._read_response(payload["id"], on_stdout), timeout=effective_timeout
                 )
             except TimeoutError as exc:
                 await self._handle_timeout()
@@ -216,11 +231,21 @@ class SageSession:
             return None
         d = Path(self.settings.persist_dir)
         d.mkdir(parents=True, exist_ok=True)
-        # Named workspaces carry "scope::name" as their id, and neither ":" nor
-        # a path separator belongs in a filename. Default sessions key on the
-        # bare scope, so their filenames are unchanged.
-        safe_id = re.sub(r"[^A-Za-z0-9._-]", "_", self.session_id)
-        return d / f"{safe_id}.journal.json"
+        return d / f"{self._journal_stem()}.journal.json"
+
+    def _journal_stem(self) -> str:
+        """A filename that is unique per session id.
+
+        Replacing every unsafe character with "_" was not injective: the
+        workspaces "a/b" and "a?b" both became "a_b", so one could overwrite the
+        other's journal and later restore the wrong code into its namespace.
+
+        A readable prefix keeps the files identifiable while a digest of the
+        full id guarantees distinct keys get distinct paths.
+        """
+        readable = re.sub(r"[^A-Za-z0-9._-]", "_", self.session_id)[:48]
+        digest = hashlib.sha256(self.session_id.encode("utf-8")).hexdigest()[:12]
+        return f"{readable}-{digest}"
 
     def save_journal(self) -> None:
         """Write the code journal to disk for later restoration."""
@@ -457,6 +482,14 @@ class SageSessionManager:
         if not sessions_to_shutdown:
             return
         LOGGER.info("Culling %d idle Sage session(s)", len(sessions_to_shutdown))
+        # Persist before terminating. shutdown() and stop() already do this, but
+        # culling did not -- so with persistence enabled the ordinary idle
+        # lifecycle silently discarded state that was meant to survive.
+        for sid, session in sessions_to_shutdown:
+            try:
+                session.save_journal()
+            except Exception:  # never let a journal failure block reclaiming a worker
+                LOGGER.warning("Failed to persist journal for culled session %s", sid)
         results = await asyncio.gather(
             *(session.shutdown() for _, session in sessions_to_shutdown),
             return_exceptions=True,

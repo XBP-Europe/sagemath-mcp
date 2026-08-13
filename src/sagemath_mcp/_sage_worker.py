@@ -85,12 +85,51 @@ def _split_code(code: str, trusted: bool = False) -> SimpleNamespace:
     return SimpleNamespace(prefix=module, tail=None, is_expr=False)
 
 
+
+class _StreamingStdout(io.StringIO):
+    """Captures stdout while emitting each completed line as it is produced.
+
+    The worker answers one JSON response per request, so a caller previously saw
+    nothing until the computation finished -- the streaming tool split the output
+    only after awaiting the whole evaluation. Emitting line events on the same
+    channel lets the parent forward progress while the computation is still
+    running.
+    """
+
+    def __init__(self, msg_id: str, sink) -> None:
+        super().__init__()
+        self._msg_id = msg_id
+        self._sink = sink          # the real stdout, captured before redirection
+        self._pending = ""
+
+    def write(self, text: str) -> int:  # type: ignore[override]
+        written = super().write(text)   # keep the full text for the final response
+        self._pending += text
+        while "\n" in self._pending:
+            line, self._pending = self._pending.split("\n", 1)
+            self._emit(line)
+        return written
+
+    def flush(self) -> None:  # type: ignore[override]
+        if self._pending:
+            self._emit(self._pending)
+            self._pending = ""
+
+    def _emit(self, line: str) -> None:
+        print(
+            json.dumps({"type": "stdout", "id": self._msg_id, "text": line}),
+            file=self._sink,
+            flush=True,
+        )
+
+
 def _execute(
     code: str,
     want_latex: bool,
     capture_stdout: bool,
     namespace: dict[str, Any],
     trusted: bool = False,
+    stream_id: str | None = None,
 ) -> dict[str, Any]:
     if _STARTUP_ERROR:
         return {
@@ -102,7 +141,13 @@ def _execute(
                 "traceback": "",
             },
         }
-    stdout_buffer = io.StringIO() if capture_stdout else None
+    # stream_id turns the buffer into one that also emits line events.
+    if capture_stdout and stream_id is not None:
+        stdout_buffer: io.StringIO | None = _StreamingStdout(stream_id, sys.stdout)
+    elif capture_stdout:
+        stdout_buffer = io.StringIO()
+    else:
+        stdout_buffer = None
     start = time.perf_counter()
 
     try:
@@ -121,6 +166,8 @@ def _execute(
     try:
         with contextlib.redirect_stdout(stdout_buffer or io.StringIO()):
             exec(compile(compiled.prefix, "<sagecell>", "exec"), namespace)
+            if isinstance(stdout_buffer, _StreamingStdout):
+                stdout_buffer.flush()   # emit a trailing line with no newline
             result_obj = None
             result_type = "statement"
             if compiled.is_expr and compiled.tail is not None:
@@ -205,6 +252,7 @@ def _main() -> int:
                 capture_stdout=bool(message.get("capture_stdout", True)),
                 namespace=namespace,
                 trusted=bool(message.get("trusted", False)),
+                stream_id=msg_id if message.get("stream") else None,
             )
             response["id"] = msg_id
             print(json.dumps(response), flush=True)

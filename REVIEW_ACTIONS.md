@@ -15,8 +15,8 @@ Severity is about consequence, not effort.
 | 2 | **Critical** | README documents protections that do not exist | **done** |
 | 3 | High | The container, not the validator, is the real boundary — and it is not hardened | **done** |
 | 4 | Medium | `server.py` is 2147 lines and the least-covered module | open |
-| 5 | Medium | Two release paths cannot be exercised before a tag push | open |
-| 6 | Low | 104 dependencies, with pip-audit now blocking | open |
+| 5 | Medium | Two release paths cannot be exercised before a tag push | **done** |
+| 6 | Low | 104 dependencies, with pip-audit now blocking | **done** |
 | 7 | Low | Distribution: Smithery and Glama listings | open |
 | 8 | Low | Codex still routes two questions to `evaluate_sage` | accepted |
 | 9 | Low | Jupyter kernel `debug_request` question left unresolved | deferred |
@@ -214,7 +214,21 @@ documented example, and all 342 tests stay green against SageMath 10.9.
 
 ---
 
-## 5. Two release paths cannot be exercised before a tag push — medium
+## 5. Two release paths cannot be exercised before a tag push — medium — DONE
+
+**Fixed.** `release.yml` accepts a `workflow_dispatch` that exercises the
+registry and release jobs without publishing: the manifest is parsed, OIDC login
+is performed, and the release notes are rendered but nothing is created. PyPI is
+unreachable from a dispatch.
+
+The tag ordering is preserved deliberately. Both jobs still declare
+`needs: [publish]` and gate on `needs.publish.result == 'success'` for tags, so a
+failed upload still cannot leave a release announcing a version that was never
+shipped. Changing `needs` to `[build]` would have been simpler and would have
+silently removed that guarantee.
+
+Original finding follows.
+
 
 `release.yml`'s `mcp-registry` and `github-release` jobs only run on `v*` tags,
 so their first execution is a real release. The registry job additionally depends
@@ -231,7 +245,15 @@ publishing anything.
 
 ---
 
-## 6. 104 dependencies, with pip-audit now blocking — low
+## 6. 104 dependencies, with pip-audit now blocking — low — DONE
+
+**Fixed.** `audit.yml` runs the same audit against `main` every Monday and opens
+(or comments on) a single issue when something is found, so an advisory arrives
+on its own schedule instead of turning a contributor's unrelated pull request
+red with no change of theirs to blame. CI stays blocking.
+
+Original finding follows.
+
 
 Making `pip-audit` blocking was right, and it immediately cleared 32 findings.
 The consequence is that a new upstream advisory now turns CI red with no change

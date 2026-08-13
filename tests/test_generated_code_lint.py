@@ -23,17 +23,34 @@ from pathlib import Path
 
 import pytest
 
-SERVER_PATH = Path(__file__).resolve().parents[1] / "src" / "sagemath_mcp" / "server.py"
+PACKAGE_DIR = Path(__file__).resolve().parents[1] / "src" / "sagemath_mcp"
 TESTS_DIR = Path(__file__).resolve().parent
+
+
+def _package_files() -> list[Path]:
+    """Every module that can hold generated Sage code.
+
+    This used to be the single path src/sagemath_mcp/server.py. When the tools
+    moved into sagemath_mcp/tools/, that path still existed and still parsed --
+    it just no longer contained any tool, so all three checks passed while
+    inspecting nothing. The floors asserted below are what turns that kind of
+    silent scope loss into a failure.
+    """
+    return sorted(PACKAGE_DIR.rglob("*.py"))
 
 
 @pytest.fixture(scope="module")
 def server_source() -> str:
-    return SERVER_PATH.read_text(encoding="utf-8")
+    return "\n".join(path.read_text(encoding="utf-8") for path in _package_files())
 
 
 @pytest.fixture(scope="module")
 def server_tree(server_source: str) -> ast.Module:
+    """One tree over the whole package.
+
+    Concatenating module sources is safe here because every check is about
+    string literals and function bodies, not import resolution.
+    """
     return ast.parse(server_source)
 
 
@@ -68,7 +85,13 @@ def _non_code_strings(tree: ast.Module) -> set[str]:
         # description= on @mcp.tool(...) as well as on Field(...)
         if isinstance(node, ast.Call):
             func = node.func
-            is_compile = isinstance(func, ast.Attribute) and func.attr == "compile"
+            # re.compile, but also re.sub/match/search/fullmatch: a pattern is a
+            # pattern wherever it is written, and "^" anchors there rather than
+            # meaning XOR. This started mattering once the scan covered the whole
+            # package, which includes the journal-name sanitiser in session.py.
+            is_compile = isinstance(func, ast.Attribute) and func.attr in {
+                "compile", "sub", "subn", "match", "search", "fullmatch", "findall", "split",
+            }
             # Error messages are prose shown to the caller, never executed, and
             # they legitimately mention notation such as 2^53.
             is_error = isinstance(func, ast.Name) and func.id in {
@@ -270,7 +293,9 @@ def test_no_caller_string_is_interpolated_into_generated_code_unguarded() -> Non
     }
     # Interpolation into a message is not interpolation into code.
     message_sinks = {"ToolError", "ResetResponse", "info", "warning", "error", "debug"}
-    tree = _ast.parse(SERVER_PATH.read_text(encoding="utf-8"))
+    tree = _ast.parse(
+        "\n".join(path.read_text(encoding="utf-8") for path in _package_files())
+    )
     offenders: list[str] = []
     tools = 0
 

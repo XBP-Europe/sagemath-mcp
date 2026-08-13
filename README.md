@@ -9,10 +9,15 @@
 [![License](https://img.shields.io/github/license/XBP-Europe/sagemath-mcp.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-purple)](https://modelcontextprotocol.io/)
-[![FastMCP](https://img.shields.io/badge/FastMCP-3.2-green.svg)](https://gofastmcp.com/)
+[![FastMCP](https://img.shields.io/badge/FastMCP-3.4%2B-green.svg)](https://gofastmcp.com/)
 [![SageMath](https://img.shields.io/badge/SageMath-10.9-orange)](https://www.sagemath.org/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://docs.astral.sh/ruff/)
 [![Typed](https://img.shields.io/badge/type--checked-py.typed-blue)](https://peps.python.org/pep-0561/)
+[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)](https://github.com/XBP-Europe/sagemath-mcp/actions/workflows/ci.yml)
+[![Downloads](https://img.shields.io/pypi/dm/sagemath-mcp.svg)](https://pypi.org/project/sagemath-mcp/)
+[![Signed](https://img.shields.io/badge/images-cosign%20signed-blueviolet?logo=sigstore)](https://github.com/XBP-Europe/sagemath-mcp/blob/main/.github/workflows/release.yml)
+[![Dependabot](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot)](https://github.com/XBP-Europe/sagemath-mcp/blob/main/.github/dependabot.yml)
+[![Last commit](https://img.shields.io/github/last-commit/XBP-Europe/sagemath-mcp.svg)](https://github.com/XBP-Europe/sagemath-mcp/commits/main)
 
 A universal mathematics [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that gives LLM clients full access to [SageMath](https://www.sagemath.org/) --- one of the most comprehensive open-source mathematics systems available. Built on [FastMCP 3.x](https://gofastmcp.com/), the server maintains a dedicated SageMath process for each MCP session so variables, functions, and assumptions persist across tool calls.
 
@@ -89,10 +94,10 @@ Whether the task is symbolic calculus, number theory, linear algebra, differenti
                        │  MCP protocol (stdio or HTTP)
                        ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│  server.py --- FastMCP 3.x Application                          │
+│  app.py + tools/ --- FastMCP 3.x Application                    │
 │                                                                  │
 │  ┌─────────────┐  ┌──────────────┐  ┌────────────────────────┐  │
-│  │ 18 MCP Tools│  │ 3 Resources  │  │ Middleware              │  │
+│  │ 37 MCP Tools│  │ 3 Resources  │  │ Middleware              │  │
 │  │ (evaluate,  │  │ (session,    │  │ - Request logging       │  │
 │  │  solve,     │  │  monitoring, │  │ - Response caching      │  │
 │  │  diff, ...)│  │  docs)       │  │ - Progress heartbeats   │  │
@@ -122,7 +127,7 @@ Whether the task is symbolic calculus, number theory, linear algebra, differenti
      └────────────────────────────────────────────────┘
 ```
 
-**Request flow:** MCP client → `server.py` tool → `SageSessionManager.get_or_create()` → `SageSession.evaluate()` → JSON request to `_sage_worker.py` subprocess → AST validation → `exec()` in persistent namespace → JSON response back.
+**Request flow:** MCP client → a tool in `tools/` → `SageSessionManager.get_or_create()` → `SageSession.evaluate()` → JSON request to `_sage_worker.py` subprocess → AST validation → `exec()` in persistent namespace → JSON response back.
 
 **Key design decisions:**
 
@@ -676,7 +681,11 @@ Prefer this over `cancel_sage_session` — cancelling discards state that may ha
 
 **Returns:** `{"message": "Interrupted session 'default'; state preserved"}`
 
-Interrupting when nothing is running is reported, not an error. POSIX only.
+Interrupting when nothing is running is reported, not an error, and no signal is
+sent: `{"message": "No running computation in session 'default'"}`. That matters
+beyond tidiness — an idle worker is blocked reading its input, where a SIGINT has
+no computation to abort, and signalling it anyway left real Sage workers unable
+to answer the next request. POSIX only.
 
 #### `cancel_sage_session`
 
@@ -999,7 +1008,7 @@ make sage-container             # Bootstrap the Sage Docker container
 
 ### Running Tests
 
-Without a local SageMath installation you can still run all 242 unit tests --- the test suite replaces the Sage worker with a lightweight Python interpreter to validate session plumbing. Code coverage is at **99%** across all core modules.
+Without a local SageMath installation you can still run all 450 unit tests --- the test suite replaces the Sage worker with a lightweight Python interpreter to validate session plumbing. Coverage is at **100%** of statements and branches, enforced in CI by `--cov-fail-under=100`, so the number cannot quietly drift.
 
 ```bash
 # Run all unit tests
@@ -1080,7 +1089,19 @@ sagemath-mcp/
 ├── docker-compose.yml              # Local development stack
 ├── Makefile                        # Common commands (test, lint, build, etc.)
 ├── src/sagemath_mcp/
-│   ├── server.py                   # FastMCP 3.x app: 37 tools, 3 resources, /health, middleware
+│   ├── server.py                   # Entry point: /health route, main(), and the imports that register everything
+│   ├── app.py                      # The FastMCP object, instructions, lifespan, middleware
+│   ├── runtime.py                  # Settings and the session manager
+│   ├── codegen.py                  # Prelude, literal encoding, validation gates, numeric guards
+│   ├── text.py                     # Client-facing strings shared by app and tools
+│   ├── tools/                      # The 37 tools and 3 resources, by domain
+│   │   ├── session.py              #   6 session tools + the 3 resources
+│   │   ├── core.py                 #   evaluate_sage, streaming, calculate, simplify/expand/factor, find_root
+│   │   ├── calculus.py             #   differentiate, integrate, limit, series, ODEs, sums, vector calculus
+│   │   ├── algebra.py              #   solve, matrices, polynomial rings, boolean algebra
+│   │   ├── discrete.py             #   number theory, combinatorics, graphs, groups, curves, codes
+│   │   ├── stats.py                #   statistics_summary, distribution_operation
+│   │   └── plotting.py             #   2D/3D plots and geometry
 │   ├── session.py                  # Sage worker lifecycle, session management, idle culling
 │   ├── _sage_worker.py             # Subprocess worker: code execution, AST validation, LaTeX
 │   ├── security.py                 # AST validator, SecurityPolicy, configurable allowlists
@@ -1129,7 +1150,7 @@ sagemath-mcp/
 | [Ruff](https://docs.astral.sh/ruff/) | 0.15+ | Linting and import sorting |
 | [pytest](https://docs.pytest.org/) | 9.0+ | Test framework |
 | [pytest-asyncio](https://github.com/pytest-dev/pytest-asyncio) | 1.3+ | Async test support |
-| [pytest-cov](https://github.com/pytest-dev/pytest-cov) | 7.0+ | Coverage reporting (99% branch coverage, 242 tests) |
+| [pytest-cov](https://github.com/pytest-dev/pytest-cov) | 7.0+ | Coverage reporting (100% statement and branch coverage, 450 unit tests) |
 | [pip-audit](https://github.com/pypa/pip-audit) | 2.9+ | Dependency vulnerability scanning |
 | [Hatchling](https://hatch.pypa.io/) | 1.29+ | Build backend |
 | [Docker](https://www.docker.com/) | --- | Containerization and CI integration testing |

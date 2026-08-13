@@ -169,3 +169,66 @@ def test_validate_code_debug_log_on_success(caplog):
     caplog.set_level(logging.DEBUG)
     validate_code("x = 1 + 2", policy=policy)
     assert any("validation passed" in record.message for record in caplog.records)
+
+
+def test_trusted_policy_relaxes_only_the_three_evaluation_entry_points() -> None:
+    """The trusted policy is what makes the helper templates work.
+
+    It must give back sage_eval, preparse and sage_input -- every template is
+    built on sage_eval -- and nothing else. If it relaxed more, generated code
+    could reach open() or getattr() directly.
+    """
+    from sagemath_mcp.security import SECURITY_POLICY, trusted_policy
+
+    relaxed = trusted_policy()
+    gained = set(SECURITY_POLICY.forbidden_call_names) - set(relaxed.forbidden_call_names)
+    assert gained == {"sage_eval", "preparse", "sage_input"}
+
+    # Everything else about the policy is untouched.
+    assert relaxed.forbidden_attribute_parents == SECURITY_POLICY.forbidden_attribute_parents
+    assert relaxed.allow_imports == SECURITY_POLICY.allow_imports
+    for still_blocked in ("open", "eval", "exec", "getattr", "__import__"):
+        assert still_blocked in relaxed.forbidden_call_names
+
+
+def test_trusted_policy_accepts_an_explicit_base_policy() -> None:
+    from dataclasses import replace
+
+    from sagemath_mcp.security import SECURITY_POLICY, trusted_policy
+
+    base = replace(SECURITY_POLICY, max_ast_nodes=11)
+    assert trusted_policy(base).max_ast_nodes == 11
+
+
+def test_a_forbidden_attribute_chain_stops_at_the_first_offending_segment() -> None:
+    """The loop breaks after raising; this pins the message to the real cause."""
+    import ast
+
+    from sagemath_mcp.security import SECURITY_POLICY, SecurityViolation, validate_module
+
+    code = "sage.misc.temporary_file.os.sys.path"
+    with pytest.raises(SecurityViolation, match="'os'"):
+        validate_module(ast.parse(code), code=code, policy=SECURITY_POLICY)
+
+
+def test_relative_imports_are_rejected_by_name() -> None:
+    """`from . import x` has no module, so the allowlist has nothing to check."""
+    import ast
+
+    from sagemath_mcp.security import SECURITY_POLICY, SecurityViolation, validate_module
+
+    code = "from . import something"
+    with pytest.raises(SecurityViolation, match="Relative imports"):
+        validate_module(ast.parse(code), code=code, policy=SECURITY_POLICY)
+
+
+def test_validation_is_silent_when_violation_logging_is_off() -> None:
+    """log_violations also gates the success line, not just the failures."""
+    import ast
+    from dataclasses import replace
+
+    from sagemath_mcp.security import SECURITY_POLICY, validate_module
+
+    quiet = replace(SECURITY_POLICY, log_violations=False)
+    code = "2 + 2"
+    assert validate_module(ast.parse(code), code=code, policy=quiet) is None

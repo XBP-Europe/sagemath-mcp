@@ -1,5 +1,8 @@
 """Shared test fixtures for the sagemath-mcp test suite."""
 
+import pytest
+import pytest_asyncio
+
 
 class FakeContext:
     """Stub MCP context that records messages and progress events."""
@@ -27,3 +30,45 @@ class FakeContext:
         message: str | None,
     ) -> None:
         self.progress_events.append((progress, total, message))
+
+
+@pytest_asyncio.fixture
+async def sage_manager(monkeypatch):
+    """A pure-Python session manager wired into the runtime for one test.
+
+    New tests should take this rather than patching module state by hand. The
+    existing sites were retargeted to ``runtime.SESSION_MANAGER`` instead of
+    being converted to this fixture: several depend on their own settings
+    (eval_timeout, persist_dir, force_python_worker), and one shared fixture
+    would have flattened those differences into an untested default.
+    """
+    from sagemath_mcp import runtime
+    from sagemath_mcp.config import SageSettings
+    from sagemath_mcp.session import SageSessionManager
+
+    manager = SageSessionManager(
+        # startup_code matters: without it the worker runs the default
+        # "from sage.all import *" and fails on any machine without Sage.
+        SageSettings(force_python_worker=True, startup_code="from math import *")
+    )
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
+    try:
+        yield manager
+    finally:
+        await manager.shutdown()
+
+
+@pytest.fixture
+def pure_python_worker(monkeypatch):
+    """Build worker namespaces without a Sage runtime.
+
+    ``_build_namespace`` reads these at call time, and the module-level values
+    were resolved from the environment at import. Tests that call it directly
+    must set them, or they raise StartupError("No module named 'sage'") on any
+    machine without Sage -- which is every CI unit runner.
+    """
+    from sagemath_mcp import _sage_worker
+
+    monkeypatch.setattr(_sage_worker, "PURE_PYTHON", True)
+    monkeypatch.setattr(_sage_worker, "_STARTUP_ERROR", None)
+    return _sage_worker

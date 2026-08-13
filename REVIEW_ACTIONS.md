@@ -19,7 +19,7 @@ section, under a "second round" heading, along with what closed it. Items 10,
 | 1 | **Critical** | The AST validator is bypassable in at least seven ways | **done** |
 | 2 | **Critical** | README documents protections that do not exist | **done** |
 | 3 | High | The container, not the validator, is the real boundary — and it is not hardened | **done** |
-| 4 | Medium | `server.py` is 2147 lines and the least-covered module | open |
+| 4 | Medium | `server.py` is 2147 lines and the least-covered module | **done** (split; coverage deferred) |
 | 5 | Medium | Two release paths cannot be exercised before a tag push | **done** |
 | 6 | Low | 104 dependencies, with pip-audit now blocking | **done** |
 | 7 | Low | Distribution: Smithery and Glama listings | **partly done** |
@@ -34,6 +34,7 @@ section, under a "second round" heading, along with what closed it. Items 10,
 | 16 | Medium | Specialized tools cannot select named workspaces | **done** |
 | 17 | Medium | Version bumps leave `server.json` stale | **done** |
 | 18 | **Critical** | Four specialized tools interpolate caller strings into trusted, `sage_eval`-enabled code | **done** |
+| 19 | High | Interrupting an idle worker wedges it and loses the state it claims to preserve | **done** |
 
 ---
 
@@ -244,7 +245,30 @@ suites rather than in the default CI path.
 
 ---
 
-## 4. `server.py` is 2147 lines and the least-covered module — medium
+## 4. `server.py` is 2147 lines and the least-covered module — medium — DONE (split)
+
+**Split.** 2327 lines at the time of the work, now 162. The FastMCP object and
+lifecycle moved to `app.py`, the settings and session manager to `runtime.py`,
+the code-building machinery to `codegen.py`, and the 37 tools into seven domain
+modules under `tools/`. Plan and decisions: `REFACTOR_SERVER_SPLIT.md`.
+
+The public surface is unchanged and that was checked mechanically rather than by
+reading: `tests/test_tool_inventory.py` snapshots every tool name, its full JSON
+input schema and its description, and it was proved non-vacuous first by
+shortening one description and renaming one tool.
+
+Two things worth knowing for next time. The generated-code lint resolved
+`server.py` by path, so after the move it would have passed while inspecting a
+file with no tools in it — the discovery floor added for item 18 caught that
+(`assert 0 >= 30`). And the 37 `monkeypatch.setattr(server, "SESSION_MANAGER")`
+sites were retargeted rather than converted to the planned fixture: several
+depend on their own settings, which one shared fixture would have flattened.
+
+**Coverage was deliberately not touched**, so any test change is provably a move
+rather than a fix. The uncovered clusters are unchanged and still open: the
+per-distribution mean/variance branches, the `_check_matrix`/`_exact_int`
+rejection paths, the `_validated_expression` fallbacks and two geometry error
+paths.
 
 `server.py` is 63% of all source and sits at 88% coverage against 93% overall;
 every one of the 37 tools lives in it.
@@ -784,6 +808,35 @@ raise a type error after the payload has already run. Then a structural test tha
 walks `server.py` and fails if any caller-supplied string reaches generated code
 without passing through `_encode_literal` or an equivalent gate, so the next tool
 added cannot reintroduce this.
+
+---
+
+## 19. Interrupting an idle worker wedges it — high — DONE
+
+Found reviewing the split branch, and reproduced independently by a test in that
+same branch timing out against real SageMath.
+
+### What was wrong
+
+`SageSession.interrupt()` signalled whenever a worker process was alive, without
+knowing whether it was computing anything. An idle worker is blocked in
+`readline()`, where a SIGINT has no computation to abort. The worker's handler
+swallows it and continues — under the pure-Python worker. Under real Sage the
+worker could not answer the next request at all: that evaluation hit the 30s
+timeout and the worker was restarted, destroying exactly the namespace the
+interrupt exists to protect. The tool reported "state preserved" throughout.
+
+Only the Sage suite could see it, which is why the pure-Python unit tests had
+asserted the broken behaviour as correct (`assert await session.interrupt() is
+True` on an idle session).
+
+### Fix
+
+The session tracks the request id currently executing and `interrupt()` returns
+False without signalling when there is none. The tool then reports "No running
+computation", which is both safe and true. Covered from both directions: idle
+returns False and the session stays usable; a real in-flight computation is
+signalled, returns `Interrupted`, and its variables survive.
 
 SSH authentication to GitHub broke during this session (`ssh -T git@github.com`
 returns `Permission denied (publickey)` with keys loaded). `gh` still works

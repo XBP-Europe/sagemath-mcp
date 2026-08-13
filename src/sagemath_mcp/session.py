@@ -77,6 +77,8 @@ class SageSession:
         self.started_at = time.time()
         self.last_used_at = self.started_at
         self._code_journal: list[str] = []
+        # The request id the worker is executing right now, or None when idle.
+        self._in_flight: str | None = None
 
     async def ensure_started(self) -> None:
         if self._process and self._process.returncode is None:
@@ -150,12 +152,47 @@ class SageSession:
         Interleaved {"type": "stdout"} events are dispatched to *on_stdout* as
         they arrive, which is what makes streaming actually stream rather than
         replay after completion.
+
+        Delivery runs through a queue rather than being awaited inline. A
+        caller's callback is arbitrary code and may be slow, and awaiting it here
+        stopped the read loop: the worker could finish, print its response and go
+        back to waiting for input -- genuinely idle -- while this session still
+        believed a computation was running, so interrupt() would signal it. One
+        consumer keeps the lines in order.
         """
+        queue: asyncio.Queue[str | None] | None = None
+        pump: asyncio.Task[None] | None = None
+        if on_stdout is not None:
+            queue = asyncio.Queue()
+            pump = asyncio.create_task(self._pump_stdout(queue, on_stdout))
+        try:
+            return await self._read_matching_response(request_id, queue)
+        finally:
+            if pump is not None and queue is not None:
+                queue.put_nowait(None)          # sentinel: no more lines
+                with contextlib.suppress(Exception):
+                    await pump
+
+    async def _pump_stdout(
+        self, queue: asyncio.Queue[str | None], on_stdout: Callable[[str], Awaitable[None]]
+    ) -> None:
+        """Deliver stdout lines in order, off the read loop's critical path."""
+        while True:
+            text = await queue.get()
+            if text is None:
+                return
+            with contextlib.suppress(Exception):
+                await on_stdout(text)
+
+    async def _read_matching_response(
+        self, request_id: str, queue: asyncio.Queue[str | None] | None
+    ) -> tuple[bytes, dict]:
         assert self._process and self._process.stdout
         discarded = 0
         while True:
             raw = await self._process.stdout.readline()
             if not raw:
+                self._in_flight = None      # the worker is gone, not computing
                 return raw, {}
             try:
                 message = json.loads(raw.decode("utf-8"))
@@ -163,8 +200,8 @@ class SageSession:
                 LOGGER.warning("Discarding unparsable worker line in %s", self.session_id)
                 continue
             if message.get("type") == "stdout" and message.get("id") == request_id:
-                if on_stdout is not None:
-                    await on_stdout(message.get("text", ""))
+                if queue is not None:
+                    queue.put_nowait(message.get("text", ""))
                 continue
             incoming = message.get("id")
             if incoming != request_id:
@@ -185,6 +222,9 @@ class SageSession:
                     incoming, self.session_id, request_id,
                 )
                 continue
+            # The worker has answered and is back waiting for input: it is idle
+            # from here, whatever the caller still has to do with the result.
+            self._in_flight = None
             return raw, message
 
     async def evaluate(
@@ -215,6 +255,7 @@ class SageSession:
         async with self._lock:
             self._process.stdin.write(data)
             await self._process.stdin.drain()
+            self._in_flight = payload["id"]
             try:
                 raw, response = await asyncio.wait_for(
                     self._read_response(payload["id"], on_stdout), timeout=effective_timeout
@@ -234,6 +275,8 @@ class SageSession:
                 # id check in _read_response.
                 await self.interrupt()
                 raise
+            finally:
+                self._in_flight = None
             if not raw:
                 raise SageProcessError("Sage worker terminated unexpectedly.")
         self.last_used_at = time.time()
@@ -394,9 +437,16 @@ class SageSession:
         variable defined so far survives. Contrast ``cancel``, which restarts
         the worker and discards the namespace.
 
-        Returns False when there is no live worker to signal. POSIX only.
+        Returns False when there is nothing to interrupt. POSIX only.
         """
         if not self._process or self._process.returncode is not None:
+            return False
+        # Nothing running: do NOT signal. An idle worker is blocked in
+        # readline(), where a SIGINT has no computation to abort -- and against
+        # real Sage it left the worker unable to answer the next request at all,
+        # which then timed out and cost the namespace the interrupt was meant to
+        # protect. Reporting "nothing running" is also simply true.
+        if self._in_flight is None:
             return False
         LOGGER.info("Interrupting Sage session %s (pid=%s)", self.session_id, self._process.pid)
         try:
@@ -562,9 +612,8 @@ class SageSessionManager:
         async with self._lock:
             stale = [sid for sid, sess in self._sessions.items() if sess.should_cull(now)]
             for sid in stale:
-                session = self._sessions.pop(sid, None)
-                if session:
-                    sessions_to_shutdown.append((sid, session))
+                # Listed and popped under the same lock, so it is still there.
+                sessions_to_shutdown.append((sid, self._sessions.pop(sid)))
         if not sessions_to_shutdown:
             return
         LOGGER.info("Culling %d idle Sage session(s)", len(sessions_to_shutdown))

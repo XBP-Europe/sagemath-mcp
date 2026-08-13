@@ -212,3 +212,156 @@ def test_build_namespace_logs_startup_failure(monkeypatch, capsys):
 
     # Reset
     monkeypatch.setattr(_sage_worker, "_STARTUP_ERROR", None)
+
+
+# ---------------------------------------------------------------------------
+# The streaming stdout buffer
+# ---------------------------------------------------------------------------
+
+
+class _Sink:
+    """Stands in for the real stdout the worker captured before redirection."""
+
+    def __init__(self) -> None:
+        self.lines: list[str] = []
+
+    def write(self, text: str) -> int:
+        if text.strip():
+            self.lines.append(text.strip())
+        return len(text)
+
+    def flush(self) -> None:
+        return None
+
+
+def _events(sink: _Sink) -> list[dict]:
+    return [json.loads(line) for line in sink.lines]
+
+
+def test_streaming_stdout_emits_one_event_per_completed_line() -> None:
+    """The point of streaming: a line is emitted when it completes, not at the end."""
+    from sagemath_mcp._sage_worker import _StreamingStdout
+
+    sink = _Sink()
+    buffer = _StreamingStdout("req-1", sink)
+    buffer.write("first\nsecond\n")
+
+    assert [e["text"] for e in _events(sink)] == ["first", "second"]
+    assert {e["type"] for e in _events(sink)} == {"stdout"}
+    assert {e["id"] for e in _events(sink)} == {"req-1"}
+    # The full text is still available for the final response.
+    assert buffer.getvalue() == "first\nsecond\n"
+
+
+def test_streaming_stdout_holds_a_partial_line_until_it_completes() -> None:
+    from sagemath_mcp._sage_worker import _StreamingStdout
+
+    sink = _Sink()
+    buffer = _StreamingStdout("req-2", sink)
+    buffer.write("half ")
+    assert sink.lines == [], "a partial line was emitted before it ended"
+    buffer.write("done\n")
+    assert [e["text"] for e in _events(sink)] == ["half done"]
+
+
+def test_streaming_stdout_flush_emits_a_trailing_line_without_a_newline() -> None:
+    """print(..., end='') would otherwise be lost entirely."""
+    from sagemath_mcp._sage_worker import _StreamingStdout
+
+    sink = _Sink()
+    buffer = _StreamingStdout("req-3", sink)
+    buffer.write("no newline here")
+    buffer.flush()
+    assert [e["text"] for e in _events(sink)] == ["no newline here"]
+    # A second flush has nothing left to send.
+    buffer.flush()
+    assert len(sink.lines) == 1
+
+
+def test_execute_streams_while_it_runs(pure_python_worker) -> None:
+    from sagemath_mcp._sage_worker import _build_namespace, _execute
+
+    sink = _Sink()
+    original = sys.stdout
+    sys.stdout = sink
+    try:
+        response = _execute(
+            "for _i in range(3):\n    print(_i)\n",
+            want_latex=False,
+            capture_stdout=True,
+            namespace=_build_namespace(),
+            stream_id="stream-1",
+        )
+    finally:
+        sys.stdout = original
+
+    assert response["ok"] is True
+    assert [e["text"] for e in _events(sink)] == ["0", "1", "2"]
+    assert response["stdout"] == "0\n1\n2\n"
+
+
+def test_interrupting_a_computation_keeps_the_session_alive(pure_python_worker) -> None:
+    """SIGINT means abandon this computation, not lose the namespace.
+
+    KeyboardInterrupt is a BaseException, so without an explicit handler the
+    worker would exit and take every variable with it -- the opposite of what
+    interrupting is for.
+    """
+    from sagemath_mcp._sage_worker import _build_namespace, _execute
+
+    namespace = _build_namespace()
+    namespace["_boom"] = _raise_keyboard_interrupt
+
+    response = _execute(
+        "_boom()", want_latex=False, capture_stdout=True, namespace=namespace
+    )
+    assert response["ok"] is False
+    assert response["error"]["type"] == "Interrupted"
+    assert "preserved" in response["error"]["message"]
+
+
+def _raise_keyboard_interrupt():
+    raise KeyboardInterrupt
+
+
+def test_execute_reports_a_startup_failure_instead_of_running(monkeypatch) -> None:
+    """A worker whose preload failed must say so, not evaluate against a broken namespace."""
+    from sagemath_mcp import _sage_worker
+
+    monkeypatch.setattr(_sage_worker, "_STARTUP_ERROR", "Startup code failed: boom")
+    response = _sage_worker._execute(
+        "2 + 2", want_latex=False, capture_stdout=True, namespace={}
+    )
+    assert response["ok"] is False
+    assert response["error"]["type"] == "StartupError"
+    assert "boom" in response["error"]["message"]
+
+
+def test_an_interrupt_while_idle_does_not_kill_the_worker(
+    monkeypatch, capsys, pure_python_worker
+) -> None:
+    """SIGINT can land between requests, where there is nothing to cancel.
+
+    Letting KeyboardInterrupt escape the read would end the process and take the
+    namespace with it, which is exactly what interrupting must not do.
+    """
+    from sagemath_mcp import _sage_worker
+
+    script = [
+        KeyboardInterrupt,                                    # arrives while idle
+        json.dumps({"id": "a", "type": "execute", "code": "2 + 2",
+                    "want_latex": False, "capture_stdout": False}) + "\n",
+        "",                                                   # EOF ends the loop
+    ]
+
+    def fake_readline():
+        step = script.pop(0)
+        if step is KeyboardInterrupt:
+            raise KeyboardInterrupt
+        return step
+
+    monkeypatch.setattr(_sage_worker.sys.stdin, "readline", fake_readline)
+    assert _sage_worker._main() == 0
+
+    responses = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.strip()]
+    assert responses[-1]["result"] == "4", "the worker did not survive the idle interrupt"

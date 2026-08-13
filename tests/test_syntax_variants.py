@@ -23,7 +23,7 @@ import shutil
 
 import pytest
 
-from sagemath_mcp import server
+from sagemath_mcp import runtime, server
 from sagemath_mcp.config import SageSettings
 from sagemath_mcp.session import SageSessionManager
 
@@ -304,7 +304,7 @@ async def test_equivalent_spellings_agree(monkeypatch, group):
     key, cases = EQUIVALENCE[group]
     settings = SageSettings(force_python_worker=False, eval_timeout=120.0)
     manager = SageSessionManager(settings)
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
 
     observed: dict[str, object] = {}
     failures: list[str] = []
@@ -339,7 +339,7 @@ async def test_valid_spellings_are_accepted(monkeypatch, group):
 
     settings = SageSettings(force_python_worker=False, eval_timeout=120.0)
     manager = SageSessionManager(settings)
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
 
     failures: list[str] = []
     try:
@@ -378,7 +378,7 @@ async def test_invalid_input_fails_cleanly(monkeypatch):
 
     settings = SageSettings(force_python_worker=False, eval_timeout=120.0)
     manager = SageSessionManager(settings)
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
 
     failures: list[str] = []
     try:

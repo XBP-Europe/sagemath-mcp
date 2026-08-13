@@ -16,7 +16,15 @@ that gap.
 | `test_server.py` | no | MCP bindings, progress events, error surfacing, doc resources |
 | `test_security.py` | no | AST policy: blocked imports, calls, attributes |
 | `test_config.py` | no | Environment overrides and invalid values |
-| `test_generated_code_lint.py` | no | Static checks over the code `server.py` generates |
+| `test_generated_code_lint.py` | no | Static checks over the Sage code the package generates, and the guard that every caller string reaching a template passes a validation gate |
+| `test_codegen.py` | no | The code-building helpers: distribution moments, matrix and integer guards, validation gates |
+| `test_sage_worker.py` | no | Worker protocol, the streaming stdout buffer, interrupt and startup-failure paths |
+| `test_security_bypass.py` | no | Every sandbox escape found so far, each one a regression test |
+| `test_cache_isolation.py` | no | Two clients must not share cached tool responses |
+| `test_tool_inventory.py` | no | The MCP contract: tool names, schemas and descriptions, against a committed snapshot |
+| `test_readme_badges.py` | no | README badge claims against the files that decide them |
+| `test_version_consistency.py` | no | Every declared version agrees, and the bump script updates them all |
+| `test_math_suite.py` | no | Mathematical results the pure-Python worker can check |
 | `test_integration.py` | **yes** | Real Sage session lifecycle, monitoring, large payloads |
 | `test_math_examples.py` | **yes** | Every tool against the examples in its own documentation |
 | `test_syntax_variants.py` | **yes** | The input spellings each tool must accept or reject |

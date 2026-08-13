@@ -1,0 +1,1221 @@
+{
+  "resource_templates": [
+    "resource://sagemath/docs/{scope}",
+    "resource://sagemath/monitoring/{scope}",
+    "resource://sagemath/session/{scope}"
+  ],
+  "tools": {
+    "boolean_algebra_operation": {
+      "description": "Boolean polynomials over GF(2): evaluate, list variables, degree, and zero/one tests. Prefer this over evaluate_sage for boolean algebra.",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expression": {
+            "description": "Boolean expression (e.g. 'x*y + x*z + y*z')",
+            "type": "string"
+          },
+          "num_variables": {
+            "default": 3,
+            "description": "Number of boolean variables",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "operation": {
+            "description": "One of: evaluate, variables, degree, is_zero, is_one, reduce",
+            "type": "string"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expression",
+          "operation"
+        ],
+        "type": "object"
+      }
+    },
+    "calculate_expression": {
+      "description": "Evaluate a SageMath expression and return numeric/string forms",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expression": {
+            "description": "SageMath expression to evaluate",
+            "type": "string"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expression"
+        ],
+        "type": "object"
+      }
+    },
+    "cancel_sage_session": {
+      "description": "Cancel any running Sage computation and restart the worker",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "coding_theory_operation": {
+      "description": "Error-correcting codes: length, dimension, minimum distance, rate and generator matrix for Hamming and generalized Reed-Solomon codes. Prefer this over evaluate_sage for code parameters.",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "code_type": {
+            "description": "Code constructor, e.g. 'HammingCode(GF(2),3)', 'GeneralizedReedSolomonCode(GF(7).list()[:6],3)'",
+            "type": "string"
+          },
+          "operation": {
+            "description": "One of: length, dimension, minimum_distance, generator_matrix, rate",
+            "type": "string"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code_type",
+          "operation"
+        ],
+        "type": "object"
+      }
+    },
+    "combinatorics_operation": {
+      "description": "Combinatorics: binomial coefficients, permutations, combinations, integer partitions, factorial, Catalan, Fibonacci and Bell numbers. Prefer this over evaluate_sage for any of these.",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "k": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Secondary argument (for binomial, combinations)"
+          },
+          "n": {
+            "description": "Primary integer argument",
+            "type": "integer"
+          },
+          "operation": {
+            "description": "One of: binomial (n choose k), permutations (n!), combinations (n choose k), partitions (COUNT of integer partitions of n), factorial (n!), catalan (nth Catalan number), fibonacci (nth Fibonacci number), bell (nth Bell number). All return a single integer.",
+            "type": "string"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation",
+          "n"
+        ],
+        "type": "object"
+      }
+    },
+    "differentiate_expression": {
+      "description": "Differentiate an expression with respect to a variable",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expression": {
+            "description": "Expression to differentiate",
+            "type": "string"
+          },
+          "order": {
+            "default": 1,
+            "description": "Order of differentiation (1 = first, 2 = second, etc.)",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          },
+          "variable": {
+            "default": "x",
+            "description": "Variable for differentiation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expression"
+        ],
+        "type": "object"
+      }
+    },
+    "distribution_operation": {
+      "description": "Probability distribution operations: PDF, CDF, quantile, mean, variance, sampling",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "distribution": {
+            "description": "Distribution name: normal, exponential, poisson, chi_squared, student_t, uniform, beta, gamma",
+            "type": "string"
+          },
+          "n": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Number of samples (for sample operation)"
+          },
+          "operation": {
+            "description": "One of: pdf, cdf, quantile, mean, variance, sample",
+            "type": "string"
+          },
+          "parameters": {
+            "description": "Distribution parameters (e.g. [0, 1] for standard normal)",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          },
+          "x": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Point for pdf/cdf/quantile evaluation"
+          }
+        },
+        "required": [
+          "distribution",
+          "parameters",
+          "operation"
+        ],
+        "type": "object"
+      }
+    },
+    "elliptic_curve_operation": {
+      "description": "Elliptic curves over Q: rank, torsion order, discriminant, j-invariant, conductor and generators, from Weierstrass coefficients. Prefer this over evaluate_sage for curve invariants.",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "coefficients": {
+            "description": "Curve coefficients [a1,a2,a3,a4,a6] or short Weierstrass [a,b] for y^2 = x^3 + a*x + b",
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "description": "One of: rank, torsion_order, discriminant, j_invariant, conductor, gens",
+            "type": "string"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "coefficients",
+          "operation"
+        ],
+        "type": "object"
+      }
+    },
+    "evaluate_sage": {
+      "description": "Run arbitrary SageMath code in a persistent session; variables persist across calls.\n\nLAST RESORT. A dedicated tool exists for most tasks and should be preferred: it validates arguments and returns a typed result instead of a repr string. Reach for one of these first:\n\n- calculus: differentiate_expression, integrate_expression, limit_expression, series_expansion, symbolic_sum, solve_ode\n- algebra: solve_equation, simplify_expression, expand_expression, factor_expression, find_root\n- linear algebra: matrix_operation (determinant, inverse, eigenvalues, rank, rref, transpose), matrix_multiply\n- discrete: number_theory_operation, combinatorics_operation (binomial, partitions, catalan, fibonacci, bell), graph_operation, group_operation\n- specialised: elliptic_curve_operation, coding_theory_operation, polynomial_ring_operation, boolean_algebra_operation, geometry_operation, vector_calculus_operation\n- data: statistics_summary, distribution_operation\n- plots: plot_expression, plot3d_expression, plot_multi_expression\n\nUse evaluate_sage only for what those do not cover, for example:\n\nTransforms: laplace(sin(t), t, s); inverse_laplace(1/(s^2+1), s, t)\nModular arithmetic: Mod(17, 5); power_mod(3, 100, 97)\nRecurrences: desolve_rsolve(f(n+2)-f(n+1)-f(n), f, [0, 1])\nContinued fractions: continued_fraction(pi, nterms=10)\nNumber fields: K.<a> = NumberField(x^3 - 2); K.class_number()\nMulti-step work that builds on values defined earlier in the same session.\n",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "capture_stdout": {
+            "default": true,
+            "description": "Capture stdout emitted by Sage code",
+            "type": "boolean"
+          },
+          "code": {
+            "description": "SageMath code to execute",
+            "type": "string"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          },
+          "timeout": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Override the evaluation timeout in seconds"
+          },
+          "want_latex": {
+            "default": false,
+            "description": "Return LaTeX representation when possible",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "type": "object"
+      }
+    },
+    "evaluate_sage_streaming": {
+      "description": "Execute SageMath code and stream intermediate print() output line by line. Final result is returned as usual.",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "SageMath code to execute",
+            "type": "string"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          },
+          "timeout_seconds": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Override timeout in seconds"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "type": "object"
+      }
+    },
+    "expand_expression": {
+      "description": "Expand a mathematical expression",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expression": {
+            "description": "Expression to expand",
+            "type": "string"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expression"
+        ],
+        "type": "object"
+      }
+    },
+    "factor_expression": {
+      "description": "Factor a mathematical expression or integer",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expression": {
+            "description": "Expression to factor (e.g., 'x^2 - 1' or '60')",
+            "type": "string"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expression"
+        ],
+        "type": "object"
+      }
+    },
+    "find_root": {
+      "description": "Find a numeric root of an expression in a given interval",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expression": {
+            "description": "Expression to find root of (e.g. 'x - cos(x)')",
+            "type": "string"
+          },
+          "lower_bound": {
+            "default": -10.0,
+            "description": "Left bound of search interval",
+            "type": "number"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          },
+          "upper_bound": {
+            "default": 10.0,
+            "description": "Right bound of search interval",
+            "type": "number"
+          },
+          "variable": {
+            "default": "x",
+            "description": "Variable",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expression"
+        ],
+        "type": "object"
+      }
+    },
+    "geometry_operation": {
+      "description": "Computational geometry on point sets: euclidean distance, polygon area, polytope volume, convex hull vertices and convexity tests. Prefer this over evaluate_sage for these.",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "operation": {
+            "description": "One of: distance, polygon_area, polytope_volume, convex_hull_vertices, is_convex",
+            "type": "string"
+          },
+          "points": {
+            "description": "List of points as coordinate lists",
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation",
+          "points"
+        ],
+        "type": "object"
+      }
+    },
+    "graph_operation": {
+      "description": "Graph theory: create named graphs and compute properties (chromatic_number, is_connected, diameter, etc.)",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "graph": {
+            "description": "Graph constructor: a named graph like 'PetersenGraph' or an adjacency dict like '{0:[1,2], 1:[0,2], 2:[0,1]}'",
+            "type": "string"
+          },
+          "operation": {
+            "description": "One of: chromatic_number, is_connected, is_planar, diameter, order, size, degree_sequence, adjacency_matrix, shortest_path (requires source and target)",
+            "type": "string"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Source vertex"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Target vertex"
+          }
+        },
+        "required": [
+          "graph",
+          "operation"
+        ],
+        "type": "object"
+      }
+    },
+    "group_operation": {
+      "description": "Group theory: construct groups and query properties (order, is_abelian, center, etc.)",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "group": {
+            "description": "Sage group constructor, e.g. 'SymmetricGroup(5)', 'DihedralGroup(4)', 'CyclicPermutationGroup(6)', 'AlternatingGroup(5)'",
+            "type": "string"
+          },
+          "operation": {
+            "description": "One of: order, is_abelian, is_cyclic, center_order, conjugacy_classes_count, exponent",
+            "type": "string"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "group",
+          "operation"
+        ],
+        "type": "object"
+      }
+    },
+    "integrate_expression": {
+      "description": "Integrate an expression (indefinite or definite with bounds)",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expression": {
+            "description": "Expression to integrate",
+            "type": "string"
+          },
+          "lower_bound": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Lower bound for definite integral (e.g., '0', '-oo')"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          },
+          "upper_bound": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Upper bound for definite integral (e.g., '1', 'oo')"
+          },
+          "variable": {
+            "default": "x",
+            "description": "Integration variable",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expression"
+        ],
+        "type": "object"
+      }
+    },
+    "interrupt_sage_session": {
+      "description": "Interrupt a running Sage computation while keeping variables defined so far",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "limit_expression": {
+      "description": "Compute the limit of an expression",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Direction: 'plus' (right), 'minus' (left), or omit for both"
+          },
+          "expression": {
+            "description": "Expression to take the limit of",
+            "type": "string"
+          },
+          "point": {
+            "default": "0",
+            "description": "Point to approach (e.g., '0', 'oo', '-oo')",
+            "type": "string"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          },
+          "variable": {
+            "default": "x",
+            "description": "Variable approaching the point",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expression"
+        ],
+        "type": "object"
+      }
+    },
+    "list_sage_sessions": {
+      "description": "List the named Sage workspaces belonging to this client",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      }
+    },
+    "matrix_multiply": {
+      "description": "Multiply two matrices and return the result as nested lists",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "matrix_a": {
+            "description": "Left matrix (rows of numbers)",
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "matrix_b": {
+            "description": "Right matrix (rows of numbers)",
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "matrix_a",
+          "matrix_b"
+        ],
+        "type": "object"
+      }
+    },
+    "matrix_operation": {
+      "description": "Linear algebra on one matrix: determinant, inverse, eigenvalues, rank, reduced row echelon form, transpose. Prefer this over evaluate_sage.",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "matrix": {
+            "description": "Matrix as nested list of numbers",
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "description": "One of: determinant, inverse, eigenvalues, rank, rref, transpose",
+            "type": "string"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "matrix",
+          "operation"
+        ],
+        "type": "object"
+      }
+    },
+    "number_theory_operation": {
+      "description": "Number theory: primality testing, integer factorisation, the next prime above n, gcd and lcm. Prefer this over evaluate_sage for any of these.",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "a": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Primary integer. Pass values above 2^53 as a decimal STRING: JSON numbers are IEEE doubles in JavaScript-based clients, so 10^30 arrives as 1000000000000000019884624838656 and the answer is silently wrong."
+          },
+          "b": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Second integer, required for gcd and lcm. Same string rule."
+          },
+          "operation": {
+            "description": "Operation: 'is_prime', 'factor_integer', 'next_prime', 'gcd', 'lcm'",
+            "type": "string"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation",
+          "a"
+        ],
+        "type": "object"
+      }
+    },
+    "plot3d_expression": {
+      "description": "Plot a 3D surface of a two-variable expression as base64 PNG",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expression": {
+            "description": "Expression of two variables (e.g. 'sin(x)*cos(y)')",
+            "type": "string"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          },
+          "x_range_max": {
+            "default": 5.0,
+            "description": "X upper bound",
+            "type": "number"
+          },
+          "x_range_min": {
+            "default": -5.0,
+            "description": "X lower bound",
+            "type": "number"
+          },
+          "x_variable": {
+            "default": "x",
+            "description": "First variable",
+            "type": "string"
+          },
+          "y_range_max": {
+            "default": 5.0,
+            "description": "Y upper bound",
+            "type": "number"
+          },
+          "y_range_min": {
+            "default": -5.0,
+            "description": "Y lower bound",
+            "type": "number"
+          },
+          "y_variable": {
+            "default": "y",
+            "description": "Second variable",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expression"
+        ],
+        "type": "object"
+      }
+    },
+    "plot_expression": {
+      "description": "Plot an expression and return a base64-encoded PNG image",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expression": {
+            "description": "Expression to plot",
+            "type": "string"
+          },
+          "range_max": {
+            "default": 10.0,
+            "description": "Upper bound of plot range",
+            "type": "number"
+          },
+          "range_min": {
+            "default": -10.0,
+            "description": "Lower bound of plot range",
+            "type": "number"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          },
+          "variable": {
+            "default": "x",
+            "description": "Plot variable",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expression"
+        ],
+        "type": "object"
+      }
+    },
+    "plot_multi_expression": {
+      "description": "Plot multiple expressions overlaid on a single 2D graph",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expressions": {
+            "description": "List of expressions to plot (e.g. ['sin(x)', 'cos(x)'])",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "range_max": {
+            "default": 10.0,
+            "description": "Upper bound of plot range",
+            "type": "number"
+          },
+          "range_min": {
+            "default": -10.0,
+            "description": "Lower bound of plot range",
+            "type": "number"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          },
+          "variable": {
+            "default": "x",
+            "description": "Plot variable",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expressions"
+        ],
+        "type": "object"
+      }
+    },
+    "polynomial_ring_operation": {
+      "description": "Polynomial ring operations: construct rings and compute Groebner bases, ideals, quotients",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "base_ring": {
+            "default": "QQ",
+            "description": "Base ring",
+            "type": "string"
+          },
+          "operation": {
+            "description": "One of: groebner_basis, ideal_dimension, ideal_variety, reduce, is_groebner",
+            "type": "string"
+          },
+          "polynomials": {
+            "description": "Polynomials as strings, e.g. ['a^2+b', 'b^2-1']",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "ring_vars": {
+            "description": "Variable names, e.g. ['a', 'b', 'c']",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ring_vars",
+          "polynomials",
+          "operation"
+        ],
+        "type": "object"
+      }
+    },
+    "reset_sage_session": {
+      "description": "Reset the SageMath session state for the current MCP session",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "series_expansion": {
+      "description": "Compute a Taylor/Laurent series expansion",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expression": {
+            "description": "Expression to expand in series",
+            "type": "string"
+          },
+          "order": {
+            "default": 6,
+            "description": "Number of terms in the expansion",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "point": {
+            "default": "0",
+            "description": "Point around which to expand",
+            "type": "string"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          },
+          "variable": {
+            "default": "x",
+            "description": "Variable for expansion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expression"
+        ],
+        "type": "object"
+      }
+    },
+    "simplify_expression": {
+      "description": "Simplify a mathematical expression",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expression": {
+            "description": "Expression to simplify",
+            "type": "string"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expression"
+        ],
+        "type": "object"
+      }
+    },
+    "solve_equation": {
+      "description": "Solve an equation or system of equations",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "equation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Equation string (e.g., 'x^2 - 1 = 0') or list of equations for systems"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          },
+          "variable": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "default": "x",
+            "description": "Variable or list of variables to solve for"
+          }
+        },
+        "required": [
+          "equation"
+        ],
+        "type": "object"
+      }
+    },
+    "solve_ode": {
+      "description": "Solve an ordinary differential equation of any order, returning the general solution with arbitrary constants. Prefer this over evaluate_sage.",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "equation": {
+            "description": "ODE string, e.g., \"diff(y(x),x) + y(x) = 0\"",
+            "type": "string"
+          },
+          "function": {
+            "default": "y",
+            "description": "Dependent function name (e.g., 'y')",
+            "type": "string"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          },
+          "variable": {
+            "default": "x",
+            "description": "Independent variable (e.g., 'x')",
+            "type": "string"
+          }
+        },
+        "required": [
+          "equation"
+        ],
+        "type": "object"
+      }
+    },
+    "start_sage_session": {
+      "description": "Start a named Sage workspace with its own independent variables",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "Workspace name, e.g. 'curves' or 'scratch'",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      }
+    },
+    "statistics_summary": {
+      "description": "Descriptive statistics for a list of numbers: mean, median, population and sample variance and standard deviation, min and max. Prefer this over evaluate_sage for summary statistics.",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "description": "List of numeric values",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stop_sage_session": {
+      "description": "Stop a named Sage workspace and release its worker",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "Workspace name to stop",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      }
+    },
+    "symbolic_sum": {
+      "description": "Closed form of a symbolic sum or product over an index variable, including infinite series. Prefer this over evaluate_sage for summations.",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expression": {
+            "description": "Expression to sum (e.g. '1/n^2')",
+            "type": "string"
+          },
+          "lower": {
+            "default": "1",
+            "description": "Lower bound (e.g. '1')",
+            "type": "string"
+          },
+          "product": {
+            "default": false,
+            "description": "If true, compute a product instead of a sum",
+            "type": "boolean"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          },
+          "upper": {
+            "default": "oo",
+            "description": "Upper bound (e.g. 'oo' for infinity)",
+            "type": "string"
+          },
+          "variable": {
+            "default": "n",
+            "description": "Index variable (e.g. 'n')",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expression"
+        ],
+        "type": "object"
+      }
+    },
+    "vector_calculus_operation": {
+      "description": "Vector calculus operations: gradient, divergence, curl, laplacian",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expression": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Scalar field (string) for gradient/laplacian, or vector field components (list) for divergence/curl"
+          },
+          "operation": {
+            "description": "One of: gradient, divergence, curl, laplacian",
+            "type": "string"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          },
+          "variables": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Variable names (e.g. ['x', 'y', 'z'])"
+          }
+        },
+        "required": [
+          "operation",
+          "expression"
+        ],
+        "type": "object"
+      }
+    }
+  }
+}

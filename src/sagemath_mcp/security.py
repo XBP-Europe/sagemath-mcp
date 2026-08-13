@@ -272,7 +272,9 @@ def validate_module(
             modules = []
             if isinstance(node, ast.Import):
                 modules = [alias.name for alias in node.names]
-            elif isinstance(node, ast.ImportFrom):
+            else:
+                # ImportFrom, by the check above. `from . import x` has no
+                # module at all, which the empty check below rejects.
                 modules = [node.module] if node.module is not None else []
             if not modules:
                 _raise_violation(
@@ -347,7 +349,6 @@ def validate_module(
                         code=code,
                         policy=policy,
                     )
-                    break
 
         # A forbidden builtin is forbidden wherever it is REFERENCED, not only
         # where it is called. Checking ast.Call.func alone let the name be

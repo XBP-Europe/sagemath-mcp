@@ -2,7 +2,7 @@ import shutil
 
 import pytest
 
-from sagemath_mcp import server
+from sagemath_mcp import runtime, server
 from sagemath_mcp.config import SageSettings
 from sagemath_mcp.models import EvaluateResult
 from sagemath_mcp.session import SageSessionManager
@@ -17,10 +17,10 @@ requires_sage = pytest.mark.skipif(
 @requires_sage
 @pytest.mark.asyncio
 async def test_use_cases_cover_manual_examples(monkeypatch):
-    original_manager = server.SESSION_MANAGER
+    original_manager = runtime.SESSION_MANAGER
     settings = SageSettings()
     manager = SageSessionManager(settings)
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
 
     ctx = FakeContext("manual-use-cases")
 
@@ -74,4 +74,4 @@ async def test_use_cases_cover_manual_examples(monkeypatch):
         assert ctx.progress_events
     finally:
         await manager.shutdown()
-        server.SESSION_MANAGER = original_manager
+        runtime.SESSION_MANAGER = original_manager

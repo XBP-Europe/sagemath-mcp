@@ -21,7 +21,7 @@ import shutil
 
 import pytest
 
-from sagemath_mcp import server
+from sagemath_mcp import runtime, server
 from sagemath_mcp.config import SageSettings
 from sagemath_mcp.session import SageSessionManager
 
@@ -432,7 +432,7 @@ async def test_documented_examples(monkeypatch, tool):
 
     settings = SageSettings(force_python_worker=False, eval_timeout=120.0)
     manager = SageSessionManager(settings)
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
 
     failures: list[str] = []
     try:
@@ -486,7 +486,7 @@ async def test_plot3d_expression_renders_png(monkeypatch, label, expression):
 
     settings = SageSettings(force_python_worker=False, eval_timeout=120.0)
     manager = SageSessionManager(settings)
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
     ctx = FakeContext("examples-plot3d")
 
     try:

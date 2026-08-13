@@ -181,7 +181,7 @@ def test_specialized_tool_rejects_an_aliased_payload() -> None:
     """
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp.server import _validated_expression
+    from sagemath_mcp.codegen import _validated_expression
 
     for payload in (
         "(lambda f=open: f('/etc/passwd').readline())()",
@@ -196,7 +196,7 @@ def test_unparseable_fragments_are_screened_not_waved_through() -> None:
     """A fragment that will not parse used to skip validation entirely."""
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp.server import _validated_expression
+    from sagemath_mcp.codegen import _validated_expression
 
     # Still accepted: the documented equation spelling is not a Python expression.
     assert _validated_expression("x^2 - 1 = 0") == "x^2 - 1 = 0"
@@ -242,14 +242,14 @@ async def test_trusted_templates_reject_sage_eval_payloads(
     """Rejected before the code is ever built, so no Sage runtime is needed."""
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp import server
+    from sagemath_mcp import runtime, server
     from sagemath_mcp.config import SageSettings
     from sagemath_mcp.session import SageSessionManager
 
     from .conftest import FakeContext
 
     manager = SageSessionManager(SageSettings(force_python_worker=True))
-    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
     tool = getattr(server, tool_name)
     try:
         with pytest.raises(ToolError, match="security policy"):
@@ -266,7 +266,7 @@ def test_prelude_rejects_names_that_are_not_identifiers() -> None:
     """
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp.server import _sage_prelude
+    from sagemath_mcp.codegen import _sage_prelude
 
     with pytest.raises(ToolError):
         _sage_prelude(["x', sage_eval('1+1'), 'y"])

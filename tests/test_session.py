@@ -1321,3 +1321,74 @@ async def test_a_slow_stdout_callback_does_not_keep_the_worker_marked_busy(tmp_p
     finally:
         release.set()
         await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_a_slow_callback_cannot_time_out_a_completed_evaluation(tmp_path):
+    """The timeout governs the computation, not the caller's reaction to it.
+
+    Callback delivery was awaited inside the same wait_for as the worker read,
+    so a callback slower than eval_timeout turned a finished computation into a
+    TimeoutError -- and _handle_timeout then restarted a worker that had already
+    answered, destroying the namespace. The previous regression used a 30s
+    timeout and a 0.5s block, so it could not see this.
+    """
+    settings = SageSettings(force_python_worker=True, eval_timeout=0.5)
+    session = SageSession("slow-drain", settings)
+    await session.ensure_started()
+    release = asyncio.Event()
+    delivered = asyncio.Event()
+
+    async def slow_on_stdout(text: str) -> None:
+        delivered.set()
+        await release.wait()
+
+    try:
+        await session.evaluate("kept = 3", want_latex=False, capture_stdout=False)
+
+        task = asyncio.create_task(
+            session.evaluate(
+                "print('line')\n7\n",
+                want_latex=False,
+                capture_stdout=True,
+                on_stdout=slow_on_stdout,
+            )
+        )
+        await asyncio.wait_for(delivered.wait(), timeout=5)
+        # Hold the callback well past eval_timeout. The worker has already
+        # answered by now, so nothing is computing.
+        await asyncio.sleep(1.5)
+        release.set()
+
+        result = await asyncio.wait_for(task, timeout=10)
+        assert result.result == "7", "a finished computation was reported as timed out"
+
+        survived = await session.evaluate("kept", want_latex=False, capture_stdout=False)
+        assert survived.result == "3", "the worker was restarted and lost its namespace"
+    finally:
+        release.set()
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_the_timeout_handler_will_not_restart_a_worker_that_already_answered(tmp_path):
+    """Defensive guard: a timeout with nothing in flight must keep the worker.
+
+    Unreachable through evaluate() now that callback delivery sits outside the
+    timeout, which is precisely why it is exercised directly.
+    """
+    settings = SageSettings(force_python_worker=True, eval_timeout=5.0)
+    session = SageSession("no-restart", settings)
+    await session.ensure_started()
+    try:
+        await session.evaluate("kept = 4", want_latex=False, capture_stdout=False)
+        before = session._process
+
+        session._in_flight = None
+        await session._handle_timeout()
+
+        assert session._process is before, "the worker was restarted needlessly"
+        result = await session.evaluate("kept", want_latex=False, capture_stdout=False)
+        assert result.result == "4"
+    finally:
+        await session.shutdown()

@@ -76,8 +76,29 @@ def unregister(cli: str) -> None:
     subprocess.run(args, cwd=str(PROJECT_ROOT), capture_output=True, text=True)
 
 
+# A model inventing an argument is model behaviour, not a server fault: the
+# server rejects it with a schema validation error and the model retries. Gemini
+# does exactly this (`wait_for_previous` on evaluate_sage) and then answers
+# correctly, which used to fail the case. A genuine server error -- a security
+# violation, a dead worker, a timeout -- must still fail it.
+_CLIENT_FAULT_MARKERS = (
+    "unexpected keyword argument",
+    "validation error",
+    "field required",
+    "input should be",
+)
+
+
+def _is_client_fault(preview: str) -> bool:
+    lowered = preview.lower()
+    return any(marker in lowered for marker in _CLIENT_FAULT_MARKERS)
+
+
 def read_wire_log(log_path: Path) -> tuple[list[str], set[int]]:
-    """Return (tools called, ids of calls that errored)."""
+    """Return (tools called, ids of calls the SERVER failed).
+
+    Calls the model malformed are excluded: they say nothing about the server.
+    """
     tools: list[str] = []
     errored: set[int] = set()
     call_ids: dict[int, str] = {}
@@ -95,7 +116,9 @@ def read_wire_log(log_path: Path) -> tuple[list[str], set[int]]:
                 if record.get("id") is not None:
                     call_ids[record["id"]] = name
         elif record.get("kind") == "response" and record.get("is_error"):
-            if record.get("id") in call_ids:
+            if record.get("id") in call_ids and not _is_client_fault(
+                str(record.get("preview", ""))
+            ):
                 errored.add(record["id"])
     return tools, errored
 

@@ -140,38 +140,27 @@ class SageSession:
                 break
             LOGGER.warning("sage[%s] stderr: %s", self.session_id, line.decode().rstrip())
 
-    async def _read_response(
-        self, request_id: str, on_stdout: Callable[[str], Awaitable[None]] | None = None
-    ) -> tuple[bytes, dict]:
-        """Read until the response for *request_id* arrives, discarding stragglers.
+    def _start_stdout_pump(
+        self, on_stdout: Callable[[str], Awaitable[None]]
+    ) -> tuple[asyncio.Queue[str | None], asyncio.Task[None]]:
+        queue: asyncio.Queue[str | None] = asyncio.Queue()
+        return queue, asyncio.create_task(self._pump_stdout(queue, on_stdout))
 
-        A cancelled or timed-out request leaves its response in the pipe. Without
-        this the next request read that stale line and returned the previous
-        computation's result as its own.
+    async def _drain_stdout_pump(
+        self, queue: asyncio.Queue[str | None] | None, pump: asyncio.Task[None] | None
+    ) -> None:
+        """Deliver whatever is queued, then stop the consumer.
 
-        Interleaved {"type": "stdout"} events are dispatched to *on_stdout* as
-        they arrive, which is what makes streaming actually stream rather than
-        replay after completion.
-
-        Delivery runs through a queue rather than being awaited inline. A
-        caller's callback is arbitrary code and may be slow, and awaiting it here
-        stopped the read loop: the worker could finish, print its response and go
-        back to waiting for input -- genuinely idle -- while this session still
-        believed a computation was running, so interrupt() would signal it. One
-        consumer keeps the lines in order.
+        Deliberately not inside the evaluation timeout. Draining waits on the
+        caller's callback, and counting that against the computation clock turned
+        a finished evaluation into a TimeoutError -- which then restarted a worker
+        that had already answered, losing the namespace.
         """
-        queue: asyncio.Queue[str | None] | None = None
-        pump: asyncio.Task[None] | None = None
-        if on_stdout is not None:
-            queue = asyncio.Queue()
-            pump = asyncio.create_task(self._pump_stdout(queue, on_stdout))
-        try:
-            return await self._read_matching_response(request_id, queue)
-        finally:
-            if pump is not None and queue is not None:
-                queue.put_nowait(None)          # sentinel: no more lines
-                with contextlib.suppress(Exception):
-                    await pump
+        if queue is None or pump is None:
+            return
+        queue.put_nowait(None)                  # sentinel: no more lines
+        with contextlib.suppress(Exception):
+            await pump
 
     async def _pump_stdout(
         self, queue: asyncio.Queue[str | None], on_stdout: Callable[[str], Awaitable[None]]
@@ -187,6 +176,18 @@ class SageSession:
     async def _read_matching_response(
         self, request_id: str, queue: asyncio.Queue[str | None] | None
     ) -> tuple[bytes, dict]:
+        """Read until the response for *request_id* arrives, discarding stragglers.
+
+        A cancelled or timed-out request leaves its response in the pipe. Without
+        this the next request read that stale line and returned the previous
+        computation's result as its own.
+
+        Interleaved {"type": "stdout"} events go onto *queue* rather than being
+        awaited here. A caller's callback is arbitrary code and may be slow, and
+        awaiting it stopped the read loop: the worker could finish, print its
+        response and go back to waiting for input -- genuinely idle -- while this
+        session still believed a computation was running.
+        """
         assert self._process and self._process.stdout
         discarded = 0
         while True:
@@ -252,13 +253,18 @@ class SageSession:
         }
         data = json.dumps(payload).encode("utf-8") + b"\n"
         effective_timeout = timeout_seconds or self.settings.eval_timeout
+        queue: asyncio.Queue[str | None] | None = None
+        pump: asyncio.Task[None] | None = None
+        if on_stdout is not None:
+            queue, pump = self._start_stdout_pump(on_stdout)
         async with self._lock:
             self._process.stdin.write(data)
             await self._process.stdin.drain()
             self._in_flight = payload["id"]
             try:
                 raw, response = await asyncio.wait_for(
-                    self._read_response(payload["id"], on_stdout), timeout=effective_timeout
+                    self._read_matching_response(payload["id"], queue),
+                    timeout=effective_timeout,
                 )
             except TimeoutError as exc:
                 await self._handle_timeout()
@@ -277,6 +283,8 @@ class SageSession:
                 raise
             finally:
                 self._in_flight = None
+                # Outside wait_for on purpose: see _drain_stdout_pump.
+                await self._drain_stdout_pump(queue, pump)
             if not raw:
                 raise SageProcessError("Sage worker terminated unexpectedly.")
         self.last_used_at = time.time()
@@ -417,7 +425,7 @@ class SageSession:
             # line unconditionally meant a cancelled evaluation's response was
             # consumed here: reset saw someone else's failure and reported
             # "Failed to reset Sage session" for a reset that was fine.
-            raw, response = await self._read_response(payload["id"])
+            raw, response = await self._read_matching_response(payload["id"], None)
             if not raw:
                 raise SageProcessError("Sage worker terminated during reset.")
         if not response.get("ok", False):
@@ -492,6 +500,17 @@ class SageSession:
         return (now - self.last_used_at) > self.settings.idle_ttl
 
     async def _handle_timeout(self) -> None:
+        if self._in_flight is None:
+            # The worker already answered; whatever ran long was on this side.
+            # Restarting here would discard a namespace over a delay the worker
+            # had no part in. Belt and braces -- the drain now happens outside
+            # the timeout, so this should no longer be reachable.
+            LOGGER.warning(
+                "Timeout in Sage session %s after the worker had answered; "
+                "keeping the worker",
+                self.session_id,
+            )
+            return
         LOGGER.error("Timeout in Sage session %s - restarting worker", self.session_id)
         await self._restart_worker()
 

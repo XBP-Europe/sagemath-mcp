@@ -27,8 +27,12 @@ build:
 sage-container:
 	./scripts/setup_sage_container.sh
 
+# No `docker compose up` here: the runner's ensure_docker_container() already
+# starts the container when it is not running, and it uses `docker-compose`
+# (v1). This target used the v2 spelling, so on a host with only v1 installed
+# the target failed before running a single case -- while the suite itself
+# worked fine when invoked directly.
 cli-integration:
-	docker compose up -d
 	uv run python -m tests.cli_integration.run_cli_tests --cli both
 
 # Tool-forcing cases across Claude, Gemini and Codex. Unlike cli-integration,

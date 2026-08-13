@@ -8,6 +8,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import re
 import textwrap
 from collections.abc import AsyncIterator, Iterable
 from typing import Annotated
@@ -332,8 +333,83 @@ async def documentation_resource(scope: str, ctx: Context | None = None) -> list
 _PLOT3D_GRID = 48
 
 
+def _normalize_source(value):
+    """Collapse whitespace in strings destined for sage_eval.
+
+    Every tool here evaluates its input as a *single* expression, so an
+    embedded newline is a syntax error ("2 +\\n2" fails). Clients are language
+    models, which wrap and indent freely, so runs of whitespace are folded to a
+    single space. evaluate_sage does not pass through here: it takes real
+    multi-line code and keeps its newlines.
+    """
+    if isinstance(value, str):
+        return re.sub(r"\s+", " ", value).strip()
+    if isinstance(value, (list, tuple)):
+        return [_normalize_source(item) for item in value]
+    return value
+
+
 def _encode_literal(value: str | Iterable) -> str:
-    return json.dumps(value)
+    return json.dumps(_normalize_source(value))
+
+
+# Identifiers in a bound or point, e.g. the "a" in an integral up to a.
+_IDENTIFIER_RE = re.compile(r"\b([A-Za-z_]\w*)\b")
+
+# A bare index-style name such as n, k, N or x1.
+_SHORT_NAME_RE = re.compile(r"^[A-Za-z]\d*$")
+
+# Single-letter names that are constants in Sage, not free variables.
+_PROTECTED_CONSTANTS = frozenset({"e", "i", "I"})
+
+# A named graph from Sage's catalogue: "PetersenGraph", "PetersenGraph()" or a
+# parameterised one such as "CompleteGraph(4)".
+_NAMED_GRAPH_RE = re.compile(r"^(?P<name>[A-Za-z_]\w*)\s*(?P<call>\(.*\))?$", re.DOTALL)
+
+
+def _declare_free_symbols(*sources: str | None) -> str:
+    """Code that declares any unknown identifier in *sources* as a symbol.
+
+    A bound may legitimately be symbolic -- integrating to "a", or summing to
+    "n" -- but the prelude only declares x, y, z, t plus the tool's own
+    variable, so anything else raised "name 'a' is not defined".
+
+    Names Sage already defines are left alone. Declaring them would shadow the
+    real object and break the very inputs that do work today: var('oo') would
+    turn infinity into an ordinary symbol, and the same applies to pi, e, I and
+    every function name such as sin or sqrt.
+    """
+    names: set[str] = set()
+    for source in sources:
+        if source:
+            names.update(_IDENTIFIER_RE.findall(source))
+    if not names:
+        return ""
+    # Short names win over anything Sage happens to define, because Sage's
+    # namespace collides with ordinary index names: "n" and "N" are
+    # numerical_approx, so summing to n resolved the bound to a function rather
+    # than a symbol. The true constants are the exception and must never be
+    # shadowed -- e is Euler's number, and i and I are the imaginary unit.
+    forced = sorted(
+        name for name in names if _SHORT_NAME_RE.match(name) and name not in _PROTECTED_CONSTANTS
+    )
+    # Longer names keep the conservative check, so sin, sqrt, pi, oo, gamma and
+    # every other spelled-out Sage object continues to mean what it says.
+    conditional = sorted(names.difference(forced))
+
+    # Emitted as a single physical line. These snippets are interpolated into
+    # templates that are then passed through textwrap.dedent, and a multi-line
+    # block would arrive unindented, destroying the common prefix dedent relies
+    # on ("unexpected indent" at import time).
+    parts = ["import sage.all as _sage_ns"]
+    if forced:
+        parts.append(f"_locals.update({{_n: var(_n) for _n in {forced!r} if _n not in _locals}})")
+    if conditional:
+        parts.append(
+            f"_locals.update({{_n: var(_n) for _n in {conditional!r} "
+            "if _n not in _locals and not hasattr(_sage_ns, _n)})"
+        )
+    return "; ".join(parts)
 
 
 def _normal_parameters(parameters: list[float]) -> tuple[float, float]:
@@ -569,6 +645,7 @@ async def integrate_expression(
                 f"""
             _var = var({_encode_literal(variable)})
             _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
+            {_declare_free_symbols(lower_bound, upper_bound)}
             _lb = sage_eval({_encode_literal(lower_bound)}, locals=_locals)
             _ub = sage_eval({_encode_literal(upper_bound)}, locals=_locals)
             str(integrate(_expr, _var, _lb, _ub))
@@ -732,6 +809,7 @@ async def limit_expression(
             f"""
         _var = var({_encode_literal(variable)})
         _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
+        {_declare_free_symbols(point)}
         _point = sage_eval({_encode_literal(point)}, locals=_locals)
         str(limit(_expr, _var, _point{dir_arg}))
         """
@@ -758,6 +836,7 @@ async def series_expansion(
             f"""
         _var = var({_encode_literal(variable)})
         _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
+        {_declare_free_symbols(point)}
         _point = sage_eval({_encode_literal(point)}, locals=_locals)
         str(_expr.series(_var == _point, {order}))
         """
@@ -919,6 +998,7 @@ async def symbolic_sum(
             f"""
         _var = var({_encode_literal(variable)})
         _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
+        {_declare_free_symbols(lower, upper)}
         _lo = sage_eval({_encode_literal(lower)}, locals=_locals)
         _hi = sage_eval({_encode_literal(upper)}, locals=_locals)
         str({op}(_expr, _var, _lo, _hi))
@@ -1373,11 +1453,17 @@ async def graph_operation(
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required")
     session = await SESSION_MANAGER.get(ctx.session_id)
-    # Determine graph construction
-    if graph.endswith("Graph") or graph.endswith("Graph()"):
-        g_name = graph.rstrip("()")
-        graph_code = f"_G = graphs.{g_name}()"
+    # A named graph is an identifier, optionally already called with arguments.
+    # Matching on a "Graph" suffix missed every parameterised constructor:
+    # "CompleteGraph(4)" ends in ")", so it fell through to Graph(CompleteGraph(4))
+    # and failed with "name 'CompleteGraph' is not defined". Most named graphs
+    # take parameters, so that was the majority of the catalogue.
+    named = _NAMED_GRAPH_RE.match(graph.strip())
+    if named:
+        call = named.group("call") or "()"
+        graph_code = f"_G = graphs.{named.group('name')}{call}"
     else:
+        # Anything else is a literal, such as an adjacency dict.
         graph_code = f"_G = Graph({graph})"
     ops = {
         "chromatic_number": "int(_G.chromatic_number())",

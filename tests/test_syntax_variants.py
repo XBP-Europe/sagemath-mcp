@@ -41,6 +41,11 @@ def unset_pure_python(monkeypatch):
     monkeypatch.delenv("SAGEMATH_MCP_PURE_PYTHON", raising=False)
 
 
+def _is_png(value) -> bool:
+    """Base64 of the PNG magic bytes, with enough payload to be a real image."""
+    return isinstance(value, str) and value.startswith("iVBORw0KGgo") and len(value) > 1000
+
+
 # --------------------------------------------------------------------------
 # Equivalence classes: {group: (result key, [(label, call), ...])}
 # Every spelling in a group must yield the same value for that key.
@@ -177,6 +182,70 @@ ACCEPTED: dict[str, list] = {
         ("scientific notation", lambda c: S.calculate_expression("1e3", ctx=c),
          "numeric", 1000.0),
     ],
+    "variable: names that shadow Sage objects": [
+        # e, I and N all mean something in Sage's namespace. Used as the
+        # variable of differentiation they must still behave as symbols,
+        # because the tool declares them explicitly.
+        ("e as a variable", lambda c: S.differentiate_expression("e^2", "e", ctx=c),
+         "derivative", "2*e"),
+        ("N as a variable", lambda c: S.differentiate_expression("N^2", "N", ctx=c),
+         "derivative", "2*N"),
+        ("I as a variable", lambda c: S.differentiate_expression("I^2", "I", ctx=c),
+         "derivative", "2*I"),
+        ("gamma as a variable", lambda c: S.differentiate_expression("gamma^2", "gamma", ctx=c),
+         "derivative", "2*gamma"),
+    ],
+    "operation: surrounding whitespace": [
+        # Tool arguments arrive as JSON from a model, so a stray space in an
+        # enum should not be the difference between working and not.
+        ("matrix", lambda c: S.matrix_operation([[1, 2], [3, 4]], " determinant ", ctx=c),
+         "result", -2.0),
+        ("graph", lambda c: S.graph_operation("PetersenGraph", " order ", ctx=c), "result", 10),
+        ("group", lambda c: S.group_operation("SymmetricGroup(4)", " order ", ctx=c),
+         "result", 24),
+        ("number theory", lambda c: S.number_theory_operation(" is_prime ", 7, ctx=c),
+         "result", True),
+    ],
+    "range: numeric spans": [
+        ("negative span", lambda c: S.plot_expression("sin(x)", "x", -6.28, -3.14, ctx=c),
+         "image_base64", _is_png),
+        ("reversed bounds", lambda c: S.plot_expression("sin(x)", "x", 3.0, -3.0, ctx=c),
+         "image_base64", _is_png),
+        ("integer bounds", lambda c: S.plot_expression("sin(x)", "x", -3, 3, ctx=c),
+         "image_base64", _is_png),
+        ("find_root reversed interval",
+         lambda c: S.find_root("x - cos(x)", "x", 1.0, 0.0, ctx=c), "root", 0.7390851332151559),
+    ],
+    "list parameters: arity": [
+        ("one expression", lambda c: S.plot_multi_expression(["sin(x)"], ctx=c),
+         "image_base64", _is_png),
+        ("four expressions",
+         lambda c: S.plot_multi_expression(["sin(x)", "cos(x)", "x", "x^2"], ctx=c),
+         "image_base64", _is_png),
+        ("single ring variable",
+         lambda c: S.polynomial_ring_operation(["a"], ["a^2-1"], "groebner_basis", ctx=c),
+         "result", ["a^2 - 1"]),
+        ("two-dimensional divergence",
+         lambda c: S.vector_calculus_operation("divergence", ["x", "y"], ["x", "y"], ctx=c),
+         "result", "2"),
+    ],
+    "matrix: shapes": [
+        ("1xN times Nx1", lambda c: S.matrix_multiply([[1, 2, 3]], [[1], [2], [3]], ctx=c),
+         "product", [[14.0]]),
+        ("rank of a non-square matrix",
+         lambda c: S.matrix_operation([[1, 2, 3], [4, 5, 6]], "rank", ctx=c), "result", 2),
+        ("1x1 determinant", lambda c: S.matrix_operation([[5]], "determinant", ctx=c),
+         "result", 5.0),
+    ],
+    "distribution: parameter arity": [
+        ("normal with no parameters is standard",
+         lambda c: S.distribution_operation("normal", [], "mean", ctx=c), "result", 0.0),
+        ("normal with no parameters has unit variance",
+         lambda c: S.distribution_operation("normal", [], "variance", ctx=c), "result", 1.0),
+        ("student_t variance needs nu > 2",
+         lambda c: S.distribution_operation("student_t", [5], "variance", ctx=c),
+         "result", 5 / 3),
+    ],
 }
 
 
@@ -184,15 +253,45 @@ ACCEPTED: dict[str, list] = {
 # Invalid input that must fail cleanly rather than return a wrong answer.
 # --------------------------------------------------------------------------
 REJECTED: list = [
+    # --- expression syntax ---
     # Sage does not support implicit multiplication either; the contract is
     # that it fails rather than silently parsing as something else.
     ("implicit multiplication", lambda c: S.differentiate_expression("2x", "x", ctx=c)),
     ("latex input", lambda c: S.calculate_expression(r"\sqrt{4}", ctx=c)),
     ("wrong case function", lambda c: S.calculate_expression("Sin(0)", ctx=c)),
     ("unbalanced parenthesis", lambda c: S.calculate_expression("(2+3", ctx=c)),
+    # --- unknown enum values ---
     ("unknown matrix operation", lambda c: S.matrix_operation([[1]], "nonsense", ctx=c)),
     ("unknown graph operation", lambda c: S.graph_operation("PetersenGraph", "nonsense", ctx=c)),
     ("unknown distribution", lambda c: S.distribution_operation("nonsense", [1], "mean", ctx=c)),
+    # --- degenerate collections ---
+    # An empty matrix is the dangerous one: Sage reads [] as the 0x0 matrix and
+    # reports its determinant as 1.0, which reads like a real answer.
+    ("empty matrix", lambda c: S.matrix_operation([], "determinant", ctx=c)),
+    ("matrix with empty rows", lambda c: S.matrix_operation([[]], "determinant", ctx=c)),
+    ("ragged matrix", lambda c: S.matrix_operation([[1, 2], [3]], "determinant", ctx=c)),
+    # Previously raised a bare "list index out of range" from the median.
+    ("empty statistics data", lambda c: S.statistics_summary([], ctx=c)),
+    ("empty geometry points", lambda c: S.geometry_operation("polygon_area", [], ctx=c)),
+    # Previously returned {'result': None} as though that were an answer.
+    ("distance from a single point",
+     lambda c: S.geometry_operation("distance", [[0, 0]], ctx=c)),
+    # --- shape mismatches ---
+    ("non-conformable multiplication", lambda c: S.matrix_multiply([[1, 2]], [[1, 2]], ctx=c)),
+    ("determinant of a non-square matrix",
+     lambda c: S.matrix_operation([[1, 2, 3], [4, 5, 6]], "determinant", ctx=c)),
+    ("inverse of a singular matrix",
+     lambda c: S.matrix_operation([[1, 2], [2, 4]], "inverse", ctx=c)),
+    # --- degenerate ranges ---
+    ("zero-width plot range", lambda c: S.plot_expression("sin(x)", "x", 1.0, 1.0, ctx=c)),
+    ("root outside the interval", lambda c: S.find_root("x^2 + 1", "x", 0.0, 1.0, ctx=c)),
+    # --- undefined mathematics ---
+    # The mean of a Cauchy distribution genuinely does not exist; saying so is
+    # the correct answer, not a limitation.
+    ("student_t mean at nu = 1",
+     lambda c: S.distribution_operation("student_t", [1], "mean", ctx=c)),
+    ("uniform needs two parameters",
+     lambda c: S.distribution_operation("uniform", [1], "mean", ctx=c)),
 ]
 
 
@@ -252,12 +351,15 @@ async def test_valid_spellings_are_accepted(monkeypatch, group):
                 failures.append(f"{label}: raised {type(exc).__name__}: {exc}")
                 continue
             actual = result.get(key)
-            if isinstance(expected, float):
+            if callable(expected):
+                ok = bool(expected(actual))
+            elif isinstance(expected, float):
                 ok = actual is not None and abs(float(actual) - expected) < 1e-9
             else:
                 ok = actual == expected
             if not ok:
-                failures.append(f"{label}: expected {expected!r}, got {actual!r}")
+                wanted = getattr(expected, "__name__", repr(expected))
+                failures.append(f"{label}: expected {wanted}, got {str(actual)[:80]!r}")
     finally:
         await manager.shutdown()
 

@@ -412,6 +412,24 @@ def _declare_free_symbols(*sources: str | None) -> str:
     return "; ".join(parts)
 
 
+def _check_matrix(rows: list[list[float]], name: str) -> None:
+    """Reject shapes Sage would only complain about obscurely, or not at all.
+
+    An empty matrix is the dangerous one: Sage treats [] as the 0x0 matrix and
+    reports its determinant as 1.0, which looks like a real answer.
+    """
+    if not rows or not all(isinstance(row, (list, tuple)) for row in rows):
+        raise ToolError(f"'{name}' must be a non-empty list of rows")
+    if not rows[0]:
+        raise ToolError(f"'{name}' rows must be non-empty")
+    width = len(rows[0])
+    if any(len(row) != width for row in rows):
+        widths = sorted({len(row) for row in rows})
+        raise ToolError(
+            f"'{name}' rows must all have the same length; found lengths {widths}"
+        )
+
+
 def _normal_parameters(parameters: list[float]) -> tuple[float, float]:
     """Return (mu, sigma) for the documented [mu, sigma] parameter list."""
     if len(parameters) >= 2:
@@ -674,6 +692,10 @@ async def statistics_summary(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
+    # Without this the generated code raised a bare "list index out of range"
+    # from the median calculation, which says nothing about what to send instead.
+    if not data:
+        raise ToolError("statistics_summary requires at least one value in 'data'")
     session = await SESSION_MANAGER.get(ctx.session_id)
     code = (
         _sage_prelude()
@@ -711,6 +733,17 @@ async def matrix_multiply(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
+    # Checked here so a shape mismatch reports the shapes. Left to Sage it
+    # surfaced as "unsupported operand parent(s) for *: 'Full MatrixSpace of
+    # ...'", which does not say which dimension is wrong.
+    _check_matrix(matrix_a, "matrix_a")
+    _check_matrix(matrix_b, "matrix_b")
+    if len(matrix_a[0]) != len(matrix_b):
+        raise ToolError(
+            f"Cannot multiply a {len(matrix_a)}x{len(matrix_a[0])} matrix by a "
+            f"{len(matrix_b)}x{len(matrix_b[0])} matrix: the number of columns in "
+            "matrix_a must equal the number of rows in matrix_b"
+        )
     session = await SESSION_MANAGER.get(ctx.session_id)
     code = textwrap.dedent(
         f"""
@@ -859,6 +892,8 @@ async def matrix_operation(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
+    operation = operation.strip()
+    _check_matrix(matrix, "matrix")
     allowed_ops = {"determinant", "inverse", "eigenvalues", "rank", "rref", "transpose"}
     if operation not in allowed_ops:
         raise ToolError(
@@ -956,6 +991,7 @@ async def number_theory_operation(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
+    operation = operation.strip()
     allowed_ops = {"is_prime", "factor_integer", "next_prime", "gcd", "lcm"}
     if operation not in allowed_ops:
         raise ToolError(
@@ -1026,6 +1062,7 @@ async def combinatorics_operation(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
+    operation = operation.strip()
     session = await SESSION_MANAGER.get(ctx.session_id)
     op_code = {
         "binomial": f"int(binomial({n}, {k or 0}))",
@@ -1146,6 +1183,7 @@ async def distribution_operation(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
+    operation = operation.strip()
     session = await SESSION_MANAGER.get(ctx.session_id)
     params_str = ", ".join(str(p) for p in parameters)
     # "normal" takes [mu, sigma]. The previous mapping passed parameters[0] as
@@ -1308,6 +1346,7 @@ async def vector_calculus_operation(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
+    operation = operation.strip()
     if variables is None:
         variables = ["x", "y", "z"]
     session = await SESSION_MANAGER.get(ctx.session_id)
@@ -1452,6 +1491,7 @@ async def graph_operation(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required")
+    operation = operation.strip()
     session = await SESSION_MANAGER.get(ctx.session_id)
     # A named graph is an identifier, optionally already called with arguments.
     # Matching on a "Graph" suffix missed every parameterised constructor:
@@ -1517,6 +1557,7 @@ async def group_operation(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required")
+    operation = operation.strip()
     session = await SESSION_MANAGER.get(ctx.session_id)
     ops = {
         "order": "int(_G.order())",
@@ -1561,6 +1602,7 @@ async def elliptic_curve_operation(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required")
+    operation = operation.strip()
     session = await SESSION_MANAGER.get(ctx.session_id)
     ops = {
         "rank": "int(_E.rank())",
@@ -1611,6 +1653,7 @@ async def coding_theory_operation(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required")
+    operation = operation.strip()
     session = await SESSION_MANAGER.get(ctx.session_id)
     ops = {
         "length": "int(_C.length())",
@@ -1660,6 +1703,7 @@ async def boolean_algebra_operation(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required")
+    operation = operation.strip()
     session = await SESSION_MANAGER.get(ctx.session_id)
     var_names = ", ".join(f"'x{i}'" for i in range(num_variables))
     # The ring generators are x0, x1, ..., but the documented example uses
@@ -1717,6 +1761,7 @@ async def polynomial_ring_operation(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required")
+    operation = operation.strip()
     session = await SESSION_MANAGER.get(ctx.session_id)
     var_list = ", ".join(ring_vars)
     ops = {
@@ -1771,6 +1816,15 @@ async def geometry_operation(
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required")
+    operation = operation.strip()
+    if not points:
+        raise ToolError("'points' must contain at least one point")
+    # distance previously generated the literal "None" for a single point, so
+    # the tool returned {'result': None} as though that were an answer.
+    if operation == "distance" and len(points) < 2:
+        raise ToolError(
+            f"Operation 'distance' requires two points, got {len(points)}"
+        )
     session = await SESSION_MANAGER.get(ctx.session_id)
     pts = _encode_literal(points)
     ops = {

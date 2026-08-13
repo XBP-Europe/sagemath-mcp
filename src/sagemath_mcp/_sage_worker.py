@@ -81,13 +81,21 @@ _DENIED_BUILTINS = frozenset(
     }
 )
 
+# __import__ is NOT in that list, and removing it was tried and reverted.
+# Item 18 escalated through it, so denying it looks right -- but Sage needs it
+# from this namespace: with it removed, Singular's polynomial string formatting
+# raises KeyError('__import__') from inside sage.libs.singular, and that is
+# Cython internals rather than anything the caller wrote. The defence against
+# item 18 is therefore the validation gate on every string that reaches a
+# trusted template, not the namespace backstop, which cannot cover this name.
+
 
 def _restricted_builtins() -> dict[str, Any]:
     """Builtins for user code: everything except the dangerous handful.
 
-    __import__ deliberately stays. Sage imports lazily on first use, so removing
-    it breaks ordinary mathematics well after startup. The name is unreachable
-    from caller code anyway: the policy blocks dunder references outright.
+    The AST policy blocks these names too; removing them from the namespace is
+    what still holds when the policy cannot see the code at all -- which is the
+    case for any string handed to sage_eval at runtime.
     """
     source = __builtins__ if isinstance(__builtins__, dict) else vars(__builtins__)
     return {name: value for name, value in source.items() if name not in _DENIED_BUILTINS}

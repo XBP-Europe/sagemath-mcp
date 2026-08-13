@@ -243,3 +243,112 @@ def test_readme_documents_the_modules_the_policy_blocks() -> None:
         if f"`{module}`" not in readme
     ]
     assert not missing, f"policy blocks modules the README never mentions: {missing}"
+
+
+def test_no_caller_string_is_interpolated_into_generated_code_unguarded() -> None:
+    """Structural guard for review item 18.
+
+    Generated code runs under trusted_policy(), which re-permits sage_eval, so a
+    caller string interpolated into it without a gate is arbitrary execution.
+    Four parameters were interpolated raw -- graph, group, code_type, base_ring --
+    and each returned the container uid from real SageMath.
+
+    Rather than trusting review to catch the next one, fail if any f-string in a
+    tool interpolates a str-typed parameter without passing it through a gate.
+    """
+    import ast as _ast
+
+    # _declare_free_symbols does not embed the string; it derives `var(...)`
+    # declarations from the identifiers inside it.
+    gates = {
+        "_encode_literal",
+        "_validated_expression",
+        "_validated_identifier",
+        "_declare_free_symbols",
+        "_exact_int",
+        "_reject_if_inexact",
+    }
+    # Interpolation into a message is not interpolation into code.
+    message_sinks = {"ToolError", "ResetResponse", "info", "warning", "error", "debug"}
+    tree = _ast.parse(SERVER_PATH.read_text(encoding="utf-8"))
+    offenders: list[str] = []
+    tools = 0
+
+    for fn in tree.body:
+        if not isinstance(fn, (_ast.AsyncFunctionDef, _ast.FunctionDef)):
+            continue
+        if not any(
+            isinstance(d, _ast.Call) and getattr(d.func, "attr", "") in {"tool", "resource"}
+            for d in fn.decorator_list
+        ):
+            continue
+        tools += 1
+        str_params = set()
+        for a in fn.args.args + fn.args.kwonlyargs:
+            if a.annotation is None or a.arg == "session":
+                continue
+            # Read the TYPE out of Annotated[...], not the whole node: the Field
+            # description travels with it, and "Distribution" contains "str".
+            annotation = a.annotation
+            if isinstance(annotation, _ast.Subscript) and getattr(
+                annotation.value, "id", ""
+            ) == "Annotated":
+                inner = annotation.slice
+                annotation = inner.elts[0] if isinstance(inner, _ast.Tuple) else inner
+            if "str" in _ast.unparse(annotation):
+                str_params.add(a.arg)
+
+        # An enum-style parameter checked for membership before use cannot carry
+        # a payload: the raise happens first. Only count it as laundered when the
+        # check is actually present in this function.
+        for node in _ast.walk(fn):
+            if isinstance(node, _ast.Compare) and isinstance(node.left, _ast.Name):
+                if any(isinstance(op, (_ast.NotIn, _ast.In)) for op in node.ops):
+                    str_params.discard(node.left.id)
+        # Names rebound from a gate are laundered: `graph = _validated_expression(graph)`.
+        for node in _ast.walk(fn):
+            if isinstance(node, _ast.Assign):
+                called = {
+                    getattr(c.func, "id", "")
+                    for c in _ast.walk(node.value)
+                    if isinstance(c, _ast.Call)
+                }
+                if called & gates:
+                    for target in node.targets:
+                        if isinstance(target, _ast.Name):
+                            str_params.discard(target.id)
+                        elif isinstance(target, _ast.Tuple):
+                            for elt in target.elts:
+                                if isinstance(elt, _ast.Name):
+                                    str_params.discard(elt.id)
+
+        # Everything reachable from a message sink, so those f-strings are skipped.
+        in_message: set[int] = set()
+        for node in _ast.walk(fn):
+            sink = ""
+            if isinstance(node, _ast.Call):
+                sink = getattr(node.func, "id", getattr(node.func, "attr", ""))
+            elif isinstance(node, _ast.Raise):
+                sink = "ToolError"
+            if sink in message_sinks:
+                for child in _ast.walk(node):
+                    in_message.add(id(child))
+
+        for node in _ast.walk(fn):
+            if not isinstance(node, _ast.FormattedValue) or id(node) in in_message:
+                continue
+            used = {n.id for n in _ast.walk(node.value) if isinstance(n, _ast.Name)}
+            calls = {
+                getattr(c.func, "id", getattr(c.func, "attr", ""))
+                for c in _ast.walk(node.value)
+                if isinstance(c, _ast.Call)
+            }
+            leaked = (used & str_params) - gates
+            if leaked and not (calls & gates):
+                offenders.append(f"{fn.name}: {sorted(leaked)}")
+
+    assert tools >= 30, f"only found {tools} tools; the scan is not seeing the tool bodies"
+    assert not offenders, (
+        "caller strings reach generated code without a validation gate:\n"
+        + "\n".join(f"  - {o}" for o in sorted(set(offenders)))
+    )

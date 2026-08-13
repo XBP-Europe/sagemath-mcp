@@ -119,9 +119,14 @@ def test_restricted_builtins_exclude_the_dangerous_ones() -> None:
     from sagemath_mcp._sage_worker import _restricted_builtins
 
     available = _restricted_builtins()
-    for denied in ("open", "eval", "exec", "compile", "input", "globals", "locals", "vars"):
-        assert denied not in available, f"{denied} is still reachable in the worker namespace"
+    denied = (
+        "open", "eval", "exec", "compile", "input", "globals", "locals", "vars",
+    )
+    for name in denied:
+        assert name not in available, f"{name} is still reachable in the worker namespace"
     # Ordinary mathematics must keep working.
+    # __import__ stays, and this asserts it deliberately: removing it was tried
+    # for item 18 and broke Sage's Singular bindings with KeyError('__import__').
     for needed in ("abs", "len", "range", "sum", "int", "float", "print", "sorted", "__import__"):
         assert needed in available, f"{needed} was removed and normal code will break"
 
@@ -198,3 +203,72 @@ def test_unparseable_fragments_are_screened_not_waved_through() -> None:
     # Screened at token level once no parse tree is available.
     with pytest.raises(ToolError):
         _validated_expression("R.<a> = os.getuid()")
+
+
+# --- Item 18: caller strings interpolated into TRUSTED code -----------------
+# Generated code runs under trusted_policy(), which re-permits sage_eval because
+# the helper templates are built on it. Any caller string reaching that code
+# unvalidated is therefore arbitrary execution: sage_eval evaluates a string at
+# runtime, where the AST validator cannot see it. These four parameters were
+# interpolated raw, and each returned the container uid from real SageMath.
+
+TRUSTED_INTERPOLATION_PAYLOAD = "sage_eval('__import__(\"os\").getuid()')"
+
+
+def _trusted_cases():
+    p = TRUSTED_INTERPOLATION_PAYLOAD
+    return [
+        ("graph_operation.graph", "graph_operation",
+         {"graph": f"CompleteGraph({p})", "operation": "order"}),
+        ("graph_operation.graph literal branch", "graph_operation",
+         {"graph": f"{{0:[1]}} if {p} else {{0:[1]}}", "operation": "order"}),
+        ("group_operation.group", "group_operation",
+         {"group": f"SymmetricGroup({p})", "operation": "order"}),
+        ("coding_theory_operation.code_type", "coding_theory_operation",
+         {"code_type": f"HammingCode(GF(2), {p} - 998)", "operation": "dimension"}),
+        ("polynomial_ring_operation.base_ring", "polynomial_ring_operation",
+         {"base_ring": f"QQ if {p} else QQ", "ring_vars": ["x"],
+          "polynomials": ["x^2-1"], "operation": "ideal_dimension"}),
+    ]
+
+
+@pytest.mark.parametrize(
+    "label,tool_name,kwargs", _trusted_cases(), ids=[c[0] for c in _trusted_cases()]
+)
+@pytest.mark.asyncio
+async def test_trusted_templates_reject_sage_eval_payloads(
+    label, tool_name, kwargs, monkeypatch
+):
+    """Rejected before the code is ever built, so no Sage runtime is needed."""
+    from fastmcp.exceptions import ToolError
+
+    from sagemath_mcp import server
+    from sagemath_mcp.config import SageSettings
+    from sagemath_mcp.session import SageSessionManager
+
+    from .conftest import FakeContext
+
+    manager = SageSessionManager(SageSettings(force_python_worker=True))
+    monkeypatch.setattr(server, "SESSION_MANAGER", manager)
+    tool = getattr(server, tool_name)
+    try:
+        with pytest.raises(ToolError, match="security policy"):
+            await tool(ctx=FakeContext("trusted-interp"), **kwargs)
+    finally:
+        await manager.shutdown()
+
+
+def test_prelude_rejects_names_that_are_not_identifiers() -> None:
+    """_sage_prelude quotes each name into generated code.
+
+    A name carrying a quote escapes that string literal, which is the same
+    injection one level down.
+    """
+    from fastmcp.exceptions import ToolError
+
+    from sagemath_mcp.server import _sage_prelude
+
+    with pytest.raises(ToolError):
+        _sage_prelude(["x', sage_eval('1+1'), 'y"])
+    # Ordinary names still work.
+    assert "'a'" in _sage_prelude(["a"])

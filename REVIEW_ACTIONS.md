@@ -33,7 +33,7 @@ section, under a "second round" heading, along with what closed it. Items 10,
 | 15 | Medium | Sanitized journal filenames collide | **done** |
 | 16 | Medium | Specialized tools cannot select named workspaces | **done** |
 | 17 | Medium | Version bumps leave `server.json` stale | **done** |
-| 18 | **Critical** | Four specialized tools interpolate caller strings into trusted, `sage_eval`-enabled code | open |
+| 18 | **Critical** | Four specialized tools interpolate caller strings into trusted, `sage_eval`-enabled code | **done** |
 
 ---
 
@@ -675,7 +675,32 @@ file changes to the same value while `--dry-run` changes none of them.
 
 ---
 
-## 18. Four specialized tools interpolate caller strings into trusted code — **critical** — OPEN
+## 18. Four specialized tools interpolate caller strings into trusted code — **critical** — DONE
+
+**Fixed.** All four parameters now pass through `_validated_expression` before
+interpolation — a constructor call is an expression, so no bespoke allowlist was
+needed. Variable names go through a new `_validated_identifier`, applied at the
+`_sage_prelude` chokepoint rather than at its 33 call sites, which also closes the
+quoted-interpolation route for `ring_vars` and `variables`.
+
+A structural guard in `test_generated_code_lint.py` now fails if any str-typed
+parameter reaches generated code without a gate, so the next tool cannot
+reintroduce this. It was proved by reverting one fix and watching it fail.
+
+**Removing `__import__` from the worker namespace was tried and reverted.** It is
+the escalation step, so denying it looked right, and 11 of 14 representative
+operations kept working — but `polynomial_ring_operation` then failed with
+`KeyError('__import__')` raised inside `sage.libs.singular`'s polynomial string
+formatting. That is Cython internals, not caller code. The namespace backstop
+cannot cover this name; the gate on every string reaching a trusted template is
+the defence.
+
+Verified: 6 attacks blocked and 7 legitimate calls intact against real SageMath
+10.9, with a side-effect payload rather than a return value, because several
+sinks raise a type error only after the payload has run. 354 unit, 430
+integration.
+
+Original finding follows.
 
 Found by an external review on 2026-08-13, after items 1-3 were reported closed,
 and reproduced here end to end against real SageMath 10.9.

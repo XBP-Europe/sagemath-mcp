@@ -796,10 +796,31 @@ async def _evaluate_structured(
         return worker_result.result
 
 
+# A plain Python identifier. Variable names are interpolated into generated code
+# inside single quotes, so anything else can close the literal and append code.
+_PLAIN_IDENTIFIER_RE = re.compile(r"^[A-Za-z_]\w*$")
+
+
+def _validated_identifier(name: str, parameter: str) -> str:
+    """Reject anything that is not a bare identifier.
+
+    Cheaper and stricter than parsing: a variable name has exactly one legal
+    shape, and this closes the quoted-interpolation route in one place.
+    """
+    if not isinstance(name, str) or not _PLAIN_IDENTIFIER_RE.match(name.strip()):
+        raise ToolError(
+            f"Rejected by the security policy: '{parameter}' must be a plain "
+            f"identifier, got {name!r}"
+        )
+    return name.strip()
+
+
 def _sage_prelude(extra_locals: Iterable[str] | None = None) -> str:
     names = ["x", "y", "z", "t"]
     if extra_locals:
-        names.extend(extra_locals)
+        # Every name lands inside a quoted string in the generated prelude, so
+        # validate here rather than at each of the 33 call sites.
+        names.extend(_validated_identifier(n, "variable") for n in extra_locals)
     locals_list = ", ".join(f"'{n}'" for n in dict.fromkeys(names))
     return textwrap.dedent(
         f"""
@@ -1692,6 +1713,9 @@ async def vector_calculus_operation(
     operation = operation.strip()
     if variables is None:
         variables = ["x", "y", "z"]
+    # Also quoted into var('...') below, so gate them here rather than relying on
+    # whichever branch happens to call _sage_prelude.
+    variables = [_validated_identifier(v, "variables") for v in variables]
     session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
     vars_str = ", ".join(f"var('{v}')" for v in variables)
 
@@ -1843,6 +1867,9 @@ async def graph_operation(
     # "CompleteGraph(4)" ends in ")", so it fell through to Graph(CompleteGraph(4))
     # and failed with "name 'CompleteGraph' is not defined". Most named graphs
     # take parameters, so that was the majority of the catalogue.
+    # Validated as an expression in its own right: this string is interpolated
+    # into code that runs under the trusted policy, where sage_eval is allowed.
+    graph = _validated_expression(graph)
     named = _NAMED_GRAPH_RE.match(graph.strip())
     if named:
         call = named.group("call") or "()"
@@ -1920,7 +1947,7 @@ async def group_operation(
             f"Unknown operation '{operation}'. "
             f"Use: {', '.join(ops)}"
         )
-    code = _sage_prelude() + f"_G = {group}\n" + ops[operation] + "\n"
+    code = _sage_prelude() + f"_G = {_validated_expression(group)}\n" + ops[operation] + "\n"
     result = await _evaluate_structured(session, code)
     return {"group": group, "operation": operation, "result": result}
 
@@ -2026,7 +2053,7 @@ async def coding_theory_operation(
         )
     code = (
         _sage_prelude()
-        + f"_C = codes.{code_type}\n"
+        + f"_C = codes.{_validated_expression(code_type)}\n"
         + ops[operation]
         + "\n"
     )
@@ -2122,6 +2149,7 @@ async def polynomial_ring_operation(
         raise ToolError("MCP context with session_id is required")
     operation = operation.strip()
     session = await SESSION_MANAGER.get(SESSION_MANAGER.key_for(ctx.session_id, session))
+    ring_vars = [_validated_identifier(v, "ring_vars") for v in ring_vars]
     var_list = ", ".join(ring_vars)
     ops = {
         "groebner_basis": "[str(g) for g in _I.groebner_basis()]",
@@ -2145,7 +2173,7 @@ async def polynomial_ring_operation(
     )
     code = (
         _sage_prelude(ring_vars)
-        + f"_R = PolynomialRing({base_ring}, '{var_list}')\n"
+        + f"_R = PolynomialRing({_validated_expression(base_ring)}, '{var_list}')\n"
         + "_R.inject_variables(verbose=False)\n"
         + f"_I = _R.ideal([{polys_code}])\n"
         + ops[operation]

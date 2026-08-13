@@ -2062,3 +2062,62 @@ async def test_named_sessions_listed_per_client(monkeypatch):
         assert [entry["name"] for entry in listed["sessions"]] == ["beta"]
     finally:
         await manager.shutdown()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (12, 12),
+        ("12", 12),
+        (12.0, 12),
+        ("1000000000000000000000000000000", 10**30),
+        (10**30, 10**30),
+        ("1_000", 1000),
+    ],
+)
+async def test_exact_int_accepts_lossless_forms(value, expected):
+    assert server._exact_int(value, "a") == expected
+
+
+@pytest.mark.asyncio
+async def test_exact_int_rejects_a_value_that_already_lost_precision():
+    """A float above 2^53 has already been mangled; refuse rather than round.
+
+    JSON numbers are IEEE doubles in JavaScript-based MCP clients, so 10^30
+    arrives as 1000000000000000019884624838656. next_prime() on that returns a
+    perfectly plausible wrong answer, which is worse than an error.
+    """
+    with pytest.raises(ToolError, match="larger than 2\\^53"):
+        server._exact_int(1e30, "a")
+
+    # The message has to tell the caller what to do instead.
+    try:
+        server._exact_int(1e30, "a")
+    except ToolError as exc:
+        assert "decimal string" in str(exc)
+
+
+@pytest.mark.asyncio
+async def test_exact_int_rejects_non_integers():
+    with pytest.raises(ToolError, match="whole number"):
+        server._exact_int(12.5, "a")
+    with pytest.raises(ToolError, match="not a decimal integer"):
+        server._exact_int("twelve", "a")
+    with pytest.raises(ToolError, match="boolean"):
+        server._exact_int(True, "a")
+
+
+@pytest.mark.asyncio
+async def test_number_theory_accepts_big_integers_as_strings(monkeypatch):
+    """The documented escape hatch for values JSON cannot carry exactly."""
+    session = StubSession("1000000000000000000000000000057")
+    await _stub_manager(monkeypatch, session)
+    result = await server.number_theory_operation(
+        "next_prime", "1000000000000000000000000000000", ctx=FakeContext()
+    )
+    # _evaluate_structured parses the worker's repr, so this comes back as an int.
+    assert result["result"] == 10**30 + 57
+    # The generated code must carry the exact value, not a float repr.
+    assert "1000000000000000000000000000000" in session.calls[0]["code"]
+    assert "e+30" not in session.calls[0]["code"]

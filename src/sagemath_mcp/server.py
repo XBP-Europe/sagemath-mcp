@@ -515,6 +515,40 @@ def _declare_free_symbols(*sources: str | None) -> str:
     return "; ".join(parts)
 
 
+# Beyond 2^53 a JSON number is no longer exactly representable as an IEEE
+# double, which is what JavaScript-based MCP clients parse numbers into.
+_EXACT_JSON_INT_LIMIT = 2**53
+
+
+def _exact_int(value: int | str | float, name: str) -> int:
+    """Coerce a tool argument to an exact integer, refusing lossy input.
+
+    A float here means the value already went through a double. 10^30 arrives
+    as 1000000000000000019884624838656, and next_prime() on that returns a
+    perfectly plausible wrong answer -- the failure mode is a wrong number, not
+    an error, which is why this rejects rather than rounds.
+    """
+    if isinstance(value, bool):  # bool is an int subclass; never meant here
+        raise ToolError(f"'{name}' must be an integer, got a boolean")
+    if isinstance(value, str):
+        text = value.strip().replace("_", "")
+        try:
+            return int(text, 10)
+        except ValueError:
+            raise ToolError(f"'{name}' is not a decimal integer: {value!r}") from None
+    if isinstance(value, float):
+        if not value.is_integer():
+            raise ToolError(f"'{name}' must be a whole number, got {value!r}")
+        if abs(value) > _EXACT_JSON_INT_LIMIT:
+            raise ToolError(
+                f"'{name}' arrived as a floating-point number larger than 2^53, so its "
+                "exact value is already lost. Pass it as a decimal string instead, "
+                f'for example "{int(value)}".'
+            )
+        return int(value)
+    return int(value)
+
+
 def _check_matrix(rows: list[list[float]], name: str) -> None:
     """Reject shapes Sage would only complain about obscurely, or not at all.
 
@@ -1101,13 +1135,28 @@ async def number_theory_operation(
         str,
         Field(description="Operation: 'is_prime', 'factor_integer', 'next_prime', 'gcd', 'lcm'"),
     ],
-    a: Annotated[int, Field(description="Primary integer argument")],
-    b: Annotated[int | None, Field(description="Second integer (required for gcd, lcm)")] = None,
+    a: Annotated[
+        int | str,
+        Field(
+            description=(
+                "Primary integer. Pass values above 2^53 as a decimal STRING: "
+                "JSON numbers are IEEE doubles in JavaScript-based clients, so "
+                "10^30 arrives as 1000000000000000019884624838656 and the answer "
+                "is silently wrong."
+            )
+        ),
+    ],
+    b: Annotated[
+        int | str | None,
+        Field(description="Second integer, required for gcd and lcm. Same string rule."),
+    ] = None,
     ctx: Context | None = None,
 ) -> dict:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
     operation = operation.strip()
+    a = _exact_int(a, "a")
+    b = _exact_int(b, "b") if b is not None else None
     allowed_ops = {"is_prime", "factor_integer", "next_prime", "gcd", "lcm"}
     if operation not in allowed_ops:
         raise ToolError(
@@ -1173,8 +1222,15 @@ async def combinatorics_operation(
     operation: Annotated[
         str,
         Field(
-            description="One of: binomial, permutations, combinations, "
-            "partitions, factorial, catalan, fibonacci, bell"
+            # Every entry says what it returns. "partitions" alone left it
+            # ambiguous whether the result was a count or a list of partitions,
+            # and a client asking "how many partitions does 120 have" reached
+            # for evaluate_sage rather than risk the wrong shape.
+            description="One of: binomial (n choose k), permutations (n!), "
+            "combinations (n choose k), partitions (COUNT of integer partitions "
+            "of n), factorial (n!), catalan (nth Catalan number), fibonacci "
+            "(nth Fibonacci number), bell (nth Bell number). All return a single "
+            "integer."
         ),
     ],
     n: Annotated[int, Field(description="Primary integer argument")],

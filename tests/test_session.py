@@ -524,7 +524,7 @@ async def test_journal_save_and_load(python_settings, tmp_path):
         await session.evaluate("half = total / 2", want_latex=False, capture_stdout=False)
         session.save_journal()
 
-        journal_path = tmp_path / "persist-test.journal.json"
+        journal_path = session._persist_path()
         assert journal_path.exists()
 
         loaded = SageSession.load_journal(journal_path)
@@ -591,7 +591,7 @@ async def test_manager_shutdown_saves_journals(tmp_path):
     await session.evaluate("x = 42", want_latex=False, capture_stdout=False)
     await manager.shutdown()
 
-    journal_path = tmp_path / "shutdown-persist.journal.json"
+    journal_path = session._persist_path()
     assert journal_path.exists()
 
 
@@ -810,4 +810,71 @@ def test_named_session_journal_filename_is_safe(tmp_path):
     path = session._persist_path()
     assert path is not None
     assert "::" not in path.name
-    assert path.name == "client__curves.journal.json"
+    assert path.name.startswith("client__curves-")
+    assert path.name.endswith(".journal.json")
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["a/b", "a?b", "a:b", "a b", "a__b", "a\\b", "ünïcode", "a" * 80, "a.b"],
+)
+def test_journal_paths_are_unique_per_workspace(tmp_path, name):
+    """Distinct workspaces must never share a journal file.
+
+    Replacing unsafe characters with "_" was not injective: "a/b" and "a?b" both
+    became "a_b", so one workspace could overwrite another's journal and later
+    restore the wrong code into its namespace.
+    """
+    settings = SageSettings(
+        force_python_worker=True, persist_sessions=True, persist_dir=str(tmp_path)
+    )
+    manager = SageSessionManager(settings)
+    key = manager.key_for("client", name)
+    path = SageSession(key, settings)._persist_path()
+    assert path is not None
+    # No separator or traversal may survive into the filename.
+    assert "/" not in path.name and "\\" not in path.name
+    assert ".." not in path.name
+
+
+def test_journal_paths_do_not_collide(tmp_path):
+    """The specific collision from the review: a/b vs a?b."""
+    settings = SageSettings(
+        force_python_worker=True, persist_sessions=True, persist_dir=str(tmp_path)
+    )
+    manager = SageSessionManager(settings)
+    names = ["a/b", "a?b", "a:b", "a_b", "a__b", "a b"]
+    paths = {
+        SageSession(manager.key_for("client", name), settings)._persist_path()
+        for name in names
+    }
+    assert len(paths) == len(names), "distinct workspaces mapped to the same journal file"
+
+
+@pytest.mark.asyncio
+async def test_idle_culling_persists_the_journal(tmp_path):
+    """Culling must not silently discard state that persistence promised to keep.
+
+    shutdown() and stop() saved journals; cull_idle did not, so the ordinary
+    idle lifecycle threw the state away.
+    """
+    settings = SageSettings(
+        force_python_worker=True,
+        persist_sessions=True,
+        persist_dir=str(tmp_path),
+        idle_ttl=0.0,
+    )
+    manager = SageSessionManager(settings)
+    try:
+        session = await manager.get("cull-persist")
+        await session.evaluate("survivor = 4321", want_latex=False, capture_stdout=False)
+        assert session._code_journal, "journal should hold the assignment"
+
+        await asyncio.sleep(0.05)
+        await manager.cull_idle()
+
+        restored = await manager.get("cull-persist")
+        result = await restored.evaluate("survivor", want_latex=False, capture_stdout=False)
+        assert result.result == "4321", "culling discarded the journal"
+    finally:
+        await manager.shutdown()

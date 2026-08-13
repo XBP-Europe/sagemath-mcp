@@ -214,6 +214,7 @@ class StubSession:
         capture_stdout: bool,
         timeout_seconds: float | None = None,
         trusted: bool = False,
+        on_stdout=None,
     ):
         self.calls.append(
             {
@@ -223,6 +224,9 @@ class StubSession:
                 "timeout_seconds": timeout_seconds,
             }
         )
+        if on_stdout is not None:
+            for line in (self.stdout or "").splitlines():
+                await on_stdout(line)
         return WorkerResult(
             result_type="expression",
             result=self.result,
@@ -1878,7 +1882,12 @@ async def test_evaluate_sage_streaming(monkeypatch):
     )
 
     class FakeSession:
-        async def evaluate(self, *args, **kwargs):
+        async def evaluate(self, *args, on_stdout=None, **kwargs):
+            # The real worker emits each line while the computation runs; the
+            # tool no longer splits accumulated stdout afterwards.
+            if on_stdout is not None:
+                for line in fake_result.stdout.splitlines():
+                    await on_stdout(line)
             return fake_result
 
     async def fake_get(session_id):
@@ -1890,8 +1899,9 @@ async def test_evaluate_sage_streaming(monkeypatch):
     ctx = FakeContext("streaming")
     result = await server.evaluate_sage_streaming("for i in range(3): print(i)", ctx=ctx)
     assert result.result == "6"
-    # Each stdout line should have been emitted as progress
+    # Each stdout line should have been emitted as progress, as it arrived.
     assert len(ctx.progress_events) == 3
+    assert [event[2] for event in ctx.progress_events] == ["line1", "line2", "line3"]
 
 
 @pytest.mark.asyncio
@@ -1912,7 +1922,12 @@ async def test_evaluate_sage_streaming_empty_stdout(monkeypatch):
     )
 
     class FakeSession:
-        async def evaluate(self, *args, **kwargs):
+        async def evaluate(self, *args, on_stdout=None, **kwargs):
+            # The real worker emits each line while the computation runs; the
+            # tool no longer splits accumulated stdout afterwards.
+            if on_stdout is not None:
+                for line in fake_result.stdout.splitlines():
+                    await on_stdout(line)
             return fake_result
 
     async def fake_get(session_id):

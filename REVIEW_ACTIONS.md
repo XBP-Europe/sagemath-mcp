@@ -350,10 +350,13 @@ entry point that `pyproject.toml` actually defines.
 - **Smithery**: connect the repository at <https://smithery.ai/new> with an
   account that owns `XBP-Europe/sagemath-mcp`. It reads `smithery.yaml` from the
   default branch.
-- **Glama**: indexes public MCP servers from GitHub automatically and ranks on
-  metadata quality. The repository topics, description and README added earlier
-  are what it reads; claim the listing at <https://glama.ai/mcp/servers> to edit
-  it.
+- **Glama**: **already listed** -- it auto-indexed the repository, and
+  `https://glama.ai/api/mcp/v1/servers?query=sagemath` returns
+  `SageMath MCP Server` pointing at `XBP-Europe/sagemath-mcp`. Nothing to submit;
+  sign in at <https://glama.ai> with a GitHub account that owns the repository to
+  *claim* it and edit the listing. It ranks on repository metadata, which is why
+  the description mattering being stale (it advertised 33 tools against the
+  actual 37) was worth correcting.
 
 Note that SageMath is a large runtime and is not bundled: the Smithery command
 assumes `sage` is on PATH, so the container image remains the better route for

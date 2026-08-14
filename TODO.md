@@ -34,4 +34,5 @@
 - [ ] Raise coverage on the helpers now that they are isolated in `codegen.py` (distribution mean/variance, matrix and integer rejection paths, expression fallbacks).
 - [x] Run the CLI suites on a schedule rather than by memory (`.github/workflows/cli-nightly.yml`); add the three API-key secrets to switch each leg on.
 - [x] MCP registry listing is live: the job first ran on the v0.5.0 tag and the registry returns the server.
-- [ ] Account-side Smithery and Glama submissions ([review item 7](REVIEW_ACTIONS.md)) — needs repository-owner access.
+- [ ] Smithery: connect the repository at https://smithery.ai/new with an account that owns it; `smithery.yaml` is already in place and read from the default branch.
+- [ ] Glama: already auto-indexed; claim the listing at https://glama.ai with a GitHub account that owns the repository ([review item 7](REVIEW_ACTIONS.md)) — needs repository-owner access.

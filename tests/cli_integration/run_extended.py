@@ -108,7 +108,7 @@ def read_wire_log(log_path: Path) -> tuple[list[str], set[int], list[str]]:
     errored: set[int] = set()
     call_ids: dict[int, str] = {}
     if not log_path.exists():
-        return tools, errored
+        return tools, errored, succeeded
     for line in log_path.read_text(encoding="utf-8").splitlines():
         try:
             record = json.loads(line)

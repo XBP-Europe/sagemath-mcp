@@ -121,3 +121,18 @@ def test_client_faults_are_told_apart_from_server_faults(
     _tools, errored, succeeded = read_wire_log(log)
     assert (not errored) is is_client_fault
     assert not succeeded
+
+
+def test_a_missing_wire_log_reports_no_tool_call(tmp_path: Path) -> None:
+    """The proxy may never have been reached at all.
+
+    read_wire_log's early exit for a missing file kept returning two values
+    after the third was added, so this path raised a ValueError from unpacking
+    instead of reporting that nothing was called -- a crash in the code that
+    decides whether a run passed.
+    """
+    missing = tmp_path / "never-written.jsonl"
+    assert read_wire_log(missing) == ([], set(), [])
+
+    result = evaluate(CASE, "the answer is 42", missing, 1.0, "claude")
+    assert result.status == "NO_TOOL_CALL", result.detail

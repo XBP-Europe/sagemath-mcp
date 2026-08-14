@@ -562,3 +562,49 @@ async def test_the_baked_in_denylist_still_matches_this_sage():
         "this Sage defines dangerous helpers the baked-in list does not cover: "
         f"{missing}. Regenerate _DANGEROUS_SAGE_NAME_LIST."
     )
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_the_caller_allowlist_matches_this_sage():
+    """The allowlist is baked in; this is what keeps it honest.
+
+    Two directions, and they mean different things:
+
+    * **Additions** — names this SageMath offers that the list does not. Callers
+      cannot reach them, so a Sage upgrade quietly loses functionality. Each one
+      needs a look before it is added: this is the review step the whole
+      deny-by-default design exists to create.
+    * **Removals** — names the list allows that no longer exist. Harmless to
+      security (reading one is a NameError either way) but the list has gone
+      stale, and stale is how a list stops being read.
+
+    Regenerate with the snippet in the failure message, then review the diff.
+    """
+    import math
+
+    from sagemath_mcp._sage_worker import _build_namespace, _restricted_builtins
+    from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
+
+    namespace = _build_namespace()
+    live = {name for name in namespace if not name.startswith("_")}
+    live |= {name for name in _restricted_builtins() if not name.startswith("_")}
+    # The generator also covers the pure-Python worker's `from math import *`, so
+    # the comparison has to include those or every one of them reads as drift.
+    live |= {name for name in vars(math) if not name.startswith("_")}
+
+    additions = sorted(live - ALLOWED_CALLER_NAMES)
+    removals = sorted(ALLOWED_CALLER_NAMES - live)
+
+    assert not additions, (
+        f"this SageMath offers {len(additions)} names the allowlist does not cover, "
+        f"so callers cannot use them: {additions[:20]}"
+        "\n\nReview each one -- a new helper that compiles, spawns or writes belongs "
+        "in _DANGEROUS_SAGE_MODULES instead -- then regenerate:\n"
+        "  docker exec -i sage-mcp bash -lc 'cd /workspace && sage -python "
+        "scripts/generate_allowlist.py' > src/sagemath_mcp/allowlist.py"
+    )
+    assert not removals, (
+        f"the allowlist names {len(removals)} things this SageMath no longer has, "
+        f"so it has drifted: {removals[:20]}"
+    )

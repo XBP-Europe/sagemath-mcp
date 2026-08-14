@@ -60,3 +60,59 @@ jobs:
           name: audit-report
           path: audit-report.txt
           if-no-files-found: ignore
+
+  allowlist:
+    # The caller allowlist is baked into the source for speed, so it is only as
+    # good as the last time anyone compared it with the installed SageMath. A
+    # push-triggered check misses drift that arrives without a commit -- an
+    # upstream image rebuilt under the same tag -- which is exactly what a
+    # weekly run is for.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.0.0
+        with:
+          enable-cache: true
+      - name: Create virtual environment
+        run: uv venv
+      - name: Install dependencies
+        run: uv pip install -e .[dev]
+      - name: Start Sage container
+        run: |
+          IMAGE="$(sed -n 's/^FROM //p' Dockerfile | head -1)"
+          SAGEMATH_MCP_DOCKER_IMAGE="$IMAGE" make sage-container
+      - name: Allowlist matches the installed SageMath
+        id: drift
+        run: |
+          set -o pipefail
+          docker exec sage-mcp bash -lc \
+            "cd /workspace && sage -python -m pytest \
+             tests/test_integration.py -k allowlist_matches -q" | tee allowlist.log
+      - name: Open an issue when it has drifted
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TITLE="Caller allowlist has drifted from the installed SageMath"
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+            --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+          BODY=$(printf '%s\n\n%s\n\n%s\n' \
+            "The baked caller allowlist no longer matches what this SageMath offers. Names it does not cover are unreachable for callers; names it lists that no longer exist mean it has gone stale." \
+            "Review each addition before regenerating -- a helper that compiles, spawns or writes belongs in _DANGEROUS_SAGE_MODULES instead. See scripts/generate_allowlist.py." \
+            "Run: $RUN_URL")
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" --body "$BODY"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$BODY"
+          fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: allowlist-drift-log
+          path: allowlist.log
+          if-no-files-found: ignore

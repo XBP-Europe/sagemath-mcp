@@ -986,7 +986,7 @@ async def test_reset_after_a_cancelled_evaluation_does_not_read_the_stale_respon
         # Cancel mid-flight; the worker still answers, into an empty pipe.
         task = asyncio.create_task(
             session.evaluate(
-                "sum(range(60000000))\nnonexistent_name",
+                "total = sum(range(60000000))\ntotal / 0",
                 want_latex=False,
                 capture_stdout=False,
             )
@@ -1620,3 +1620,48 @@ async def test_a_stalled_callback_does_not_fail_a_completed_streaming_evaluation
     finally:
         release.set()
         await session.shutdown()
+
+
+def test_a_failed_journal_write_keeps_the_previous_one(tmp_path, monkeypatch):
+    """A save that fails must not destroy what was already there.
+
+    The legacy file was unlinked first, so a write that failed afterwards left
+    the session with no journal at all and a stray .tmp beside it -- the failure
+    mode of a backup that deletes before it copies.
+    """
+    settings = SageSettings(
+        force_python_worker=True, persist_sessions=True, persist_dir=str(tmp_path)
+    )
+    session = SageSession("plain", settings)
+    legacy = tmp_path / "plain.journal.json"
+    legacy.write_text(json.dumps(["x = 7"]), encoding="utf-8")
+    session._code_journal = [("x = 8", False)]
+
+    import os as os_module
+
+    def failing_replace(*args, **kwargs):
+        raise OSError("simulated replace failure")
+
+    monkeypatch.setattr(os_module, "replace", failing_replace)
+    with pytest.raises(OSError):
+        session.save_journal()
+
+    assert legacy.exists(), "the previous journal was destroyed by a failed save"
+    assert json.loads(legacy.read_text()) == ["x = 7"]
+    strays = list(tmp_path.rglob("*.tmp"))
+    assert not strays, f"a temporary file was left behind: {strays}"
+
+
+def test_a_successful_save_retires_the_legacy_file(tmp_path):
+    settings = SageSettings(
+        force_python_worker=True, persist_sessions=True, persist_dir=str(tmp_path)
+    )
+    session = SageSession("plain", settings)
+    legacy = tmp_path / "plain.journal.json"
+    legacy.write_text(json.dumps(["x = 7"]), encoding="utf-8")
+    session._code_journal = [("x = 8", False)]
+
+    session.save_journal()
+
+    assert session._persist_path().exists()
+    assert not legacy.exists(), "the superseded journal should be retired on success"

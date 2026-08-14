@@ -22,6 +22,11 @@ STARTUP_CODE = os.getenv("SAGEMATH_MCP_STARTUP", "from sage.all import *")
 
 _STARTUP_ERROR: str | None = None
 
+# The names Sage itself provided. Anything the namespace gains after this is the
+# caller's own and readable by them; Sage's names are judged against the
+# allowlist, so a helper a future release adds stays denied until someone looks.
+_INITIAL_NAMESPACE_NAMES: frozenset[str] = frozenset()
+
 
 def _build_namespace() -> dict[str, Any]:
     # NOTE: Each worker keeps its own global namespace. We allow a single
@@ -53,6 +58,8 @@ def _build_namespace() -> dict[str, Any]:
         # and inventing more would shadow real objects.
         with contextlib.suppress(Exception):
             ns["x"] = ns["SR"].var("x")
+    global _INITIAL_NAMESPACE_NAMES
+    _INITIAL_NAMESPACE_NAMES = frozenset(ns)
     return ns
 
 
@@ -276,7 +283,10 @@ def _preparse(code: str) -> str:
     return preparse(code)
 
 
-def _split_code(code: str, trusted: bool = False) -> SimpleNamespace:
+def _split_code(
+    code: str, trusted: bool = False,
+    session_names: frozenset[str] | set[str] = frozenset(),
+) -> SimpleNamespace:
     """Return the executable and tail expression chunks for *code*.
 
     *trusted* selects the policy for code this server generated itself, which
@@ -291,7 +301,7 @@ def _split_code(code: str, trusted: bool = False) -> SimpleNamespace:
     # runs once per request, keeping the execution fast while guarding against
     # disallowed imports/constructs early.
     policy = trusted_policy() if trusted else SECURITY_POLICY
-    validate_module(module, code=code, policy=policy)
+    validate_module(module, code=code, policy=policy, extra_allowed_names=session_names)
     ast.fix_missing_locations(module)
     if module.body and isinstance(module.body[-1], ast.Expr):
         prefix = ast.Module(
@@ -371,7 +381,10 @@ def _execute(
     start = time.perf_counter()
 
     try:
-        compiled = _split_code(code, trusted=trusted)
+        # Everything the namespace has gained since startup belongs to the
+        # caller, and they may read it back on a later call.
+        session_names = set(namespace) - _INITIAL_NAMESPACE_NAMES
+        compiled = _split_code(code, trusted=trusted, session_names=session_names)
     except Exception as exc:
         return {
             "ok": False,

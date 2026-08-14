@@ -9,6 +9,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **Caller code is checked against an allowlist.** A name may be read only if
+  this server offers it: the mathematical names SageMath preloads, the safe
+  builtins, and whatever the caller defines itself -- including names created
+  earlier in the same session, which the worker reports so stateful use keeps
+  working. Everything else is refused. Seven bypasses in two days were each a
+  name nobody had forbidden, and this changes the default for the next one: a
+  helper a future SageMath adds is denied until someone reviews it. An
+  integration test, plus a weekly scheduled job, fails when the allowlist and the
+  installed Sage disagree.
+
+  Tool *parameters* keep the previous rules and are not allowlisted -- they name
+  things valid in a template's context (`HammingCode` inside `codes.`), and the
+  denylist, import ban and persistence rules all still apply to them.
 - **Caller code can no longer import anything.** `sage.*` was allowlisted for the
   generated prelude, and callers used it to re-import every helper the worker
   namespace scrub had removed: `from sage.misc.cython import compile_and_load`
@@ -72,6 +85,12 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `evaluate_sage_streaming` had no error handling at all: a timeout, a security
+  violation or a dead worker propagated raw and none were recorded, while
+  `evaluate_sage` reported each properly.
+- A failed journal write destroyed the previous journal. The superseded file was
+  deleted before the new one was written, so a full disk left the session with no
+  journal and a stray temporary file. The new file is put in place first now.
 - A timed-out evaluation propagated as a bare `TimeoutError`: monitoring recorded
   nothing and the client saw an unstructured error. Both `evaluate_sage` and the
   specialised tools now report it as a tool error carrying the deadline.

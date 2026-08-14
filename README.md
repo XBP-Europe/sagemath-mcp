@@ -800,6 +800,23 @@ All code --- whether from `evaluate_sage` or generated internally by helper tool
 > The table below is covered by a test that fails if the code stops enforcing
 > it, and that test now checks aliases, not just call sites.
 
+**The rule that comes first: an allowlist.**
+
+Caller code may read a name only if it is one this server offers --- the ~1900
+mathematical names SageMath preloads, the safe builtins, and whatever the caller
+defines itself (assignments, loop variables, function arguments, `var('t')`, and
+anything created earlier in the same session). Everything else is refused.
+
+That inversion is the point. Seven sandbox bypasses in two days had one shape
+between them: a name nobody had thought to forbid --- `cython`, `sh`, `gp`,
+`get_remote_file`, `unpickle_global`. A denylist over a namespace that size is
+always one name behind. It does not retroactively catch something dangerous still
+sitting in the namespace, but a helper added by a future SageMath release is
+denied until someone looks at it, rather than reachable the day it lands. A test
+run weekly, and on every push, fails when the two disagree.
+
+The rules below still apply, and now serve as defence in depth behind it.
+
 **What is blocked:**
 
 Names in the first three rows are rejected **anywhere they are read** --- called,

@@ -10,7 +10,12 @@ from sagemath_mcp import app, codegen, runtime, server
 from sagemath_mcp.config import SageSettings
 from sagemath_mcp.models import EvaluateResult
 from sagemath_mcp.monitoring import reset_metrics
-from sagemath_mcp.session import SageEvaluationError, SageSessionManager, WorkerResult
+from sagemath_mcp.session import (
+    SageEvaluationError,
+    SageProcessError,
+    SageSessionManager,
+    WorkerResult,
+)
 from sagemath_mcp.tools import core as core_tools
 from sagemath_mcp.tools import discrete as combinatorics_module
 
@@ -2182,7 +2187,7 @@ async def test_cancelled_streaming_then_reset_then_evaluate_on_a_named_workspace
 
         task = asyncio.create_task(
             server.evaluate_sage_streaming(
-                "sum(range(60000000))\nnonexistent_name", session="bench", ctx=ctx
+                "total = sum(range(60000000))\ntotal / 0", session="bench", ctx=ctx
             )
         )
         await asyncio.sleep(0.2)
@@ -2409,3 +2414,42 @@ async def test_specialized_tools_report_a_timeout_the_same_way(sage_manager, mon
     monkeypatch.setattr(SageSession, "evaluate", always_times_out)
     with pytest.raises(ToolError, match="timed out"):
         await server.calculate_expression("1 + 1", ctx=FakeContext("timeout-client"))
+
+
+@pytest.mark.parametrize(
+    "raised,expected",
+    [
+        (TimeoutError("Sage evaluation timed out after 1.00s"), "timed out"),
+        (
+            SageEvaluationError(
+                "boom", error_type="SecurityViolation", stdout="", traceback=""
+            ),
+            "boom",
+        ),
+        (SageProcessError("worker gone"), "worker gone"),
+    ],
+    ids=["timeout", "evaluation-error", "dead-worker"],
+)
+@pytest.mark.asyncio
+async def test_streaming_reports_failures_like_evaluate_sage(
+    raised, expected, sage_manager, monkeypatch
+):
+    """Streaming had no exception handling at all.
+
+    A timeout, a security violation or a dead worker propagated raw from this
+    tool while evaluate_sage reported each properly, and monitoring recorded
+    none of them.
+    """
+    from sagemath_mcp import monitoring
+    from sagemath_mcp.session import SageSession
+
+    async def failing(self, *args, **kwargs):
+        raise raised
+
+    monkeypatch.setattr(SageSession, "evaluate", failing)
+    monitoring.reset_metrics()
+
+    with pytest.raises(ToolError, match=expected):
+        await server.evaluate_sage_streaming("1 + 1", ctx=FakeContext("stream-fail"))
+
+    assert monitoring.snapshot()["failures"] >= 1

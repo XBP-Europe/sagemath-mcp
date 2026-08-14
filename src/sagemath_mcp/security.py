@@ -5,7 +5,10 @@ from __future__ import annotations
 import ast
 import logging
 import os
+import re
 from dataclasses import dataclass, replace
+
+from .allowlist import ALLOWED_CALLER_NAMES
 
 LOGGER = logging.getLogger(__name__)
 
@@ -180,6 +183,12 @@ class SecurityPolicy:
     allowed_import_modules: tuple[str, ...] = ()
     allowed_import_prefixes: tuple[str, ...] = ()
     log_violations: bool = True
+    # Caller code may only read names on the allowlist, plus whatever it binds
+    # itself. This is the inversion of everything above it: the rules before this
+    # enumerate what is forbidden, and each bypass so far was a name nobody had
+    # enumerated. trusted_policy() turns it off -- generated templates are ours.
+    enforce_name_allowlist: bool = True
+    allowed_names: frozenset[str] = ALLOWED_CALLER_NAMES
 
     @classmethod
     def from_env(cls) -> SecurityPolicy:
@@ -205,6 +214,9 @@ class SecurityPolicy:
             ),
             log_violations=_bool_env(
                 "SAGEMATH_MCP_SECURITY_LOG_VIOLATIONS", defaults.log_violations
+            ),
+            enforce_name_allowlist=_bool_env(
+                "SAGEMATH_MCP_SECURITY_NAME_ALLOWLIST", defaults.enforce_name_allowlist
             ),
             allowed_import_modules=_tuple_env(
                 "SAGEMATH_MCP_SECURITY_ALLOWED_IMPORTS", defaults.allowed_import_modules
@@ -268,6 +280,7 @@ def trusted_policy(policy: SecurityPolicy | None = None) -> SecurityPolicy:
         # Caller code gets none of this: see allowed_import_modules above.
         allowed_import_modules=_TRUSTED_IMPORTS,
         allowed_import_prefixes=("sage.",),
+        enforce_name_allowlist=False,
         # The plot templates render through .savefig(BytesIO); nothing generated
         # here writes to a path.
         forbidden_attribute_prefixes=(),
@@ -312,8 +325,49 @@ def _is_allowed_import(module: str, policy: SecurityPolicy) -> bool:
     return any(module.startswith(prefix) for prefix in policy.allowed_import_prefixes)
 
 
+def _bound_names(module: ast.Module) -> set[str]:
+    """Every name the caller's own code binds.
+
+    Collected across the whole module rather than per scope: an over-approximation
+    on purpose. Treating a name bound anywhere as readable everywhere cannot
+    manufacture a dangerous object -- the caller's binding is their own value, and
+    the dangerous originals are gone from the namespace -- while a strict scope
+    analysis would refuse ordinary code for no gain.
+
+    `var('t s')` is included because Sage callers create symbols that way
+    constantly, and the names it makes exist only at runtime.
+    """
+    bound: set[str] = set()
+    for node in ast.walk(module):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+            bound.add(node.id)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            bound.add(node.name)
+        elif isinstance(node, ast.arg):
+            bound.add(node.arg)
+        elif isinstance(node, ast.ExceptHandler) and node.name:
+            bound.add(node.name)
+        elif isinstance(node, ast.alias):
+            bound.add((node.asname or node.name).split(".", 1)[0])
+        elif isinstance(node, ast.Global | ast.Nonlocal):
+            bound.update(node.names)
+        elif isinstance(node, ast.Call) and getattr(node.func, "id", None) == "var":
+            # var('t'), var('t s'), var('a,b') -- Sage's own spelling for
+            # declaring symbols, and the only common way a caller creates a name
+            # that no assignment reveals.
+            for argument in node.args:
+                if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
+                    bound.update(re.split(r"[,\s]+", argument.value.strip()))
+    bound.discard("")
+    return bound
+
+
 def validate_module(
-    module: ast.Module, *, code: str | None = None, policy: SecurityPolicy | None = None
+    module: ast.Module,
+    *,
+    code: str | None = None,
+    policy: SecurityPolicy | None = None,
+    extra_allowed_names: frozenset[str] | set[str] = frozenset(),
 ) -> None:
     """Validate *module* against the configured security policy."""
     policy = policy or SECURITY_POLICY
@@ -343,6 +397,15 @@ def validate_module(
             code=code,
             policy=policy,
         )
+
+    # Names this session already holds, beyond what Sage shipped with: `x = 5` in
+    # one call and `x + 1` in the next is the whole point of a stateful session,
+    # and no analysis of the second snippet alone can know about the first. The
+    # worker passes what the caller has created; Sage's own names are still judged
+    # against the allowlist, so a helper added by a future release stays denied.
+    bound = set(extra_allowed_names) if policy.enforce_name_allowlist else set()
+    if policy.enforce_name_allowlist:
+        bound |= _bound_names(module)
 
     for node in ast.walk(module):
         if isinstance(node, (ast.Import, ast.ImportFrom)) and not policy.allow_imports:
@@ -411,6 +474,22 @@ def validate_module(
                 policy=policy,
             )
 
+        if (
+            policy.enforce_name_allowlist
+            and isinstance(node, ast.Name)
+            and isinstance(node.ctx, ast.Load)
+            and node.id not in bound
+            and node.id not in policy.allowed_names
+        ):
+            # Deny-by-default. Every bypass so far was a name no rule mentioned;
+            # here an unrecognised name is refused instead of assumed harmless.
+            _raise_violation(
+                f"'{node.id}' is not a name this server offers. If it is a typo, "
+                "check the spelling; if it is a SageMath function that should be "
+                "available, it needs to be added to the allowlist",
+                code=code,
+                policy=policy,
+            )
         # A forbidden module is forbidden entirely. Requiring the attribute to
         # ALSO be on a list of eighteen names meant os.system was blocked while
         # os.listdir, os.environ and os.chmod were not -- and the README claimed

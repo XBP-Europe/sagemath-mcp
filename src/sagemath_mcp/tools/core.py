@@ -351,13 +351,30 @@ async def evaluate_sage_streaming(
         emitted += 1
         await ctx.report_progress(float(emitted), None, line)
 
-    worker_result = await sage_session.evaluate(
-        code,
-        want_latex=False,
-        capture_stdout=True,
-        timeout_seconds=timeout_seconds,
-        on_stdout=_forward,
-    )
+    try:
+        worker_result = await sage_session.evaluate(
+            code,
+            want_latex=False,
+            capture_stdout=True,
+            timeout_seconds=timeout_seconds,
+            on_stdout=_forward,
+        )
+    except TimeoutError as exc:
+        # This path had no handler at all: a timeout, a security violation or a
+        # dead worker propagated raw from the streaming tool while evaluate_sage
+        # reported each of them properly, and nothing was recorded.
+        monitoring.record_failure(str(exc), is_security=False, details="TimeoutError")
+        raise ToolError(str(exc)) from exc
+    except SageEvaluationError as exc:
+        monitoring.record_failure(
+            exc.error_type or str(exc),
+            is_security=exc.error_type == "SecurityViolation",
+            details=exc.traceback or exc.stdout,
+        )
+        raise ToolError(exc.args[0]) from exc
+    except SageProcessError as exc:
+        monitoring.record_failure(str(exc) or exc.__class__.__name__, is_security=False)
+        raise ToolError(str(exc)) from exc
     monitoring.record_success(worker_result.elapsed_ms)
     return EvaluateResult(
         result_type=worker_result.result_type,

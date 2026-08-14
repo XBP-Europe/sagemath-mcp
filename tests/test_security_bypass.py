@@ -576,3 +576,25 @@ def test_generated_plot_templates_may_still_render_to_a_buffer() -> None:
 
     code = "_fig.savefig(_buf, format='png')"
     validate_module(ast.parse(code), code=code, policy=trusted_policy())
+
+
+def test_a_caught_exception_name_is_readable() -> None:
+    """`except ... as err` binds a name the caller then reads."""
+    code = "try:\n    1 / 0\nexcept ZeroDivisionError as err:\n    str(err)"
+    validate_module(ast.parse(code), code=code, policy=SECURITY_POLICY)
+
+
+def test_var_with_a_non_literal_argument_declares_nothing() -> None:
+    """`var(name)` cannot be read statically, so it binds nothing.
+
+    The names it makes at runtime land in the session namespace, and the worker
+    reports those on the next call -- so this refuses only within the snippet
+    that made them, which is the honest answer for a static check.
+    """
+    label = "t"  # noqa: F841 - mirrors the caller code below
+    code = "label = 't'\nvar(label)\nlabel"
+    validate_module(ast.parse(code), code=code, policy=SECURITY_POLICY)
+
+    # And a literal still declares, including several at once.
+    code = "var('p q')\np + q"
+    validate_module(ast.parse(code), code=code, policy=SECURITY_POLICY)

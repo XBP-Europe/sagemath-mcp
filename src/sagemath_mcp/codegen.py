@@ -21,6 +21,7 @@ import re
 import textwrap
 import tokenize
 from collections.abc import Iterable
+from dataclasses import replace
 
 from fastmcp.exceptions import ToolError
 
@@ -48,6 +49,17 @@ def _normalize_source(value):
 _EQUALS_NOT_COMPARISON = re.compile(r"(?<![=<>!])=(?!=)")
 
 
+# Tool parameters are validated with the allowlist OFF and every other rule ON.
+#
+# A fragment is not arbitrary code: it is interpolated into a template where the
+# names resolve in a specific context -- `HammingCode(GF(2), 3)` inside `codes.`,
+# `PetersenGraph` inside `graphs.`, `y` among the symbols the prelude declares.
+# Judging those against the caller allowlist would refuse the tools' own
+# documented inputs. Imports, forbidden names, the attribute rules and the
+# persistence prefixes all still apply.
+_FRAGMENT_POLICY = replace(SECURITY_POLICY, enforce_name_allowlist=False)
+
+
 def _screen_unparseable_fragment(fragment: str) -> None:
     """Reject forbidden names in a fragment that would not parse.
 
@@ -55,8 +67,8 @@ def _screen_unparseable_fragment(fragment: str) -> None:
     stream instead: a name is a name whatever surrounds it, and this is the last
     gate before the fragment is interpolated into trusted, sage_eval'd code.
     """
-    forbidden = set(SECURITY_POLICY.forbidden_call_names) | set(
-        SECURITY_POLICY.forbidden_attribute_parents
+    forbidden = set(_FRAGMENT_POLICY.forbidden_call_names) | set(
+        _FRAGMENT_POLICY.forbidden_attribute_parents
     )
     try:
         tokens = list(tokenize.generate_tokens(io.StringIO(fragment).readline))
@@ -115,7 +127,7 @@ def _validated_expression(text: str) -> str:
         validate_module(
             ast.Module(body=[ast.Expr(value=parsed.body)], type_ignores=[]),
             code=stripped,
-            policy=SECURITY_POLICY,
+            policy=_FRAGMENT_POLICY,
         )
     except SecurityViolation as exc:
         raise ToolError(f"Rejected by the security policy: {exc}") from exc

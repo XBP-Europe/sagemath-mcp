@@ -482,24 +482,40 @@ class SageSession:
         return f"{readable}-{digest}"
 
     def save_journal(self) -> None:
-        """Write the code journal to disk for later restoration."""
+        """Write the code journal to disk for later restoration.
+
+        Order matters. The legacy file used to be deleted first, so a write that
+        failed afterwards -- a full disk, a read-only mount -- destroyed the old
+        journal and left a stray .tmp behind, having saved nothing. The new file
+        is written and put in place first; only then is the superseded one
+        retired, and a failed attempt cleans up after itself.
+        """
         path = self._persist_path()
-        if path is not None:
-            # Retire any pre-digest file so the two schemes cannot diverge.
-            for legacy in self._legacy_persist_paths():
-                if legacy != path and legacy.exists():
-                    with contextlib.suppress(OSError):
-                        legacy.unlink()
         if path is None:
             return
-        # Atomic: a crash or a full disk mid-write previously left a truncated
-        # journal that failed to parse on the next start, losing the session.
+
         tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
-        tmp.write_text(
-            json.dumps([{"code": code, "trusted": trusted}
-                        for code, trusted in self._code_journal])
-        )
-        os.replace(tmp, path)
+        try:
+            tmp.write_text(
+                json.dumps([{"code": code, "trusted": trusted}
+                            for code, trusted in self._code_journal])
+            )
+            os.replace(tmp, path)
+        except OSError:
+            with contextlib.suppress(OSError):
+                tmp.unlink()
+            LOGGER.warning(
+                "Could not save journal for %s; the previous one is untouched",
+                self.session_id,
+            )
+            raise
+
+        # Only now that the new journal exists: retire the pre-digest files so
+        # the two naming schemes cannot diverge.
+        for legacy in self._legacy_persist_paths():
+            if legacy != path and legacy.exists():
+                with contextlib.suppress(OSError):
+                    legacy.unlink()
         LOGGER.debug("Saved journal for %s (%d entries)", self.session_id, len(self._code_journal))
 
     @classmethod

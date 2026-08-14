@@ -1,0 +1,162 @@
+name: CLI integration (nightly)
+
+# The CLI suites drive Claude, Gemini and Codex against a real Sage-backed
+# server and assert from the proxy's wire log that a tool was actually called.
+# They are the only tests that exercise what a client really does, and they are
+# not in ci.yml because they need model credentials and cost money per run.
+#
+# That gap has cost us: they were not run against the server.py split, and when
+# they finally were they found a silently wrong answer (integers above 2^53 were
+# corrupted by JSON-number parsing) plus a Makefile target that had been broken
+# for anyone without Docker Compose v2. Nightly is the compromise -- off the
+# pull-request path, but not left to whoever remembers.
+#
+# Credentials are per-CLI repository secrets. A CLI whose secret is absent is
+# skipped with a notice rather than failing, so the workflow is useful with one
+# key configured and silent about the rest.
+
+on:
+  schedule:
+    # 03:17 UTC, offset from the Monday dependency audit at 07:00.
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      cli:
+        description: Which CLI to exercise
+        default: all
+        type: choice
+        options: [all, claude, gemini, codex]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  # Never two nightly runs at once: they register an MCP server with each CLI.
+  group: cli-nightly
+  cancel-in-progress: false
+
+jobs:
+  cli:
+    name: ${{ matrix.cli }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      # One CLI failing says nothing about the others, and a model that has a
+      # bad night should not hide a real regression in the next leg.
+      fail-fast: false
+      matrix:
+        cli: [claude, gemini, codex]
+    steps:
+      - uses: actions/checkout@v7
+
+      # Selection lives here, not in a job-level `if`: the matrix context is not
+      # available to `jobs.<id>.if`, so a condition written there would not mean
+      # what it looks like it means.
+      - name: Decide whether to run this CLI
+        id: creds
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SELECTED: ${{ github.event_name == 'workflow_dispatch' && inputs.cli || 'all' }}
+        run: |
+          if [ "$SELECTED" != "all" ] && [ "$SELECTED" != "${{ matrix.cli }}" ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=${{ matrix.cli }} not selected::This run asked for $SELECTED."
+            exit 0
+          fi
+          case "${{ matrix.cli }}" in
+            claude) key="$ANTHROPIC_API_KEY" ;;
+            gemini) key="$GEMINI_API_KEY" ;;
+            codex)  key="$OPENAI_API_KEY" ;;
+          esac
+          if [ -z "$key" ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=${{ matrix.cli }} skipped::No API key configured for ${{ matrix.cli }}; add the repository secret to enable this leg."
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: astral-sh/setup-uv@v10.0.0
+        if: steps.creds.outputs.present == 'true'
+        with:
+          enable-cache: true
+
+      - name: Create virtual environment
+        if: steps.creds.outputs.present == 'true'
+        run: uv venv
+
+      - name: Install dependencies
+        if: steps.creds.outputs.present == 'true'
+        run: uv pip install -e .[dev]
+
+      - uses: actions/setup-node@v6
+        if: steps.creds.outputs.present == 'true'
+        with:
+          node-version: "22"
+
+      - name: Install the ${{ matrix.cli }} CLI
+        if: steps.creds.outputs.present == 'true'
+        run: |
+          case "${{ matrix.cli }}" in
+            claude) npm install -g @anthropic-ai/claude-code ;;
+            gemini) npm install -g @google/gemini-cli ;;
+            codex)  npm install -g @openai/codex ;;
+          esac
+          ${{ matrix.cli }} --version || true
+
+      # Same as the integration job: the suite spawns the server with
+      # `docker exec -i sage-mcp`, so the container must exist with the repo
+      # mounted at /workspace. The image comes from the Dockerfile so the Sage
+      # version has one source of truth.
+      - name: Start Sage container
+        if: steps.creds.outputs.present == 'true'
+        run: |
+          IMAGE="$(sed -n 's/^FROM //p' Dockerfile | head -1)"
+          echo "Using Sage image: $IMAGE"
+          SAGEMATH_MCP_DOCKER_IMAGE="$IMAGE" make sage-container
+
+      - name: Tool-forcing cases
+        if: steps.creds.outputs.present == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -o pipefail
+          uv run python -m tests.cli_integration.run_extended \
+            --cli ${{ matrix.cli }} | tee cli-${{ matrix.cli }}.log
+
+      - uses: actions/upload-artifact@v7
+        if: always() && steps.creds.outputs.present == 'true'
+        with:
+          name: cli-${{ matrix.cli }}-log
+          path: cli-${{ matrix.cli }}.log
+          if-no-files-found: ignore
+
+  report:
+    # A nightly nobody watches is a nightly nobody fixes, so a failure becomes
+    # an issue. Same shape as the dependency audit: one open issue at a time,
+    # appended to rather than duplicated.
+    needs: [cli]
+    if: always() && needs.cli.result == 'failure'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TITLE="Nightly CLI integration failed"
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+            --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+          BODY=$(printf '%s\n\n%s\n' \
+            "The nightly CLI suite failed. These are the only tests that drive a real client end to end, so a failure here is either a genuine regression or a model that answered differently — the wire log in the run artifacts says which." \
+            "Run: $RUN_URL")
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" --body "$BODY"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$BODY"
+          fi

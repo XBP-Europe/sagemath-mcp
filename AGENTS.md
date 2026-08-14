@@ -15,6 +15,7 @@
 - `make integration-test` → runs pytest inside the Sage container and captures logs (`integration.log`, `integration-artifacts.tar.gz`)
 - `make build` → `uv run python scripts/build_release.py` (sdist/wheel; respects prerequisite guardrails)
 - `make all` → convenience alias (`make test` + `make integration-test`); keep targets separate when adding CI steps.
+- `make cli-extended` → drives the real Claude/Gemini/Codex CLIs and asserts from the proxy wire log that a tool was called. Costs model credits; runs nightly in CI and is worth a manual run before a release.
 
 ## Where Code Goes
 - A new tool belongs in the matching `src/sagemath_mcp/tools/` module (`core`, `calculus`,

@@ -66,6 +66,23 @@ long period, and because the command was piped to `tee`, the failure was masked 
 
 ## Client integration (Claude, Gemini, Codex)
 
+These run nightly in CI (`.github/workflows/cli-nightly.yml`, 03:17 UTC) and on
+demand via **Actions -> CLI integration (nightly) -> Run workflow**, which takes
+a single-CLI option. They are not on the pull-request path: they need model
+credentials and cost money per run.
+
+Each CLI needs a repository secret -- `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`,
+`OPENAI_API_KEY`. A CLI whose secret is missing is skipped with a notice rather
+than failing, so the workflow is useful with one key configured. A failure opens
+(or appends to) a single issue, because a nightly nobody watches is a nightly
+nobody fixes.
+
+Worth running before a release even if the nightly is green: they are the only
+tests that exercise what a client actually does. They caught integers above 2^53
+being silently corrupted by JSON-number parsing, which every other suite passed,
+because the corruption happens in the client rather than the server.
+
+
 Two suites drive real CLIs against a real server. Both are opt-in: they consume
 API quota and take minutes, so neither runs in CI.
 

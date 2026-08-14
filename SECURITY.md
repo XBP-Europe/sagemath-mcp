@@ -21,6 +21,7 @@ There are three layers, and only one of them is a boundary:
 
 | Layer | What it is | What it is not |
 |-------|-----------|----------------|
+| **Caller allowlist** (`allowlist.py`) | A caller may read only the names this server offers -- the mathematical names Sage preloads, safe builtins, and whatever they define themselves. Deny-by-default: an unrecognised name is refused rather than assumed harmless | Derived from today's namespace, so it does not retroactively catch something dangerous already in it |
 | AST policy (`security.py`) | Rejects disallowed imports, `eval`/`exec`, dunder access, indirection helpers, forbidden modules and known code-executing Sage helpers | **Not a boundary.** It is a denylist over a namespace thousands of names deep, and it has been bypassed and repaired repeatedly |
 | Worker namespace scrub (`_sage_worker.py`) | Removes known code-executing Sage helpers and external CAS interfaces from the worker's initial namespace | A backstop for spellings the policy misses, not a guarantee that Sage exposes no other route to the same capability |
 | **The container** | With the supplied configuration: a read-only root filesystem and checkout, dropped capabilities, no new privileges, and deployment-specific resource limits | **This is the process and filesystem boundary.** Run it; it does not itself block network egress or make readable secrets safe |
@@ -129,7 +130,7 @@ crosses a trust boundary.
 - Reaching the filesystem, network or a shell **through a tool's parameters** —
   the specialised tools build Sage code around caller input, and a string that
   escapes that construction is a real finding.
-- A bypass of the AST policy or the namespace scrub. Not a host compromise on its
+- A bypass of the caller allowlist, the AST policy or the namespace scrub. Not a host compromise on its
   own, but each one is a defect we fix and add a regression test for.
 - **Silently wrong mathematics.** Unusual for a security file, but it belongs
   here: a wrong number returned with no error is the worst failure this project

@@ -797,8 +797,11 @@ All code --- whether from `evaluate_sage` or generated internally by helper tool
 **What is blocked:**
 
 Names in the first three rows are rejected **anywhere they are read** --- called,
-assigned, aliased, defaulted into a `lambda`, or placed in a list --- not only in
-call position.
+assigned, aliased, defaulted into a `lambda`, placed in a list, or reached through
+an attribute chain --- not only in call position. The last of those matters more
+than it sounds: `sage` is an allowed import root, so
+`sage.misc.sage_eval.sage_eval("...")` reached the same function that a bare
+`sage_eval` could not.
 
 | Category | Details |
 |----------|---------|
@@ -806,6 +809,7 @@ call position.
 | Attribute indirection | `getattr()`, `setattr()`, `delattr()` --- these defeat every attribute rule by naming the attribute at runtime |
 | Runtime string evaluation | `sage_eval()`, `preparse()`, `sage_input()` --- these evaluate a string *after* the AST has been approved |
 | Dunder access | Any `__dunder__` name or attribute, which blocks `().__class__.__bases__[0].__subclasses__()` and `__builtins__` |
+| Sage loaders | `load()` and `attach()` execute whatever path they are given, and `load()` accepts a URL |
 | Forbidden modules | **Every** attribute of `os`, `sys`, `subprocess`, `shutil`, `socket`, `pathlib`, `builtins` --- at any depth, so `sage.misc.temporary_file.os` is caught too |
 | Unauthorized imports | All imports except those in the allowlist (see below) |
 | Scope manipulation | `global` and `nonlocal` statements (configurable) |

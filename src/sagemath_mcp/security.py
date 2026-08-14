@@ -75,6 +75,11 @@ class SecurityPolicy:
         "sage_eval",
         "preparse",
         "sage_input",
+        # Sage's loaders execute whatever they are pointed at, and load()
+        # accepts a URL -- remote code execution, from an ordinary-looking name
+        # that no rule mentioned.
+        "load",
+        "attach",
     )
     forbidden_attribute_parents: tuple[str, ...] = (
         "os",
@@ -380,6 +385,19 @@ def validate_module(
                     code=code,
                     policy=policy,
                 )
+
+        # A forbidden name is forbidden however it is spelled. Checking bare
+        # names and Call.func left the same functions reachable through an
+        # attribute chain rooted at the permitted `sage`:
+        #     sage.misc.sage_eval.sage_eval("__import__('os').getuid()")
+        # returned the container uid. What matters is the final name, not
+        # whether a dot precedes it.
+        if isinstance(node, ast.Attribute) and node.attr in policy.forbidden_call_names:
+            _raise_violation(
+                f"Access to forbidden function '{node.attr}' is blocked",
+                code=code,
+                policy=policy,
+            )
         if isinstance(node, ast.Call):
             func = node.func
             if isinstance(func, ast.Name) and func.id in policy.forbidden_call_names:

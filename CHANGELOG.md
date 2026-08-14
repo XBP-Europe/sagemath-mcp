@@ -9,6 +9,14 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **Forbidden functions are blocked through attribute chains.**
+  `sage.misc.sage_eval.sage_eval("__import__('os').getuid()")` returned the
+  container uid: the name checks looked at bare names and call targets, and
+  `sage` is an allowed import root, so the same function was reachable one dot
+  further along. The final name is what is checked now, however it is spelled.
+- **`load()` and `attach()` are forbidden for callers.** They execute whatever
+  path they are given and `load()` accepts a URL, so this was remote code
+  execution from a name no rule mentioned.
 - **`docker compose up` no longer publishes on every interface.** The port
   mapping was `8314:8314`, which binds all interfaces on the host; the server
   evaluates code and authenticates nobody, so following the quickstart put an

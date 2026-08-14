@@ -89,11 +89,11 @@ typo in the one sentence GitHub indexes for search.
 - [x] Fix the repository description, add a homepage, add 14 discovery topics
 - [x] Add `server.json` and the `mcp-name` ownership marker for the official MCP registry
 - [x] Automate registry publication from the release workflow using OIDC
-  - **Not yet listed.** The job was added after the v0.4.0 tag, so it has never
-    run; the registry returns no server for `io.github.XBP-Europe/sagemath-mcp`.
-    The next tagged release is its first execution. A README badge claiming
-    publication was removed for exactly this reason -- check the registry, not
-    the workflow, before reinstating it.
+  - **Listed since v0.5.0.** The job first executed on that tag and the registry
+    now returns `io.github.XBP-Europe/sagemath-mcp`. The README badge is back,
+    and its test queries the registry rather than the workflow -- checking that
+    release.yml mentions the job was what let the badge claim a listing that had
+    never happened.
 - [ ] List on Smithery and Glama, as fermat-mcp does
 
 At the time of the survey the only SageMath server in the official registry was

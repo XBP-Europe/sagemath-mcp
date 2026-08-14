@@ -88,16 +88,32 @@ def test_the_signed_badge_means_the_release_actually_signs() -> None:
     assert "cosign sign" in release, "the badge claims signed images but nothing signs them"
 
 
-def test_no_badge_claims_an_mcp_registry_listing_we_do_not_have() -> None:
-    """A workflow job is not a listing.
+def test_the_registry_badge_matches_a_real_listing() -> None:
+    """Check the registry, not the workflow.
 
-    The badge said "MCP Registry - published" and this test checked only that
-    release.yml mentions mcp-registry. The registry itself returns no server for
-    this name, and the v0.4.0 release ran no such job, so the badge asserted
-    something that had never happened. Reinstate it by checking the registry,
-    not the workflow.
+    This badge was removed once for claiming a listing that did not exist: the
+    test then asserted only that release.yml mentions an mcp-registry job, which
+    a job that had never run satisfied perfectly. The v0.5.0 release published
+    for real, so the badge is back -- verified against the registry itself, and
+    skipped rather than failed when the network is unavailable.
     """
-    assert "MCP%20Registry" not in README, (
-        "the registry badge is back; verify the listing exists at "
-        "registry.modelcontextprotocol.io before claiming it"
+    import json
+    import urllib.error
+    import urllib.request
+
+    if "MCP%20Registry" not in README:
+        pytest.skip("no registry badge to verify")
+
+    name = json.loads((ROOT / "server.json").read_text(encoding="utf-8"))["name"]
+    url = "https://registry.modelcontextprotocol.io/v0/servers?search=sagemath"
+    try:
+        with urllib.request.urlopen(url, timeout=15) as response:
+            servers = json.loads(response.read())["servers"]
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        pytest.skip(f"registry unreachable: {exc}")
+
+    listed = {entry["server"]["name"] for entry in servers}
+    assert name in listed, (
+        f"the README claims an MCP registry listing, but {name} is not in the "
+        f"registry (found {sorted(listed)})"
     )

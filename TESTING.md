@@ -25,6 +25,7 @@ that gap.
 | `test_readme_badges.py` | no | README badge claims against the files that decide them |
 | `test_version_consistency.py` | no | Every declared version agrees, and the bump script updates them all |
 | `test_math_suite.py` | no | Mathematical results the pure-Python worker can check |
+| `test_cli_harness.py` | no | The extended CLI harness's own verdict logic, fed synthetic wire logs |
 | `test_integration.py` | **yes** | Real Sage session lifecycle, monitoring, large payloads |
 | `test_math_examples.py` | **yes** | Every tool against the examples in its own documentation |
 | `test_syntax_variants.py` | **yes** | The input spellings each tool must accept or reject |

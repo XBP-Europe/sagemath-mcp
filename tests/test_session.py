@@ -1392,3 +1392,93 @@ async def test_the_timeout_handler_will_not_restart_a_worker_that_already_answer
         assert result.result == "4"
     finally:
         await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_a_genuine_timeout_is_raised_even_while_a_callback_is_blocked(tmp_path):
+    """A timeout must reach the caller regardless of their callback.
+
+    The drain ran unconditionally in the finally, so a blocked callback held the
+    TimeoutError until it was released: the caller waited indefinitely for news
+    of a computation that had already been abandoned and its worker restarted.
+    On the failure paths the pump is cancelled instead of drained.
+    """
+    settings = SageSettings(force_python_worker=True, eval_timeout=0.2)
+    session = SageSession("genuine-timeout", settings)
+    await session.ensure_started()
+    release = asyncio.Event()
+    delivered = asyncio.Event()
+
+    async def blocked_on_stdout(text: str) -> None:
+        delivered.set()
+        await release.wait()
+
+    try:
+        task = asyncio.create_task(
+            session.evaluate(
+                "print('tick')\nsum(range(90000000))\n",
+                want_latex=False,
+                capture_stdout=True,
+                on_stdout=blocked_on_stdout,
+            )
+        )
+        await asyncio.wait_for(delivered.wait(), timeout=10)
+
+        # The callback is still held; the timeout must not wait on it. Match the
+        # message: a bare TimeoutError here would be this test's own wait_for
+        # firing because the evaluation hung, which is the bug, not the fix.
+        with pytest.raises(TimeoutError) as excinfo:
+            await asyncio.wait_for(task, timeout=8)
+        assert "Sage evaluation timed out" in str(excinfo.value), (
+            "the session's timeout never surfaced; it was waiting on the callback"
+        )
+    finally:
+        release.set()
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_cancelling_while_queued_for_the_lock_leaves_no_pump_running(tmp_path):
+    """A request cancelled before it starts must not leak its consumer task.
+
+    The pump was created before the lock was acquired, so a request cancelled
+    while queued never reached the cleanup that stops it.
+    """
+    settings = SageSettings(force_python_worker=True, eval_timeout=30.0)
+    session = SageSession("queued-cancel", settings)
+    await session.ensure_started()
+    created: list[asyncio.Task[None]] = []
+    original = session._start_stdout_pump
+
+    def recording_start(on_stdout):
+        queue, pump = original(on_stdout)
+        created.append(pump)
+        return queue, pump
+
+    session._start_stdout_pump = recording_start
+
+    async def noop(text: str) -> None:
+        return None
+
+    try:
+        holder = asyncio.create_task(
+            session.evaluate("sum(range(60000000))", want_latex=False, capture_stdout=False)
+        )
+        await asyncio.sleep(0.2)          # holder owns the lock
+
+        queued = asyncio.create_task(
+            session.evaluate("1 + 1", want_latex=False, capture_stdout=True, on_stdout=noop)
+        )
+        await asyncio.sleep(0.2)          # queued behind the lock
+        queued.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await queued
+
+        await asyncio.sleep(0.1)
+        leaked = [task for task in created if not task.done()]
+        assert not leaked, f"{len(leaked)} stdout pump task(s) left running"
+    finally:
+        holder.cancel()
+        with contextlib.suppress(Exception):
+            await holder
+        await session.shutdown()

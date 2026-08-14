@@ -94,12 +94,17 @@ def _is_client_fault(preview: str) -> bool:
     return any(marker in lowered for marker in _CLIENT_FAULT_MARKERS)
 
 
-def read_wire_log(log_path: Path) -> tuple[list[str], set[int]]:
-    """Return (tools called, ids of calls the SERVER failed).
+def read_wire_log(log_path: Path) -> tuple[list[str], set[int], list[str]]:
+    """Return (tools called, ids the SERVER failed, tools that SUCCEEDED).
 
-    Calls the model malformed are excluded: they say nothing about the server.
+    Calls the model malformed are excluded from the failures: they say nothing
+    about the server. But excluding them is not enough on its own -- the tool
+    still appeared in the call list, so a case could pass on a malformed call
+    that failed plus a plausible-looking answer, with no successful tool call
+    anywhere. The third value is what the assertions actually need.
     """
     tools: list[str] = []
+    succeeded: list[str] = []
     errored: set[int] = set()
     call_ids: dict[int, str] = {}
     if not log_path.exists():
@@ -115,12 +120,15 @@ def read_wire_log(log_path: Path) -> tuple[list[str], set[int]]:
                 tools.append(name)
                 if record.get("id") is not None:
                     call_ids[record["id"]] = name
-        elif record.get("kind") == "response" and record.get("is_error"):
-            if record.get("id") in call_ids and not _is_client_fault(
-                str(record.get("preview", ""))
-            ):
+        elif record.get("kind") == "response":
+            name = call_ids.get(record.get("id"))
+            if name is None:
+                continue
+            if not record.get("is_error"):
+                succeeded.append(name)
+            elif not _is_client_fault(str(record.get("preview", ""))):
                 errored.add(record["id"])
-    return tools, errored
+    return tools, errored, succeeded
 
 
 def normalise(text: str) -> str:
@@ -130,8 +138,10 @@ def normalise(text: str) -> str:
 
 def evaluate(case: ToolForcingCase, output: str, log_path: Path, elapsed: float,
              cli: str) -> CaseResult:
-    tools, errored = read_wire_log(log_path)
+    tools, errored, succeeded = read_wire_log(log_path)
     relevant = [t for t in tools if t in case.accepted_tools]
+    # An accepted tool that was CALLED proves nothing; one that answered does.
+    relevant_ok = [t for t in succeeded if t in case.accepted_tools]
 
     if not tools:
         return CaseResult(cli, case.id, "NO_TOOL_CALL",
@@ -143,6 +153,11 @@ def evaluate(case: ToolForcingCase, output: str, log_path: Path, elapsed: float,
     if errored:
         return CaseResult(cli, case.id, "TOOL_ERROR",
                           "the server returned isError for a tool call", tools, elapsed)
+    if not relevant_ok:
+        return CaseResult(
+            cli, case.id, "NO_TOOL_CALL",
+            f"every call to {sorted(set(relevant))} failed; no tool actually answered",
+            tools, elapsed)
 
     flat = normalise(output)
     for answer in case.expected_answers:

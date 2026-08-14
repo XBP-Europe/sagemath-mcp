@@ -1028,7 +1028,7 @@ make sage-container             # Bootstrap the Sage Docker container
 
 ### Running Tests
 
-Without a local SageMath installation you can still run all 450 unit tests --- the test suite replaces the Sage worker with a lightweight Python interpreter to validate session plumbing. Coverage is at **100%** of statements and branches, enforced in CI by `--cov-fail-under=100`, so the number cannot quietly drift.
+Without a local SageMath installation you can still run the whole unit suite --- it replaces the Sage worker with a lightweight Python interpreter to validate session plumbing. Coverage is at **100%** of statements and branches, enforced in CI by `--cov-fail-under=100`; that number is checked on every run, unlike a test count written into prose.
 
 ```bash
 # Run all unit tests
@@ -1170,7 +1170,7 @@ sagemath-mcp/
 | [Ruff](https://docs.astral.sh/ruff/) | 0.15+ | Linting and import sorting |
 | [pytest](https://docs.pytest.org/) | 9.0+ | Test framework |
 | [pytest-asyncio](https://github.com/pytest-dev/pytest-asyncio) | 1.3+ | Async test support |
-| [pytest-cov](https://github.com/pytest-dev/pytest-cov) | 7.0+ | Coverage reporting (100% statement and branch coverage, 450 unit tests) |
+| [pytest-cov](https://github.com/pytest-dev/pytest-cov) | 7.0+ | Coverage reporting (100% statement and branch coverage, gated in CI) |
 | [pip-audit](https://github.com/pypa/pip-audit) | 2.9+ | Dependency vulnerability scanning |
 | [Hatchling](https://hatch.pypa.io/) | 1.29+ | Build backend |
 | [Docker](https://www.docker.com/) | --- | Containerization and CI integration testing |

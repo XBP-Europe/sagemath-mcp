@@ -146,6 +146,20 @@ class SageSession:
         queue: asyncio.Queue[str | None] = asyncio.Queue()
         return queue, asyncio.create_task(self._pump_stdout(queue, on_stdout))
 
+    async def _stop_stdout_pump(self, pump: asyncio.Task[None] | None) -> None:
+        """Stop the consumer without waiting on the caller's callback.
+
+        Used on every exit path. After a successful drain the task is already
+        finished and this is a no-op; after a timeout or a cancellation it is
+        what guarantees the task does not outlive the request, and it must not
+        block on a callback that may never return.
+        """
+        if pump is None or pump.done():
+            return
+        pump.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await pump
+
     async def _drain_stdout_pump(
         self, queue: asyncio.Queue[str | None] | None, pump: asyncio.Task[None] | None
     ) -> None:
@@ -253,25 +267,53 @@ class SageSession:
         }
         data = json.dumps(payload).encode("utf-8") + b"\n"
         effective_timeout = timeout_seconds or self.settings.eval_timeout
-        queue: asyncio.Queue[str | None] | None = None
-        pump: asyncio.Task[None] | None = None
-        if on_stdout is not None:
-            queue, pump = self._start_stdout_pump(on_stdout)
         async with self._lock:
-            self._process.stdin.write(data)
-            await self._process.stdin.drain()
-            self._in_flight = payload["id"]
+            # Created inside the lock: a request cancelled while queued for it
+            # never reaches the cleanup below, so a pump started earlier would
+            # outlive the request that owned it.
+            queue: asyncio.Queue[str | None] | None = None
+            pump: asyncio.Task[None] | None = None
+            if on_stdout is not None:
+                queue, pump = self._start_stdout_pump(on_stdout)
             try:
-                raw, response = await asyncio.wait_for(
-                    self._read_matching_response(payload["id"], queue),
-                    timeout=effective_timeout,
+                raw, response = await self._exchange(
+                    data, payload["id"], queue, pump, effective_timeout
                 )
-            except TimeoutError as exc:
-                await self._handle_timeout()
-                raise TimeoutError(
-                    f"Sage evaluation timed out after {effective_timeout:.2f}s"
-                ) from exc
-            except asyncio.CancelledError:
+            finally:
+                # Whatever happened, no consumer task outlives this request.
+                await self._stop_stdout_pump(pump)
+            if not raw:
+                raise SageProcessError("Sage worker terminated unexpectedly.")
+        self.last_used_at = time.time()
+        return self._result_from(response, code)
+
+    async def _exchange(
+        self,
+        data: bytes,
+        request_id: str,
+        queue: asyncio.Queue[str | None] | None,
+        pump: asyncio.Task[None] | None,
+        effective_timeout: float,
+    ) -> tuple[bytes, dict]:
+        """Send one request and read its response, under the caller's timeout."""
+        assert self._process and self._process.stdin
+        self._process.stdin.write(data)
+        await self._process.stdin.drain()
+        self._in_flight = request_id
+        try:
+            raw, response = await asyncio.wait_for(
+                self._read_matching_response(request_id, queue),
+                timeout=effective_timeout,
+            )
+        except TimeoutError as exc:
+            await self._handle_timeout()
+            # Deliberately no drain here. Waiting on the caller's callback held
+            # the TimeoutError until the callback was released, so the caller
+            # waited indefinitely for news of a computation already abandoned.
+            raise TimeoutError(
+                f"Sage evaluation timed out after {effective_timeout:.2f}s"
+            ) from exc
+        except asyncio.CancelledError:
                 # The caller went away, but the worker is still computing: the
                 # next request would queue behind a computation nobody wants.
                 # Only evaluate_sage used to handle this, by restarting the
@@ -279,15 +321,17 @@ class SageSession:
                 # Interrupting here covers all three and keeps the namespace,
                 # and the resulting "Interrupted" response is discarded by the
                 # id check in _read_response.
-                await self.interrupt()
-                raise
-            finally:
-                self._in_flight = None
-                # Outside wait_for on purpose: see _drain_stdout_pump.
-                await self._drain_stdout_pump(queue, pump)
-            if not raw:
-                raise SageProcessError("Sage worker terminated unexpectedly.")
-        self.last_used_at = time.time()
+            await self.interrupt()
+            raise
+        finally:
+            self._in_flight = None
+        # Success only: deliver everything queued before the caller sees the
+        # result, and outside the timeout so a slow callback cannot turn a
+        # finished computation into a timeout.
+        await self._drain_stdout_pump(queue, pump)
+        return raw, response
+
+    def _result_from(self, response: dict, code: str) -> WorkerResult:
         if not response.get("ok", False):
             error = response.get("error", {})
             raise SageEvaluationError(

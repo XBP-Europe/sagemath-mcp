@@ -20,14 +20,14 @@ def _run_split(code: str):
     return compiled, result, namespace
 
 
-def test_split_code_with_trailing_expression():
+def test_split_code_with_trailing_expression(pure_python_worker):
     compiled, result, namespace = _run_split("x = 6\nx * 7")
     assert compiled.is_expr is True
     assert pytest.approx(result) == 42
     assert namespace["x"] == 6
 
 
-def test_split_code_without_expression():
+def test_split_code_without_expression(pure_python_worker):
     compiled, result, _ = _run_split("total = sum(range(3))")
     assert compiled.is_expr is False
     assert compiled.tail is None
@@ -365,3 +365,68 @@ def test_an_interrupt_while_idle_does_not_kill_the_worker(
 
     responses = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.strip()]
     assert responses[-1]["result"] == "4", "the worker did not survive the idle interrupt"
+
+
+def test_caller_code_is_preparsed_but_generated_code_is_not(monkeypatch) -> None:
+    """Sage semantics for callers; untouched Python for our own templates.
+
+    Preparsing a server-generated template would change what it means -- the
+    caret lint exists precisely because those run as plain Python -- so the
+    split is load-bearing rather than an optimisation. Verified with a stub, so
+    no Sage runtime is needed.
+    """
+    from sagemath_mcp import _sage_worker
+
+    seen: list[str] = []
+
+    class _FakePreparseModule:
+        @staticmethod
+        def preparse(code: str) -> str:
+            seen.append(code)
+            return code.replace("^", "**")
+
+    monkeypatch.setattr(_sage_worker, "PURE_PYTHON", False)
+    monkeypatch.setitem(sys.modules, "sage.repl.preparse", _FakePreparseModule)
+    monkeypatch.setitem(sys.modules, "sage.repl", types.ModuleType("sage.repl"))
+    monkeypatch.setitem(sys.modules, "sage", types.ModuleType("sage"))
+
+    caller = _sage_worker._split_code("2^3", trusted=False)
+    assert seen == ["2^3"], "caller code was not preparsed"
+    assert ast.unparse(caller.tail) == "2 ** 3"
+
+    seen.clear()
+    _sage_worker._split_code("_x = 2\n_x", trusted=True)
+    assert seen == [], "a generated template was preparsed"
+
+
+def test_preparsing_is_skipped_without_a_sage_runtime(monkeypatch) -> None:
+    """The import failing must degrade to plain Python, not break evaluation."""
+    from sagemath_mcp import _sage_worker
+
+    monkeypatch.setattr(_sage_worker, "PURE_PYTHON", False)
+    monkeypatch.setitem(sys.modules, "sage.repl.preparse", None)
+    assert _sage_worker._preparse("2^3") == "2^3"
+
+
+def test_x_is_predefined_when_sage_is_present(monkeypatch) -> None:
+    """Sage's REPL predefines x; importing sage.all does not."""
+    from sagemath_mcp import _sage_worker
+
+    monkeypatch.setattr(_sage_worker, "PURE_PYTHON", False)
+    monkeypatch.setattr(
+        _sage_worker,
+        "STARTUP_CODE",
+        "class _SR:\n"
+        "    def var(self, name):\n"
+        "        return f'symbol:{name}'\n"
+        "SR = _SR()\n",
+    )
+    namespace = _sage_worker._build_namespace()
+    assert namespace["x"] == "symbol:x"
+
+
+def test_x_is_not_invented_in_pure_python_mode(pure_python_worker) -> None:
+    """The shim has no symbolic ring, so there is no x to define."""
+    from sagemath_mcp._sage_worker import _build_namespace
+
+    assert "x" not in _build_namespace()

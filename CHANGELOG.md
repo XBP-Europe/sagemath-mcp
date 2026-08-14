@@ -5,6 +5,31 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **`evaluate_sage` now runs SageMath, not Python.** Caller code goes through
+  Sage's preparser, as the Sage REPL does, so `2^3` is 8 rather than 1, integer
+  literals are Sage `Integer`s, generator syntax like `K.<a> = NumberField(...)`
+  parses, and `x` is predefined. The tool advertised "SageMath code" and executed
+  plain Python; five of the seven examples in its own description could not run.
+  The specialised tools have always preparsed via `sage_eval`, so the two halves
+  of the server disagreed about which language they accepted.
+
+  **This changes results for anyone relying on `^` meaning XOR.** Use `^^` for
+  XOR, as in Sage. Server-generated templates are deliberately not preparsed.
+
+  Validation reads the preparsed source, so the sandbox is unaffected: payloads
+  hidden behind preparser-only syntax are rejected like any other.
+
+### Fixed
+
+- Three examples in the `evaluate_sage` description were wrong under any
+  execution model: the Laplace pair needed its symbols declared (Sage's REPL
+  predefines only `x`), `desolve_rsolve` does not exist, and
+  `continued_fraction` has no `nterms` keyword.
+
 ## [0.5.0] - 2026-08-14
 
 ### Security

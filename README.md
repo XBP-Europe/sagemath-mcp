@@ -670,6 +670,16 @@ Clear all variables, functions, and definitions in the current session. The unde
 
 **Returns:** `{"message": "Session cleared"}`
 
+### Sage semantics
+
+`evaluate_sage` runs your code through Sage's preparser, exactly as the Sage
+REPL does. `2^3` is 8, not 1; integer literals are Sage `Integer`s; generator
+syntax such as `K.<a> = NumberField(x^3 - 2)` parses; and `x` is predefined.
+Use `^^` for XOR, as in Sage.
+
+Only caller code is preparsed. The specialised tools build plain Python around
+`sage_eval`, and preparsing those templates would change what they mean.
+
 ### Large integers
 
 Mathematics produces integers that JSON numbers cannot carry. Above 2^53 a JSON

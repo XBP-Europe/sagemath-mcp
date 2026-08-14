@@ -45,6 +45,12 @@ def _build_namespace() -> dict[str, Any]:
             )
     ns["__builtins__"] = _restricted_builtins()
     _strip_forbidden_modules(ns)
+    if not PURE_PYTHON and "x" not in ns:
+        # Sage's REPL predefines x and callers expect it; importing
+        # sage.all does not provide it. Only x -- Sage declares no others,
+        # and inventing more would shadow real objects.
+        with contextlib.suppress(Exception):
+            ns["x"] = ns["SR"].var("x")
     return ns
 
 
@@ -117,6 +123,27 @@ def _latex(result: Any) -> str | None:
         return None
 
 
+def _preparse(code: str) -> str:
+    """Turn caller code into the Python that Sage's own REPL would run.
+
+    Without this the tool advertised "SageMath code" and executed plain Python:
+    `2^3` was 1 rather than 8, `K.<a> = NumberField(...)` was a syntax error, and
+    integer literals were machine ints rather than Sage Integers. The specialised
+    tools have always preparsed, via sage_eval, so the two paths disagreed about
+    the language they accepted.
+
+    Caller code only. Server-generated templates are already plain Python -- a
+    lint keeps `^` out of them -- and preparsing them would change their meaning.
+    """
+    if PURE_PYTHON:
+        return code
+    try:
+        from sage.repl.preparse import preparse
+    except Exception:  # pragma: no cover - no Sage in this interpreter
+        return code
+    return preparse(code)
+
+
 def _split_code(code: str, trusted: bool = False) -> SimpleNamespace:
     """Return the executable and tail expression chunks for *code*.
 
@@ -124,6 +151,9 @@ def _split_code(code: str, trusted: bool = False) -> SimpleNamespace:
     needs sage_eval. Caller-supplied code never sets it.
     """
 
+    if not trusted:
+        code = _preparse(code)
+    # Validate what will actually run: the preparsed source, not what was typed.
     module = ast.parse(code, mode="exec", type_comments=True)
     # NOTE: validate_module enforces our safety policy before compiling. This
     # runs once per request, keeping the execution fast while guarding against

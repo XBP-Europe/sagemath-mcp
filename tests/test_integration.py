@@ -4,6 +4,7 @@ import shutil
 import time
 
 import pytest
+import pytest_asyncio
 
 from sagemath_mcp import runtime, server
 from sagemath_mcp.config import SageSettings
@@ -20,6 +21,23 @@ requires_sage = pytest.mark.skipif(
 @pytest.fixture(autouse=True)
 def unset_pure_python(monkeypatch):
     monkeypatch.delenv("SAGEMATH_MCP_PURE_PYTHON", raising=False)
+
+
+@pytest_asyncio.fixture
+async def real_sage_manager(monkeypatch):
+    """A manager backed by the actual Sage worker.
+
+    The shared `sage_manager` fixture forces the pure-Python shim, which is
+    right for routing tests and useless for anything asserting Sage semantics:
+    tests written against it would have been checking the shim's behaviour while
+    claiming to check Sage's.
+    """
+    manager = SageSessionManager(SageSettings(force_python_worker=False, eval_timeout=90.0))
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
+    try:
+        yield manager
+    finally:
+        await manager.shutdown()
 
 
 @requires_sage
@@ -410,3 +428,43 @@ async def test_matrix_determinant_stays_exact_past_the_safe_integer(sage_manager
     )
     assert floats["result"] == pytest.approx(3.0)
     assert isinstance(floats["result"], float)
+
+
+SAGE_SEMANTICS = [
+    ("2^3", "8"),                                   # power, not XOR
+    ("x", "x"),                                     # the REPL predefines x
+    ("integrate(sin(x), x)", "-cos(x)"),
+    ("K.<a> = NumberField(x^3 - 2); K.class_number()", "1"),   # preparser-only syntax
+    ("type(2)", "<class 'sage.rings.integer.Integer'>"),       # Sage Integer, not int
+]
+
+
+@pytest.mark.parametrize("code,expected", SAGE_SEMANTICS, ids=[c for c, _ in SAGE_SEMANTICS])
+@pytest.mark.asyncio
+@requires_sage
+async def test_evaluate_sage_runs_sage_not_python(code, expected, real_sage_manager):
+    """The tool says SageMath; it used to execute plain Python.
+
+    `2^3` returned 1 because `^` is XOR in Python, `K.<a> = ...` was a syntax
+    error, and integer literals were machine ints. The specialised tools always
+    preparsed via sage_eval, so the two halves of the server disagreed about
+    which language they accepted.
+    """
+    result = await server.evaluate_sage(code=code, ctx=FakeContext("preparse"))
+    assert result.result == expected
+
+
+@pytest.mark.asyncio
+@requires_sage
+async def test_preparsing_does_not_open_a_way_past_the_policy(real_sage_manager):
+    """Validation reads the preparsed source, so payloads cannot hide in syntax
+    the validator could not previously parse."""
+    from fastmcp.exceptions import ToolError
+
+    for payload in (
+        "R.<a> = QQ[]; __import__('os').getuid()",
+        "f = open\nf('/etc/passwd').readline()",
+        "m = os\nm.getuid()",
+    ):
+        with pytest.raises(ToolError):
+            await server.evaluate_sage(code=payload, ctx=FakeContext("preparse-sec"))

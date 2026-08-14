@@ -10,14 +10,18 @@
 
 ## Testing
 
-- [ ] `uv run pytest`
-- [ ] `uv run ruff check`
+- [ ] `uv run pytest` (coverage is gated at 100%, statements and branches)
+- [ ] `uv run ruff check` — the bare command, as CI runs it
 - [ ] `make integration-test` (if Sage container available)
-- [ ] Other (specify): <!-- e.g., docker compose smoke test -->
+- [ ] Ran against **real SageMath**, not only the pure-Python worker, if behaviour changed
+- [ ] Other (specify): <!-- e.g. make cli-extended, compose smoke test -->
 
 ## Checklist
 
 - [ ] Documentation updated (README, USAGE, etc.) where needed.
 - [ ] Added/updated tests covering changes.
+- [ ] If a tool changed: snapshot regenerated (`python -m tests.test_tool_inventory --write`) and the diff reviewed.
+- [ ] If a security rule changed: the regression test was confirmed to **fail first**.
+- [ ] If dependencies changed: `uv lock` run and the lockfile committed.
 - [ ] Verified non-root container behavior if deployment assets changed.
 - [ ] Confirmed CODEOWNERS and reviewers.

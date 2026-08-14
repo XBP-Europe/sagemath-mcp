@@ -1,5 +1,19 @@
 # Plan — split `server.py` (review item 4)
 
+> **Done, 2026-08-14 (PR #38).** Kept as the record of what was decided and why.
+> Two things went differently from the plan, both worth knowing:
+>
+> - The 37 `monkeypatch.setattr(server, "SESSION_MANAGER")` sites were retargeted
+>   to `runtime` rather than converted to the shared fixture below. Several depend
+>   on their own settings, which one fixture would have flattened into an untested
+>   default. The fixture exists for new tests.
+> - Step 5 was load-bearing, not housekeeping. The generated-code lint resolved
+>   `server.py` by path, so after the move it would have passed while inspecting a
+>   file with no tools in it. The discovery floor caught that (`assert 0 >= 30`).
+>
+> Outcome: 2327 lines to 162, contract byte-identical by snapshot test, coverage
+> raised to 100% rather than deferred as planned.
+
 `src/sagemath_mcp/server.py` is 2327 lines and carries 37 tools, 3 resources, the
 FastMCP application, the runtime state, the code-generation helpers, the health
 route and the CLI entry point. It is the last open item from the 2026-08-13

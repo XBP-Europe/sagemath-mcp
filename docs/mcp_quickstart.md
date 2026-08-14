@@ -25,11 +25,39 @@ All tools use **SageMath** as the computation backend unless noted.
 - **Visualization (Sage):** `plot_expression`, `plot3d_expression`, `plot_multi_expression` (base64 PNG).
 - **Numeric Methods (Sage):** `find_root` (root-finding in an interval).
 - **Vector Calculus (Sage):** `vector_calculus_operation` (gradient, divergence, curl, Laplacian).
-- **Session Management:** `reset_sage_session`, `cancel_sage_session`.
+- **Session Management:** `start_sage_session`, `list_sage_sessions`, `stop_sage_session`,
+  `reset_sage_session`, `interrupt_sage_session` (stops the computation, keeps the variables),
+  `cancel_sage_session` (restarts the worker, discards them).
 - **Infrastructure:** `/health` endpoint (HTTP only).
-- **Resources:** `resource://sagemath/session/all`, `resource://sagemath/monitoring/metrics`.
+- **Resources:** `resource://sagemath/session/{scope}`, `resource://sagemath/monitoring/{scope}`,
+  `resource://sagemath/docs/{scope}`.
 - **Deployment:** Local development via `uv run sagemath-mcp`, Docker Compose on `http://127.0.0.1:8314/mcp`,
   or the Helm chart (`charts/sagemath-mcp`) which exposes the MCP endpoint through a Kubernetes Service.
+
+## What the server does that a caller should know
+
+**It runs Sage, not Python.** Code is preparsed exactly as Sage's own REPL does:
+`2^3` is 8, not 1; integer literals are Sage `Integer`s; `K.<a> = NumberField(x^3 - 2)`
+parses; and `x` is already defined. Use `^^` if you actually want XOR.
+
+**Large integers travel as decimal strings.** Above 2^53 a JSON number is no
+longer exact and a JavaScript-based client will round it before the server ever
+sees it, so those parameters take strings and those results come back as strings:
+
+```json
+{"tool": "combinatorics_operation", "arguments": {"operation": "bell", "n": 30}}
+-> {"operation": "bell", "result": "846749014511809332450147"}
+```
+
+**Workspaces are independent.** Every stateful tool takes an optional `session`;
+omit it for `default`. A long exploration and a scratch calculation do not have to
+collide.
+
+**Some code is refused on purpose.** Imports, `eval`/`exec`, `getattr`, dunder
+access, the `os`/`sys`/`subprocess` family, Sage's own `cython()`, `sh()`,
+`load()` and the interfaces to other CAS programs (`gp`, `maxima`, `singular`, …)
+are all rejected. If you hit one, the answer is a Sage primitive, not a way
+around it — and every one of those has executed code or run a shell in testing.
 
 ## Example Prompts
 
@@ -39,7 +67,7 @@ All tools use **SageMath** as the computation backend unless noted.
 {
   "tool": "evaluate_sage",
   "arguments": {
-    "code": "var('x'); f = sin(x)**3; diff(f, x)"
+    "code": "f = sin(x)^3; diff(f, x)"
   }
 }
 ```
@@ -48,7 +76,7 @@ All tools use **SageMath** as the computation backend unless noted.
 {
   "tool": "evaluate_sage",
   "arguments": {
-    "code": "integral(diff(sin(x)**3, x), x)"
+    "code": "integral(diff(sin(x)^3, x), x)"
   }
 }
 ```
@@ -102,3 +130,10 @@ All tools use **SageMath** as the computation backend unless noted.
 - Prefer Sage primitives (`var`, `matrix`, polynomial rings) over raw imports.
 - Disable `capture_stdout` in `evaluate_sage` for loops unless you need console output.
 - Use the helper tools where possible—they return clean JSON structures.
+- Reach for `interrupt_sage_session` before `cancel_sage_session`: interrupting
+  abandons the computation and keeps every variable, cancelling restarts the
+  worker and loses them.
+- Name a workspace (`"session": "curves"`) when a line of work should not be
+  disturbed by unrelated calculations.
+- Ask for a plot only when you want the image: it comes back as base64 PNG and is
+  large compared with everything else here.

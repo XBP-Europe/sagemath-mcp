@@ -47,6 +47,25 @@ Ruff with line-length 100, target Python 3.12. Rules: E, F, W, B, UP, ASYNC, RUF
 - `models.py` - Pydantic models for results (`EvaluateResult`, `SessionSnapshot`, `MonitoringSnapshot`).
 - `monitoring.py` - Thread-safe `EvaluationMetrics` (counters, latency, error tracking).
 
+**Invariants that bite.** These are enforced by tests, and each one exists because
+it was violated:
+
+- Coverage is gated at 100% (statements and branches). Unreachable branches get
+  deleted, not exempted.
+- Tool names, schemas and descriptions are snapshotted (`tests/test_tool_inventory.py`).
+  Changing a tool means regenerating it deliberately: `python -m tests.test_tool_inventory --write`.
+- Any caller string interpolated into generated Sage must pass `_encode_literal`,
+  `_validated_expression` or `_validated_identifier`. Generated code runs under
+  `trusted_policy()`, which permits `sage_eval`, so an ungated string is arbitrary
+  execution. A structural test enforces this.
+- `evaluate_sage` preparses caller code (Sage semantics: `2^3` is 8, `x` predefined).
+  Generated templates are **not** preparsed and must not use `^` — a lint enforces that.
+- The worker strips Sage helpers that execute, compile, fetch or pickle, plus every
+  external CAS interface, from a baked-in list; an integration test re-derives it
+  from the installed Sage so a version bump cannot reopen the hole.
+- Security fixes are written test-first, verified against **real Sage**, and recorded
+  in `REVIEW_ACTIONS.md`.
+
 **Request flow:** MCP client -> a tool in `tools/` -> `SageSessionManager.get_or_create()` -> `SageSession.evaluate()` -> JSON request to `_sage_worker.py` subprocess -> AST validation -> exec in persistent namespace -> JSON response back.
 
 **MCP tools (37, 31 Sage-backed):** `evaluate_sage` (core), `evaluate_sage_streaming`, `reset_sage_session`, `cancel_sage_session`, plus 29 math/domain helpers: `calculate_expression`, `solve_equation`, `differentiate_expression`, `integrate_expression`, `simplify_expression`, `expand_expression`, `factor_expression`, `limit_expression`, `series_expansion`, `symbolic_sum`, `matrix_multiply`, `matrix_operation`, `solve_ode`, `number_theory_operation`, `combinatorics_operation`, `statistics_summary`, `distribution_operation`, `plot_expression`, `plot3d_expression`, `plot_multi_expression`, `find_root`, `vector_calculus_operation`, `graph_operation`, `group_operation`, `elliptic_curve_operation`, `coding_theory_operation`, `boolean_algebra_operation`, `polynomial_ring_operation`, `geometry_operation`. Plus HTTP `/health` endpoint.

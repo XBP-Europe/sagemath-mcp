@@ -17,6 +17,7 @@ Metrics are served through the `resource://sagemath/monitoring/metrics` MCP reso
 | `last_run_at` | UNIX timestamp of the most recent evaluation. |
 | `last_error` | Message from the latest failure (if any). |
 | `last_security_violation` | Message from the latest security violation (if any). |
+| `last_error_details` | Traceback or captured stdout for the latest failure, when the worker supplied one. |
 
 These counters reset when the MCP server restarts. Set `SAGEMATH_MCP_SECURITY_LOG_VIOLATIONS=true` to ensure blocked code is logged alongside the counters.
 
@@ -30,11 +31,14 @@ If you run the server locally via stdio (`uv run sagemath-mcp`), you can query t
 uv run python - <<'PY'
 import asyncio, json
 from fastmcp import Client
+from fastmcp.client.transports import StdioTransport
 
 async def main():
-    client = Client("sagemath-mcp", transport="stdio")
-    metrics = await client.resource("resource://sagemath/monitoring/metrics")
-    print(json.dumps([m.model_dump() for m in metrics], indent=2))
+    # The client must be entered as a context manager -- outside it there is
+    # no connection -- and read_resource returns a list of contents.
+    async with Client(StdioTransport(command="sagemath-mcp", args=[])) as client:
+        payload = await client.read_resource("resource://sagemath/monitoring/metrics")
+        print(json.dumps(json.loads(payload[0].text), indent=2))
 
 asyncio.run(main())
 PY
@@ -50,9 +54,9 @@ import asyncio, json
 from fastmcp import Client
 
 async def main():
-    client = Client("http://127.0.0.1:8314/mcp", transport="http")
-    metrics = await client.resource("resource://sagemath/monitoring/metrics")
-    print(json.dumps([m.model_dump() for m in metrics], indent=2))
+    async with Client(transport="http://127.0.0.1:8314/mcp") as client:
+        payload = await client.read_resource("resource://sagemath/monitoring/metrics")
+        print(json.dumps(json.loads(payload[0].text), indent=2))
 
 asyncio.run(main())
 PY
@@ -89,7 +93,8 @@ FIELDS = {
 
 async def fetch_snapshot():
     client = Client("http://127.0.0.1:8314/mcp", transport="http")
-    snapshot = await client.resource("resource://sagemath/monitoring/metrics")
+    contents = await client.read_resource("resource://sagemath/monitoring/metrics")
+    snapshot = json.loads(contents[0].text)
     return snapshot[0]
 
 async def metrics_handler(request):

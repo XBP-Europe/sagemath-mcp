@@ -30,10 +30,54 @@ Thank you for your interest in improving the SageMath MCP server! This guide exp
 - For Sage-backed tests, run `make integration-test` (requires the Docker container).
 - Follow the project’s [Agent Playbook](AGENTS.md) and [Testing Guide](TESTING.md) for tips on helper scripts and CI requirements.
 
+## What CI enforces
+
+These are the checks that fail a pull request. None of them are obvious from the
+code, so they are listed here rather than discovered.
+
+- **100% coverage, statements and branches.** `--cov-fail-under=100` runs in the
+  unit job. A new branch needs a test that reaches it; if a branch is genuinely
+  unreachable, delete it rather than exempt it — that is how most of them were
+  resolved.
+- **The tool inventory is snapshotted.** Adding, renaming or re-describing a tool
+  changes the MCP contract and fails `tests/test_tool_inventory.py`. Regenerate
+  deliberately: `python -m tests.test_tool_inventory --write`, and expect the diff
+  to be reviewed. Descriptions count — they are what makes a model choose a
+  specialised tool over `evaluate_sage`.
+- **Every version must agree**, including `uv.lock`. `scripts/bump_version.py`
+  updates them together; `uv lock --check` runs in CI.
+- **Caller strings may not reach generated code ungated.** Generated snippets run
+  under a policy that permits `sage_eval`, so a parameter interpolated without
+  `_encode_literal`, `_validated_expression` or `_validated_identifier` is
+  arbitrary execution. A structural test fails if one appears.
+- **README claims are tested.** The security table, the badge versions and the
+  coverage number are all checked against the code and the workflows.
+- **Documented examples must be exercised.** Anything quoted in a `Field(...)`
+  description has to appear in a test — that rule exists because a documented
+  spelling once shipped broken.
+
+## Writing a security fix
+
+The project has had several sandbox bypasses. The discipline that catches them:
+
+1. **Reproduce first**, against real SageMath rather than the pure-Python shim —
+   Sage installs its own signal handling, namespace and preparser, and several
+   findings existed only there.
+2. **Write the regression test and watch it fail** on the unfixed code. A test
+   that passes before the fix is testing nothing, and that has happened here.
+3. **Fix, then re-run the whole integration suite.** Tightening the policy is the
+   easiest way to break legitimate mathematics.
+4. **Record it in `REVIEW_ACTIONS.md`** with the reproduction and the fix, so the
+   next person can see the shape of what has already been tried.
+
 ## Coding Standards
 
 - Python 3.12+ with Ruff enforcing PEP 8 and companion rules; line length ≤100.
 - Mirror new modules with tests under `tests/`.
+- A new tool goes in the matching `src/sagemath_mcp/tools/` module and must be
+  listed in `tools/__init__.py`; a module missing from that list registers nothing.
+- Resolve workers through `runtime.resolve_session(...)`, never a module-level
+  import of `SESSION_MANAGER`, which binds the manager that existed at import time.
 - Use `SageSettings` to expose environment-driven configuration; avoid hard-coded toggles.
 - Keep inline comments concise and only for non-obvious logic.
 

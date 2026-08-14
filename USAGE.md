@@ -95,6 +95,30 @@ Refer to [MONITORING.md](MONITORING.md) for details on exporting metrics to Prom
 For container deployments, scrape metrics from whichever service (compose or Helm) exposes
 `resource://sagemath/monitoring/metrics` through your MCP client.
 
+## How Code Is Interpreted
+
+`evaluate_sage` runs your code through Sage's preparser, exactly as the Sage REPL
+does, so it is Sage that you are writing and not Python:
+
+| You send | You get | Note |
+|----------|---------|------|
+| `2^3` | `8` | `^` is exponentiation. `^^` is XOR |
+| `type(2)` | `sage.rings.integer.Integer` | not a machine `int` |
+| `K.<a> = NumberField(x^3 - 2)` | works | preparser-only syntax |
+| `x` | `x` | predefined, as in the REPL. Other symbols need `var('t')` |
+
+Integers at or above 2^53 travel as **decimal strings** in both directions,
+because a JSON number that large has already been rounded by a JavaScript-based
+client before the server sees it:
+
+```json
+{"operation": "bell", "n": 30}  ->  {"result": "846749014511809332450147"}
+```
+
+Interrupting is not cancelling. `interrupt_sage_session` abandons the running
+computation and keeps every variable; `cancel_sage_session` restarts the worker
+and discards them. Prefer the first.
+
 ## Verifying the Server
 ### Automated Tests & Lint
 ```bash
@@ -131,4 +155,15 @@ For HTTP transports, point the client at `http://HOST:PORT/mcp` and enable strea
 - **ModuleNotFoundError for `sage`**: ensure the server is launched via `sage -python ...` so Sage’s site-packages are on `PYTHONPATH`.
 - **Long-running jobs**: use `cancel_sage_session`; the server restarts the worker and logs a warning for the calling context.
 - **Idle sessions**: the background culler removes sessions after `SAGEMATH_MCP_IDLE_TTL` seconds (default 900). Adjust via environment variables as documented in `README.md`.
+- **`SecurityViolation` on ordinary-looking code**: imports, `eval`/`exec`,
+  `getattr`, dunder access, the `os`/`sys`/`subprocess` family, and Sage's own
+  `cython()`, `sh()`, `load()` and CAS interfaces (`gp`, `maxima`, `singular`, …)
+  are all refused. Each of those has executed code or run a shell in testing.
+  Rewrite with a Sage primitive; the specialised tools cover most of what people
+  reach for them for.
+- **`'n' is larger than 2^53`**: pass that argument as a decimal string. A JSON
+  number that large is not exact, so the server refuses it rather than computing
+  from a rounded value.
+- **`name 't' is not defined`**: Sage predefines only `x`. Declare others with
+  `var('t s')`, exactly as in the Sage REPL.
 - **Permission denied on volume mounts**: the checkout is mounted read-only on purpose, so a write failure there is usually the application trying to write where it should not. If the path really is meant to be writable (a persistence volume), give that single path to UID/GID 1001 — not the whole tree.

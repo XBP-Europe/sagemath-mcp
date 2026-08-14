@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -30,6 +31,26 @@ def clean_html(html: str) -> str:
     return str(soup)
 
 
+DOC_BASE = "https://doc.sagemath.org/html/en/reference"
+
+
+def _absolutize_links(markdown: str, section: str) -> str:
+    """Rewrite relative links to the upstream documentation they came from."""
+
+    def fix(match: re.Match[str]) -> str:
+        label, target = match.group(1), match.group(2)
+        if target.startswith(("http://", "https://", "#", "mailto:")):
+            return match.group(0)
+        path, _, fragment = target.partition("#")
+        if not path:
+            return match.group(0)
+        prefix = f"{section}/" if section not in {"", "."} else ""
+        url = f"{DOC_BASE}/{prefix}{path}"
+        return f"[{label}]({url}#{fragment})" if fragment else f"[{label}]({url})"
+
+    return re.sub(r"\[([^\]]+)\]\(([^)]+)\)", fix, markdown)
+
+
 def convert_file(html_path: Path) -> None:
     relative = html_path.relative_to(SRC_ROOT)
     if str(relative).replace("\\", "/") not in ALLOWED_PAGES:
@@ -53,8 +74,17 @@ def convert_file(html_path: Path) -> None:
                 trimmed.append(line)
     markdown = "\n".join(trimmed).strip() + "\n"
 
+    # Point every link at doc.sagemath.org. Left relative, they resolve against
+    # this repository and 404 -- 210 of them did, in files nothing links to, so a
+    # reader who found the page could not follow a single reference out of it.
+    markdown = _absolutize_links(markdown, relative.parent.as_posix())
+
     source_url = f"https://doc.sagemath.org/html/en/reference/{relative.as_posix()}"
-    header = f"<!-- Source: {source_url} -->\n\n"
+    header = (
+        f"<!-- Source: {source_url} -->\n"
+        "<!-- Snapshot of the SageMath reference manual. Links point upstream; "
+        "the live page is authoritative. -->\n\n"
+    )
     dest_path.write_text(header + markdown, encoding="utf-8")
 
 

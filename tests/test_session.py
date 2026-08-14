@@ -1478,7 +1478,9 @@ async def test_cancelling_while_queued_for_the_lock_leaves_no_pump_running(tmp_p
         leaked = [task for task in created if not task.done()]
         assert not leaked, f"{len(leaked)} stdout pump task(s) left running"
     finally:
+        # CancelledError is a BaseException, so suppress(Exception) does not
+        # catch it: on 3.13 it escaped the test and failed CI while 3.12 passed.
         holder.cancel()
-        with contextlib.suppress(Exception):
+        with contextlib.suppress(asyncio.CancelledError, Exception):
             await holder
         await session.shutdown()

@@ -94,7 +94,8 @@ typo in the one sentence GitHub indexes for search.
     and its test queries the registry rather than the workflow -- checking that
     release.yml mentions the job was what let the badge claim a listing that had
     never happened.
-- [ ] List on Smithery and Glama, as fermat-mcp does
+- [x] Glama: auto-indexed and returning `XBP-Europe/sagemath-mcp`; claiming the listing needs owner access
+- [ ] Smithery: connect the repository at smithery.ai/new (reads the committed `smithery.yaml`) — needs owner access
 
 At the time of the survey the only SageMath server in the official registry was
 `io.github.justice8096/sagemath-mcp-server`, a one-star project with 10 tools. Registry
@@ -223,4 +224,4 @@ All items from the initial evaluation and TODO have been implemented:
 - [x] Project metadata, classifiers, URLs
 - [x] MIT LICENSE file (was Apache 2.0)
 - [x] Version synchronization across pyproject.toml, __init__.py, Helm chart
-- [ ] Include both `server.json` version fields in automated version synchronization
+- [x] Include both `server.json` version fields in automated version synchronization — `scripts/bump_version.py` writes the manifest version and every package version, and `test_all_declared_versions_agree` asserts both alongside pyproject, `__init__` and the chart

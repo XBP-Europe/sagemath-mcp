@@ -30,6 +30,13 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Integer results above 2^53 are returned as decimal strings.** They were
+  returned as JSON numbers, and JavaScript-based MCP clients parse those as IEEE
+  doubles, so exact values were silently corrupted: `bell(30)` reached one CLI as
+  `846749014511809388871680` rather than `846749014511809332450147`. Integers
+  below the boundary keep their numeric type, so ordinary results are unchanged.
+  This mirrors the input side, which has required decimal strings for the same
+  values since 0.4.0.
 - **`interrupt_sage_session` no longer signals an idle worker.** When nothing is running
   it returns `No running computation in session '<name>'` instead of claiming state was
   preserved. Signalling an idle worker was not harmless: it is blocked reading its input,

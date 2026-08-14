@@ -324,6 +324,30 @@ def _distribution_variance(distribution: str, parameters: list[float]) -> float:
     raise ToolError(f"No analytic variance available for distribution '{distribution}'")
 
 
+def _exactify_large_ints(value):
+    """Return *value* with JSON-unsafe integers rendered as decimal strings.
+
+    The input guard was only half the problem. Results travel back as JSON
+    numbers, and a JavaScript-based MCP client parses those as IEEE doubles:
+    bell(30) = 846749014511809332450147 reached the Claude CLI as
+    846749014511809388871680 and was shown as the answer. Nothing errored; the
+    number was simply wrong, which is the worst way for this to fail.
+
+    Above 2^53 the exact value is therefore sent as a string, mirroring what the
+    input side already demands for the same reason. Smaller integers keep their
+    type, so ordinary results are unchanged.
+    """
+    if isinstance(value, bool):
+        return value                      # bool is an int subclass
+    if isinstance(value, int):
+        return str(value) if abs(value) > _EXACT_JSON_INT_LIMIT else value
+    if isinstance(value, dict):
+        return {key: _exactify_large_ints(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_exactify_large_ints(item) for item in value]
+    return value
+
+
 async def _evaluate_structured(
     session, code: str, timeout_seconds: float | None = None
 ) -> object:
@@ -345,9 +369,10 @@ async def _evaluate_structured(
     if worker_result.result is None:
         return None
     try:
-        return ast.literal_eval(worker_result.result)
+        parsed = ast.literal_eval(worker_result.result)
     except Exception:
         return worker_result.result
+    return _exactify_large_ints(parsed)
 
 
 # A plain Python identifier. Variable names are interpolated into generated code

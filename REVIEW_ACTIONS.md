@@ -35,6 +35,7 @@ section, under a "second round" heading, along with what closed it. Items 10,
 | 17 | Medium | Version bumps leave `server.json` stale | **done** |
 | 18 | **Critical** | Four specialized tools interpolate caller strings into trusted, `sage_eval`-enabled code | **done** |
 | 19 | High | Interrupting an idle worker wedges it and loses the state it claims to preserve | **done** |
+| 20 | High | Integer results above 2^53 are silently corrupted by JavaScript-based clients | **done** |
 
 ---
 
@@ -837,6 +838,47 @@ False without signalling when there is none. The tool then reports "No running
 computation", which is both safe and true. Covered from both directions: idle
 returns False and the session stays usable; a real in-flight computation is
 signalled, returns `Interrupted`, and its variables survive.
+
+---
+
+## 20. Large integer results are silently corrupted in JS clients — high — DONE
+
+Found by the extended CLI suite, which had never been run against the split
+branch and is not run by CI. Claude answered `bell(30)` as
+`846749014511809388871680`; the correct value is `846749014511809332450147`.
+
+### What was wrong
+
+Item 12 fixed integers coming *in*: above 2^53 a JSON number is no longer exact,
+so those parameters must arrive as decimal strings. Results going *out* were
+still emitted as JSON numbers, and a JavaScript-based MCP client parses every
+number as an IEEE double. The server sent the exact value and the client rounded
+it. Nothing errored, and the wrong number was displayed as the answer -- the
+worst way for this to fail, because there is nothing for a caller to notice.
+
+Confirmed server-side: the tool returned `846749014511809332450147`, and
+`int(float(...))` of that is `846749014511809388871680`.
+
+### Fix
+
+`_exactify_large_ints` renders any integer beyond 2^53 as a decimal string, and
+recurses into lists and dicts so factorisations, bases and varieties are covered
+too. Applied at the single point where every specialized tool returns its result
+(`_evaluate_structured`), so no tool can miss it. Integers below the boundary
+keep their numeric type, so ordinary results are unchanged. `bool` is excluded --
+it is an `int` subclass and would otherwise become `"True"`.
+
+This is a **user-visible output contract change**, documented in the README and
+the changelog. It mirrors the input side, which has spoken decimal strings for
+the same values since 0.4.0.
+
+### Verification
+
+Unit tests for the helper including the container and type-preservation cases,
+the item-12 test updated to assert the string, and four values checked against
+real SageMath and round-tripped through JSON: `bell(30)`, `factorial(25)`,
+`next_prime(10^30)` exact; `binomial(10,3)` still the integer `120`. The CLI case
+that found it now passes.
 
 SSH authentication to GitHub broke during this session (`ssh -T git@github.com`
 returns `Permission denied (publickey)` with keys loaded). `gh` still works

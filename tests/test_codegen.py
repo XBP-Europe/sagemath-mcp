@@ -267,3 +267,53 @@ def test_declare_free_symbols_guards_names_sage_might_already_define() -> None:
     """gamma, sin and friends must keep meaning the Sage object."""
     declared = _declare_free_symbols("gamma(alpha)")
     assert "hasattr" in declared, "a spelled-out name must be checked before shadowing"
+
+
+# ---------------------------------------------------------------------------
+# Large integers on the way OUT
+# ---------------------------------------------------------------------------
+#
+# The input guard (_exact_int / _reject_if_inexact) was only half the problem.
+# Results travel back as JSON numbers, and a JavaScript-based MCP client parses
+# those as IEEE doubles: the Claude CLI turned bell(30) =
+# 846749014511809332450147 into 846749014511809388871680 and displayed it as the
+# answer. Nothing errored -- the number was simply wrong.
+
+
+def test_large_integers_leave_as_decimal_strings() -> None:
+    from sagemath_mcp.codegen import _exactify_large_ints
+
+    limit = 2**53
+    assert _exactify_large_ints(limit + 1) == str(limit + 1)
+    assert _exactify_large_ints(-(limit + 1)) == str(-(limit + 1))
+    assert _exactify_large_ints(846749014511809332450147) == "846749014511809332450147"
+
+
+def test_integers_a_client_can_represent_are_left_as_numbers() -> None:
+    """Only the ones that would be corrupted change shape."""
+    from sagemath_mcp.codegen import _exactify_large_ints
+
+    for value in (0, 1, -42, 2**53 - 1, -(2**53 - 1)):
+        assert _exactify_large_ints(value) == value
+        assert isinstance(_exactify_large_ints(value), int)
+
+
+def test_exactify_reaches_inside_containers() -> None:
+    """Results are often lists and dicts: factorisations, bases, varieties."""
+    from sagemath_mcp.codegen import _exactify_large_ints
+
+    big = 2**60
+    assert _exactify_large_ints([1, big]) == [1, str(big)]
+    assert _exactify_large_ints((big,)) == [str(big)]
+    assert _exactify_large_ints({"n": big, "small": 2}) == {"n": str(big), "small": 2}
+    assert _exactify_large_ints([[big], {"k": [big]}]) == [[str(big)], {"k": [str(big)]}]
+
+
+def test_exactify_leaves_other_types_alone() -> None:
+    from sagemath_mcp.codegen import _exactify_large_ints
+
+    assert _exactify_large_ints("already a string") == "already a string"
+    assert _exactify_large_ints(1.5) == 1.5
+    assert _exactify_large_ints(None) is None
+    # bool is an int subclass; True must not become "True".
+    assert _exactify_large_ints(True) is True

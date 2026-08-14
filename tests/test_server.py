@@ -2148,8 +2148,11 @@ async def test_number_theory_accepts_big_integers_as_strings(monkeypatch):
     result = await server.number_theory_operation(
         "next_prime", "1000000000000000000000000000000", ctx=FakeContext()
     )
-    # _evaluate_structured parses the worker's repr, so this comes back as an int.
-    assert result["result"] == 10**30 + 57
+    # It comes back as a decimal STRING, not an int. Above 2^53 a JSON number
+    # stops being exact, and a JavaScript-based client silently rounds it: this
+    # value would reach the caller as 1.0000000000000001e+30. The exact digits
+    # matter more than the type, and the input side already speaks this dialect.
+    assert result["result"] == str(10**30 + 57)
     # The generated code must carry the exact value, not a float repr.
     assert "1000000000000000000000000000000" in session.calls[0]["code"]
     assert "e+30" not in session.calls[0]["code"]

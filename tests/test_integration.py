@@ -468,3 +468,71 @@ async def test_preparsing_does_not_open_a_way_past_the_policy(real_sage_manager)
     ):
         with pytest.raises(ToolError):
             await server.evaluate_sage(code=payload, ctx=FakeContext("preparse-sec"))
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_sage_helpers_that_execute_code_are_unreachable():
+    """The namespace scrub, against the real Sage namespace.
+
+    `cython(get_remote_file(url))` was download, compile and execute in one
+    expression, and `sh` runs a shell. None of it involved a name any rule
+    mentioned, which is why the scrub works by provenance rather than by list.
+    """
+    from sagemath_mcp._sage_worker import _build_namespace
+
+    namespace = _build_namespace()
+    reachable = [
+        name
+        for name in (
+            "cython", "cython_lambda", "fortran", "sh", "get_remote_file",
+            "loads", "dumps", "save", "load", "attach", "sage_eval", "sageobj",
+            "trace", "edit", "db", "db_save", "tmp_dir", "tmp_filename",
+        )
+        if name in namespace
+    ]
+    assert not reachable, f"dangerous Sage helpers still in the namespace: {reachable}"
+
+    # And the mathematics is untouched.
+    for needed in ("Integer", "ZZ", "QQ", "matrix", "plot", "EllipticCurve", "SR"):
+        assert needed in namespace, f"{needed} was removed with the dangerous names"
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_external_interfaces_are_not_in_the_namespace():
+    """Everything sage.interfaces.all exports spawns another program.
+
+    gp and maxima both executed shell commands through their own `system`
+    escapes. Stripping Sage's own export list covers the ones a hand-written
+    list would miss, including anything a future release adds.
+    """
+    import sage.interfaces.all as interfaces
+
+    from sagemath_mcp._sage_worker import _build_namespace
+
+    namespace = _build_namespace()
+    exported = {name for name in vars(interfaces) if not name.startswith("_")}
+    still_reachable = sorted(exported & set(namespace))
+    assert not still_reachable, f"external interfaces reachable: {still_reachable}"
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_mathematics_that_uses_singular_and_pari_still_works(real_sage_manager):
+    """Removing the interface OBJECTS must not touch the libraries.
+
+    Sage computes Gröbner bases through libsingular and factors through PARI
+    in-process; only the subprocess interfaces were removed.
+    """
+    ctx = FakeContext("libraries")
+    groebner = await server.polynomial_ring_operation(
+        ring_vars=["a", "b"], polynomials=["a^2+b", "b^2-1"],
+        operation="groebner_basis", ctx=ctx,
+    )
+    assert groebner["result"] == ["a^2 + b", "b^2 - 1"]
+
+    factored = await server.number_theory_operation(
+        operation="factor_integer", a="18446744073709551617", ctx=ctx
+    )
+    assert "274177" in str(factored["result"])

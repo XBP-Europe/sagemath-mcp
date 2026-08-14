@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import contextlib
+import importlib
 import io
 import json
 import os
@@ -45,6 +46,7 @@ def _build_namespace() -> dict[str, Any]:
             )
     ns["__builtins__"] = _restricted_builtins()
     _strip_forbidden_modules(ns)
+    _strip_dangerous_sage_names(ns)
     if not PURE_PYTHON and "x" not in ns:
         # Sage's REPL predefines x and callers expect it; importing
         # sage.all does not provide it. Only x -- Sage declares no others,
@@ -52,6 +54,87 @@ def _build_namespace() -> dict[str, Any]:
         with contextlib.suppress(Exception):
             ns["x"] = ns["SR"].var("x")
     return ns
+
+
+# Sage's namespace is thousands of names deep and includes plenty that execute
+# code, run a shell, compile, download or touch arbitrary paths. Listing them one
+# by one is a losing game -- `cython(get_remote_file(url))` was reachable, and so
+# were `sh`, `fortran` and `loads` -- so entries are removed by where they come
+# from. A new helper added to any of these modules is unreachable from the day it
+# lands, without anyone remembering to add its name.
+_DANGEROUS_SAGE_MODULES = (
+    "sage.misc.cython",          # compiles and imports arbitrary code
+    "sage.misc.inline_fortran",  # same, for Fortran
+    "sage.misc.sh",              # runs a shell
+    "sage.misc.remote_file",     # downloads
+    "sage.misc.persist",         # pickle load/save: code execution from bytes
+    "sage.misc.sage_eval",       # evaluates strings
+    "sage.repl.load",            # executes files
+    "sage.repl.attach",          # executes files, and keeps doing it
+    "sage.misc.attached_files",
+    "sage.misc.explain_pickle",
+    "sage.misc.edit_module",     # launches an editor
+    "sage.misc.trace",           # drops into the debugger
+    "sage.misc.dev_tools",
+    "sage.misc.package",         # inspects the installation
+    "sage.misc.temporary_file",  # creates files outside our control
+)
+
+# Sage's interfaces to other computer algebra systems. Each one spawns the real
+# program, and those programs have their own shell escapes:
+#     gp('system("id")')      wrote a file as the container user
+#     maxima('system("id")')  did the same
+# sage.interfaces.all is Sage's own list of them, so everything it exports is
+# removed -- including whatever a future release adds, which a hand-written list
+# of names would miss.
+_EXTERNAL_INTERFACE_EXPORTS = "sage.interfaces.all"
+
+
+def _dangerous_sage_names() -> frozenset[str]:
+    """Names defined by the dangerous modules, resolved from those modules only.
+
+    The first version of this walked the whole namespace reading ``__module__``
+    off every entry. That is how you find them, but Sage's namespace is built
+    from lazy imports and reading an attribute resolves one: worker startup went
+    from instant to 1.8 seconds, and the delay landed inside the caller's first
+    evaluation. Importing fifteen small modules and asking what each defines
+    costs nothing and touches nothing else.
+    """
+    names: set[str] = set()
+    try:
+        interfaces = importlib.import_module(_EXTERNAL_INTERFACE_EXPORTS)
+    except Exception:
+        interfaces = None
+    if interfaces is not None:
+        names.update(n for n in vars(interfaces) if not n.startswith("_"))
+
+    for module_name in _DANGEROUS_SAGE_MODULES:
+        try:
+            module = importlib.import_module(module_name)
+        except Exception:
+            continue
+        for name, value in vars(module).items():
+            if name.startswith("_"):
+                continue
+            # Defined here, not merely imported here: sage.misc.persist also has
+            # Integer and ZZ in scope, and removing those would break the maths
+            # this server exists to do.
+            home = getattr(value, "__module__", None)
+            if isinstance(home, str) and (
+                home == module_name or home.startswith(module_name + ".")
+            ):
+                names.add(name)
+    return frozenset(names)
+
+
+def _strip_dangerous_sage_names(ns: dict[str, Any]) -> int:
+    """Remove Sage helpers that execute, compile, fetch or write."""
+    removed = 0
+    for name in _dangerous_sage_names():
+        if name in ns:
+            del ns[name]
+            removed += 1
+    return removed
 
 
 def _strip_forbidden_modules(ns: dict[str, Any]) -> None:

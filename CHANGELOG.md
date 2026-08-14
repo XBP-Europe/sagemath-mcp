@@ -9,6 +9,20 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **Sage's external CAS interfaces are no longer reachable.** `gp` and `maxima`
+  both executed shell commands through their own `system` escapes --
+  `gp('system("id > /tmp/x")')` wrote a file as the container user. Everything
+  `sage.interfaces.all` exports is removed from the worker namespace, so a
+  future Sage release adding an interface is covered without anyone updating a
+  list. The libraries are untouched: Gröbner bases still go through libsingular
+  and factoring through PARI, in-process.
+- **Sage helpers that execute, compile, fetch or write are removed by
+  provenance.** `cython(get_remote_file(url))` was download, compile and execute
+  in one expression; `sh()` runs a shell; `loads` is code execution from bytes.
+  Names from fifteen modules are stripped at worker startup, which covers the
+  helper nobody has thought of yet. Doing this by walking the namespace instead
+  forced every lazy import to resolve and put 1.8s into the first evaluation, so
+  it resolves only those modules.
 - **Forbidden functions are blocked through attribute chains.**
   `sage.misc.sage_eval.sage_eval("__import__('os').getuid()")` returned the
   container uid: the name checks looked at bare names and call targets, and

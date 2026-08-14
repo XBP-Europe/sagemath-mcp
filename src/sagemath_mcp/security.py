@@ -80,6 +80,42 @@ class SecurityPolicy:
         # that no rule mentioned.
         "load",
         "attach",
+        # Sage's namespace carries more of the same: a compiler, a shell, a
+        # downloader and pickle. cython(get_remote_file(url)) was download,
+        # compile and execute in one expression. The worker also removes these
+        # by provenance; naming them here is what produces a clear refusal
+        # rather than a NameError.
+        "cython",
+        "cython_lambda",
+        "fortran",
+        "sh",
+        "get_remote_file",
+        "loads",
+        "dumps",
+        "save",
+        "save_session",
+        "load_session",
+        "db",
+        "db_save",
+        "sageobj",
+        "trace",
+        "edit",
+        "detach",
+        # Sage's interfaces to other CAS programs: each spawns the real thing,
+        # and those have shell escapes of their own. The worker removes every
+        # name sage.interfaces.all exports; these are listed so the common
+        # attempts fail with a policy message rather than a NameError.
+        "gp",
+        "maxima",
+        "gap",
+        "singular",
+        "octave",
+        "magma",
+        "mathematica",
+        "maple",
+        "matlab",
+        "macaulay2",
+        "sage0",
     )
     forbidden_attribute_parents: tuple[str, ...] = (
         "os",

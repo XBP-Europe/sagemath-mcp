@@ -783,6 +783,12 @@ All code --- whether from `evaluate_sage` or generated internally by helper tool
 > untrusted caller and your host. **The container is the security boundary** ---
 > run the server in one, and see [Container hardening](#container-hardening).
 >
+> These are removed from the worker namespace as well as rejected by the
+> validator, and by **where they come from** rather than by name: a list of names
+> cannot keep up with a namespace thousands deep, and `cython(get_remote_file(url))`
+> was download, compile and execute in one expression. `gp('system("id")')` ran a
+> shell command. Neither involved a name any rule mentioned.
+>
 > This section was previously inaccurate: it claimed `subprocess.*`, `pathlib.*`
 > and `socket.*` were blocked when none of them were, because a rule required a
 > module *and* a specific attribute name to match. Seven further bypasses were
@@ -809,6 +815,8 @@ than it sounds: `sage` is an allowed import root, so
 | Attribute indirection | `getattr()`, `setattr()`, `delattr()` --- these defeat every attribute rule by naming the attribute at runtime |
 | Runtime string evaluation | `sage_eval()`, `preparse()`, `sage_input()` --- these evaluate a string *after* the AST has been approved |
 | Dunder access | Any `__dunder__` name or attribute, which blocks `().__class__.__bases__[0].__subclasses__()` and `__builtins__` |
+| Sage helpers that execute or fetch | `cython()`, `cython_lambda()`, `fortran()` (compile and run code), `sh()` (runs a shell), `get_remote_file()` (downloads), `loads`/`dumps`/`save`/`db_save` (pickle is code execution) |
+| External CAS interfaces | `gp`, `maxima`, `gap`, `singular`, `octave`, `magma`, `sage0` and everything else `sage.interfaces.all` exports --- each spawns the real program, and those have shell escapes of their own |
 | Sage loaders | `load()` and `attach()` execute whatever path they are given, and `load()` accepts a URL |
 | Forbidden modules | **Every** attribute of `os`, `sys`, `subprocess`, `shutil`, `socket`, `pathlib`, `builtins` --- at any depth, so `sage.misc.temporary_file.os` is caught too |
 | Unauthorized imports | All imports except those in the allowlist (see below) |

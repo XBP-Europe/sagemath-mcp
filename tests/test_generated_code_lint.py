@@ -290,6 +290,8 @@ def test_no_caller_string_is_interpolated_into_generated_code_unguarded() -> Non
         "_declare_free_symbols",
         "_exact_int",
         "_reject_if_inexact",
+        # Returns numbers or raises: no string survives it into generated code.
+        "_exact_matrix_entries",
     }
     # Interpolation into a message is not interpolation into code.
     message_sinks = {"ToolError", "ResetResponse", "info", "warning", "error", "debug"}

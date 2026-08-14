@@ -129,3 +129,18 @@ def test_elliptic_curve_coefficients_advertise_it_too() -> None:
     tools = asyncio.run(_collect())["tools"]
     items = tools["elliptic_curve_operation"]["input_schema"]["properties"]["coefficients"]["items"]
     assert _accepts_string(items), "curve coefficients cannot carry an exact large integer"
+
+
+@pytest.mark.parametrize(
+    "tool,parameter",
+    [
+        ("matrix_operation", "matrix"),
+        ("matrix_multiply", "matrix_a"),
+        ("matrix_multiply", "matrix_b"),
+    ],
+)
+def test_matrix_entries_advertise_exact_integers(tool: str, parameter: str) -> None:
+    """A float-only entry schema rounds an exact integer before Sage sees it."""
+    tools = asyncio.run(_collect())["tools"]
+    entry = tools[tool]["input_schema"]["properties"][parameter]["items"]["items"]
+    assert _accepts_string(entry), f"{tool}.{parameter} entries cannot carry an exact integer"

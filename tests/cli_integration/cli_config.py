@@ -33,25 +33,58 @@ def _docker_container_running() -> bool:
     return "sage-mcp" in result.stdout
 
 
+def compose_command() -> list[str] | None:
+    """The Docker Compose invocation available here, or None.
+
+    Compose ships two ways: the v2 plugin (``docker compose``, current) and the
+    v1 binary (``docker-compose``, end of life since 2023). Hardcoding v1 meant
+    this raised "docker-compose up failed: FileNotFoundError" on any machine with
+    only modern Docker -- which is most of them now.
+    """
+    try:
+        probe = subprocess.run(
+            ["docker", "compose", "version"],
+            capture_output=True,
+            timeout=10,
+            check=False,
+        )
+        if probe.returncode == 0:
+            return ["docker", "compose"]
+    except (OSError, subprocess.SubprocessError):
+        pass
+    if shutil.which("docker-compose"):
+        return ["docker-compose"]
+    return None
+
+
 def ensure_docker_container(timeout: int = 10) -> None:
     """Ensure the sage-mcp Docker container is running.
 
-    Starts it via ``docker-compose up -d`` if needed and waits for readiness.
-    Raises RuntimeError if the container does not start in *timeout* seconds.
+    Starts it with whichever Compose is installed if needed, and waits for
+    readiness. Raises RuntimeError if the container does not start in *timeout*
+    seconds.
     """
     if _docker_container_running():
         return
 
+    compose = compose_command()
+    if compose is None:
+        raise RuntimeError(
+            "The sage-mcp container is not running and no Docker Compose was "
+            "found (tried 'docker compose' and 'docker-compose'). Start the "
+            "container yourself, or install Compose."
+        )
+
     try:
         subprocess.run(
-            ["docker-compose", "up", "-d"],
+            [*compose, "up", "-d"],
             cwd=str(PROJECT_ROOT),
             check=True,
             capture_output=True,
             timeout=timeout,
         )
     except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError) as exc:
-        raise RuntimeError(f"docker-compose up failed: {exc}") from exc
+        raise RuntimeError(f"{' '.join(compose)} up failed: {exc}") from exc
 
     # Wait for the container to be ready
     for _ in range(min(timeout, 30)):

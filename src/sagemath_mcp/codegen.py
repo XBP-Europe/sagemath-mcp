@@ -238,6 +238,30 @@ def _reject_if_inexact(value: int, name: str) -> int:
     return value
 
 
+def _exact_matrix_entries(rows, name: str):
+    """Return *rows* with integer entries kept exact.
+
+    The schemas took `float`, so an exact integer was rounded to a double before
+    Sage ever saw it: matrix(SR, [[9007199254740993]]) became
+    matrix(SR, [[9007199254740992.0]]) and the determinant was quietly wrong.
+    Integers and decimal strings now stay integers; genuine floats stay floats.
+    """
+    converted = []
+    for row in rows:
+        if not isinstance(row, (list, tuple)):
+            raise ToolError(f"'{name}' must be a list of rows")
+        out = []
+        for entry in row:
+            if isinstance(entry, bool):
+                raise ToolError(f"'{name}' entries must be numbers, got a boolean")
+            if isinstance(entry, float):
+                out.append(entry)          # a float was asked for; keep it
+            else:
+                out.append(_exact_int(entry, name))
+        converted.append(out)
+    return converted
+
+
 def _check_matrix(rows: list[list[float]], name: str) -> None:
     """Reject shapes Sage would only complain about obscurely, or not at all.
 

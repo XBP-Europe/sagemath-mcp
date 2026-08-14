@@ -21,6 +21,7 @@ from ..codegen import (
     _check_matrix,
     _encode_literal,
     _evaluate_structured,
+    _exact_matrix_entries,
     _sage_prelude,
     _validated_expression,
     _validated_identifier,
@@ -75,10 +76,27 @@ async def solve_equation(
     return {"solutions": solutions}
 
 
+# How a matrix entry or scalar comes back. Floats stay floats -- changing that
+# would alter every existing result -- except where a float cannot hold the
+# value: past MAX_SAFE_INTEGER an integral entry is returned exactly, and the
+# session then renders it as a decimal string on the way out.
+_EXACT_SCALAR = (
+    "(lambda _v: int(_v) if (_v in ZZ and abs(_v) > 9007199254740991) "
+    "else (float(_v) if _v in RR else str(_v)))"
+)
+
+
 @mcp.tool(description="Multiply two matrices and return the result as nested lists")
 async def matrix_multiply(
-    matrix_a: Annotated[list[list[float]], Field(description="Left matrix (rows of numbers)")],
-    matrix_b: Annotated[list[list[float]], Field(description="Right matrix (rows of numbers)")],
+    matrix_a: Annotated[
+        list[list[float | int | str]],
+        Field(description="Left matrix (rows of numbers). Integers stay exact; "
+              'pass values from 2^53 up as decimal strings, e.g. "9007199254740993".'),
+    ],
+    matrix_b: Annotated[
+        list[list[float | int | str]],
+        Field(description="Right matrix (rows of numbers). Integers stay exact."),
+    ],
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
@@ -89,6 +107,8 @@ async def matrix_multiply(
     # ...'", which does not say which dimension is wrong.
     _check_matrix(matrix_a, "matrix_a")
     _check_matrix(matrix_b, "matrix_b")
+    matrix_a = _exact_matrix_entries(matrix_a, "matrix_a")
+    matrix_b = _exact_matrix_entries(matrix_b, "matrix_b")
     if len(matrix_a[0]) != len(matrix_b):
         raise ToolError(
             f"Cannot multiply a {len(matrix_a)}x{len(matrix_a[0])} matrix by a "
@@ -102,7 +122,7 @@ async def matrix_multiply(
         A = matrix(SR, {matrix_a})
         B = matrix(SR, {matrix_b})
         C = A * B
-        [[float(entry) if entry in RR else str(entry) for entry in row] for row in C.rows()]
+        [[{_EXACT_SCALAR}(entry) for entry in row] for row in C.rows()]
         """
     )
     product = await _evaluate_structured(session, code)
@@ -115,7 +135,9 @@ async def matrix_multiply(
     ))
 async def matrix_operation(
     matrix: Annotated[
-        list[list[float]], Field(description="Matrix as nested list of numbers")
+        list[list[float | int | str]],
+        Field(description="Matrix as nested list of numbers. Integers stay exact; "
+              'pass values from 2^53 up as decimal strings.'),
     ],
     operation: Annotated[
         str,
@@ -128,6 +150,7 @@ async def matrix_operation(
         raise ToolError("MCP context with session_id is required for stateful execution")
     operation = operation.strip()
     _check_matrix(matrix, "matrix")
+    matrix = _exact_matrix_entries(matrix, "matrix")
     allowed_ops = {"determinant", "inverse", "eigenvalues", "rank", "rref", "transpose"}
     if operation not in allowed_ops:
         raise ToolError(
@@ -135,18 +158,15 @@ async def matrix_operation(
             f"Must be one of: {', '.join(sorted(allowed_ops))}"
         )
     session = await runtime.resolve_session(ctx.session_id, session)
+    # int before float: an integer determinant or entry cast to a double loses
+    # exactness for anything past 2^53, and these tools exist to be exact.
     _row_repr = (
-        "[[float(e) if e in RR else str(e) for e in row] for row in {obj}.rows()]"
+        f"[[{_EXACT_SCALAR}(e) for e in row] for row in {{obj}}.rows()]"
     )
     op_code = {
-        "determinant": (
-            "float(M.determinant()) if M.determinant() in RR"
-            " else str(M.determinant())"
-        ),
+        "determinant": f"{_EXACT_SCALAR}(M.determinant())",
         "inverse": _row_repr.format(obj="M.inverse()"),
-        "eigenvalues": (
-            "[float(ev) if ev in RR else str(ev) for ev in M.eigenvalues()]"
-        ),
+        "eigenvalues": f"[{_EXACT_SCALAR}(ev) for ev in M.eigenvalues()]",
         "rank": "int(M.rank())",
         "rref": _row_repr.format(obj="M.rref()"),
         "transpose": _row_repr.format(obj="M.transpose()"),

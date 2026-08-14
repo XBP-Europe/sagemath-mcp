@@ -10,7 +10,7 @@
 - Alternatively, run `make sage-container` (or `./scripts/setup_sage_container.sh`) to pull and launch
   the Docker image automatically.
 - Optional: `sage` on your `PATH` if running outside Docker.
-- `docker compose up --build` launches the bundled stack on `http://127.0.0.1:8314/mcp` using the
+- `docker compose up --build` (or `docker-compose up --build` on Compose v1) launches the bundled stack on `http://127.0.0.1:8314/mcp` using the
   non-root `sage` user (UID/GID 1001); ensure the mounted project directory is writable by that UID.
 - To deploy to Kubernetes, use the Helm chart in `charts/sagemath-mcp` and set
   `image.repository`/`image.tag` to the published container (non-root execution is enforced by default).

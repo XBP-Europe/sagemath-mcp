@@ -160,3 +160,57 @@ def test_running_no_cases_for_a_selected_cli_is_a_failure(monkeypatch, capsys) -
 
     assert run_extended.main() == 1, "a CLI that ran no cases reported success"
     assert "ran no cases" in capsys.readouterr().out
+
+
+# --- Docker Compose is spelled two ways ---------------------------------------
+# v2 is a docker plugin (`docker compose`); v1 is a separate binary
+# (`docker-compose`) that reached end of life in 2023. Code hardcoding either one
+# breaks on half the machines out there, and this repository had both spellings
+# in different places -- CI on v2, the harness and the CI simulation on v1.
+
+
+def test_compose_prefers_the_v2_plugin(monkeypatch) -> None:
+    import subprocess
+
+    from tests.cli_integration import cli_config
+
+    monkeypatch.setattr(
+        cli_config.subprocess, "run",
+        lambda *a, **k: subprocess.CompletedProcess(a[0], 0, b"v2.29.0", b""),
+    )
+    monkeypatch.setattr(cli_config.shutil, "which", lambda name: "/usr/bin/docker-compose")
+    assert cli_config.compose_command() == ["docker", "compose"]
+
+
+def test_compose_falls_back_to_the_v1_binary(monkeypatch) -> None:
+    import subprocess
+
+    from tests.cli_integration import cli_config
+
+    monkeypatch.setattr(
+        cli_config.subprocess, "run",
+        lambda *a, **k: subprocess.CompletedProcess(a[0], 1, b"", b"unknown command"),
+    )
+    monkeypatch.setattr(cli_config.shutil, "which", lambda name: "/usr/bin/docker-compose")
+    assert cli_config.compose_command() == ["docker-compose"]
+
+
+def test_compose_reports_none_when_neither_is_installed(monkeypatch) -> None:
+    from tests.cli_integration import cli_config
+
+    def no_docker(*args, **kwargs):
+        raise FileNotFoundError("docker")
+
+    monkeypatch.setattr(cli_config.subprocess, "run", no_docker)
+    monkeypatch.setattr(cli_config.shutil, "which", lambda name: None)
+    assert cli_config.compose_command() is None
+
+
+def test_a_missing_compose_says_so_instead_of_a_filenotfound(monkeypatch) -> None:
+    """The old message was 'docker-compose up failed: FileNotFoundError'."""
+    from tests.cli_integration import cli_config
+
+    monkeypatch.setattr(cli_config, "_docker_container_running", lambda: False)
+    monkeypatch.setattr(cli_config, "compose_command", lambda: None)
+    with pytest.raises(RuntimeError, match="no Docker Compose was found"):
+        cli_config.ensure_docker_container()

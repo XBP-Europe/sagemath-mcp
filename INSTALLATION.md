@@ -19,6 +19,11 @@ uvx sagemath-mcp --transport http --host 127.0.0.1 --port 8314
 
 ### Docker Compose (all platforms)
 
+> Compose ships two ways: `docker compose` (the v2 plugin, current) and
+> `docker-compose` (the v1 binary, end of life since 2023). The commands below
+> use the v2 spelling; substitute `docker-compose` if that is what you have.
+> Repository tooling detects whichever is installed.
+
 ```bash
 git clone https://github.com/XBP-Europe/sagemath-mcp.git
 cd sagemath-mcp

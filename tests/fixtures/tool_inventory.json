@@ -663,20 +663,40 @@
         "additionalProperties": false,
         "properties": {
           "matrix_a": {
-            "description": "Left matrix (rows of numbers)",
+            "description": "Left matrix (rows of numbers). Integers stay exact; pass values from 2^53 up as decimal strings, e.g. \"9007199254740993\".",
             "items": {
               "items": {
-                "type": "number"
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
               },
               "type": "array"
             },
             "type": "array"
           },
           "matrix_b": {
-            "description": "Right matrix (rows of numbers)",
+            "description": "Right matrix (rows of numbers). Integers stay exact.",
             "items": {
               "items": {
-                "type": "number"
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
               },
               "type": "array"
             },
@@ -701,10 +721,20 @@
         "additionalProperties": false,
         "properties": {
           "matrix": {
-            "description": "Matrix as nested list of numbers",
+            "description": "Matrix as nested list of numbers. Integers stay exact; pass values from 2^53 up as decimal strings.",
             "items": {
               "items": {
-                "type": "number"
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
               },
               "type": "array"
             },

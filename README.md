@@ -686,6 +686,10 @@ Both directions therefore speak decimal strings past that boundary:
   neither can be trusted.
 - **Out:** integer results beyond that boundary come back as decimal strings.
   Smaller integers keep their numeric type, so ordinary results are unchanged.
+- **Matrices:** entries may be integers, decimal strings or floats. Integer
+  entries stay exact rather than being rounded through a double, and an
+  integral result past the boundary comes back exact. Float matrices behave
+  exactly as before.
 
 ```json
 {"operation": "bell", "result": "846749014511809332450147"}

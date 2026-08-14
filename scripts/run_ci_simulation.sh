@@ -7,7 +7,7 @@ cat <<'NOTE'
 Local CI Simulation
 ====================================================
 This script approximates the GitHub Actions workflow defined in .github/workflows/ci.yml.
-It assumes you have uv, docker, docker-compose, curl, tar, and sudo available locally.
+It assumes you have uv, docker, Docker Compose (v2 plugin or v1 binary), curl, tar, and sudo available locally.
 NOTE
 
 # Ensure we're in repo root
@@ -52,12 +52,26 @@ else
 fi
 
 # Step 7: Docker Compose smoke test & monitoring verification
-if command -v docker-compose >/dev/null 2>&1; then
-  echo "==> Running docker-compose smoke test"
-  docker-compose up --build -d
+#
+# Compose ships two ways: the v2 plugin (`docker compose`, current) and the v1
+# binary (`docker-compose`, end of life since 2023). This script only looked for
+# v1, so on any machine with modern Docker it printed "not found" and skipped the
+# smoke test entirely -- silently doing less than CI, which is what a local CI
+# simulation exists to avoid.
+if docker compose version >/dev/null 2>&1; then
+  COMPOSE="docker compose"
+elif command -v docker-compose >/dev/null 2>&1; then
+  COMPOSE="docker-compose"
+else
+  COMPOSE=""
+fi
+
+if [ -n "$COMPOSE" ]; then
+  echo "==> Running compose smoke test with '$COMPOSE'"
+  $COMPOSE up --build -d
   export SAGEMATH_MCP_URL="http://127.0.0.1:8314/mcp"
   cleanup() {
-    docker-compose down
+    $COMPOSE down
   }
   trap cleanup EXIT
   uv run python scripts/exercise_mcp.py
@@ -92,7 +106,7 @@ async def fetch_metrics(url: str, attempts: int = 10, delay: float = 3.0):
 asyncio.run(fetch_metrics(os.environ["SAGEMATH_MCP_URL"]))
 PY
 else
-  echo "==> docker-compose command not found; skipping smoke test"
+  echo "==> No Docker Compose found (tried 'docker compose' and 'docker-compose'); skipping smoke test"
 fi
 
 # Step 8: Build artifacts

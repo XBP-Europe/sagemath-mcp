@@ -90,5 +90,5 @@ If SageMath is available, execute a quick smoke test:
 sage -python scripts/exercise_mcp.py
 ```
 
-For container validation, start the service with `docker compose up --build` and run
+For container validation, start the service with `docker compose up --build` (`docker-compose` on Compose v1) and run
 `scripts/exercise_mcp.py` against `http://127.0.0.1:8314/mcp` to confirm end-to-end behavior.

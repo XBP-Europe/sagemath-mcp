@@ -390,3 +390,23 @@ async def test_is_convex_rejects_a_self_intersecting_polygon(sage_manager):
         operation="is_convex", points=pentagram, ctx=ctx
     )
     assert result["result"] is False, "a self-intersecting polygon was reported convex"
+
+
+@pytest.mark.asyncio
+@requires_sage
+async def test_matrix_determinant_stays_exact_past_the_safe_integer(sage_manager):
+    """diag(2^53+1, 1) has determinant 2^53+1, which a double cannot hold."""
+    ctx = FakeContext("exact-matrix")
+    result = await server.matrix_operation(
+        matrix=[["9007199254740993", "0"], ["0", "1"]],
+        operation="determinant",
+        ctx=ctx,
+    )
+    assert result["result"] == "9007199254740993"
+
+    # Ordinary float matrices keep behaving exactly as before.
+    floats = await server.matrix_operation(
+        matrix=[[1.5, 0.0], [0.0, 2.0]], operation="determinant", ctx=ctx
+    )
+    assert floats["result"] == pytest.approx(3.0)
+    assert isinstance(floats["result"], float)

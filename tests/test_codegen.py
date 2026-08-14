@@ -333,3 +333,24 @@ def test_the_boundary_is_max_safe_integer_not_two_to_the_53() -> None:
     for unsafe in (2**53, 2**53 + 1, -(2**53)):
         with pytest.raises(ToolError, match="2\\^53"):
             _reject_if_inexact(unsafe, "n")
+
+
+def test_matrix_entries_keep_integers_exact() -> None:
+    from sagemath_mcp.codegen import _exact_matrix_entries
+
+    rows = _exact_matrix_entries([["9007199254740991", 2], [3.5, 4]], "m")
+    assert rows == [[9007199254740991, 2], [3.5, 4]]
+    assert isinstance(rows[0][0], int)
+    assert isinstance(rows[1][0], float), "a float entry must stay a float"
+
+
+def test_matrix_entries_refuse_a_number_that_has_already_been_rounded() -> None:
+    """The schemas took float, so 9007199254740993 reached Sage as ...992.0."""
+    from sagemath_mcp.codegen import _exact_matrix_entries
+
+    with pytest.raises(ToolError, match="2\\^53"):
+        _exact_matrix_entries([[2**53 + 1]], "m")
+    with pytest.raises(ToolError, match="must be numbers"):
+        _exact_matrix_entries([[True]], "m")
+    with pytest.raises(ToolError, match="list of rows"):
+        _exact_matrix_entries(["not a row"], "m")

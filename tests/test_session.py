@@ -1558,6 +1558,22 @@ async def test_a_stalled_callback_cannot_grow_the_queue_without_limit(tmp_path):
         )
         assert session._dropped_stdout_lines > 0, "nothing was recorded as dropped"
 
+        # Blank lines cost no characters but still cost an entry each: the
+        # character budget alone let ten thousand of them through.
+        from sagemath_mcp.session import _MAX_QUEUED_STDOUT_LINES
+
+        for _ in range(_MAX_QUEUED_STDOUT_LINES * 10):
+            session._offer_stdout_line(queue, "")
+        assert queue.qsize() <= _MAX_QUEUED_STDOUT_LINES, (
+            f"empty events bypassed the bound: {queue.qsize()} queued"
+        )
+
+        # And a single line larger than the whole budget cannot be stored whole.
+        session._offer_stdout_line(queue, "z" * (_MAX_QUEUED_STDOUT_CHARS + 5000))
+        assert session._queued_stdout_chars <= _MAX_QUEUED_STDOUT_CHARS, (
+            "an oversized line was stored in full"
+        )
+
         release.set()
         await session._stop_stdout_pump(pump)
     finally:

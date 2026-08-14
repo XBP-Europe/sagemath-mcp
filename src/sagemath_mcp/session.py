@@ -28,11 +28,17 @@ _JOURNAL_NAMESPACE = "v2"
 # How many non-matching lines to skip before declaring the worker unusable.
 _MAX_DISCARDED_RESPONSES = 64
 
-# Characters of progress output held for a slow callback before the oldest are
-# dropped. A line count bounds nothing in particular -- a thousand lines can be
-# a megabyte or a gigabyte -- so the budget is in characters. The full stdout
-# still travels with the result, so this loses nothing a caller cannot recover.
+# Two budgets, because each one alone has a hole. Characters alone: ten thousand
+# empty lines account for zero characters and still cost a queue entry each.
+# Entries alone: a thousand lines bounds nothing when a line can be a gigabyte.
+# The full stdout still travels with the result, so dropping progress events
+# loses nothing a caller cannot recover.
 _MAX_QUEUED_STDOUT_CHARS = 1_000_000
+_MAX_QUEUED_STDOUT_LINES = 1_000
+
+# A single line longer than the whole budget cannot be made to fit by dropping
+# others, so it is truncated rather than stored whole.
+_STDOUT_TRUNCATION_MARKER = "... [truncated]"
 _PROJECT_ROOT = str(Path(__file__).resolve().parents[1])
 
 # Workspace used when a caller does not name one.
@@ -182,8 +188,15 @@ class SageSession:
         caller cannot recover. Blocking here, or growing without limit, would
         lose the whole session.
         """
+        if len(text) > _MAX_QUEUED_STDOUT_CHARS:
+            # Dropping every other line still would not make room for this one.
+            keep = _MAX_QUEUED_STDOUT_CHARS - len(_STDOUT_TRUNCATION_MARKER)
+            text = text[:keep] + _STDOUT_TRUNCATION_MARKER
         while (
-            self._queued_stdout_chars + len(text) > _MAX_QUEUED_STDOUT_CHARS
+            (
+                self._queued_stdout_chars + len(text) > _MAX_QUEUED_STDOUT_CHARS
+                or queue.qsize() >= _MAX_QUEUED_STDOUT_LINES
+            )
             and not queue.empty()
         ):
             try:

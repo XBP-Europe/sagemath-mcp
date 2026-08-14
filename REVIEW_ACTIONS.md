@@ -36,6 +36,9 @@ section, under a "second round" heading, along with what closed it. Items 10,
 | 18 | **Critical** | Four specialized tools interpolate caller strings into trusted, `sage_eval`-enabled code | **done** |
 | 19 | High | Interrupting an idle worker wedges it and loses the state it claims to preserve | **done** |
 | 20 | High | Integer results above 2^53 are silently corrupted by JavaScript-based clients | **done** |
+| 21 | **Critical** | Persisted specialized-tool state can never be restored | **done** |
+| 22 | High | Exact-integer inputs unguarded on two tools; `/health` never registered; `is_convex` always true | **done** |
+| 23 | High | Nightly leaked every provider key to each CLI, and stayed green when registration failed | **done** |
 
 ---
 
@@ -879,6 +882,58 @@ the item-12 test updated to assert the string, and four values checked against
 real SageMath and round-tripped through JSON: `bell(30)`, `factorial(25)`,
 `next_prime(10^30)` exact; `binomial(10,3)` still the integer `120`. The CLI case
 that found it now passes.
+
+---
+
+## 21-23. Findings from the persistence/availability review — DONE
+
+Seven findings, four rated P1. Each was reproduced before being fixed.
+
+**21. Journal replay could not restore specialized-tool state.** Helper tools run
+with `trusted=True` because their templates are built on `sage_eval`, but the
+journal stored bare code and replay always used the caller policy. The first
+specialized entry was rejected, replay stopped there, and the next save wrote
+back only the replayed prefix -- persisted state quietly truncated and
+unrestorable. Entries now record the trust mode they ran under and replay under
+it; blessing every entry would have put caller code on the trusted path, which is
+the one thing the policy split exists to prevent. Journals written before this
+are plain strings and read as untrusted, which is both the safe reading and the
+accurate one.
+
+**22a. Exact-integer inputs.** `combinatorics_operation` (`n`, `k`) and
+`elliptic_curve_operation` (`coefficients`) never called `_exact_int`, so
+`binomial(9007199254740993, 2)` computed a plausible wrong answer from the
+rounded value. Both now accept decimal strings and refuse numbers past 2^53, as
+`number_theory_operation` has since 0.4.0.
+
+**22b. `/health` was never registered.** The old code hunted for a Starlette app
+on the FastMCP object and inserted a `Route`; under FastMCP 3.x `http_app` is a
+bound method that *builds* the app, so the guard never matched -- inside a bare
+`except: pass`, so it failed in silence while the README advertised the endpoint
+and the Helm chart probed it. Now registered via `custom_route`, idempotently,
+and asserted against the app FastMCP actually builds. The previous test passed
+because it asserted against a mock with a `.routes` list.
+
+**22c. `is_convex` returned true for concave input.** `Polyhedron(vertices=...)`
+builds the convex hull, discarding the ordering that makes a polygon concave, and
+`is_compact()` is true for every bounded polytope. It now walks the given
+ordering and checks that every turn goes the same way.
+
+**23a. The nightly handed all three provider keys to each leg.** A compromised
+CLI -- or any npm dependency of one -- could read credentials for services it has
+no business touching. Each leg now sees only its own.
+
+**23b. The nightly stayed green when registration failed.** `run_extended`
+catches the `CalledProcessError` from `mcp add`, so a changed CLI syntax printed
+"0/0 passed" and exited 0: green precisely when the CLI could not reach the
+server. A selected CLI that runs no cases now fails. Absent credentials remain a
+skip, not a failure -- those legs never start the runner.
+
+**Also, an unbounded queue.** The stdout pump gives the read loop no backpressure
+by design, so output produced faster than a slow callback consumed it grew
+without limit until the process died. Bounded at 1000 lines, dropping oldest;
+the complete stdout still travels with the result, so nothing is lost that a
+caller cannot recover.
 
 SSH authentication to GitHub broke during this session (`ssh -T git@github.com`
 returns `Permission denied (publickey)` with keys loaded). `gh` still works

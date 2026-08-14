@@ -107,21 +107,30 @@ async def health_check(request: object) -> object:
 
 
 
-def _register_health_route() -> None:
-    """Attach /health to the underlying Starlette app if HTTP transport."""
-    try:
-        from starlette.routing import Route
+_HEALTH_ROUTE_REGISTERED = False
 
-        app = (
-            getattr(mcp, "http_app", None)
-            or getattr(mcp, "_app", None)
-            or getattr(mcp, "app", None)
-        )
-        if app and hasattr(app, "routes"):
-            app.routes.insert(0, Route("/health", health_check))
-            LOGGER.debug("Registered /health endpoint")
-    except Exception:  # pragma: no cover - starlette may not be loaded
-        pass
+
+def _register_health_route() -> None:
+    """Attach /health to the HTTP app.
+
+    This used to hunt for a Starlette app among mcp.http_app / _app / app and
+    insert a Route into its list. Under FastMCP 3.x http_app is a bound method
+    that BUILDS the app, so it has no `routes`, the guard was false and this
+    registered nothing at all -- silently, because the whole body sat in a
+    try/except pass. The documented health endpoint answered 404 in every HTTP
+    deployment, and the Kubernetes probes pointed at it.
+
+    custom_route registers with FastMCP itself, so every app it builds has the
+    route. Tested against the built app rather than trusted.
+    """
+    global _HEALTH_ROUTE_REGISTERED
+    if _HEALTH_ROUTE_REGISTERED:
+        # main() can run more than once in a process, and each call would add
+        # another identical route to every app built afterwards.
+        return
+    mcp.custom_route("/health", methods=["GET"])(health_check)
+    _HEALTH_ROUTE_REGISTERED = True
+    LOGGER.debug("Registered /health endpoint")
 
 
 def main(argv: list[str] | None = None) -> None:  # pragma: no cover - CLI entrypoint

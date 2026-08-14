@@ -56,9 +56,12 @@ jobs:
       - name: Decide whether to run this CLI
         id: creds
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # Presence only: '1' when the secret for THIS leg is set, never the
+          # value, and never another provider's.
+          KEY_PRESENT: >-
+            ${{ (matrix.cli == 'claude' && secrets.ANTHROPIC_API_KEY != '') ||
+                (matrix.cli == 'gemini' && secrets.GEMINI_API_KEY != '') ||
+                (matrix.cli == 'codex' && secrets.OPENAI_API_KEY != '') }}
           SELECTED: ${{ github.event_name == 'workflow_dispatch' && inputs.cli || 'all' }}
         run: |
           if [ "$SELECTED" != "all" ] && [ "$SELECTED" != "${{ matrix.cli }}" ]; then
@@ -66,12 +69,7 @@ jobs:
             echo "::notice title=${{ matrix.cli }} not selected::This run asked for $SELECTED."
             exit 0
           fi
-          case "${{ matrix.cli }}" in
-            claude) key="$ANTHROPIC_API_KEY" ;;
-            gemini) key="$GEMINI_API_KEY" ;;
-            codex)  key="$OPENAI_API_KEY" ;;
-          esac
-          if [ -z "$key" ]; then
+          if [ "$KEY_PRESENT" != "true" ]; then
             echo "present=false" >> "$GITHUB_OUTPUT"
             echo "::notice title=${{ matrix.cli }} skipped::No API key configured for ${{ matrix.cli }}; add the repository secret to enable this leg."
           else
@@ -117,12 +115,15 @@ jobs:
           echo "Using Sage image: $IMAGE"
           SAGEMATH_MCP_DOCKER_IMAGE="$IMAGE" make sage-container
 
+      # Only the provider being exercised gets its key. Handing all three to a
+      # freshly npm-installed CLI means any one of them -- or a dependency of it
+      # -- can read credentials for services it has no business touching.
       - name: Tool-forcing cases
         if: steps.creds.outputs.present == 'true'
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ matrix.cli == 'claude' && secrets.ANTHROPIC_API_KEY || '' }}
+          GEMINI_API_KEY: ${{ matrix.cli == 'gemini' && secrets.GEMINI_API_KEY || '' }}
+          OPENAI_API_KEY: ${{ matrix.cli == 'codex' && secrets.OPENAI_API_KEY || '' }}
         run: |
           set -o pipefail
           uv run python -m tests.cli_integration.run_extended \

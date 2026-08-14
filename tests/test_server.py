@@ -12,6 +12,7 @@ from sagemath_mcp.models import EvaluateResult
 from sagemath_mcp.monitoring import reset_metrics
 from sagemath_mcp.session import SageEvaluationError, SageSessionManager, WorkerResult
 from sagemath_mcp.tools import core as core_tools
+from sagemath_mcp.tools import discrete as combinatorics_module
 
 from .conftest import FakeContext
 
@@ -1963,18 +1964,22 @@ async def test_vector_calculus_curl_wrong_variable_count(monkeypatch):
         )
 
 
-def test_register_health_route(monkeypatch):
-    """Cover lines 1591-1597: _register_health_route with mock app."""
+def test_register_health_route_is_idempotent():
+    """Registering twice must not fail or duplicate the route.
 
-    class FakeApp:
-        def __init__(self):
-            self.routes = []
+    This test used to build a FakeApp with a `.routes` list and assert a Route
+    was inserted into it. That mock did not resemble FastMCP 3.x, where
+    `http_app` is a bound method -- so the test passed against an
+    implementation that registered nothing at all. The real assertion is in
+    test_the_health_route_reaches_the_built_http_app: ask the app FastMCP
+    actually builds.
+    """
+    from sagemath_mcp.app import mcp
 
-    fake_app = FakeApp()
-    monkeypatch.setattr(server.mcp, "http_app", fake_app, raising=False)
     server._register_health_route()
-    assert len(fake_app.routes) == 1
-    assert fake_app.routes[0].path == "/health"
+    server._register_health_route()
+    health = [r for r in mcp.http_app().routes if getattr(r, "path", None) == "/health"]
+    assert len(health) == 1, f"expected one /health route, found {len(health)}"
 
 
 @pytest.mark.asyncio
@@ -2273,12 +2278,7 @@ async def test_interrupting_an_idle_workspace_says_nothing_was_running(sage_mana
     assert "No running computation" in response.message
 
 
-def test_health_route_registration_is_skipped_when_there_is_no_app(monkeypatch):
-    """stdio transports have no HTTP app; that is not an error."""
-    monkeypatch.setattr(server.mcp, "http_app", None, raising=False)
-    monkeypatch.setattr(server.mcp, "_app", None, raising=False)
-    monkeypatch.setattr(server.mcp, "app", object(), raising=False)
-    server._register_health_route()  # must not raise
+
 
 
 @pytest.mark.asyncio
@@ -2298,3 +2298,76 @@ async def test_interrupting_a_running_computation_reports_state_preserved(sage_m
     assert "state preserved" in response.message
     survived = await server.evaluate_sage("kept", session="work", ctx=ctx)
     assert survived.result == "9", "the namespace did not survive the interrupt"
+
+
+@pytest.mark.parametrize(
+    "tool,kwargs",
+    [
+        ("combinatorics_operation", {"operation": "binomial", "n": 2**53 + 1, "k": 2}),
+        ("combinatorics_operation", {"operation": "factorial", "n": 2**53 + 1}),
+        ("elliptic_curve_operation",
+         {"operation": "rank", "coefficients": [0, 0, 1, -1, 2**53 + 1]}),
+    ],
+)
+@pytest.mark.asyncio
+async def test_exact_integer_arguments_beyond_2_53_are_refused(tool, kwargs, sage_manager):
+    """A JS client rounds before it serialises, so the digits arriving are a lie.
+
+    number_theory_operation has guarded this since 0.4.0; these did not, so
+    binomial(9007199254740993, 2) computed a plausible, wrong answer in silence.
+    """
+    with pytest.raises(ToolError, match="2\\^53"):
+        await getattr(server, tool)(ctx=FakeContext("exact-client"), **kwargs)
+
+
+@pytest.mark.asyncio
+async def test_exact_integer_arguments_accept_decimal_strings(sage_manager, monkeypatch):
+    """The documented escape hatch has to exist wherever the guard does."""
+    captured: dict[str, str] = {}
+
+    async def fake_structured(session, code, timeout_seconds=None):
+        captured["code"] = code
+        return 1
+
+    monkeypatch.setattr(combinatorics_module, "_evaluate_structured", fake_structured)
+    await combinatorics_module.combinatorics_operation(
+        operation="factorial", n="9007199254740993", ctx=FakeContext("exact-client")
+    )
+    assert "9007199254740993" in captured["code"]
+    assert "e+" not in captured["code"]
+
+
+def test_the_health_route_reaches_the_built_http_app() -> None:
+    """The probe target has to exist on the app FastMCP actually serves.
+
+    The previous implementation looked for a Starlette app on the FastMCP
+    object and inserted a Route. Under FastMCP 3.x `http_app` is a bound method
+    that builds the app, so the guard never matched and nothing was registered
+    -- inside a bare `except: pass`, so it failed in total silence while the
+    README advertised the endpoint and the Helm chart probed it.
+    """
+    from sagemath_mcp.app import mcp
+
+    server._register_health_route()
+    paths = {getattr(route, "path", None) for route in mcp.http_app().routes}
+    assert "/health" in paths, f"/health missing; app serves {sorted(p for p in paths if p)}"
+
+
+@pytest.mark.asyncio
+async def test_the_health_endpoint_answers_with_the_server_state() -> None:
+    from sagemath_mcp import __version__
+
+    response = await server.health_check(object())
+    payload = json.loads(bytes(response.body).decode("utf-8"))
+    assert payload["status"] == "ok"
+    assert payload["version"] == __version__
+    assert "active_sessions" in payload
+
+
+@pytest.mark.asyncio
+async def test_is_convex_needs_a_polygon(sage_manager):
+    """Two points are a segment. Rejected before any Sage call, so no runtime."""
+    with pytest.raises(ToolError, match="at least three"):
+        await server.geometry_operation(
+            operation="is_convex", points=[[0, 0], [1, 1]], ctx=FakeContext("geo-client")
+        )

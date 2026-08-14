@@ -1484,3 +1484,81 @@ async def test_cancelling_while_queued_for_the_lock_leaves_no_pump_running(tmp_p
         with contextlib.suppress(asyncio.CancelledError, Exception):
             await holder
         await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_journal_replay_preserves_the_trust_a_statement_ran_under(tmp_path):
+    """Specialized-tool code is trusted; caller code is not, and replay must
+    remember which was which.
+
+    The helper templates are built on sage_eval, which the ordinary policy
+    forbids. The journal stored bare strings and replay always used the ordinary
+    policy, so the first specialized-tool entry was rejected, replay stopped at
+    that point, and the next save wrote back only the prefix -- persisted state
+    that could never be restored, quietly truncated.
+    """
+    settings = SageSettings(
+        force_python_worker=True, persist_sessions=True, persist_dir=str(tmp_path)
+    )
+    session = SageSession("trusted-journal", settings)
+    try:
+        await session.evaluate("caller = 1", want_latex=False, capture_stdout=False)
+        # As a specialized tool runs it: trusted, and genuinely reading
+        # sage_eval, which the ordinary policy refuses. (Binding it to len keeps
+        # the statement runnable under the pure-Python worker; what matters is
+        # that the untrusted policy rejects the READ of the name.)
+        await session.evaluate(
+            "sage_eval = len\nhelper = sage_eval('ab')",
+            want_latex=False,
+            capture_stdout=False,
+            trusted=True,
+        )
+        session.save_journal()
+        await session.shutdown()
+
+        restored = SageSession("trusted-journal", settings)
+        journal = SageSession.load_journal(restored.existing_journal_path())
+        replayed = await restored.restore_from_journal(journal)
+        assert replayed == 2, "replay stopped on the trusted entry"
+
+        both = await restored.evaluate(
+            "caller + helper", want_latex=False, capture_stdout=False
+        )
+        assert both.result == "3"
+        await restored.shutdown()
+    finally:
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_a_stalled_callback_cannot_grow_the_queue_without_limit(tmp_path):
+    """Progress events are advisory; memory is not.
+
+    The read loop deliberately gives no backpressure, so output produced faster
+    than a callback consumes it queued without limit until the process died.
+    """
+    from sagemath_mcp.session import _MAX_QUEUED_STDOUT_LINES
+
+    settings = SageSettings(force_python_worker=True, eval_timeout=30.0)
+    session = SageSession("flooded", settings)
+    release = asyncio.Event()
+
+    async def stalled(text: str) -> None:
+        await release.wait()
+
+    await session.ensure_started()
+    try:
+        queue, pump = session._start_stdout_pump(stalled)
+        assert queue.maxsize == _MAX_QUEUED_STDOUT_LINES
+
+        for i in range(_MAX_QUEUED_STDOUT_LINES * 3):
+            session._offer_stdout_line(queue, f"line {i}")
+
+        assert queue.qsize() <= _MAX_QUEUED_STDOUT_LINES, "the queue grew past its bound"
+        assert session._dropped_stdout_lines > 0, "nothing was recorded as dropped"
+
+        release.set()
+        await session._stop_stdout_pump(pump)
+    finally:
+        release.set()
+        await session.shutdown()

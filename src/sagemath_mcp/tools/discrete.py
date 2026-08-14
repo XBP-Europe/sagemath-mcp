@@ -113,6 +113,11 @@ async def combinatorics_operation(
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
     operation = operation.strip()
+    # A JavaScript client rounds before it serialises, so a number arriving above
+    # 2^53 is already wrong: binomial(9007199254740993, 2) computed a plausible
+    # answer from 9007199254740992 and reported it as fact.
+    n = _exact_int(n, "n")
+    k = _exact_int(k, "k") if k is not None else None
     session = await runtime.resolve_session(ctx.session_id, session)
     op_code = {
         "binomial": f"int(binomial({n}, {k or 0}))",
@@ -299,6 +304,7 @@ async def elliptic_curve_operation(
             f"Unknown operation '{operation}'. "
             f"Use: {', '.join(ops)}"
         )
+    coefficients = [_exact_int(c, "coefficients") for c in coefficients]
     code = (
         _sage_prelude()
         + f"_E = EllipticCurve({_encode_literal(coefficients)})\n"

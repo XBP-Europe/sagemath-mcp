@@ -237,10 +237,24 @@ def main(argv: list[str] | None = None) -> int:
                 unregister(cli)
 
     print("\n=== summary ===")
+    ran_nothing = []
     for cli in clis:
         subset = [r for r in results if r.cli == cli]
         passed = sum(1 for r in subset if r.status == "PASS")
         print(f"  {cli:<8} {passed}/{len(subset)} passed")
+        if not subset:
+            ran_nothing.append(cli)
+
+    if ran_nothing:
+        # A CLI that was asked for but ran nothing means registration failed --
+        # its `mcp add` syntax changed, or the server would not start. That used
+        # to print "0/0 passed" and exit 0, so the check went green precisely
+        # when the CLI could not reach the server at all. (Absent credentials do
+        # not reach this: those legs are skipped before the runner starts.)
+        print(f"\n  ERROR: ran no cases for {', '.join(ran_nothing)} "
+              "-- registration failed, so nothing was actually tested")
+        return 1
+
     failures = [r for r in results if r.status != "PASS"]
     return 1 if failures else 0
 

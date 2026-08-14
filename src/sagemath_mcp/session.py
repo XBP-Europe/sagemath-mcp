@@ -27,6 +27,11 @@ _JOURNAL_NAMESPACE = "v2"
 
 # How many non-matching lines to skip before declaring the worker unusable.
 _MAX_DISCARDED_RESPONSES = 64
+
+# Progress lines held for a slow callback before the oldest are dropped. The
+# full stdout still travels with the result, so this bounds memory without
+# losing data the caller cannot get another way.
+_MAX_QUEUED_STDOUT_LINES = 1000
 _PROJECT_ROOT = str(Path(__file__).resolve().parents[1])
 
 # Workspace used when a caller does not name one.
@@ -65,6 +70,18 @@ class WorkerResult:
     elapsed_ms: float
 
 
+def _journal_entry(item) -> tuple[str, bool]:
+    """Read one journal entry, in either the old or the current shape.
+
+    Journals written before trust was recorded are plain strings. Those predate
+    the specialized tools ever being replayable, so untrusted is both the safe
+    reading and the accurate one.
+    """
+    if isinstance(item, dict):
+        return item.get("code", ""), bool(item.get("trusted", False))
+    return str(item), False
+
+
 class SageSession:
     """Encapsulates a single long-lived Sage worker."""
 
@@ -76,9 +93,13 @@ class SageSession:
         self._lock = asyncio.Lock()
         self.started_at = time.time()
         self.last_used_at = self.started_at
-        self._code_journal: list[str] = []
+        # (code, trusted) per statement. Trust is not a property of the text:
+        # replaying a specialized tool's snippet under the caller policy fails,
+        # and replaying caller code under the trusted one would hand it sage_eval.
+        self._code_journal: list[tuple[str, bool]] = []
         # The request id the worker is executing right now, or None when idle.
         self._in_flight: str | None = None
+        self._dropped_stdout_lines = 0
 
     async def ensure_started(self) -> None:
         if self._process and self._process.returncode is None:
@@ -143,8 +164,32 @@ class SageSession:
     def _start_stdout_pump(
         self, on_stdout: Callable[[str], Awaitable[None]]
     ) -> tuple[asyncio.Queue[str | None], asyncio.Task[None]]:
-        queue: asyncio.Queue[str | None] = asyncio.Queue()
+        # Bounded on purpose. The read loop gives no backpressure -- that is the
+        # point, so a slow callback cannot stall it -- which left caller-driven
+        # output free to grow this queue until the process was killed. A loop
+        # printing faster than the callback consumes is a plausible request, not
+        # an attack.
+        queue: asyncio.Queue[str | None] = asyncio.Queue(maxsize=_MAX_QUEUED_STDOUT_LINES)
         return queue, asyncio.create_task(self._pump_stdout(queue, on_stdout))
+
+    def _offer_stdout_line(self, queue: asyncio.Queue[str | None], text: str) -> None:
+        """Queue a progress line, dropping the oldest if the consumer is behind.
+
+        Progress events are advisory: the complete stdout is returned with the
+        result either way, so dropping the middle of a burst loses nothing a
+        caller cannot recover. Blocking here, or growing without limit, would
+        lose the whole session.
+        """
+        try:
+            queue.put_nowait(text)
+            return
+        except asyncio.QueueFull:
+            pass
+        self._dropped_stdout_lines += 1
+        with contextlib.suppress(asyncio.QueueEmpty):
+            queue.get_nowait()          # make room by discarding the oldest
+        with contextlib.suppress(asyncio.QueueFull):
+            queue.put_nowait(text)
 
     async def _stop_stdout_pump(self, pump: asyncio.Task[None] | None) -> None:
         """Stop the consumer without waiting on the caller's callback.
@@ -216,7 +261,7 @@ class SageSession:
                 continue
             if message.get("type") == "stdout" and message.get("id") == request_id:
                 if queue is not None:
-                    queue.put_nowait(message.get("text", ""))
+                    self._offer_stdout_line(queue, message.get("text", ""))
                 continue
             incoming = message.get("id")
             if incoming != request_id:
@@ -285,7 +330,7 @@ class SageSession:
             if not raw:
                 raise SageProcessError("Sage worker terminated unexpectedly.")
         self.last_used_at = time.time()
-        return self._result_from(response, code)
+        return self._result_from(response, code, trusted)
 
     async def _exchange(
         self,
@@ -331,7 +376,7 @@ class SageSession:
         await self._drain_stdout_pump(queue, pump)
         return raw, response
 
-    def _result_from(self, response: dict, code: str) -> WorkerResult:
+    def _result_from(self, response: dict, code: str, trusted: bool) -> WorkerResult:
         if not response.get("ok", False):
             error = response.get("error", {})
             raise SageEvaluationError(
@@ -340,7 +385,7 @@ class SageSession:
                 stdout=response.get("stdout", ""),
                 traceback=error.get("traceback", ""),
             )
-        self._code_journal.append(code)
+        self._code_journal.append((code, trusted))
         return WorkerResult(
             result_type=response["result_type"],
             result=response.get("result"),
@@ -428,7 +473,10 @@ class SageSession:
         # Atomic: a crash or a full disk mid-write previously left a truncated
         # journal that failed to parse on the next start, losing the session.
         tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
-        tmp.write_text(json.dumps(self._code_journal))
+        tmp.write_text(
+            json.dumps([{"code": code, "trusted": trusted}
+                        for code, trusted in self._code_journal])
+        )
         os.replace(tmp, path)
         LOGGER.debug("Saved journal for %s (%d entries)", self.session_id, len(self._code_journal))
 
@@ -437,16 +485,22 @@ class SageSession:
         """Read a code journal from disk."""
         return json.loads(path.read_text())
 
-    async def restore_from_journal(self, journal: list[str]) -> int:
+    async def restore_from_journal(self, journal: list) -> int:
         """Replay saved code entries to rebuild session state.
+
+        Each entry carries the trust mode it originally ran under. Blessing
+        every entry instead would put caller code on the trusted path, which is
+        the one thing the policy split exists to prevent; refusing every entry
+        (the previous behaviour) broke restoration for any session that had used
+        a specialized tool.
 
         Returns the number of entries successfully replayed.
         """
         replayed = 0
-        for code in journal:
+        for code, trusted in (_journal_entry(item) for item in journal):
             try:
                 await self.evaluate(
-                    code, want_latex=False, capture_stdout=False
+                    code, want_latex=False, capture_stdout=False, trusted=trusted
                 )
                 replayed += 1
             except Exception:

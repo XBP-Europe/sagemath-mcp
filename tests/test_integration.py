@@ -350,3 +350,27 @@ async def test_streaming_emits_output_before_completion(monkeypatch):
         )
     finally:
         await manager.shutdown()
+
+
+@pytest.mark.asyncio
+@requires_sage
+async def test_is_convex_distinguishes_a_concave_polygon(sage_manager):
+    """is_convex must test the polygon given, not its convex hull.
+
+    Polyhedron(vertices=...) builds the hull and discards the ordering, and
+    is_compact() is true for every bounded polytope -- so the answer was True
+    for all input, concave included.
+    """
+    ctx = FakeContext("convexity")
+    square = [[0, 0], [2, 0], [2, 2], [0, 2]]
+    dart = [[0, 0], [4, 0], [2, 1], [4, 4], [0, 4]]      # (2,1) dents inward
+
+    convex = await server.geometry_operation(
+        operation="is_convex", points=square, ctx=ctx
+    )
+    concave = await server.geometry_operation(
+        operation="is_convex", points=dart, ctx=ctx
+    )
+    assert convex["result"] is True
+    assert concave["result"] is False, "a concave polygon was reported convex"
+

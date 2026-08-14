@@ -136,3 +136,27 @@ def test_a_missing_wire_log_reports_no_tool_call(tmp_path: Path) -> None:
 
     result = evaluate(CASE, "the answer is 42", missing, 1.0, "claude")
     assert result.status == "NO_TOOL_CALL", result.detail
+
+
+def test_running_no_cases_for_a_selected_cli_is_a_failure(monkeypatch, capsys) -> None:
+    """Registration failure must not look like success.
+
+    run_extended catches the CalledProcessError from `mcp add`, prints a note and
+    continues; with no CaseResult recorded it then reported "0/0 passed" and
+    exited 0. The nightly went green exactly when the CLI could not reach the
+    server. Missing credentials are a different path -- those legs never start
+    the runner at all.
+    """
+    import subprocess
+
+    from tests.cli_integration import run_extended
+
+    def registration_fails(cli, log_path):
+        raise subprocess.CalledProcessError(1, ["gemini", "mcp", "add"], stderr="unknown flag")
+
+    monkeypatch.setattr(run_extended, "register", registration_fails)
+    monkeypatch.setattr(run_extended, "unregister", lambda cli: None)
+    monkeypatch.setattr(run_extended.sys, "argv", ["run_extended", "--cli", "gemini"])
+
+    assert run_extended.main() == 1, "a CLI that ran no cases reported success"
+    assert "ran no cases" in capsys.readouterr().out

@@ -208,6 +208,10 @@ async def geometry_operation(
     operation = operation.strip()
     if not points:
         raise ToolError("'points' must contain at least one point")
+    if operation == "is_convex" and len(points) < 3:
+        raise ToolError(
+            f"Operation 'is_convex' needs at least three points, got {len(points)}"
+        )
     # distance previously generated the literal "None" for a single point, so
     # the tool returned {'result': None} as though that were an answer.
     if operation == "distance" and len(points) < 2:
@@ -237,8 +241,24 @@ async def geometry_operation(
             f"[list(v) for v in "
             f"Polyhedron(vertices={pts}).vertices_list()]"
         ),
+        # Not Polyhedron(...).is_compact(): that builds the convex HULL of the
+        # points, throwing away the ordering that makes a polygon concave, and
+        # is_compact() is true for every bounded polytope -- so it answered True
+        # for concave input too. Walk the given ordering instead: a simple
+        # polygon is convex when every turn goes the same way. Collinear triples
+        # contribute no turn and are skipped.
         "is_convex": (
-            f"bool(Polyhedron(vertices={pts}).is_compact())"
+            f"_poly = {pts}\n"
+            "_turns = set()\n"
+            "for _i in range(len(_poly)):\n"
+            "    _a = _poly[_i]\n"
+            "    _b = _poly[(_i + 1) % len(_poly)]\n"
+            "    _c = _poly[(_i + 2) % len(_poly)]\n"
+            "    _cross = ((_b[0] - _a[0]) * (_c[1] - _b[1])\n"
+            "              - (_b[1] - _a[1]) * (_c[0] - _b[0]))\n"
+            "    if _cross != 0:\n"
+            "        _turns.add(_cross > 0)\n"
+            "bool(len(_turns) <= 1)"
         ),
     }
     if operation not in ops:

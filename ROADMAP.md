@@ -2,7 +2,7 @@
 
 This document tracks planned improvements to the SageMath MCP server, organized by priority and effort. The goal is to strengthen the server's position as a universal mathematics MCP server that enables LLMs to perform any symbolic or discrete mathematical operation.
 
-**Current state (v0.4.0):** 37 MCP tools (31 Sage-backed, 6 infrastructure) covering calculus, algebra, linear algebra, ODEs, number theory, combinatorics, graph theory, group theory, elliptic curves, coding theory, boolean algebra, polynomial rings, geometry, probability, vector calculus, statistics, 2D/3D plotting, numeric root-finding, and incremental streaming. As of 2026-08-14 the suites pass 496 unit tests at 100% statement and branch coverage, 575 against a real SageMath 10.9 runtime, and 27/27 of the extended CLI cases across Claude, Gemini and Codex. Counts are a snapshot; the coverage floor is the part CI enforces.
+**Current state (v0.5.0):** 37 MCP tools (31 Sage-backed, 6 infrastructure) covering calculus, algebra, linear algebra, ODEs, number theory, combinatorics, graph theory, group theory, elliptic curves, coding theory, boolean algebra, polynomial rings, geometry, probability, vector calculus, statistics, 2D/3D plotting, numeric root-finding, and incremental streaming. As of 2026-08-14 the suites pass 496 unit tests at 100% statement and branch coverage, 575 against a real SageMath 10.9 runtime, and 27/27 of the extended CLI cases across Claude, Gemini and Codex. Counts are a snapshot; the coverage floor is the part CI enforces.
 
 Integration coverage now includes every tool exercised against the examples in its own
 documentation, and a syntax matrix over the input spellings each tool must accept. Both

@@ -5,7 +5,7 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.5.0] - 2026-08-14
 
 ### Security
 
@@ -169,3 +169,47 @@ bump rather than a patch.
   a protected branch.
 
 [0.4.0]: https://github.com/XBP-Europe/sagemath-mcp/releases/tag/v0.4.0
+
+## [0.3.1] - 2026-04-03
+
+Patch release fixing the release pipeline; no code changes from 0.3.0.
+
+### Fixed
+
+- Cosign image signing lowercases the GHCR reference, which failed on the
+  uppercase in `XBP-Europe`.
+- The release build installs `build` before running `python -m build`.
+- PyPI trusted publishing configured through a `pypi` GitHub environment.
+
+## [0.3.0] - 2026-04-03
+
+Grew the toolset from 18 to 33, all Sage-backed.
+
+### Added
+
+- `symbolic_sum` (finite and infinite series, products), `combinatorics_operation`
+  (binomial, permutations, combinations, partitions, factorial, Catalan,
+  Fibonacci, Bell), `plot3d_expression` (surfaces as base64 PNG),
+  `distribution_operation` (normal, exponential, Poisson, chi-squared, Student-t,
+  uniform, beta, gamma with PDF/CDF/quantile/sampling), `find_root`,
+  `plot_multi_expression` and `vector_calculus_operation`.
+
+## [0.2.0] - 2026-04-03
+
+### Added
+
+- 18 MCP tools covering calculus, algebra, linear algebra, ODEs, number theory,
+  statistics and plotting.
+- CLI integration suite across Claude and Gemini.
+- FastMCP 3.x migration, CI modernisation, Docker pinned to SageMath 10.9, Helm
+  health probes, Python 3.12 minimum.
+
+## [0.1.2] - 2025-11-02
+
+### Fixed
+
+- Default MCP HTTP port aligned to 8314 across code, docs and deployment
+  artifacts.
+- Package published to GitHub Packages during release; release workflow creates
+  its uv virtual environment.
+

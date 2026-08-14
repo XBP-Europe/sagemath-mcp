@@ -1189,149 +1189,88 @@ sagemath-mcp/
 
 ## Changelog
 
+Every released version, newest first. [`CHANGELOG.md`](CHANGELOG.md) carries the
+full detail; this is the shape of each release.
+
+### v0.5.0 (2026-08-14)
+
+A correctness and hardening release. **Output changes** for large integers, so it
+is a minor bump rather than a patch.
+
+**Security**
+
+- Caller strings reaching `sage_eval`-enabled generated code are now validated.
+  Four tool parameters (`graph_operation.graph`, `group_operation.group`,
+  `coding_theory_operation.code_type`, `polynomial_ring_operation.base_ring`) were
+  interpolated raw, which was demonstrated reading files, running shell commands
+  and opening outbound connections.
+- Forbidden names are rejected wherever they are *read*, not only where called:
+  `f = open`, a `lambda` default, a list literal, and the same for modules
+  (`m = os`, `from sage.all import os as m`).
+- The worker namespace no longer contains `open`, `eval`, `exec`, `compile` and
+  the rest of that family.
+
+**Changed**
+
+- Integer results at or above 2^53 are returned as decimal strings, and the same
+  parameters accept them on the way in. JavaScript-based clients parse JSON
+  numbers as doubles, so `bell(30)` was reaching one CLI as
+  `846749014511809388871680` instead of `846749014511809332450147`.
+- Matrix entries accept integers and decimal strings and stay exact; float
+  matrices behave exactly as before.
+- `interrupt_sage_session` reports `No running computation` when nothing is
+  running instead of claiming state was preserved. Signalling an idle worker
+  could leave it unable to answer, costing the namespace it was protecting.
+- The container runs with a read-only root filesystem; the Helm chart gained
+  `readOnlyRootFilesystem` and resource defaults.
+
+**Fixed**
+
+- `/health` was never registered under FastMCP 3.x and returned 404 in every HTTP
+  deployment.
+- `is_convex` returned true for concave and self-intersecting polygons.
+- Persisted sessions that had used a specialised tool could not be restored.
+- Streaming progress is bounded by both event count and characters, and a slow
+  callback can no longer time out a finished evaluation.
+
+**Internal**
+
+- `server.py` split from 2327 lines into `app.py`, `runtime.py`, `codegen.py` and
+  a `tools/` package; tool names, schemas and descriptions held identical by a
+  snapshot test.
+- 100% statement and branch coverage, enforced in CI. CLI suites run nightly.
+
+### v0.4.0 (2026-08-13)
+
+A correctness release: several tools returned wrong values or did not work at
+all, so **output differs from 0.3.1**. Named workspaces
+(`start_sage_session`/`list_sage_sessions`/`stop_sage_session` plus a `session`
+argument), `interrupt_sage_session`, and the first exact-integer guards on
+`number_theory_operation`.
+
+### v0.3.1 (2026-04-03)
+
+Release-pipeline fixes only, no code change: Cosign lowercases the GHCR
+reference, the build installs `build` first, PyPI trusted publishing via a `pypi`
+environment.
+
+### v0.3.0 (2026-04-03)
+
+18 tools to 33, all Sage-backed: `symbolic_sum`, `combinatorics_operation`,
+`plot3d_expression`, `distribution_operation`, `find_root`,
+`plot_multi_expression` and `vector_calculus_operation`.
+
 ### v0.2.0 (2026-04-03)
 
-#### New MCP Tools (18 tools added)
-
-The server grew from a single `evaluate_sage` tool to a comprehensive mathematics toolkit with 37 MCP tools (31 Sage-backed, 6 infrastructure). Each tool accepts structured parameters, runs through the AST security validator, and returns typed JSON responses.
-
-**Calculus (4 tools):**
-- `differentiate_expression` --- symbolic derivatives of any order. Supports all Sage-recognized expressions including trigonometric, exponential, logarithmic, and user-defined functions. The `order` parameter handles higher-order derivatives without repeated calls.
-- `integrate_expression` --- indefinite and definite integrals. Accepts symbolic bounds (`"-oo"`, `"oo"`, `"pi/2"`) for improper integrals. Returns whether the result is definite or indefinite for downstream processing.
-- `limit_expression` --- one-sided and two-sided limits. The `direction` parameter (`"plus"` / `"minus"`) enables computing left and right limits separately, critical for analyzing discontinuities.
-- `series_expansion` --- Taylor and Laurent series around any point. The `order` parameter controls the number of terms, and the output includes the Big-O remainder term.
-
-**Algebra & Simplification (5 tools):**
-- `solve_equation` --- single equations and systems of simultaneous equations. Parses human-readable equation strings (splitting on `=`) so clients don't need to construct Sage syntax. Supports symbolic solutions including trigonometric roots.
-- `simplify_expression` --- applies Sage's `simplify()` which tries multiple simplification strategies (trigonometric identities, algebraic rules, etc.) and returns the simplest form found.
-- `expand_expression` --- expands products, powers, and identities using Sage's `expand()`. Useful for verifying algebraic identities or preparing expressions for further manipulation.
-- `factor_expression` --- factors both symbolic polynomials and integers. Returns human-readable factorization strings (e.g., `"2^2 * 3 * 5"` for integers).
-- `calculate_expression` --- evaluates any expression and returns both its symbolic string form and numeric float value (when possible). Pre-declares variables `x, y, z, t` for convenience.
-
-**Linear Algebra (2 tools):**
-- `matrix_multiply` --- multiplies two matrices over the Symbolic Ring. Accepts nested list input and returns nested list output with proper type coercion.
-- `matrix_operation` --- performs determinant, inverse, eigenvalue, rank, RREF, and transpose operations. Each operation returns appropriately typed results (scalar, matrix, or list).
-
-**Differential Equations (1 tool):**
-- `solve_ode` --- solves first- and higher-order ODEs using Sage's `desolve()`. Returns general solutions with arbitrary constants. Supports custom function and variable names for non-standard ODE notation.
-
-**Number Theory (1 tool):**
-- `number_theory_operation` --- five operations in one tool: `is_prime`, `factor_integer`, `next_prime`, `gcd`, `lcm`. Each maps directly to the corresponding Sage function with proper integer validation.
-
-**Statistics (1 tool):**
-- `statistics_summary` --- computes 8 descriptive statistics (mean, median, population/sample variance, population/sample std dev, min, max) in a single call using Sage's `mean()` and `sqrt()` for exact arithmetic.
-
-**Visualization (1 tool):**
-- `plot_expression` --- renders 2D function plots and returns base64-encoded PNG images. Uses Sage's `plot()` with configurable range bounds. The `base64` and `io` imports were added to the security allowlist specifically for this tool.
-
-**Session Management (2 tools):**
-- `reset_sage_session` --- clears all session state (variables, functions, definitions) without killing the worker process. Fast operation for starting fresh within the same session.
-- `cancel_sage_session` --- kills the worker process and starts a new one. Use when a computation is stuck. All state is lost but a clean worker is guaranteed.
-
-#### Enhanced `evaluate_sage`
-
-The core evaluation tool received major improvements:
-- **Domain-specific examples** added to the tool description so LLMs know what Sage can do: combinatorics, graph theory, number theory, geometry, probability, group theory, polynomial rings, and coding theory examples are included in the description that clients see.
-- **Startup error propagation** --- if `from sage.all import *` (or custom startup code) fails, subsequent calls return a clear `StartupError` with the original exception message instead of a confusing `NameError`.
-- **Result type simplification** --- removed the unused `"void"` literal from `result_type`, leaving only `"expression"` and `"statement"`.
-
-#### CLI Integration Test Suite
-
-A new end-to-end test suite validates the MCP server through real LLM CLI invocations:
-- **43 test cases** across 9 mathematical domains (calculus, algebra, linear algebra, ODEs, number theory, statistics, plotting, general computation, session management)
-- **Dual CLI support** --- tests both Claude Code (`claude --print`) and Gemini CLI (`gemini -p`)
-- **Live progress reporting** --- each test prints status as it completes, with color-coded pass/fail indicators and elapsed time
-- **Parallel execution** --- `--parallel` flag runs both CLIs concurrently via `ThreadPoolExecutor`
-- **Domain filtering** --- `--domain calculus,algebra` runs only selected test domains
-- **Multi-tier validation** --- checks expected substrings first (case-insensitive), then extracts numbers from output, then falls back to soft-fail for non-deterministic answers. Error indicators are checked *after* content matching to avoid false negatives when the LLM mentions "MCP server" in a correct answer.
-- **JSON result export** --- each run saves timestamped JSON results for historical tracking
-- **Pytest integration** --- `test_claude.py` and `test_gemini.py` wrap all cases as parametrized pytest tests with proper skip/fail handling
-
-#### Dependency Upgrades
-
-| Package | Old | New | Notes |
-|---------|-----|-----|-------|
-| FastMCP | 2.13 | **3.2** | Major version. `@mcp.tool()` / `@mcp.resource()` now return the original function directly (no `.fn` wrapper). All test invocations migrated. |
-| MCP SDK | 1.20 | 1.27 | Protocol improvements |
-| pytest | 8.4 | **9.0** | Major version |
-| pytest-asyncio | 1.2 | 1.3 | Minor improvements |
-| Ruff | 0.14 | 0.15 | New lint rules |
-| Pydantic | 2.8+ | 2.12+ | Performance and validation improvements |
-| anyio | 4.4+ | 4.13+ | Bug fixes and new features |
-| Hatchling | 1.26+ | 1.29+ | Build backend improvements |
-| build | 1.2+ | 1.4+ | sdist/wheel builder |
-| coverage | 7.6+ | 7.13+ | Coverage reporting |
-
-#### Infrastructure Modernization
-
-**Python version:**
-- Minimum Python raised from 3.11 to **3.12**. Python 3.12 brings 5-15% performance improvements (PEP 709 inlined comprehensions, faster `asyncio`), and all CI/release workflows now test on 3.12 and 3.13 only.
-- Ruff target updated from `py311` to `py312`.
-
-**CI/CD overhaul:**
-- **Parallel job structure** --- the monolithic CI job was split into 6 independent jobs (`lint`, `test`, `security`, `helm`, `integration`, `smoke`) that run in parallel. Lint and test complete in ~1 minute; integration and smoke tests run only after they pass.
-- **Matrix testing** --- unit tests now run on both Python 3.12 and 3.13 (previously only tested one version in CI; matrix testing was reserved for release).
-- **uv caching** --- `enable-cache: true` added to all `astral-sh/setup-uv` steps, eliminating redundant dependency downloads across runs.
-- **Coverage reporting** --- pytest runs with `--cov` and uploads `coverage.xml` as a build artifact.
-- **Dependency security scanning** --- new `pip-audit` job checks for known vulnerabilities in all installed packages.
-- **GitHub Actions Node.js 24** --- all actions bumped: `checkout@v5`, `setup-uv@v7`, `setup-python@v6`, `download-artifact@v6`, `build-push-action@v6`, `upload-artifact@v4`.
-
-**Docker:**
-- Base image pinned from `sagemath/sagemath:latest` to a pinned release (currently `sagemath/sagemath:10.9`) for reproducible builds. The `latest` tag was non-deterministic and could break builds when SageMath released new versions.
-
-**Kubernetes (Helm chart):**
-- Added **liveness probe** (TCP socket on HTTP port, 30s initial delay, 15s period, 3 failure threshold) --- restarts the pod if the server becomes unresponsive.
-- Added **readiness probe** (TCP socket, 10s initial delay, 10s period) --- removes the pod from service endpoints during startup or transient failures.
-- Added **startup probe** (TCP socket, 5s initial delay, 5s period, 12 failures = 60s budget) --- gives SageMath time to initialize (`from sage.all import *` can take 10-20s) without triggering liveness failures.
-- All probe parameters are configurable via `values.yaml`.
-
-**Project metadata:**
-- `pyproject.toml` author updated from placeholder to "XBP Europe"
-- Added PyPI classifiers: Development Status, Intended Audience, Python versions, License, Topic
-- Added project URLs: Homepage, Repository, Issues, Changelog
-
-#### Test Coverage
-
-Test suite expanded from 136 to **242 unit tests** with branch coverage at **99%** across all core modules. New tests cover:
-
-- Session error paths: no Python interpreter, SAGE_VENV/PYTHONPATH environment handling, reset failures (worker terminated, `ok=False`), `_terminate_worker` with running process, `cull_idle` with no stale sessions
-- Server error branches: `evaluate_sage` with no context / no session_id, `SecurityViolation` error type, non-security error type, `SageProcessError` with `__cause__`
-- Security: `_format_violation` with blank-lines-only code, `log_violations=False` branch, debug log on successful validation
-
-Remaining 1% is defensive `if ctx is not None` branches that are always true in practice, and the Sage binary path which requires a real Sage installation.
-
-#### Bug Fixes
-
-- **MCP resource serialization** --- `monitoring_resource` and `session_resource` now return JSON strings via `model_dump_json()` instead of raw Pydantic model objects. FastMCP 3.x requires resources to return `str` or `ResourceContent`, not models. The CI metrics verification script and all tests were updated accordingly.
-- **ASYNC240 lint fix** --- moved `Path(__file__).resolve()` from inside an async function to a module-level `_PROJECT_ROOT` constant to avoid sync filesystem calls in async context.
-- **CLI integration validator** --- error indicator checks (phrases like "I can't", "MCP server") are now evaluated *after* expected-substring matching, preventing false negatives when a correct answer happens to mention the MCP server.
-- **Broken `--` separator in CLI commands** --- all documentation previously showed `uv run sagemath-mcp -- --transport streamable-http` which fails because argparse treats `--` as a positional argument. Fixed across README, INSTALLATION, CLAUDE, USAGE, DISTRIBUTION, and MONITORING docs.
-- **LICENSE file mismatch** --- the LICENSE file contained Apache 2.0 text but `pyproject.toml` declared MIT. Replaced with the correct MIT license text.
-- **Version synchronization** --- `__init__.py` fallback version (was `0.1.2`) and Helm chart version/appVersion (was `0.1.0`) updated to match `pyproject.toml` (`0.2.0`).
-- **Missing `pytest-cov` dependency** --- CI coverage step failed because `pytest-cov` was not in dev dependencies. Added alongside `pip-audit`.
-- **Suppressed `PytestUnraisableExceptionWarning`** --- cosmetic asyncio subprocess transport finalizer warning no longer appears in test output.
-
-#### Documentation
-
-- **Complete README rewrite** --- added table of contents, architecture diagram, technology stack table, changelog, CLI integration testing section, and detailed examples for every tool parameter and return type.
-- **USAGE.md** updated with new tool workflows and deployment options.
-- **CLAUDE.md** added for Claude Code project instructions.
-- **INSTALLATION.md** updated Python version from 3.11 to 3.12.
+The first substantial release: 18 MCP tools across calculus, algebra, linear
+algebra, ODEs, number theory, statistics and plotting; CLI integration suite;
+FastMCP 3.x migration; Docker pinned to SageMath 10.9; Helm health probes;
+Python 3.12 minimum.
 
 ### v0.1.2 (2025-11-02)
 
-**Initial public release.** The server provided a single MCP tool (`evaluate_sage`) that executed arbitrary SageMath code within persistent sessions. Key capabilities in the initial release:
-
-- **`evaluate_sage` tool** --- execute any SageMath code with LaTeX output, stdout capture, and configurable per-call timeouts. Variables and functions persist across calls within the same MCP session.
-- **Session isolation** --- each MCP client gets a dedicated Sage worker subprocess. Crashes or timeouts in one session cannot affect others.
-- **AST-based security sandbox** --- every code snippet is validated before execution, blocking `eval`/`exec`, filesystem operations, process spawning, and unauthorized imports. Configurable via environment variables.
-- **Progress heartbeats** --- long-running computations emit periodic progress events (~1.5s) so clients can display activity indicators.
-- **Multiple transports** --- stdio (for Claude Desktop), HTTP, streamable-HTTP, and SSE.
-- **Docker deployment** --- Dockerfile, Docker Compose, and Helm chart for Kubernetes with non-root execution (UID/GID 1001).
-- **CI/CD pipeline** --- GitHub Actions with lint, unit tests, integration tests (real Sage in Docker), Docker Compose smoke test, Helm validation, signed GHCR image publishing, and PyPI publishing.
-- **Monitoring resources** --- MCP resources for session snapshots, aggregated metrics, and SageMath documentation links.
-
----
+Default HTTP port aligned to 8314 across code, docs and deployment artifacts;
+package published to GitHub Packages during release.
 
 ## Roadmap
 

@@ -61,6 +61,11 @@ jobs:
         run: uv pip install -e .[dev]
       - name: Audit dependencies
         run: uv run pip-audit --skip-editable --desc
+      # The lockfile is what `uv sync` installs, so a stale one means the audit
+      # above and the dependencies a consumer actually gets are different sets.
+      # It went stale at the v0.5.0 release and nothing noticed.
+      - name: Lockfile is current
+        run: uv lock --check
 
   helm:
     runs-on: ubuntu-latest

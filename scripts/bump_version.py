@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from re import Pattern
@@ -118,6 +119,29 @@ def bump_version(segment: str) -> Version:
     return bumped
 
 
+def _refresh_lockfile() -> None:
+    """Re-lock so uv.lock carries the new version.
+
+    Without this the lock keeps the previous version, `uv lock --check` fails,
+    and `uv sync` installs metadata for a release that does not exist. That is
+    exactly what happened at v0.5.0.
+    """
+    lock = PROJECT_ROOT / "uv.lock"
+    if not lock.exists():
+        return
+    try:
+        subprocess.run(
+            ["uv", "lock", "--offline"],
+            cwd=PROJECT_ROOT,
+            check=True,
+            capture_output=True,
+            timeout=120,
+        )
+        print("Updated uv.lock")
+    except (OSError, subprocess.SubprocessError) as exc:
+        print(f"WARNING: could not update uv.lock ({exc}); run `uv lock` before committing")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Bump the project version.")
     parser.add_argument(
@@ -142,6 +166,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     _write_all(str(bumped))
+    _refresh_lockfile()
 
     print(bumped)
     return 0

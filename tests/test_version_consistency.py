@@ -33,6 +33,17 @@ def _declared_versions(root: Path) -> dict[str, str]:
     manifest = json.loads((root / "server.json").read_text(encoding="utf-8"))
     found["server.json"] = manifest["version"]
     found["server.json.package"] = manifest["packages"][0]["version"]
+
+    # uv.lock records this project as a package. The v0.5.0 release bumped every
+    # other file and left the lock saying 0.4.0, so `uv lock --check` failed and
+    # anyone installing with `uv sync` got metadata for a version that was never
+    # released. Checking it here is offline and instant.
+    lock_path = root / "uv.lock"
+    if lock_path.exists():          # absent in the copied tree the bump test uses
+        lock = lock_path.read_text(encoding="utf-8")
+        match = re.search(r'name = "sagemath-mcp"\nversion = "([^"]+)"', lock)
+        assert match, "uv.lock no longer records a version for this project"
+        found["uv.lock"] = match.group(1)
     return found
 
 

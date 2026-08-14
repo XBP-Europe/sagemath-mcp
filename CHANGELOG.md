@@ -7,6 +7,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- **`docker compose up` no longer publishes on every interface.** The port
+  mapping was `8314:8314`, which binds all interfaces on the host; the server
+  evaluates code and authenticates nobody, so following the quickstart put an
+  unauthenticated Sage evaluator on the local network. It now publishes to
+  `127.0.0.1:8314`, and a test fails if that widens again. Every other default
+  was already loopback (stdio transport, `--host 127.0.0.1`, `ClusterIP`
+  service), which is what made the compose mapping stand out.
+- `USAGE.md` showed `--host 0.0.0.0` without qualification. It is correct inside
+  a container, where the published port decides reachability, and wrong on a
+  host; that distinction is now stated where the command appears.
+
 ### Changed
 
 - **`evaluate_sage` now runs SageMath, not Python.** Caller code goes through

@@ -28,7 +28,12 @@ services:
     pids_limit: 256           # a fork bomb cannot exhaust the host
     mem_limit: 4g             # a runaway computation cannot either
     ports:
-      - "8314:8314"
+      # Bound to the loopback interface deliberately. "8314:8314" publishes on
+      # every interface, and this server executes code with no authentication of
+      # any kind -- `docker compose up` would put an unauthenticated Sage
+      # evaluator on the LAN. Expose it further only behind something that
+      # authenticates, and change this line knowingly.
+      - "127.0.0.1:8314:8314"
     environment:
       # Override runtime behavior by setting SageSettings env vars here.
       # Example: SAGEMATH_MCP_EVAL_TIMEOUT: "45"

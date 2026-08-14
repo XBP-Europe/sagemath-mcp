@@ -825,6 +825,14 @@ operating system, because the validator saw only a string constant.
 | `base64`, `io` | Used by `plot_expression` for in-memory PNG encoding |
 | `sage`, `sage.all`, `sage.*` | Full SageMath library |
 
+### Network exposure
+
+**The server has no authentication.** Anyone who can reach the HTTP endpoint can
+evaluate code, which is why every default here is loopback: `--host` defaults to
+`127.0.0.1`, the default transport is stdio, the bundled compose file publishes
+to `127.0.0.1:8314`, and the Helm service is `ClusterIP`. Putting it on a network
+means putting something that authenticates in front of it.
+
 ### Container hardening
 
 The validator narrows what caller code can express. The container is what

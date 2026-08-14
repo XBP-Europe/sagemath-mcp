@@ -37,6 +37,11 @@ Inside Docker, prefer running through Sage to inherit the full runtime:
 ```bash
 sage -python -m uv run sagemath-mcp --transport streamable-http --host 0.0.0.0 --port 8314
 ```
+> `--host 0.0.0.0` is correct **inside a container**, where it means "listen on
+> the container's interfaces" and the published port decides who can reach it.
+> Do not use it on a host: the server evaluates code and has no authentication,
+> so binding every interface exposes an unauthenticated evaluator to the network.
+> The bundled compose file publishes to `127.0.0.1` for the same reason.
 The server advertises its MCP endpoint at `http://HOST:PORT/mcp`.
 
 ## Available Tools & Resources (37 tools, 3 resources)

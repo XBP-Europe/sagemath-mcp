@@ -23,7 +23,8 @@ from pathlib import Path
 
 import pytest
 
-PACKAGE_DIR = Path(__file__).resolve().parents[1] / "src" / "sagemath_mcp"
+ROOT = Path(__file__).resolve().parents[1]
+PACKAGE_DIR = ROOT / "src" / "sagemath_mcp"
 TESTS_DIR = Path(__file__).resolve().parent
 
 
@@ -379,3 +380,20 @@ def test_no_caller_string_is_interpolated_into_generated_code_unguarded() -> Non
         "caller strings reach generated code without a validation gate:\n"
         + "\n".join(f"  - {o}" for o in sorted(set(offenders)))
     )
+
+
+def test_the_compose_file_does_not_publish_on_every_interface() -> None:
+    """The server evaluates code and authenticates nobody.
+
+    `"8314:8314"` publishes on every interface, so `docker compose up` would put
+    an unauthenticated Sage evaluator on the LAN. Binding the loopback address is
+    the default that makes the quickstart safe; widening it should be a
+    deliberate edit, not something a reader inherits.
+    """
+    compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+    published = re.findall(r'^\s*-\s*"([^"]+:\d+)"\s*$', compose, re.M)
+    assert published, "no published ports found; has the compose file changed shape?"
+    for mapping in published:
+        assert mapping.startswith("127.0.0.1:") or mapping.startswith("localhost:"), (
+            f"docker-compose publishes {mapping} on every interface"
+        )

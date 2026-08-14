@@ -22,9 +22,9 @@ section, under a "second round" heading, along with what closed it. Items 10,
 | 4 | Medium | `server.py` is 2147 lines and the least-covered module | **done** (split; coverage deferred) |
 | 5 | Medium | Two release paths cannot be exercised before a tag push | **done** |
 | 6 | Low | 104 dependencies, with pip-audit now blocking | **done** |
-| 7 | Low | Distribution: Smithery and Glama listings | **partly done** (Glama listed; Smithery pending) |
-| 8 | Low | Codex still routes two questions to `evaluate_sage` | accepted |
-| 9 | Low | Jupyter kernel `debug_request` question left unresolved | deferred |
+| 7 | Low | Distribution: Smithery and Glama listings | **partly done** (Glama listed; Smithery needs owner sign-in) |
+| 8 | Low | Codex still routes two questions to `evaluate_sage` | **closed** (model choice, not a defect) |
+| 9 | Low | Jupyter kernel `debug_request` question left unresolved | **answered** (no bypass; caveats recorded) |
 | 10 | **Critical** | Response caching breaks state and isolation across MCP clients | **done** |
 | 11 | High | Cancelling a named workspace restarts the default workspace | **done** |
 | 12 | High | The large-integer corruption guard accepts corrupted JSON integers | **done** |
@@ -366,6 +366,15 @@ assumes `sage` is on PATH, so the container image remains the better route for
 callers who do not have it. Worth saying on the listing rather than leaving
 people to discover it.
 
+**The listed settings were changed for this.** `smithery.yaml` offered
+`securityEnabled`, which turns the AST policy off. After items 24 and 25 —
+`cython()`, `sh()`, `gp('system(...)')` — advertising that switch on a public
+listing invites someone to disable the one thing standing between a caller and
+those, on a server whose whole purpose is evaluating code. It is gone from the
+listing; `SAGEMATH_MCP_SECURITY_ENABLED` still exists for anyone who means it.
+`persistSessions` and `persistDir` took its place, which is what a hosted user
+actually needs to configure.
+
 Original finding follows.
 
 
@@ -383,9 +392,23 @@ rewrite or the `int | str` annotation. Both look like questions that map onto a
 Sage one-liner the model is confident writing, which a description cannot argue
 it out of. Four of six did move.
 
-**Suggestion:** leave it. The remaining lever would be structural — not exposing
-`evaluate_sage`, or client-side tool-choice hints — and neither is worth the cost
-for two cases that already return correct answers.
+**Closed on evidence.** Re-measured after the description work, across all three
+CLIs:
+
+| case | claude | gemini | codex |
+|------|--------|--------|-------|
+| `ext-nt-next-prime` | `evaluate_sage` | `number_theory_operation` | `number_theory_operation` |
+| `ext-comb-partitions` | `combinatorics_operation` | `combinatorics_operation` | `evaluate_sage` |
+
+Every case passes. The routing is not a fixed defect: it varies by model and
+between runs, and the two "holdouts" are no longer the same two. Codex now picks
+the specialised tool for `next_prime` and not for `partitions`, which is the
+opposite of what was recorded.
+
+The remaining lever would be structural — not exposing `evaluate_sage`, or
+client-side tool-choice hints — and neither is worth the cost for cases that
+answer correctly. `evaluate_sage` is also the escape hatch for everything the
+other 36 tools do not cover, so hiding it has a real price.
 
 ---
 
@@ -396,8 +419,25 @@ transport. One question was left open: `debugpy` is present in Sage's Python, an
 whether a crafted `debug_request` can evaluate outside `do_execute` was never
 established.
 
-**Suggestion:** only worth answering if the transport is revisited for rich
-display, which is the one argument that would justify it.
+**Answered on 2026-08-14** by `prototypes/jupyter_transport/debug_probe.py`, run
+against the guarded kernel with debugpy 1.8.20 and ipykernel 7.2.0 present.
+
+`debug_request` does reach the debugger -- `debugInfo` answers `success: True` --
+and the kernel **does advertise `debugger`**, which the original note had wrong.
+But `initialize` returns `success: False`, `attach` comes back empty, the session
+reports `isStarted: False`, and `evaluate` produces no result. The same payload
+sent as an `execute_request` is refused with `SecurityViolation`.
+
+**No bypass, with two caveats.** The surface is advertised and reachable, so a
+future ipykernel that starts the session more readily reopens it; and a negative
+result says this sequence did not evaluate, not that none can. If the transport is
+ever adopted, disable the debugger explicitly rather than relying on it failing to
+start.
+
+The rich-display argument also weakened on inspection: `szeider/mcp-sage`, the
+project that did adopt the kernel transport, reads only `text/plain` and never
+harvests `image/png` -- so it is not using the one feature that would justify the
+move. It also runs the stock kernel with no validation of any kind.
 
 ---
 

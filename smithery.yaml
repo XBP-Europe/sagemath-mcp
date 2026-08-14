@@ -7,6 +7,12 @@
 # SageMath itself is a large dependency and is not bundled here: the command
 # below assumes `sage` is on PATH. Callers who do not have it should use the
 # published container image instead, which carries the runtime.
+#
+# The AST policy is deliberately NOT offered as a setting. It can still be turned
+# off through SAGEMATH_MCP_SECURITY_ENABLED for anyone who means it, but a listing
+# that advertises the switch invites turning it off on a server that evaluates
+# code -- and it is what stands between a caller and cython(), sh() and the CAS
+# interfaces.
 
 startCommand:
   type: stdio
@@ -26,12 +32,16 @@ startCommand:
         type: number
         default: 900
         description: Seconds an idle session is kept before its worker is reclaimed.
-      securityEnabled:
+      persistSessions:
         type: boolean
-        default: true
+        default: false
         description: >-
-          Keep the AST policy on. It is defence in depth against accidents, not
-          a boundary against adversarial code -- run the container for that.
+          Replay a client's code journal into a new worker after a restart.
+      persistDir:
+        type: string
+        default: ""
+        description: >-
+          Where those journals are written. Ignored unless persistSessions is on.
     required: []
   commandFunction: |-
     (config) => ({
@@ -41,6 +51,7 @@ startCommand:
         SAGEMATH_MCP_SAGE_BINARY: config.sageBinary || 'sage',
         SAGEMATH_MCP_EVAL_TIMEOUT: String(config.evalTimeout ?? 30),
         SAGEMATH_MCP_IDLE_TTL: String(config.idleTtl ?? 900),
-        SAGEMATH_MCP_SECURITY_ENABLED: String(config.securityEnabled ?? true)
+        SAGEMATH_MCP_PERSIST_SESSIONS: String(config.persistSessions ?? false),
+        SAGEMATH_MCP_PERSIST_DIR: config.persistDir || ''
       }
     })

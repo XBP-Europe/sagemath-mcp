@@ -71,7 +71,30 @@ worker having no other input than its own stdin.
 all; to inject code you must already control the server process. With kernels, every
 session opens local ports, and a same-user process can execute *validated* code in
 another session's namespace. Pipes make that structurally impossible. One question is
-also unresolved: `debugpy` is present in Sage's Python, and although the guarded kernel
+**RESOLVED (2026-08-14) — see `debug_probe.py`.** Measured against the guarded
+kernel in the Sage container, with debugpy 1.8.20 and ipykernel 7.2.0 present:
+
+| probe | result |
+|-------|--------|
+| kernel advertises `debugger` | **True** — the claim below that it does not was wrong |
+| `debug_request` reaches the debugger | yes, `debugInfo` answers `success: True` |
+| `initialize` | `success: False` |
+| `attach` | empty reply |
+| `debugInfo` body | `isStarted: False` |
+| `evaluate` (the DAP command that runs code) | no reply body, nothing evaluated |
+| `execute_request` with the same payload | refused, `SecurityViolation` |
+
+So **no bypass**: the debug session never starts, and `evaluate` executes nothing,
+while the ordinary door stays guarded. Two caveats worth keeping. The surface is
+*advertised and reachable* — a failure to start is not a refusal by design, and a
+future ipykernel that starts more readily would reopen the question. And a negative
+result is not proof: it says this sequence did not evaluate, not that none can. If
+the transport is ever adopted, turn the debugger off explicitly rather than relying
+on it failing to start.
+
+The original note, now known to be wrong on the advertising point:
+
+`debugpy` is present in Sage's Python, and although the guarded kernel
 does not advertise `debugger`, whether a crafted `debug_request` can evaluate outside
 `do_execute` was not established.
 
@@ -98,3 +121,25 @@ Note on the harness: an early version read only iopub and reported a refusal as
 `EXECUTED None`, because a kernel refusing in `do_execute` reports it in the **shell
 reply** and emits nothing on iopub. It now reads both. Worth knowing before trusting any
 similar measurement.
+
+
+## What the other Jupyter-based server does (2026-08-14)
+
+`szeider/mcp-sage` adopted this transport, so it is worth reading against these
+findings. It is 369 lines and runs the **stock** `ipykernel_launcher`.
+
+- **No policy at all.** No AST validation anywhere in it: `os.system` and the rest
+  execute. That is the cost this prototype refused to pay, and they simply did not
+  pay it -- which confirms the choice rather than undermining it.
+- **It does not harvest rich display.** Output handling reads `text/plain` from
+  `execute_result` and streams; there is no `image/png` path. Rich display is the
+  one argument for revisiting the kernel, and the project that adopted the kernel
+  is not using it.
+- **It carries a GAP crash-loop guard**: repeated "Gap crashed" on stderr triggers
+  an interrupt after three, to stop a fork bomb from `structure_description()`.
+  That is a real operational lesson, and the reason we are not exposed to it is
+  structural: `group_operation` offers six fixed operations and
+  `structure_description` is not among them, while `evaluate_sage` runs under a
+  timeout that restarts the worker. Measured here: `SymmetricGroup(6)` and a
+  cyclic group return in under a second, the session survives, and no stray `gap`
+  process is left behind.

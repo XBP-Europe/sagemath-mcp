@@ -90,6 +90,51 @@ _DANGEROUS_SAGE_MODULES = (
 _EXTERNAL_INTERFACE_EXPORTS = "sage.interfaces.all"
 
 
+# The names those modules and sage.interfaces.all actually define, baked in.
+#
+# Deriving this at startup meant importing sixteen modules in every worker, and
+# on slower CI hardware that pushed the first evaluation past its timeout -- a
+# hardening step is not allowed to cost the thing it protects. The derivation
+# still exists below and a test re-runs it against the installed Sage, so a
+# version that adds or renames a helper fails the suite rather than the user.
+_DANGEROUS_SAGE_NAME_LIST: frozenset[str] = frozenset({
+    "Axiom", "ECM", "EmptyNewstyleClass", "EmptyOldstyleClass", "FriCAS", "Gap",
+    "Gap3", "Genus2reduction", "Gfan", "Giac", "Gp", "InlineFortran", "Kash",
+    "Khoca", "LiE", "Lisp", "Macaulay2", "Magma", "Maple", "Mathematica", "Mathics",
+    "Matlab", "Mupad", "Mwrank", "Octave", "PSage", "PackageInfo", "PickleDict",
+    "PickleExplainer", "PickleInstance", "PickleObject", "R", "Regina", "Sage",
+    "SagePickler", "SageUnpickler", "Sh", "Singular", "TestAppendList",
+    "TestAppendNonlist", "TestBuild", "TestBuildSetstate", "TestGlobalFunnyName",
+    "TestGlobalNewName", "TestGlobalOldName", "TestReduceGetinitargs",
+    "TestReduceNoGetinitargs", "add_attached_file", "atomic_dir", "atomic_write",
+    "attach", "attached_files", "axiom", "check_pickle", "compile_and_load",
+    "cython", "cython_compile", "cython_import", "cython_import_all",
+    "cython_lambda", "db", "db_save", "detach", "dumps", "ecm", "edit",
+    "edit_devel", "explain_pickle", "explain_pickle_string", "file_and_line",
+    "find_objects_from_name", "fortran", "four_ti_2", "fricas", "frobby", "gap",
+    "gap3", "gap3_version", "gap_reset_workspace", "genus2reduction",
+    "get_remote_file", "gfan", "giac", "gnuplot", "gp", "gp_version",
+    "import_statement_string", "import_statements", "installed_packages",
+    "interfaces", "is_loadable_filename", "is_package_installed",
+    "is_package_installed_and_updated", "kash", "kash_version", "lie", "lisp",
+    "list_packages", "load", "load_attach_mode", "load_attach_path", "load_cython",
+    "load_sage_element", "load_sage_object", "load_submodules", "load_wrap",
+    "loads", "macaulay2", "magma", "magma_free", "make_None", "maple",
+    "mathematica", "mathics", "matlab", "matlab_version", "maxima",
+    "modified_file_iterator", "mupad", "mwrank", "name_is_valid", "octave",
+    "package_manifest", "package_versions", "picklejar", "pip_installed_packages",
+    "pip_remote_version", "pkgname_split", "polymake", "povray", "qepcad",
+    "qepcad_formula", "qepcad_version", "r", "r_version", "read_data", "regina",
+    "register_unpickle_override", "reload_attached_files_if_modified", "reset",
+    "reset_load_attach_path", "runsnake", "sage0", "sage0_version", "sage_eval",
+    "sageobj", "sanitize", "save", "scilab", "set_edit_template", "set_editor",
+    "sh", "singular", "singular_version", "spkg_type", "spyx_tmp", "tachyon_rt",
+    "template_fields", "tmp_dir", "tmp_filename", "trace", "unpickle_all",
+    "unpickle_appends", "unpickle_build", "unpickle_extension", "unpickle_global",
+    "unpickle_instantiate", "unpickle_newobj", "unpickle_persistent"
+})
+
+
 def _dangerous_sage_names() -> frozenset[str]:
     """Names defined by the dangerous modules, resolved from those modules only.
 
@@ -128,9 +173,13 @@ def _dangerous_sage_names() -> frozenset[str]:
 
 
 def _strip_dangerous_sage_names(ns: dict[str, Any]) -> int:
-    """Remove Sage helpers that execute, compile, fetch or write."""
+    """Remove Sage helpers that execute, compile, fetch or write.
+
+    Uses the baked-in list: this runs at every worker start, and re-deriving it
+    there cost more than the protection was worth.
+    """
     removed = 0
-    for name in _dangerous_sage_names():
+    for name in _DANGEROUS_SAGE_NAME_LIST:
         if name in ns:
             del ns[name]
             removed += 1

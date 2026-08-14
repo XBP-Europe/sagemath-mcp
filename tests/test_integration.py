@@ -536,3 +536,26 @@ async def test_mathematics_that_uses_singular_and_pari_still_works(real_sage_man
         operation="factor_integer", a="18446744073709551617", ctx=ctx
     )
     assert "274177" in str(factored["result"])
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_the_baked_in_denylist_still_matches_this_sage():
+    """The list is baked in for speed; this is what keeps it true.
+
+    Deriving it at every worker start cost enough on slow hardware to push the
+    first evaluation past its timeout. So the names are a literal, and this
+    re-derives them from the installed Sage: a version that adds, renames or
+    moves a helper fails here rather than quietly leaving it reachable.
+    """
+    from sagemath_mcp._sage_worker import (
+        _DANGEROUS_SAGE_NAME_LIST,
+        _dangerous_sage_names,
+    )
+
+    derived = _dangerous_sage_names()
+    missing = sorted(derived - _DANGEROUS_SAGE_NAME_LIST)
+    assert not missing, (
+        "this Sage defines dangerous helpers the baked-in list does not cover: "
+        f"{missing}. Regenerate _DANGEROUS_SAGE_NAME_LIST."
+    )

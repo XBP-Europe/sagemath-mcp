@@ -368,10 +368,15 @@ def test_the_namespace_scrub_removes_a_modules_own_definitions() -> None:
     ) else _sage_worker._dangerous_sage_names
 
     original = _sage_worker._DANGEROUS_SAGE_MODULES
+    original_list = _sage_worker._DANGEROUS_SAGE_NAME_LIST
     try:
         _sage_worker._DANGEROUS_SAGE_MODULES = ("json.encoder",)
         found = names()
         assert "JSONEncoder" in found, "a module's own definitions were not collected"
+
+        # Stripping reads the baked-in list, not the derivation: that is what
+        # keeps worker startup free.
+        _sage_worker._DANGEROUS_SAGE_NAME_LIST = frozenset({"JSONEncoder"})
         namespace = {"JSONEncoder": object(), "Integer": object()}
         removed = _sage_worker._strip_dangerous_sage_names(namespace)
         assert removed == 1
@@ -379,6 +384,7 @@ def test_the_namespace_scrub_removes_a_modules_own_definitions() -> None:
         assert "Integer" in namespace, "unrelated names must survive"
     finally:
         _sage_worker._DANGEROUS_SAGE_MODULES = original
+        _sage_worker._DANGEROUS_SAGE_NAME_LIST = original_list
 
 
 def test_the_scrub_only_takes_what_a_module_defines() -> None:

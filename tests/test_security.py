@@ -18,9 +18,20 @@ def test_validate_code_blocks_forbidden_import():
         validate_code("import os\nos.system('echo hi')")
 
 
-def test_validate_code_allows_whitelisted_imports():
-    # sage imports are explicitly allowed by default policy
-    validate_code("from sage.all import sin")
+def test_caller_code_may_not_import_even_from_sage():
+    """`sage.*` was allowlisted for the generated prelude, and callers used it to
+    re-import everything the worker namespace scrub had removed."""
+    with pytest.raises(SecurityViolation):
+        validate_code("from sage.all import sin")
+
+
+def test_generated_code_may_import_what_its_templates_need():
+    import ast
+
+    from sagemath_mcp.security import trusted_policy, validate_module
+
+    code = "from sage.all import sin\n1"
+    validate_module(ast.parse(code), code=code, policy=trusted_policy())
 
 
 def test_validate_code_blocks_global_and_nonlocal():
@@ -206,8 +217,10 @@ def test_a_forbidden_attribute_chain_stops_at_the_first_offending_segment() -> N
 
     from sagemath_mcp.security import SECURITY_POLICY, SecurityViolation, validate_module
 
+    # Now stopped a segment earlier: temporary_file is itself forbidden, since
+    # sage's own sub-packages are how callers reached compilers and shells.
     code = "sage.misc.temporary_file.os.sys.path"
-    with pytest.raises(SecurityViolation, match="'os'"):
+    with pytest.raises(SecurityViolation, match="'temporary_file'"):
         validate_module(ast.parse(code), code=code, policy=SECURITY_POLICY)
 
 

@@ -9,6 +9,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **Caller code can no longer import anything.** `sage.*` was allowlisted for the
+  generated prelude, and callers used it to re-import every helper the worker
+  namespace scrub had removed: `from sage.misc.cython import compile_and_load`
+  compiled and loaded a module, `from sage.interfaces.gp import Gp` spawned GP,
+  and `unpickle_global('os', 'system')('id')` ran a shell command. The allowlist
+  now belongs to the generated templates alone. **Breaking for callers who
+  imported** — `import math`, `from sage.all import factorial` — but the names are
+  already in the namespace without them.
+- **Caller code cannot write files.** `.save()` was blocked; `.dump()`,
+  `.save_image()` and `.export_jmol()` were not, and each wrote a real file.
+  Persistence is matched by prefix (`save*`, `dump*`, `export*`) for callers; the
+  plot templates keep `.savefig(BytesIO)`.
 - **Sage's external CAS interfaces are no longer reachable.** `gp` and `maxima`
   both executed shell commands through their own `system` escapes --
   `gp('system("id > /tmp/x")')` wrote a file as the container user. Everything
@@ -60,6 +72,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A timed-out evaluation propagated as a bare `TimeoutError`: monitoring recorded
+  nothing and the client saw an unstructured error. Both `evaluate_sage` and the
+  specialised tools now report it as a tool error carrying the deadline.
 - Three examples in the `evaluate_sage` description were wrong under any
   execution model: the Laplace pair needed its symbols declared (Sage's REPL
   predefines only `x`), `desolve_rsolve` does not exist, and

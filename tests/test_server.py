@@ -2371,3 +2371,41 @@ async def test_is_convex_needs_a_polygon(sage_manager):
         await server.geometry_operation(
             operation="is_convex", points=[[0, 0], [1, 1]], ctx=FakeContext("geo-client")
         )
+
+
+@pytest.mark.asyncio
+async def test_a_timeout_is_reported_as_a_tool_error_and_recorded(sage_manager, monkeypatch):
+    """A timeout must reach the caller as a tool error, and be counted.
+
+    It used to propagate as a bare TimeoutError: no monitoring record, and an
+    unstructured error at the client. The test meant to cover this used
+    `import time; time.sleep(10)`, which became a SecurityViolation once callers
+    lost imports -- also a ToolError, so it kept passing while testing nothing.
+    """
+    from sagemath_mcp import monitoring
+    from sagemath_mcp.session import SageSession
+
+    async def always_times_out(self, *args, **kwargs):
+        raise TimeoutError("Sage evaluation timed out after 1.00s")
+
+    monkeypatch.setattr(SageSession, "evaluate", always_times_out)
+    monitoring.reset_metrics()
+
+    with pytest.raises(ToolError, match="timed out"):
+        await server.evaluate_sage("1 + 1", ctx=FakeContext("timeout-client"))
+
+    snapshot = monitoring.snapshot()
+    assert snapshot["failures"] >= 1
+    assert "timed out" in str(snapshot["last_error"])
+
+
+@pytest.mark.asyncio
+async def test_specialized_tools_report_a_timeout_the_same_way(sage_manager, monkeypatch):
+    from sagemath_mcp.session import SageSession
+
+    async def always_times_out(self, *args, **kwargs):
+        raise TimeoutError("Sage evaluation timed out after 1.00s")
+
+    monkeypatch.setattr(SageSession, "evaluate", always_times_out)
+    with pytest.raises(ToolError, match="timed out"):
+        await server.calculate_expression("1 + 1", ctx=FakeContext("timeout-client"))

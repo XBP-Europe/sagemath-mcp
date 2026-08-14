@@ -125,7 +125,31 @@ class SecurityPolicy:
         "shutil",
         "socket",
         "builtins",
+        # Sage sub-packages that compile, run shells, download, pickle or spawn
+        # other programs. Blocking the import is not enough on its own: `sage` is
+        # bound in the worker namespace, so sage.misc.persist.unpickle_global was
+        # reachable without importing anything.
+        "cython",
+        "persist",
+        "remote_file",
+        "interfaces",
+        "inline_fortran",
+        "repl",
+        "package",
+        "temporary_file",
+        "attached_files",
+        "explain_pickle",
+        "edit_module",
+        "dev_tools",
     )
+    # Persistence methods, matched by prefix rather than by name. `.dump()`,
+    # `.save_image()` and `.export_jmol()` each wrote a file that no rule
+    # mentioned, and enumerating the rest of Sage's persistence API one method at
+    # a time is the same losing game as the namespace denylist was.
+    #
+    # Caller code only: trusted_policy() clears this, because the plot templates
+    # legitimately call .savefig(buffer) -- to a BytesIO, never a path.
+    forbidden_attribute_prefixes: tuple[str, ...] = ("save", "dump", "export")
     forbidden_attribute_names: tuple[str, ...] = (
         "system",
         "popen",
@@ -146,16 +170,15 @@ class SecurityPolicy:
         "fork",
         "forkpty",
     )
-    allowed_import_modules: tuple[str, ...] = (
-        "math",
-        "cmath",
-        "sage",
-        "sage.all",
-        "statistics",
-        "base64",
-        "io",
-    )
-    allowed_import_prefixes: tuple[str, ...] = ("sage.",)
+    # EMPTY for caller code: an import is how you get back everything the worker
+    # namespace scrub removed. `from sage.misc.cython import compile_and_load`
+    # compiled and loaded a module, `from sage.interfaces.gp import Gp` spawned
+    # GP, and `unpickle_global('os', 'system')('id')` ran a shell command -- all
+    # while `sage.*` was allowlisted for the generated prelude's benefit.
+    # Callers do not need imports: the namespace is preloaded with Sage already.
+    # trusted_policy() puts the allowlist back for the templates that need it.
+    allowed_import_modules: tuple[str, ...] = ()
+    allowed_import_prefixes: tuple[str, ...] = ()
     log_violations: bool = True
 
     @classmethod
@@ -238,11 +261,24 @@ def trusted_policy(policy: SecurityPolicy | None = None) -> SecurityPolicy:
     """
     base = policy or SECURITY_POLICY
     relaxed = tuple(name for name in base.forbidden_call_names if name not in _TRUSTED_CALLS)
-    return replace(base, forbidden_call_names=relaxed)
+    return replace(
+        base,
+        forbidden_call_names=relaxed,
+        # The prelude imports sage.all and the plot templates use base64 and io.
+        # Caller code gets none of this: see allowed_import_modules above.
+        allowed_import_modules=_TRUSTED_IMPORTS,
+        allowed_import_prefixes=("sage.",),
+        # The plot templates render through .savefig(BytesIO); nothing generated
+        # here writes to a path.
+        forbidden_attribute_prefixes=(),
+    )
 
 
 # Evaluation entry points the server itself needs, and callers must not have.
 _TRUSTED_CALLS = frozenset({"sage_eval", "preparse", "sage_input"})
+
+# Imports the generated templates need. Caller code imports nothing at all.
+_TRUSTED_IMPORTS = ("math", "cmath", "sage", "sage.all", "statistics", "base64", "io")
 
 
 def _is_dunder(name: str) -> bool:
@@ -431,6 +467,18 @@ def validate_module(
         if isinstance(node, ast.Attribute) and node.attr in policy.forbidden_call_names:
             _raise_violation(
                 f"Access to forbidden function '{node.attr}' is blocked",
+                code=code,
+                policy=policy,
+            )
+
+        # Anything that persists: .dump(), .save_image(), .export_jmol() and the
+        # rest of the family write to a path the caller chooses.
+        if isinstance(node, ast.Attribute) and any(
+            node.attr.startswith(prefix) for prefix in policy.forbidden_attribute_prefixes
+        ):
+            _raise_violation(
+                f"Access to '{node.attr}' is blocked: writing files is not "
+                "available to caller code",
                 code=code,
                 policy=policy,
             )

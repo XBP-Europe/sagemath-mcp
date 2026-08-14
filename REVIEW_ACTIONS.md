@@ -42,6 +42,9 @@ section, under a "second round" heading, along with what closed it. Items 10,
 | 24 | **Critical** | Forbidden functions reachable through attribute chains; `load`/`attach` never listed | **done** |
 | 25 | **Critical** | Sage's own helpers and CAS interfaces execute code, compile, fetch and run shells | **done** |
 | 26 | Medium | `uv.lock` stale and unverified; compose published on every interface | **done** |
+| 27 | **Critical** | Imports re-create everything the namespace scrub removed | **done** |
+| 28 | High | Object methods (`.dump`, `.save_image`, `.export_jmol`) write arbitrary files | **done** |
+| 29 | Medium | A timeout escaped as a bare `TimeoutError`, unrecorded | **done** |
 
 ---
 
@@ -1052,6 +1055,65 @@ are unauthenticated by design and that is fine; what stood out is that every
 other default here is loopback -- stdio transport, `--host 127.0.0.1`,
 `ClusterIP` -- so the quickstart was the one place that disagreed. It publishes to
 `127.0.0.1:8314`, with a test that fails if it widens.
+
+---
+
+## 27. Imports re-create everything the scrub removed — **critical** — DONE
+
+The namespace scrub (item 25) takes the dangerous helpers out of the worker
+namespace. A caller who imports the module gets a fresh copy, and `sage.*` was on
+the import allowlist. Measured against real SageMath:
+
+    from sage.misc.cython import compile_and_load as f
+    f('print(1)')                                   compiled and loaded a module
+
+    from sage.interfaces.gp import Gp as P
+    P()('2+2')                                      spawned GP -> 4
+
+    from sage.misc.persist import unpickle_global as f
+    f('os', 'system')('id')                         ran a shell command -> 0
+
+Aliasing hid the names from every later rule, so the gate has to be the import
+itself. **Caller code can no longer import anything.** The allowlist was there for
+the generated prelude (`from sage.all import *`) and the plot templates (`base64`,
+`io`); it now belongs to `trusted_policy()` alone. Callers never needed it -- the
+worker starts with Sage fully loaded, which is how every documented example is
+written.
+
+Sage's own sub-packages (`cython`, `persist`, `remote_file`, `interfaces`,
+`repl`, …) also joined the forbidden attribute roots, because `sage` is bound in
+the namespace and `sage.misc.persist.unpickle_global` needed no import at all.
+
+**Contract change:** `import math` and `from sage.all import factorial` used to be
+accepted from callers. They are not. The names are already there without them.
+
+## 28. Object methods write arbitrary files — high — DONE
+
+`.save()` was forbidden; `.dump()`, `.save_image()` and `.export_jmol()` were not,
+and each wrote a real file. Chasing them one name at a time is the same losing
+game as the namespace denylist, so persistence is matched by **prefix** --
+`save*`, `dump*`, `export*` -- for caller code.
+
+`trusted_policy()` clears that rule, because the plot templates render through
+`.savefig(BytesIO)`. A blanket prefix rule would have taken all three plotting
+tools with it, which is why the exemption is deliberate rather than incidental.
+
+Worth keeping in proportion: under the shipped container these writes land in a
+512 MB tmpfs on a read-only root filesystem, and `/workspace` is mounted
+read-only. The boundary held. The capability was still unintended.
+
+## 29. A timeout escaped as a bare TimeoutError — medium — DONE
+
+`evaluate_sage` handled `CancelledError`, `SageEvaluationError` and
+`SageProcessError`, but not `TimeoutError`: a timed-out evaluation propagated raw,
+so monitoring recorded nothing and the client got an unstructured error instead of
+the message.
+
+It went unnoticed because the test covering it ran `import time; time.sleep(10)`.
+Once callers lost imports that became a `SecurityViolation` -- also a `ToolError`,
+so the test kept passing while testing nothing. Both paths now translate the
+timeout, record the message (not the class name, which tells an operator nothing)
+and the test uses a long pure-Sage computation.
 
 SSH authentication to GitHub broke during this session (`ssh -T git@github.com`
 returns `Permission denied (publickey)` with keys loaded). `gh` still works

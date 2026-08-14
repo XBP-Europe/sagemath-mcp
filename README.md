@@ -819,7 +819,8 @@ than it sounds: `sage` is an allowed import root, so
 | External CAS interfaces | `gp`, `maxima`, `gap`, `singular`, `octave`, `magma`, `sage0` and everything else `sage.interfaces.all` exports --- each spawns the real program, and those have shell escapes of their own |
 | Sage loaders | `load()` and `attach()` execute whatever path they are given, and `load()` accepts a URL |
 | Forbidden modules | **Every** attribute of `os`, `sys`, `subprocess`, `shutil`, `socket`, `pathlib`, `builtins` --- at any depth, so `sage.misc.temporary_file.os` is caught too |
-| Unauthorized imports | All imports except those in the allowlist (see below) |
+| Sage sub-packages that execute | `cython`, `persist`, `remote_file`, `interfaces`, `inline_fortran`, `repl`, `package`, `temporary_file`, `attached_files`, `explain_pickle`, `edit_module`, `dev_tools` --- at any depth |
+| Imports | **All of them.** Caller code cannot import anything: the namespace already has Sage loaded, and an import is how you get back a helper the worker removed |
 | Scope manipulation | `global` and `nonlocal` statements (configurable) |
 | Namespace removal | The worker's `__builtins__` omits `open`, `eval`, `exec`, `compile`, `input`, `breakpoint`, `globals`, `locals`, `vars`, `memoryview`, `help`, `exit` and `quit` outright --- a backstop for spellings the AST pass misses. `__import__` deliberately stays, because Sage imports lazily during ordinary mathematics; it is unreachable from caller code, which cannot name any dunder. |
 
@@ -830,12 +831,18 @@ operating system, because the validator saw only a string constant.
 
 **What is allowed:**
 
-| Import | Reason |
-|--------|--------|
-| `math`, `cmath` | Standard math functions |
-| `statistics` | Used by `statistics_summary` |
-| `base64`, `io` | Used by `plot_expression` for in-memory PNG encoding |
-| `sage`, `sage.all`, `sage.*` | Full SageMath library |
+Everything Sage preloads --- which is the whole library. `factorial(5)`,
+`integrate(sin(x), x)`, `matrix(...)`, `EllipticCurve(...)` and the rest need no
+import, because the worker starts with `from sage.all import *` already done.
+
+The import allowlist below applies **only to the snippets this server generates**.
+Caller code imports nothing:
+
+| Import | Used by |
+|--------|---------|
+| `sage`, `sage.all` | The generated prelude |
+| `base64`, `io` | The plot templates, for in-memory PNG encoding |
+| `math`, `cmath`, `statistics` | Helper templates |
 
 ### Network exposure
 

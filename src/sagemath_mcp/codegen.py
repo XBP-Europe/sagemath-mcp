@@ -387,13 +387,18 @@ async def _evaluate_structured(
     get here -- otherwise the helpers would be an unguarded path straight past
     the AST policy, which is exactly what they were.
     """
-    worker_result = await session.evaluate(
-        code,
-        want_latex=False,
-        capture_stdout=False,
-        timeout_seconds=timeout_seconds,
-        trusted=True,
-    )
+    try:
+        worker_result = await session.evaluate(
+            code,
+            want_latex=False,
+            capture_stdout=False,
+            timeout_seconds=timeout_seconds,
+            trusted=True,
+        )
+    except TimeoutError as exc:
+        # Same translation as evaluate_sage: every tool should report a timeout
+        # as a tool error with the deadline in it, not a bare TimeoutError.
+        raise ToolError(str(exc)) from exc
     if worker_result.result is None:
         return None
     try:

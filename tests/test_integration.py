@@ -111,9 +111,13 @@ async def test_monitoring_metrics_on_timeout(monkeypatch):
 
     try:
         # Run a computation that exceeds the 1s timeout
-        with pytest.raises(server.ToolError):
+        # NOT "import time; time.sleep(10)": callers cannot import any more, so
+        # that raises SecurityViolation -- which is also a ToolError, so this
+        # test would have kept passing while no longer testing a timeout at all.
+        # A long pure-Sage computation is the honest way to exceed the deadline.
+        with pytest.raises(server.ToolError, match="timed out"):
             await server.evaluate_sage(
-                "import time; time.sleep(10)", ctx=ctx
+                "total = 0\nfor i in range(10**9):\n    total += i\ntotal", ctx=ctx
             )
 
         raw = await server.monitoring_resource("metrics", None)
@@ -332,7 +336,6 @@ async def test_streaming_emits_output_before_completion(monkeypatch):
 
     code = (
         "print('FIRST')\n"
-        "import math\n"
         "total = 0\n"
         "for i in range(3 * 10**6):\n"
         "    total += i\n"

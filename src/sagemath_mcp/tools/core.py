@@ -120,6 +120,16 @@ async def evaluate_sage(
         await runtime.SESSION_MANAGER.cancel(session_key)
         await ctx.warning(f"Sage evaluation cancelled; session '{session}' restarted")
         raise
+    except TimeoutError as exc:
+        # A timeout escaped raw: no monitoring record, and the client saw an
+        # unstructured error instead of the message. It went unnoticed because
+        # the test meant to cover this used `import time; time.sleep(10)`, which
+        # became a SecurityViolation -- also a ToolError, so it kept passing.
+        # The message, not the class name: "Sage evaluation timed out after
+        # 30.00s" tells an operator what to change; "TimeoutError" does not.
+        monitoring.record_failure(str(exc), is_security=False, details="TimeoutError")
+        await ctx.error(f"SageMath evaluation timed out: {exc}")
+        raise ToolError(str(exc)) from exc
     except SageEvaluationError as exc:
         monitoring.record_failure(
             exc.error_type or str(exc),

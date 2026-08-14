@@ -66,9 +66,12 @@ def test_documented_blocks_are_actually_enforced(case_id: str, payload: str) -> 
 ALLOWED = [
     ("arithmetic", "2 + 2"),
     ("sage-symbolics", "var('x'); integrate(sin(x), x)"),
-    ("sage-import", "from sage.all import factorial\nfactorial(5)"),
-    ("allowed-stdlib", "import math\nmath.sqrt(2)"),
-    ("base64-io", "import base64\nimport io as _io\nbase64.b64encode(b'x')"),
+    # No imports here any more: those three cases moved to the trusted policy,
+    # where the generated templates need them. A caller reaching factorial or
+    # math.sqrt does it through the preloaded namespace, which is how the
+    # documented examples were always written.
+    ("sage-names-without-import", "factorial(5)"),
+    ("stdlib-names-without-import", "sqrt(2)"),
     ("polynomial-ring-internals", "R = PolynomialRing(QQ, ['a', 'b']); R.gens()"),
     ("method-calls", "G = graphs.PetersenGraph(); G.chromatic_number()"),
     ("attribute-on-result", "matrix([[1,2],[3,4]]).determinant()"),
@@ -465,3 +468,111 @@ def test_the_interface_export_list_is_used_when_it_can_be_imported() -> None:
     finally:
         _sage_worker._EXTERNAL_INTERFACE_EXPORTS = original_exports
         _sage_worker._DANGEROUS_SAGE_MODULES = original_modules
+
+
+# --- Imports re-create everything the namespace scrub removed ------------------
+# The scrub takes dangerous helpers out of the worker namespace, but a caller who
+# imports the module gets a fresh copy. Measured against real SageMath:
+#   from sage.misc.cython import compile_and_load as f; f('print(1)')  compiled
+#   from sage.interfaces.gp import Gp as P; P()('2+2')                 spawned GP
+#   from sage.misc.persist import unpickle_global as f
+#   f('os', 'system')('id')                                            ran a shell
+# Aliasing hides the name from every rule, so the gate has to be the import.
+IMPORT_PAYLOADS = [
+    ("from-import aliased", "from sage.misc.cython import compile_and_load as f\nf('print(1)')"),
+    ("interface class", "from sage.interfaces.gp import Gp as P\nP()('2+2')"),
+    ("module alias", "import sage.misc.cython as c\nc.compile_and_load('x')"),
+    ("unpickle_global to os.system",
+     "from sage.misc.persist import unpickle_global as f\nf('os', 'system')('id')"),
+    ("sage.all wholesale", "from sage.all import *"),
+    ("plain sage", "import sage"),
+    ("stdlib is not special", "import math\nmath.sqrt(4)"),
+    ("io", "import io"),
+]
+
+
+@pytest.mark.parametrize("label,payload", IMPORT_PAYLOADS, ids=[p[0] for p in IMPORT_PAYLOADS])
+def test_caller_code_cannot_import_anything(label, payload) -> None:
+    """Callers get a preloaded namespace; they never need an import.
+
+    Allowing `sage.*` was there for the generated prelude, and it handed callers
+    the whole library back one import at a time.
+    """
+    with pytest.raises(SecurityViolation):
+        validate_module(ast.parse(payload), code=payload, policy=SECURITY_POLICY)
+
+
+def test_generated_code_may_still_import_what_its_templates_need() -> None:
+    """The prelude does `from sage.all import *`; templates use base64 and io."""
+    from sagemath_mcp.security import trusted_policy
+
+    for code in (
+        "from sage.all import *\n1",
+        "from sage.all import sage_eval\n1",
+        "import sage.all as _sage_ns\n1",
+        "import base64\n1",
+        "import io\n1",
+    ):
+        validate_module(ast.parse(code), code=code, policy=trusted_policy())
+
+
+def test_dangerous_module_paths_are_blocked_as_attributes_too() -> None:
+    """Blocking the import is not enough if `sage` itself is in the namespace."""
+    for code in (
+        "sage.misc.persist.unpickle_global('os', 'system')",
+        "sage.interfaces.gp.Gp()",
+        "sage.misc.remote_file.get_remote_file('http://x/y')",
+        "sage.repl.load.load_wrap('x')",
+    ):
+        with pytest.raises(SecurityViolation):
+            validate_module(ast.parse(code), code=code, policy=SECURITY_POLICY)
+
+
+def test_even_generated_code_may_not_import_a_forbidden_module() -> None:
+    """The trusted policy relaxes sage_eval and the import allowlist, nothing else.
+
+    `sage` is allowlisted there, and `from sage.all import os as m` binds the real
+    os module under a name no later rule would recognise. Unreachable from caller
+    code now that callers cannot import at all, which is exactly why it needs a
+    test of its own.
+    """
+    from sagemath_mcp.security import trusted_policy
+
+    for code in (
+        "from sage.all import os as m",
+        "from sage.all import subprocess",
+        "import sage.all\nfrom sage.all import sys as s",
+    ):
+        with pytest.raises(SecurityViolation, match="not permitted"):
+            validate_module(ast.parse(code), code=code, policy=trusted_policy())
+
+
+# --- Writing files through object methods -------------------------------------
+# .save() was on the forbidden list; .dump(), .save_image() and .export_jmol()
+# were not, and each wrote a real file. Matched by prefix now, because Sage's
+# persistence API is longer than any list of names would stay.
+PERSISTENCE_PAYLOADS = [
+    ("dump", "(1/2).dump('/tmp/x')"),
+    ("matrix dump", "matrix([[1,2],[3,4]]).dump('/tmp/x')"),
+    ("save_image", "plot(sin(x), (x,0,1)).save_image('/tmp/x.png')"),
+    ("export_jmol", "sphere((0,0,0), 1).export_jmol('/tmp/x.spt')"),
+    ("savefig to a path", "plot(sin(x), (x,0,1)).matplotlib().savefig('/tmp/x.png')"),
+    ("save", "plot(sin(x), (x,0,1)).save('/tmp/x.png')"),
+]
+
+
+@pytest.mark.parametrize(
+    "label,payload", PERSISTENCE_PAYLOADS, ids=[p[0] for p in PERSISTENCE_PAYLOADS]
+)
+def test_caller_code_cannot_persist_to_disk(label, payload) -> None:
+    with pytest.raises(SecurityViolation):
+        validate_module(ast.parse(payload), code=payload, policy=SECURITY_POLICY)
+
+
+def test_generated_plot_templates_may_still_render_to_a_buffer() -> None:
+    """The plots render with .savefig(BytesIO) -- a prefix rule that broke that
+    would take all three plotting tools with it."""
+    from sagemath_mcp.security import trusted_policy
+
+    code = "_fig.savefig(_buf, format='png')"
+    validate_module(ast.parse(code), code=code, policy=trusted_policy())

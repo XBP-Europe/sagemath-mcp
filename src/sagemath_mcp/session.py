@@ -28,10 +28,11 @@ _JOURNAL_NAMESPACE = "v2"
 # How many non-matching lines to skip before declaring the worker unusable.
 _MAX_DISCARDED_RESPONSES = 64
 
-# Progress lines held for a slow callback before the oldest are dropped. The
-# full stdout still travels with the result, so this bounds memory without
-# losing data the caller cannot get another way.
-_MAX_QUEUED_STDOUT_LINES = 1000
+# Characters of progress output held for a slow callback before the oldest are
+# dropped. A line count bounds nothing in particular -- a thousand lines can be
+# a megabyte or a gigabyte -- so the budget is in characters. The full stdout
+# still travels with the result, so this loses nothing a caller cannot recover.
+_MAX_QUEUED_STDOUT_CHARS = 1_000_000
 _PROJECT_ROOT = str(Path(__file__).resolve().parents[1])
 
 # Workspace used when a caller does not name one.
@@ -100,6 +101,7 @@ class SageSession:
         # The request id the worker is executing right now, or None when idle.
         self._in_flight: str | None = None
         self._dropped_stdout_lines = 0
+        self._queued_stdout_chars = 0
 
     async def ensure_started(self) -> None:
         if self._process and self._process.returncode is None:
@@ -164,12 +166,12 @@ class SageSession:
     def _start_stdout_pump(
         self, on_stdout: Callable[[str], Awaitable[None]]
     ) -> tuple[asyncio.Queue[str | None], asyncio.Task[None]]:
-        # Bounded on purpose. The read loop gives no backpressure -- that is the
-        # point, so a slow callback cannot stall it -- which left caller-driven
-        # output free to grow this queue until the process was killed. A loop
-        # printing faster than the callback consumes is a plausible request, not
-        # an attack.
-        queue: asyncio.Queue[str | None] = asyncio.Queue(maxsize=_MAX_QUEUED_STDOUT_LINES)
+        # No maxsize: the bound is the character budget enforced in
+        # _offer_stdout_line. A maxsize'd queue also refuses the sentinel that
+        # ends the pump, so a full queue turned a completed evaluation into a
+        # QueueFull -- the bound must never be able to fail the request itself.
+        queue: asyncio.Queue[str | None] = asyncio.Queue()
+        self._queued_stdout_chars = 0
         return queue, asyncio.create_task(self._pump_stdout(queue, on_stdout))
 
     def _offer_stdout_line(self, queue: asyncio.Queue[str | None], text: str) -> None:
@@ -180,16 +182,22 @@ class SageSession:
         caller cannot recover. Blocking here, or growing without limit, would
         lose the whole session.
         """
-        try:
-            queue.put_nowait(text)
-            return
-        except asyncio.QueueFull:
-            pass
-        self._dropped_stdout_lines += 1
-        with contextlib.suppress(asyncio.QueueEmpty):
-            queue.get_nowait()          # make room by discarding the oldest
-        with contextlib.suppress(asyncio.QueueFull):
-            queue.put_nowait(text)
+        while (
+            self._queued_stdout_chars + len(text) > _MAX_QUEUED_STDOUT_CHARS
+            and not queue.empty()
+        ):
+            try:
+                dropped = queue.get_nowait()
+            except asyncio.QueueEmpty:  # pragma: no cover - guarded by empty()
+                break
+            # `or ""` rather than a None check: the sentinel is only queued when
+            # draining, which cannot overlap with offering, so a None here is
+            # impossible -- and an unreachable branch is worse than an arithmetic
+            # identity.
+            self._queued_stdout_chars -= len(dropped or "")
+            self._dropped_stdout_lines += 1
+        queue.put_nowait(text)
+        self._queued_stdout_chars += len(text)
 
     async def _stop_stdout_pump(self, pump: asyncio.Task[None] | None) -> None:
         """Stop the consumer without waiting on the caller's callback.
@@ -229,6 +237,7 @@ class SageSession:
             text = await queue.get()
             if text is None:
                 return
+            self._queued_stdout_chars -= len(text)
             with contextlib.suppress(Exception):
                 await on_stdout(text)
 

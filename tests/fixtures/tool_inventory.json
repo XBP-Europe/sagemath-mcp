@@ -109,15 +109,25 @@
                 "type": "integer"
               },
               {
+                "type": "string"
+              },
+              {
                 "type": "null"
               }
             ],
             "default": null,
-            "description": "Secondary argument (for binomial, combinations)"
+            "description": "Secondary argument (for binomial, combinations). Decimal strings accepted, as for n."
           },
           "n": {
-            "description": "Primary integer argument",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Primary integer argument. Values at or above 2^53 must be passed as a decimal string, e.g. \"9007199254740993\", because a JSON number that large has already been rounded by the client."
           },
           "operation": {
             "description": "One of: binomial (n choose k), permutations (n!), combinations (n choose k), partitions (COUNT of integer partitions of n), factorial (n!), catalan (nth Catalan number), fibonacci (nth Fibonacci number), bell (nth Bell number). All return a single integer.",
@@ -234,7 +244,14 @@
           "coefficients": {
             "description": "Curve coefficients [a1,a2,a3,a4,a6] or short Weierstrass [a,b] for y^2 = x^3 + a*x + b",
             "items": {
-              "type": "integer"
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ]
             },
             "type": "array"
           },
@@ -467,6 +484,9 @@
                 "type": "integer"
               },
               {
+                "type": "string"
+              },
+              {
                 "type": "null"
               }
             ],
@@ -477,6 +497,9 @@
             "anyOf": [
               {
                 "type": "integer"
+              },
+              {
+                "type": "string"
               },
               {
                 "type": "null"

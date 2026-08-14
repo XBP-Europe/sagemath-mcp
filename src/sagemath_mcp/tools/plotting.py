@@ -247,8 +247,27 @@ async def geometry_operation(
         # for concave input too. Walk the given ordering instead: a simple
         # polygon is convex when every turn goes the same way. Collinear triples
         # contribute no turn and are skipped.
+        # Turn direction alone is not enough: a pentagram turns the same way at
+        # every vertex and is not convex, because it crosses itself. Convexity is
+        # only defined for a simple polygon, so check simplicity first and say so
+        # rather than answering a question the input does not pose.
         "is_convex": (
             f"_poly = {pts}\n"
+            "_n = len(_poly)\n"
+            "def _orient(_p, _q, _r):\n"
+            "    return ((_q[0]-_p[0])*(_r[1]-_p[1]) - (_q[1]-_p[1])*(_r[0]-_p[0]))\n"
+            "def _crosses(_a, _b, _c, _d):\n"
+            "    _d1 = _orient(_c, _d, _a); _d2 = _orient(_c, _d, _b)\n"
+            "    _d3 = _orient(_a, _b, _c); _d4 = _orient(_a, _b, _d)\n"
+            "    return ((_d1 > 0) != (_d2 > 0)) and ((_d3 > 0) != (_d4 > 0))\n"
+            "_simple = True\n"
+            "for _i in range(_n):\n"
+            "    for _j in range(_i + 1, _n):\n"
+            "        if _j == _i or (_j + 1) % _n == _i or (_i + 1) % _n == _j:\n"
+            "            continue\n"
+            "        if _crosses(_poly[_i], _poly[(_i+1) % _n],\n"
+            "                    _poly[_j], _poly[(_j+1) % _n]):\n"
+            "            _simple = False\n"
             "_turns = set()\n"
             "for _i in range(len(_poly)):\n"
             "    _a = _poly[_i]\n"
@@ -258,7 +277,7 @@ async def geometry_operation(
             "              - (_b[1] - _a[1]) * (_c[0] - _b[0]))\n"
             "    if _cross != 0:\n"
             "        _turns.add(_cross > 0)\n"
-            "bool(len(_turns) <= 1)"
+            "bool(_simple and len(_turns) <= 1)"
         ),
     }
     if operation not in ops:

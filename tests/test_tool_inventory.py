@@ -20,6 +20,8 @@ import asyncio
 import json
 from pathlib import Path
 
+import pytest
+
 SNAPSHOT = Path(__file__).resolve().parent / "fixtures" / "tool_inventory.json"
 
 
@@ -80,3 +82,50 @@ if __name__ == "__main__":  # pragma: no cover - maintenance helper
             encoding="utf-8",
         )
         print(f"wrote {SNAPSHOT}")
+
+
+# Parameters that carry exact integers. A JSON number past MAX_SAFE_INTEGER has
+# already been rounded by a JavaScript client, so each of these must also accept
+# a decimal string -- and that has to be visible in the SCHEMA, not merely
+# tolerated by the Python function. An earlier fix guarded the function bodies
+# while leaving the schemas integer-only: the tests called the functions directly
+# and passed, while every real MCP client was still refused the escape hatch.
+EXACT_INTEGER_PARAMETERS = [
+    ("number_theory_operation", "a"),
+    ("number_theory_operation", "b"),
+    ("combinatorics_operation", "n"),
+    ("combinatorics_operation", "k"),
+    ("graph_operation", "source"),
+    ("graph_operation", "target"),
+]
+
+
+def _accepts_string(schema: dict) -> bool:
+    if schema.get("type") == "string":
+        return True
+    return any(
+        option.get("type") == "string"
+        for option in schema.get("anyOf", []) + schema.get("oneOf", [])
+    )
+
+
+@pytest.mark.parametrize(
+    "tool,parameter",
+    EXACT_INTEGER_PARAMETERS,
+    ids=[f"{t}.{p}" for t, p in EXACT_INTEGER_PARAMETERS],
+)
+def test_exact_integer_parameters_advertise_the_string_escape_hatch(
+    tool: str, parameter: str
+) -> None:
+    tools = asyncio.run(_collect())["tools"]
+    schema = tools[tool]["input_schema"]["properties"][parameter]
+    assert _accepts_string(schema), (
+        f"{tool}.{parameter} takes exact integers but the schema offers no string form, "
+        "so a client cannot pass a value above 2^53 at all"
+    )
+
+
+def test_elliptic_curve_coefficients_advertise_it_too() -> None:
+    tools = asyncio.run(_collect())["tools"]
+    items = tools["elliptic_curve_operation"]["input_schema"]["properties"]["coefficients"]["items"]
+    assert _accepts_string(items), "curve coefficients cannot carry an exact large integer"

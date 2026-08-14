@@ -374,3 +374,19 @@ async def test_is_convex_distinguishes_a_concave_polygon(sage_manager):
     assert convex["result"] is True
     assert concave["result"] is False, "a concave polygon was reported convex"
 
+
+
+@pytest.mark.asyncio
+@requires_sage
+async def test_is_convex_rejects_a_self_intersecting_polygon(sage_manager):
+    """A pentagram turns the same way at every vertex and is not convex.
+
+    Convexity is only defined for a simple polygon, so consistent turn direction
+    on its own answered a question the input did not pose.
+    """
+    ctx = FakeContext("convexity")
+    pentagram = [[0, 3], [2, -3], [-3, 1], [3, 1], [-2, -3]]
+    result = await server.geometry_operation(
+        operation="is_convex", points=pentagram, ctx=ctx
+    )
+    assert result["result"] is False, "a self-intersecting polygon was reported convex"

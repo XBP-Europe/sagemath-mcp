@@ -193,7 +193,11 @@ def _declare_free_symbols(*sources: str | None) -> str:
 
 # Beyond 2^53 a JSON number is no longer exactly representable as an IEEE
 # double, which is what JavaScript-based MCP clients parse numbers into.
-_EXACT_JSON_INT_LIMIT = 2**53
+# JavaScript's Number.MAX_SAFE_INTEGER. 2^53 itself is NOT safe as an inbound
+# value: 2^53 + 1 rounds to exactly 2^53, so a client that meant either sends the
+# same digits and the server cannot tell them apart. The boundary has to be the
+# largest integer whose neighbours are also representable.
+_EXACT_JSON_INT_LIMIT = 2**53 - 1
 
 
 def _exact_int(value: int | str | float, name: str) -> int:

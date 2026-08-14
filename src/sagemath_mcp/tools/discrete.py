@@ -103,9 +103,18 @@ async def combinatorics_operation(
             "integer."
         ),
     ],
-    n: Annotated[int, Field(description="Primary integer argument")],
+    n: Annotated[
+        int | str,
+        Field(
+            description="Primary integer argument. Values at or above 2^53 must "
+            'be passed as a decimal string, e.g. "9007199254740993", because a '
+            "JSON number that large has already been rounded by the client."
+        ),
+    ],
     k: Annotated[
-        int | None, Field(description="Secondary argument (for binomial, combinations)")
+        int | str | None,
+        Field(description="Secondary argument (for binomial, combinations). "
+              "Decimal strings accepted, as for n."),
     ] = None,
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
@@ -163,8 +172,8 @@ async def graph_operation(
             "shortest_path (requires source and target)"
         ),
     ],
-    source: Annotated[int | None, Field(description="Source vertex")] = None,
-    target: Annotated[int | None, Field(description="Target vertex")] = None,
+    source: Annotated[int | str | None, Field(description="Source vertex")] = None,
+    target: Annotated[int | str | None, Field(description="Target vertex")] = None,
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
@@ -180,6 +189,8 @@ async def graph_operation(
     # Validated as an expression in its own right: this string is interpolated
     # into code that runs under the trusted policy, where sage_eval is allowed.
     graph = _validated_expression(graph)
+    source = _exact_int(source, "source") if source is not None else None
+    target = _exact_int(target, "target") if target is not None else None
     named = _NAMED_GRAPH_RE.match(graph.strip())
     if named:
         call = named.group("call") or "()"
@@ -271,7 +282,7 @@ async def group_operation(
 )
 async def elliptic_curve_operation(
     coefficients: Annotated[
-        list[int],
+        list[int | str],
         Field(
             description="Curve coefficients [a1,a2,a3,a4,a6] or "
             "short Weierstrass [a,b] for y^2 = x^3 + a*x + b"

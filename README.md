@@ -679,10 +679,13 @@ wrong, which is the worst way for it to fail.
 
 Both directions therefore speak decimal strings past that boundary:
 
-- **In:** integer parameters above 2^53 must be passed as strings. A numeric
-  literal that large is rejected rather than silently rounded.
-- **Out:** integer results above 2^53 come back as decimal strings. Smaller
-  integers keep their numeric type, so ordinary results are unchanged.
+- **In:** integer parameters from 2^53 upward must be passed as decimal strings;
+  a numeric literal that large is rejected rather than silently rounded. The
+  boundary is JavaScript's `Number.MAX_SAFE_INTEGER` (2^53 - 1), not 2^53:
+  2^53 + 1 rounds to exactly 2^53, so those two arrive indistinguishable and
+  neither can be trusted.
+- **Out:** integer results beyond that boundary come back as decimal strings.
+  Smaller integers keep their numeric type, so ordinary results are unchanged.
 
 ```json
 {"operation": "bell", "result": "846749014511809332450147"}

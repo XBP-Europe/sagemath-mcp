@@ -317,3 +317,19 @@ def test_exactify_leaves_other_types_alone() -> None:
     assert _exactify_large_ints(None) is None
     # bool is an int subclass; True must not become "True".
     assert _exactify_large_ints(True) is True
+
+
+def test_the_boundary_is_max_safe_integer_not_two_to_the_53() -> None:
+    """2^53 itself is not a safe inbound value.
+
+    2^53 + 1 rounds to exactly 2^53 in a double, so a client that meant either
+    sends identical digits and the server cannot tell them apart. Accepting
+    2^53 therefore accepts a value that may already be wrong -- which is how
+    the "rejects above 2^53" guard still let the documented example through.
+    """
+    safe = 2**53 - 1
+    assert _reject_if_inexact(safe, "n") == safe
+    assert _reject_if_inexact(-safe, "n") == -safe
+    for unsafe in (2**53, 2**53 + 1, -(2**53)):
+        with pytest.raises(ToolError, match="2\\^53"):
+            _reject_if_inexact(unsafe, "n")

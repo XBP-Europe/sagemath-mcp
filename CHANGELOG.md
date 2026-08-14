@@ -30,7 +30,7 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- **Integer results above 2^53 are returned as decimal strings.** They were
+- **Integer results at or above 2^53 are returned as decimal strings**, and the same parameters accept them on the way in (`combinatorics_operation`, `elliptic_curve_operation`, `graph_operation` vertices joined `number_theory_operation`). They were
   returned as JSON numbers, and JavaScript-based MCP clients parse those as IEEE
   doubles, so exact values were silently corrupted: `bell(30)` reached one CLI as
   `846749014511809388871680` rather than `846749014511809332450147`. Integers

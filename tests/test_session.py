@@ -1537,7 +1537,7 @@ async def test_a_stalled_callback_cannot_grow_the_queue_without_limit(tmp_path):
     The read loop deliberately gives no backpressure, so output produced faster
     than a callback consumes it queued without limit until the process died.
     """
-    from sagemath_mcp.session import _MAX_QUEUED_STDOUT_LINES
+    from sagemath_mcp.session import _MAX_QUEUED_STDOUT_CHARS
 
     settings = SageSettings(force_python_worker=True, eval_timeout=30.0)
     session = SageSession("flooded", settings)
@@ -1549,16 +1549,58 @@ async def test_a_stalled_callback_cannot_grow_the_queue_without_limit(tmp_path):
     await session.ensure_started()
     try:
         queue, pump = session._start_stdout_pump(stalled)
-        assert queue.maxsize == _MAX_QUEUED_STDOUT_LINES
+        line = "x" * 1000
+        for _ in range(int(_MAX_QUEUED_STDOUT_CHARS / len(line)) * 3):
+            session._offer_stdout_line(queue, line)
 
-        for i in range(_MAX_QUEUED_STDOUT_LINES * 3):
-            session._offer_stdout_line(queue, f"line {i}")
-
-        assert queue.qsize() <= _MAX_QUEUED_STDOUT_LINES, "the queue grew past its bound"
+        assert session._queued_stdout_chars <= _MAX_QUEUED_STDOUT_CHARS, (
+            "the queue held more than its character budget"
+        )
         assert session._dropped_stdout_lines > 0, "nothing was recorded as dropped"
 
         release.set()
         await session._stop_stdout_pump(pump)
+    finally:
+        release.set()
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_a_stalled_callback_does_not_fail_a_completed_streaming_evaluation(tmp_path):
+    """End to end: flood the queue, then let the evaluation finish.
+
+    The bound has to be invisible to the result. With a maxsize'd queue the
+    sentinel that ends the pump was itself refused once the queue filled, so a
+    successful evaluation raised QueueFull -- the memory guard failing the very
+    request it was protecting. The earlier test poked _offer_stdout_line directly
+    and never drained a real evaluation, which is exactly why it missed this.
+    """
+    settings = SageSettings(force_python_worker=True, eval_timeout=60.0)
+    session = SageSession("flood-e2e", settings)
+    release = asyncio.Event()
+    seen: list[str] = []
+
+    async def stalled(text: str) -> None:
+        seen.append(text)
+        await release.wait()
+
+    await session.ensure_started()
+    try:
+        task = asyncio.create_task(
+            session.evaluate(
+                "for _i in range(1500):\n    print('y' * 1000)\n7\n",
+                want_latex=False,
+                capture_stdout=True,
+                on_stdout=stalled,
+            )
+        )
+        await asyncio.sleep(1.0)      # let the flood build up behind the callback
+        release.set()
+
+        result = await asyncio.wait_for(task, timeout=45)
+        assert result.result == "7", "a completed evaluation was lost to the queue bound"
+        # The full stdout is on the result regardless of what progress dropped.
+        assert result.stdout.count("y" * 1000) == 1500
     finally:
         release.set()
         await session.shutdown()

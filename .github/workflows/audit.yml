@@ -85,6 +85,13 @@ jobs:
         run: |
           IMAGE="$(sed -n 's/^FROM //p' Dockerfile | head -1)"
           SAGEMATH_MCP_DOCKER_IMAGE="$IMAGE" make sage-container
+      # Sage bundles pytest but not pytest-asyncio, so without this the run dies
+      # in conftest with ModuleNotFoundError -- which is what happened the first
+      # time this job was ever executed, months after it was written. `make
+      # integration-test` depends on this target; calling pytest directly does
+      # not, and this job calls it directly to run one test.
+      - name: Install the dev extras into Sage's own Python
+        run: make sage-deps
       - name: Allowlist matches the installed SageMath
         id: drift
         run: |

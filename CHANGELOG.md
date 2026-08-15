@@ -9,6 +9,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **A specialised tool call reopened the scrubbed namespace (remote code
+  execution).** The generated prelude runs `from sage.all import *` in the same
+  persistent namespace as caller code, restoring every name the startup scrub
+  had removed. `unpickle_global` is guarded by that scrub alone, so after any
+  tool call a caller who had bound the name in dead code could reach it:
+  `unpickle_global('os', 'system')` ran a shell as the container user. The
+  namespace is now **resealed after trusted execution** rather than only at
+  startup — both scrubs re-applied and the withheld set re-taken — because a
+  snapshot cannot cover names that appear later. Caller-created names are
+  preserved.
+
+
 - **A caller binding can no longer authorize a name that already exists.**
   Binding is judged statically, so `leaked = smuggled(); smuggled = None`
   authorized reading `smuggled` at the start of the module, where it still held

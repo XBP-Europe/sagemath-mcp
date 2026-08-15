@@ -1452,6 +1452,42 @@ live in that same namespace, so `total` was withheld on the call after the one
 that created it. Nineteen tests failed and said so. It is a snapshot taken once,
 before any caller code runs.
 
+## 38. A tool call reopened the scrubbed namespace — critical — DONE
+
+Remote code execution, confirmed against SageMath 10.9. It wrote
+`uid=1001(sage)` to disk. Three steps, and the middle one is **any specialised
+tool at all**:
+
+```
+1.  if False: unpickle_global = 1                   # dead binding, authorized
+2.  calculate_expression(...)  (or any tool)        # prelude re-imports sage.all
+3.  unpickle_global('os', 'system')('id > /tmp/x')  # shell
+```
+
+The generated prelude runs `from sage.all import *` **in the same persistent
+namespace as caller code**, which puts back every name the startup scrub had
+removed. `unpickle_global` is guarded by that scrub alone — unlike `cython`,
+`pari` or `attrcall`, which the AST rules refuse by name — so it came back fully
+reachable. `show` did too.
+
+This is the third distinct hole in one mechanism, and the progression is worth
+reading as one thing. Item 30: a binding may not authorize a dunder. Item 37: a
+binding may not authorize any name that already exists. Both fixes rested on a
+snapshot of the namespace taken **at startup**, and this is what that assumption
+was worth: a snapshot cannot cover names that appear afterwards, and trusted
+code puts them there on every tool call.
+
+Fixed by resealing rather than snapshotting once. `_reseal_namespace` re-applies
+both scrubs and re-takes the withheld set after trusted execution, which is the
+only thing that can repopulate — caller code cannot import. Caller-created names
+are explicitly preserved, since a stateful session is the point of the server.
+
+**Why the earlier probe missed it.** Item 34 tested `SAGEMATH_MCP_STARTUP` and
+concluded the allowlist failed closed against a smuggled name. That was true and
+irrelevant: the name in question was never smuggled in at startup, it was put
+back by the server's own prelude on a later call. Testing the boundary at one
+moment says nothing about a namespace that keeps changing.
+
 SSH authentication to GitHub broke during this session (`ssh -T git@github.com`
 returns `Permission denied (publickey)` with keys loaded). `gh` still works
 because it uses token auth. If it persists, `git remote set-url origin https://…`

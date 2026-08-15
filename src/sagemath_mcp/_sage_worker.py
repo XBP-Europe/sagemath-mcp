@@ -281,6 +281,30 @@ def _strip_dangerous_sage_names(ns: dict[str, Any]) -> int:
     return removed
 
 
+def _reseal_namespace(ns: dict[str, Any]) -> None:
+    """Re-apply the startup scrub, and re-take the withheld snapshot.
+
+    The generated prelude runs `from sage.all import *` in this same persistent
+    namespace, which puts back every name the startup scrub removed. That was
+    remote code execution: `unpickle_global` is guarded by the scrub alone --
+    unlike `cython` or `pari`, which the AST rules refuse by name -- so after
+    any specialised tool call it was reachable again by a caller who had bound
+    the name in dead code.
+
+    Sealing at startup is therefore not enough; the namespace has to be resealed
+    whenever something has run that could have repopulated it. Caller-created
+    names are left alone: they are the point of a stateful session, and they
+    cannot reintroduce a scrubbed helper, because caller code cannot import.
+    """
+    _strip_forbidden_modules(ns)
+    _strip_dangerous_sage_names(ns)
+    global _WITHHELD_NAMES
+    _WITHHELD_NAMES = frozenset(
+        name for name in ns
+        if name not in ALLOWED_CALLER_NAMES and name not in _CALLER_BOUND_NAMES
+    )
+
+
 def _strip_forbidden_modules(ns: dict[str, Any]) -> None:
     """Drop module objects the policy forbids from the user namespace.
 
@@ -521,6 +545,9 @@ def _execute(
             if compiled.is_expr and compiled.tail is not None:
                 result_obj = eval(compile(compiled.tail, "<sagecell>", "eval"), namespace)
                 result_type = "expression"
+        if trusted:
+            # Generated code has just run `from sage.all import *` in here.
+            _reseal_namespace(namespace)
         stdout_value = stdout_buffer.getvalue() if stdout_buffer else ""
         result_repr = None if result_obj is None else repr(result_obj)
         latex_repr = _latex(result_obj) if result_obj is not None and want_latex else None

@@ -949,3 +949,52 @@ def test_withholding_does_not_disturb_ordinary_variables() -> None:
     )
     # Shadowing an offered name is still fine: `x` is predefined and allowlisted.
     validate_module(ast.parse("x = 5\nx + 1"), withheld_names=frozenset({"smuggled"}))
+
+
+@pytest.mark.asyncio
+async def test_a_trusted_tool_call_cannot_reopen_the_scrubbed_namespace() -> None:
+    """The scrub must survive the prelude that undoes it.
+
+    Confirmed as remote code execution against SageMath 10.9 before the fix.
+    Three steps, and the middle one is *any* specialised tool at all:
+
+        1.  if False: unpickle_global = 1          # dead binding, authorized
+        2.  <calculate_expression, or any tool>    # prelude re-imports sage.all
+        3.  unpickle_global('os', 'system')(...)   # wrote uid=1001(sage)
+
+    The generated prelude runs `from sage.all import *` in the *same persistent
+    namespace* as caller code, which restores every name the startup scrub had
+    removed. `unpickle_global` is protected only by that scrub -- unlike
+    `cython` or `pari`, which the AST rules refuse by name -- so it came back
+    fully reachable, and a caller who had bound the name in dead code could read
+    it.
+
+    The namespace is therefore resealed after trusted execution rather than only
+    at startup. A snapshot taken once cannot cover names that appear later.
+    """
+    from sagemath_mcp import _sage_worker
+
+    namespace = {"__builtins__": {}}
+    # Stand in for what `from sage.all import *` puts back.
+    namespace["unpickle_global"] = lambda *a: "reopened"
+    namespace["cython"] = lambda *a: "reopened"
+
+    _sage_worker._reseal_namespace(namespace)
+
+    assert "unpickle_global" not in namespace, (
+        "a name the startup scrub removes must not survive a reseal"
+    )
+    assert "cython" not in namespace
+
+
+@pytest.mark.asyncio
+async def test_resealing_keeps_what_the_caller_built() -> None:
+    """And it must not take the caller's own work with it."""
+    from sagemath_mcp import _sage_worker
+
+    namespace = {"__builtins__": {}, "total": 45, "my_helper": lambda: 1, "x": "symbol"}
+    _sage_worker._reseal_namespace(namespace)
+
+    assert namespace["total"] == 45
+    assert "my_helper" in namespace
+    assert "x" in namespace

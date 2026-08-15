@@ -325,6 +325,26 @@ def _is_dunder(name: str) -> bool:
     return len(name) > 4 and name.startswith("__") and name.endswith("__")
 
 
+# The one dunder Sage's own preparser writes. `f(x) = x^2 + 1` -- the first
+# function definition in every Sage tutorial, and how a physicist writes a
+# potential -- expands to
+#     __tmp__=var("x"); f = symbolic_expression(x**Integer(2) + Integer(1)).function(x)
+# and validation runs on the preparsed source, so the dunder rule refused the
+# most idiomatic syntax in the language.
+_PREPARSER_TEMP = "__tmp__"
+
+
+def _is_preparser_temp(node: ast.Name) -> bool:
+    """Is this the preparser's scratch name, being written rather than read?
+
+    Store only, and that one name only. The preparser never reads it back, so a
+    caller who writes it themselves gains nothing they did not already have: the
+    value is theirs, and loading it stays blocked. Allowing dunder *stores* in
+    general would not be safe -- `__builtins__ = {...}` is a store.
+    """
+    return node.id == _PREPARSER_TEMP and isinstance(node.ctx, ast.Store)
+
+
 def _attribute_segments(node: ast.Attribute) -> list[str]:
     """Return every dotted segment of an attribute chain, root first.
 
@@ -540,7 +560,7 @@ def validate_module(
                 code=code,
                 policy=policy,
             )
-        if isinstance(node, ast.Name) and _is_dunder(node.id):
+        if isinstance(node, ast.Name) and _is_dunder(node.id) and not _is_preparser_temp(node):
             _raise_violation(
                 f"Access to dunder name '{node.id}' is blocked",
                 code=code,

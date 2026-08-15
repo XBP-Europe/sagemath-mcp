@@ -1284,6 +1284,49 @@ sagemath-mcp/
 Every released version, newest first. [`CHANGELOG.md`](CHANGELOG.md) carries the
 full detail; this is the shape of each release.
 
+### v0.6.0 (2026-08-15)
+
+A security and correctness release, and the largest so far. **Output changes**,
+so it is a minor bump rather than a patch: `2^3` is 8, `x`/`y`/`z`/`t` are
+predefined, and callers lose imports, the external CAS interfaces and
+`show`/`view`/`latex`/`html`.
+
+**Security**
+
+- **Caller code moved to a deny-by-default allowlist.** A name is refused unless
+  SageMath preloads it, it is a safe builtin, or the caller's own code bound it.
+  This replaced a denylist over a namespace thousands of names deep, after a run
+  of bypasses that were each a name nobody had forbidden.
+- **A series of sandbox escapes closed, each with a regression test and each
+  verified against real SageMath 10.9**: string-path attribute access
+  (`operator.attrgetter`, and Sage's own `attrcall`/`raw_getattr`/`getattr_debug`);
+  `pari` and `latex.has_file` running shell commands; `unpickle_global`
+  reachable after a tool call re-imported `sage.all`; and bindings authorizing
+  names that already existed. See `CHANGELOG.md` and `REVIEW_ACTIONS.md` for the
+  full list with reproductions.
+- **Tool parameters refuse the names the namespace scrub removes**, and cannot
+  walk the `sage` module tree — the fragment path is validated independently of
+  where `sage_eval` resolves.
+
+**Changed**
+
+- **`evaluate_sage` runs SageMath, not Python** — the preparser is applied, so
+  `2^3` is 8 and generator syntax parses.
+- **`x`, `y`, `z` and `t` are predefined**, matching the specialised tools'
+  prelude; any other symbol needs `var('w')`, and the error says so.
+
+**Fixed**
+
+- `f(x) = x^2 + 1` (the tutorial's first line), `find_root` taking an equation,
+  `match` statements and `function('f')` binding names, uniformly-indented code,
+  and refusal messages that now name an actionable fix.
+
+**Added**
+
+- Suites for the mathematics that must *work* (`test_math_coverage.py`), the
+  research and physics sessions a user actually runs, and SageMath's own
+  doctests executed through the server.
+
 ### v0.5.0 (2026-08-14)
 
 A correctness and hardening release. **Output changes** for large integers, so it

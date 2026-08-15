@@ -7,6 +7,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-15
+
+A security and correctness release, and a large one. `evaluate_sage` now
+runs SageMath rather than Python, caller code is checked against a
+deny-by-default allowlist, and a run of sandbox escapes found over the course
+of the work were each closed with a regression test. It is a **minor bump
+rather than a patch** because caller-visible behaviour changes: `2^3` is 8,
+`x`/`y`/`z`/`t` are predefined, and callers can no longer import, reach the
+external CAS interfaces, or call `show`/`view`/`latex`/`html`.
+
 ### Security
 
 - **A forbidden attribute could be reached by alias.** The rule fired only when
@@ -16,7 +26,6 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   attribute node. Older and wider than the `latex` methods: `popen`, `rmtree`
   and the `spawn*` family had been guarded the same call-only way for far
   longer. No new over-block — the doctest corpus still passes.
-
 - **Re-offering `latex` handed over a shell (remote code execution).**
   `Latex.has_file(name)` runs `call("kpsewhich %s" % name, shell=True)`, so
   `latex.has_file('x; id > /tmp/x')` executed a command as the container user;
@@ -26,7 +35,6 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   method on it. The three methods are refused by name, `latex(obj)` and its
   string-building methods still work, and the first, broader fix was rejected
   because it refused 56 examples from SageMath's own doctests.
-
 - **A caller could reserve a name for a tool to fill.** Binding a template's
   internal in dead code (`if False: _fig = 1`) marked it as the caller's own, so
   the object a later tool call built arrived under a name already exempt from
@@ -38,7 +46,6 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a namespace diff, since the diff alone is blind to trusted code *overwriting*
   a name the caller had legitimately created, and the AST alone cannot see what
   `from sage.all import *` brings in.
-
 - **`write_*` methods wrote caller-chosen files.**
   `graphs.PetersenGraph().write_to_eps(path)` and
   `Polyhedron().write_cdd_Hrepresentation(path)` each wrote to disk — the same
@@ -51,7 +58,6 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   factories. The guard now covers anything callable with no arguments, matches
   capability words against name segments rather than substrings, and accepts a
   baseline of 37 mathematical collisions so anything new fails.
-
 - **A specialised tool call reopened the scrubbed namespace (remote code
   execution).** The generated prelude runs `from sage.all import *` in the same
   persistent namespace as caller code, restoring every name the startup scrub
@@ -65,8 +71,6 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   raises or is interrupted as well as one that succeeds: the prelude runs first,
   so a failing call has already repopulated the namespace by the time it fails,
   and sealing only on success left every failing call holding the door open.
-
-
 - **A caller binding can no longer authorize a name that already exists.**
   Binding is judged statically, so `leaked = smuggled(); smuggled = None`
   authorized reading `smuggled` at the start of the module, where it still held
@@ -78,8 +82,6 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   by an untrusted caller on a default deployment, since the startup is operator
   configuration — but the same hole opens with no custom startup at all if a
   SageMath upgrade lands before `make allowlist` is rerun.
-
-
 - **The rich-output subsystem is fully closed.** `get_display_manager` and
   `pretty_print` were the last live names from `sage.repl.rich_output`, joining
   `show` and `view` — removed by provenance this time, which also took
@@ -93,8 +95,6 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   attribute rules, so a factory handing back a rich object is a route no name
   check can see. A test now calls every allowlisted zero-argument factory and
   fails if the result exposes a method matching a capability word.
-
-
 - **Sage's own string-path primitives are refused.** The previous round blocked
   Python's `operator.attrgetter` and left SageMath's equivalents in place.
   `attrcall('save', path)(M)`, `raw_getattr(M, 'save')(M, path)` and
@@ -110,8 +110,6 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   remove nothing until a hand-maintained baked list was updated, and there was
   no command to update it — which is why `sage.misc.call` was added and
   `attrcall` stayed reachable. The drift test now names the command.
-
-
 - **String-path attribute access is refused.** Every attribute rule in this
   server is enforced on the AST, and `operator.attrgetter` takes its path as a
   runtime string the AST never sees — so
@@ -138,8 +136,6 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   removed from the caller namespace. Plotting and LaTeX output are unaffected:
   the plot tools render through `.savefig(BytesIO)`, and `latex` is imported
   from `sage.all` inside the worker rather than read from that namespace.
-
-
 - **Caller code is checked against an allowlist.** A name may be read only if
   this server offers it: the mathematical names SageMath preloads, the safe
   builtins, and whatever the caller defines itself -- including names created
@@ -153,7 +149,6 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Tool *parameters* keep the previous rules and are not allowlisted -- they name
   things valid in a template's context (`HammingCode` inside `codes.`), and the
   denylist, import ban and persistence rules all still apply to them.
-
 - **A caller binding can no longer authorize a dunder.** Names the caller's own
   code binds are trusted without consulting the allowlist, and binding is judged
   statically — `if False: __builtins__ = 1` counts, as does `except ValueError as
@@ -208,105 +203,30 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a container, where the published port decides reachability, and wrong on a
   host; that distinction is now stated where the command appears.
 
-### Documentation
+### Changed
 
-- **A documentation pass over every markdown file**, checking each claim against
-  the code rather than re-reading the prose. What it found: `USAGE.md` listed 33
-  of 37 tools while its header said 37 — the four missing ones were
-  `interrupt_sage_session`, which the same page recommends in prose, and the
-  three that make up named workspaces; `INSTALLATION.md` called the SageMath
-  runtime "optional" when without it every evaluation fails with `Unable to
-  locate Sage executable`; the README architecture diagram
-  advertised response caching that was deliberately turned off as an isolation
-  bug. Test counts, the predefined symbols and the security framing were stale
-  in several places.
-- **A test now enforces that every tool is documented** in `USAGE.md` and
-  `README.md`, because that table drifted by four without anything failing.
-- Security documentation gained the design principle behind the `operator`
-  finding: every attribute rule is enforced on the source text, so any primitive
-  that fetches an attribute by a runtime string defeats all of them at once.
+- **`x`, `y`, `z` and `t` are now predefined for caller code.** Sage's REPL
+  predefines `x` alone, but the specialised tools have always declared four in
+  their prelude, so `differentiate_expression("x^2*y^3")` worked while the same
+  mathematics through `evaluate_sage` failed. Both paths now read one constant
+  (`symbols.PREDEFINED_SYMBOLS`), with a test asserting they agree. Four and no
+  more: `y`, `z` and `t` are unbound in a fresh Sage namespace, whereas `n` and
+  `i` are numerical approximation and the Gaussian imaginary unit. A mistyped
+  `y` now becomes a symbolic variable rather than an error, which is already
+  true of `x` in Sage.
+- **`evaluate_sage` now runs SageMath, not Python.** Caller code goes through
+  Sage's preparser, as the Sage REPL does, so `2^3` is 8 rather than 1, integer
+  literals are Sage `Integer`s, generator syntax like `K.<a> = NumberField(...)`
+  parses, and `x` is predefined. The tool advertised "SageMath code" and executed
+  plain Python; five of the seven examples in its own description could not run.
+  The specialised tools have always preparsed via `sage_eval`, so the two halves
+  of the server disagreed about which language they accepted.
 
-### Fixed
+  **This changes results for anyone relying on `^` meaning XOR.** Use `^^` for
+  XOR, as in Sage. Server-generated templates are deliberately not preparsed.
 
-- **`nonlocal` and `global` are permitted, the input limits admit a matrix, and
-  a withheld name says which spelling works.** All three came out of reading the
-  doctest corpus's refusals as a work queue rather than an audit.
-  - `nonlocal` rebinds a name in an enclosing *function*, so it cannot reach the
-    worker namespace at all; it was refused by a policy flag with no comment, no
-    recorded rationale and no test named for it, and the cost was every closure
-    that accumulates something. `global` followed a round later, once its own
-    question was answered: it binds at module scope, but `SR = 5` is permitted
-    at the top level anyway, so the declaration cannot be what makes it
-    dangerous. Verified against 10.9 — `global unpickle_global` claims a name
-    whose object was scrubbed and reads back a `NameError`, while `cython`,
-    `attrcall` and `sage_input` stay refused by name.
-  - `max_source_chars` rose from 8,000 to 131,072 and `max_ast_nodes` from 2,500
-    to 50,000. A 40×40 integer matrix is 17,706 characters and 6,497 nodes
-    *after preparsing* — Sage wraps every literal as `Integer(0)` — so a matrix
-    small enough to paste was refused before anything looked at it, and raising
-    only the character limit would have left the node limit refusing a 25×25.
-    The new limits admit a 100×100 matrix and cap one request at roughly 140ms
-    of parsing, measured: preparse, parse and validate cost about 1.1µs per
-    character on 10.9, linearly. Execution is bounded separately by
-    `eval_timeout`.
-  - **`A.inject_variables()` works, and the names outlive the call.**
-    `R.<u, v> = QQ[]` was fine because the preparser binds statically, while
-    `R = PolynomialRing(QQ, 'u,v')` followed by `R.inject_variables()` — the
-    same mathematics written the other way — was refused, 741 times across the
-    corpus. A snippet that asks for an injection now has the *allowlist* half of
-    deny-by-default suspended, and only that half: the withheld check still
-    refuses every name that is live and not offered, so what suspending buys is
-    names that are not live at all, which are either the injected ones or a
-    `NameError`. The worker records what appeared so the next call can read it,
-    gated on the caller having written the call. `inject_shorthands` is
-    deliberately excluded — Sage routes it through the REPL's globals, so
-    nothing lands here and the undeclared-symbol message is the better answer.
-  - **The length limit is checked before the preparser and after it.** Raising
-    `max_source_chars` made a new failure reachable: Sage rewrites every literal,
-    so 92 KB of arithmetic arrives at the parser as 506 KB, and the worker parses
-    before it validates. CPython got there first and answered `RecursionError:
-    maximum recursion depth exceeded during ast construction` — telling a caller
-    their mathematics broke the interpreter when it had exceeded a documented
-    limit. The check now runs on what the caller wrote *and* on what the
-    preparser produced, and the message says which: a number measured against
-    the typed source is the one the caller can act on.
-  - A name withheld because it spawns an external program now names the
-    in-process equivalent: `gap(...)` points at `SymmetricGroup(5)` and
-    `libgap`, `singular(...)` at `ideal(...).groebner_basis()`,
-    `attrcall('bruhat_le')` at the lambda it stands for. ~2,300 of the corpus's
-    refusals are these names, and
-    `test_the_blocked_interfaces_do_not_block_the_mathematics` already proved
-    each equivalent works — this writes down what that test knows. A lone `r`
-    keeps the undeclared-symbol message, which is right: it is a radius far more
-    often than the R interface.
-
-
-- **`f(x) = x^2 + 1` was refused.** Sage's function-definition syntax — the
-  first thing in its tutorial, and how a physicist writes `V(r) = -1/r` —
-  expands to `__tmp__=var("x"); f = symbolic_expression(...).function(x)`, and
-  the server validates the preparsed source, so the blanket dunder ban caught
-  the preparser's own scratch name. `__tmp__` is now permitted as an assignment
-  *target* only: the preparser never reads it back, a store cannot leak anything
-  the caller did not already hold, and every other dunder stays refused in both
-  directions (`__builtins__ = {...}` is a store). Found by writing the first
-  physics session, not by a security review — an over-block passes every test in
-  a suite that only asserts refusals.
-
-- **`find_root` accepts an equation.** Kepler's equation arrives written as
-  `E - 0.6*sin(E) = 0.75`, every CLI passed it that way, and `sage_eval`
-  answered `invalid syntax (<string>, line 1)` — which names neither the cause
-  nor the fix, while `solve_equation` had always accepted the form. The string
-  is split the same way, and only after the plain expression fails to parse, so
-  `log(x, base=2) - 1` is untouched.
-
-- **The import refusal now says what to do instead.** "Import statements are
-  disabled for Sage executions" is true and useless: Gemini opens numerical work
-  with `import numpy as np`, was told only that imports are disabled, and failed
-  three physics cases in a row without recovering. The message now adds that
-  SageMath is already loaded and names what to reach for. The same three cases
-  were re-run against the same model: two now pass, and the third fails on a
-  function Gemini invented (`bessel_Jn_zeros`, which is SciPy's name), where the
-  refusal is correct.
+  Validation reads the preparsed source, so the sandbox is unaffected: payloads
+  hidden behind preparser-only syntax are rejected like any other.
 
 ### Added
 
@@ -333,8 +253,6 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   meant to mirror, which is ASCII-only. The Greek letters come back through the
   allowlist instead, so `π`, `σ`, `ζ`, `Γ` and `ψ` keep their meanings — pi, the
   divisor sum, zeta, gamma and digamma — and the other twenty-four declare.
-
-
 - **A sequence of matrices is laid out the way Sage lays it out.** `repr`
   stacks a basis one matrix after another; Sage prints them side by side, in
   columns, and for eight 3×3 matrices that is 4 lines against 32. It matters for
@@ -366,8 +284,6 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   stacks them. The last is a real difference in what a caller sees and is on the
   queue rather than hidden — the harness skips those comparisons so the gap is
   measured.
-
-
 - **Two suites of the workload this server exists for.**
   `test_numerical_workflows.py` covers floating point, where a model's answer is
   not imprecise but confidently wrong: catastrophic cancellation in the
@@ -451,7 +367,6 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   stay fatal whatever happens afterwards — those are the defects this suite
   exists to catch — and nothing passes without an accepted tool that succeeded
   and the expected answer.
-
 - **The sdist shipped one file of documentation, not eight.** `MANIFEST.in`
   listed `USAGE.md`, `TESTING.md`, `AGENTS.md`, `INSTALLATION.md` and everything
   under `docs/`, and had no effect: the build backend is hatchling, which does
@@ -459,19 +374,6 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `DISTRIBUTION.md` and `build_release.py` both said documentation was included.
   The file list moved to `[tool.hatch.build.targets.sdist]`, where it works, and
   `MANIFEST.in` is deleted rather than left looking authoritative.
-
-### Removed
-
-- **`docs/reference_md/` and `EVALUATION.md`.** The reference directory was
-  orphaned: no code read it, and the `resource://sagemath/docs/{scope}` resource
-  serves links into the upstream manual directly, so the local copy was 200-odd
-  links pointing at the same URLs, and already accruing maintenance (one page
-  recommended `search_src`, which callers may no longer use). `scripts/convert_html_to_md.py`, which only regenerated it, goes too.
-  `EVALUATION.md` was an April snapshot whose verdict was superseded, whose
-  security assessment had become wrong, and whose entire backlog had shipped.
-
-### Added
-
 - **A research-workflow suite** (`tests/test_research_workflows.py`): nine
   multi-step sessions at genuinely open problems — Collatz, Goldbach and its
   weak form, twin primes and Legendre, odd perfect numbers, the Riemann
@@ -487,8 +389,6 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the largest prime gap below 10^6, amicable pairs, and a curve's rank and
   conductor. Every answer needs a real sweep, so a model that skips the server
   cannot bluff past the wire-log check.
-
-
 - **A suite for mathematics that must work** (`tests/test_math_coverage.py`).
   The security suite asserts things are blocked, so a policy that refused
   everything would pass all of it. This covers the opposite failure, in six
@@ -498,34 +398,83 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   that need no Sage run in the fast job, because that is where allowlist
   regressions come from.
 
-### Changed
-
-- **`x`, `y`, `z` and `t` are now predefined for caller code.** Sage's REPL
-  predefines `x` alone, but the specialised tools have always declared four in
-  their prelude, so `differentiate_expression("x^2*y^3")` worked while the same
-  mathematics through `evaluate_sage` failed. Both paths now read one constant
-  (`symbols.PREDEFINED_SYMBOLS`), with a test asserting they agree. Four and no
-  more: `y`, `z` and `t` are unbound in a fresh Sage namespace, whereas `n` and
-  `i` are numerical approximation and the Gaussian imaginary unit. A mistyped
-  `y` now becomes a symbolic variable rather than an error, which is already
-  true of `x` in Sage.
-
-- **`evaluate_sage` now runs SageMath, not Python.** Caller code goes through
-  Sage's preparser, as the Sage REPL does, so `2^3` is 8 rather than 1, integer
-  literals are Sage `Integer`s, generator syntax like `K.<a> = NumberField(...)`
-  parses, and `x` is predefined. The tool advertised "SageMath code" and executed
-  plain Python; five of the seven examples in its own description could not run.
-  The specialised tools have always preparsed via `sage_eval`, so the two halves
-  of the server disagreed about which language they accepted.
-
-  **This changes results for anyone relying on `^` meaning XOR.** Use `^^` for
-  XOR, as in Sage. Server-generated templates are deliberately not preparsed.
-
-  Validation reads the preparsed source, so the sandbox is unaffected: payloads
-  hidden behind preparser-only syntax are rejected like any other.
-
 ### Fixed
 
+- **`nonlocal` and `global` are permitted, the input limits admit a matrix, and
+  a withheld name says which spelling works.** All three came out of reading the
+  doctest corpus's refusals as a work queue rather than an audit.
+  - `nonlocal` rebinds a name in an enclosing *function*, so it cannot reach the
+    worker namespace at all; it was refused by a policy flag with no comment, no
+    recorded rationale and no test named for it, and the cost was every closure
+    that accumulates something. `global` followed a round later, once its own
+    question was answered: it binds at module scope, but `SR = 5` is permitted
+    at the top level anyway, so the declaration cannot be what makes it
+    dangerous. Verified against 10.9 — `global unpickle_global` claims a name
+    whose object was scrubbed and reads back a `NameError`, while `cython`,
+    `attrcall` and `sage_input` stay refused by name.
+  - `max_source_chars` rose from 8,000 to 131,072 and `max_ast_nodes` from 2,500
+    to 50,000. A 40×40 integer matrix is 17,706 characters and 6,497 nodes
+    *after preparsing* — Sage wraps every literal as `Integer(0)` — so a matrix
+    small enough to paste was refused before anything looked at it, and raising
+    only the character limit would have left the node limit refusing a 25×25.
+    The new limits admit a 100×100 matrix and cap one request at roughly 140ms
+    of parsing, measured: preparse, parse and validate cost about 1.1µs per
+    character on 10.9, linearly. Execution is bounded separately by
+    `eval_timeout`.
+  - **`A.inject_variables()` works, and the names outlive the call.**
+    `R.<u, v> = QQ[]` was fine because the preparser binds statically, while
+    `R = PolynomialRing(QQ, 'u,v')` followed by `R.inject_variables()` — the
+    same mathematics written the other way — was refused, 741 times across the
+    corpus. A snippet that asks for an injection now has the *allowlist* half of
+    deny-by-default suspended, and only that half: the withheld check still
+    refuses every name that is live and not offered, so what suspending buys is
+    names that are not live at all, which are either the injected ones or a
+    `NameError`. The worker records what appeared so the next call can read it,
+    gated on the caller having written the call. `inject_shorthands` is
+    deliberately excluded — Sage routes it through the REPL's globals, so
+    nothing lands here and the undeclared-symbol message is the better answer.
+  - **The length limit is checked before the preparser and after it.** Raising
+    `max_source_chars` made a new failure reachable: Sage rewrites every literal,
+    so 92 KB of arithmetic arrives at the parser as 506 KB, and the worker parses
+    before it validates. CPython got there first and answered `RecursionError:
+    maximum recursion depth exceeded during ast construction` — telling a caller
+    their mathematics broke the interpreter when it had exceeded a documented
+    limit. The check now runs on what the caller wrote *and* on what the
+    preparser produced, and the message says which: a number measured against
+    the typed source is the one the caller can act on.
+  - A name withheld because it spawns an external program now names the
+    in-process equivalent: `gap(...)` points at `SymmetricGroup(5)` and
+    `libgap`, `singular(...)` at `ideal(...).groebner_basis()`,
+    `attrcall('bruhat_le')` at the lambda it stands for. ~2,300 of the corpus's
+    refusals are these names, and
+    `test_the_blocked_interfaces_do_not_block_the_mathematics` already proved
+    each equivalent works — this writes down what that test knows. A lone `r`
+    keeps the undeclared-symbol message, which is right: it is a radius far more
+    often than the R interface.
+- **`f(x) = x^2 + 1` was refused.** Sage's function-definition syntax — the
+  first thing in its tutorial, and how a physicist writes `V(r) = -1/r` —
+  expands to `__tmp__=var("x"); f = symbolic_expression(...).function(x)`, and
+  the server validates the preparsed source, so the blanket dunder ban caught
+  the preparser's own scratch name. `__tmp__` is now permitted as an assignment
+  *target* only: the preparser never reads it back, a store cannot leak anything
+  the caller did not already hold, and every other dunder stays refused in both
+  directions (`__builtins__ = {...}` is a store). Found by writing the first
+  physics session, not by a security review — an over-block passes every test in
+  a suite that only asserts refusals.
+- **`find_root` accepts an equation.** Kepler's equation arrives written as
+  `E - 0.6*sin(E) = 0.75`, every CLI passed it that way, and `sage_eval`
+  answered `invalid syntax (<string>, line 1)` — which names neither the cause
+  nor the fix, while `solve_equation` had always accepted the form. The string
+  is split the same way, and only after the plain expression fails to parse, so
+  `log(x, base=2) - 1` is untouched.
+- **The import refusal now says what to do instead.** "Import statements are
+  disabled for Sage executions" is true and useless: Gemini opens numerical work
+  with `import numpy as np`, was told only that imports are disabled, and failed
+  three physics cases in a row without recovering. The message now adds that
+  SageMath is already loaded and names what to reach for. The same three cases
+  were re-run against the same model: two now pass, and the third fails on a
+  function Gemini invented (`bessel_Jn_zeros`, which is SciPy's name), where the
+  refusal is correct.
 - **`match` statements and `function('f')` created unusable variables.** The
   allowlist trusts names the caller's own code binds, and binding was detected
   from `Name` nodes alone: `match` patterns bind through their own node types,
@@ -542,7 +491,6 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   that the name "needs to be added to the allowlist", which is true and useless
   to a model that will simply retry. Short lowercase names are now told to
   declare the symbol.
-
 - `evaluate_sage_streaming` had no error handling at all: a timeout, a security
   violation or a dead worker propagated raw and none were recorded, while
   `evaluate_sage` reported each properly.
@@ -556,6 +504,34 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   execution model: the Laplace pair needed its symbols declared (Sage's REPL
   predefines only `x`), `desolve_rsolve` does not exist, and
   `continued_fraction` has no `nterms` keyword.
+
+### Removed
+
+- **`docs/reference_md/` and `EVALUATION.md`.** The reference directory was
+  orphaned: no code read it, and the `resource://sagemath/docs/{scope}` resource
+  serves links into the upstream manual directly, so the local copy was 200-odd
+  links pointing at the same URLs, and already accruing maintenance (one page
+  recommended `search_src`, which callers may no longer use). `scripts/convert_html_to_md.py`, which only regenerated it, goes too.
+  `EVALUATION.md` was an April snapshot whose verdict was superseded, whose
+  security assessment had become wrong, and whose entire backlog had shipped.
+
+### Documentation
+
+- **A documentation pass over every markdown file**, checking each claim against
+  the code rather than re-reading the prose. What it found: `USAGE.md` listed 33
+  of 37 tools while its header said 37 — the four missing ones were
+  `interrupt_sage_session`, which the same page recommends in prose, and the
+  three that make up named workspaces; `INSTALLATION.md` called the SageMath
+  runtime "optional" when without it every evaluation fails with `Unable to
+  locate Sage executable`; the README architecture diagram
+  advertised response caching that was deliberately turned off as an isolation
+  bug. Test counts, the predefined symbols and the security framing were stale
+  in several places.
+- **A test now enforces that every tool is documented** in `USAGE.md` and
+  `README.md`, because that table drifted by four without anything failing.
+- Security documentation gained the design principle behind the `operator`
+  finding: every attribute rule is enforced on the source text, so any primitive
+  that fetches an attribute by a runtime string defeats all of them at once.
 
 ## [0.5.0] - 2026-08-14
 

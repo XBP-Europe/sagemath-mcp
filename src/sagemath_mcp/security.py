@@ -178,7 +178,10 @@ class SecurityPolicy:
     #
     # Caller code only: trusted_policy() clears this, because the plot templates
     # legitimately call .savefig(buffer) -- to a BytesIO, never a path.
-    forbidden_attribute_prefixes: tuple[str, ...] = ("save", "dump", "export")
+    # `write` joined these after `graphs.PetersenGraph().write_to_eps(path)`
+    # was found writing a caller-chosen file: it is the same capability as
+    # `.save()`, under a name the original three prefixes did not cover.
+    forbidden_attribute_prefixes: tuple[str, ...] = ("save", "dump", "export", "write")
     forbidden_attribute_names: tuple[str, ...] = (
         "system",
         "popen",

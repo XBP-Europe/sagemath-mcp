@@ -1528,3 +1528,47 @@ SSH authentication to GitHub broke during this session (`ssh -T git@github.com`
 returns `Permission denied (publickey)` with keys loaded). `gh` still works
 because it uses token auth. If it persists, `git remote set-url origin https://…`
 with `gh auth setup-git` routes git through the same token.
+
+## 40. The dunder rule refused Sage's own function syntax — high — DONE
+
+Not an escape. The opposite failure, and the one this project's security suite
+is structurally unable to see: an over-block that refuses ordinary mathematics.
+
+```
+f(x) = x^2 + 1
+  -> Blocked Sage code: Access to dunder name '__tmp__' is blocked
+```
+
+That is the first function definition in the Sage tutorial, and the way a
+physicist writes a potential (`V(r) = -1/r`), a Lagrangian or a Hamiltonian. The
+preparser expands it to
+
+```
+__tmp__=var("x"); f = symbolic_expression(x**Integer(2) + Integer(1)).function(x)
+```
+
+and this server deliberately validates the *preparsed* source — "validate what
+will actually run" — so the blanket dunder ban caught the preparser's own
+scratch name. Every other name in the expansion (`var`, `symbolic_expression`,
+`Integer`) is already allowlisted; `__tmp__` alone was the refusal.
+
+Fixed by allowing that one name in `Store` context only. The preparser never
+reads it back, so a caller who writes it themselves gains nothing they did not
+already have — the value stored is their own — while a load stays blocked. The
+narrowness is the point: allowing dunder *stores* in general would permit
+`__builtins__ = {...}`, which is why the rule is one name and one context rather
+than one context.
+
+**How it was found, and why it took this long.** Nothing in 683 tests used the
+syntax. The security suite asserts refusals, so an over-block passes it by
+definition; `test_math_coverage.py` is the counterweight and its preparser table
+covered `^`, `1/3`, `R.<t>` and Unicode names but not `f(x) =`. It surfaced on
+the first attempt to write a *physics* session — Wien's displacement law, where
+one defines the function and maximises it — which is the case for choosing test
+scenarios from what users actually do rather than from what the code has
+branches for.
+
+Both directions are now regression-tested: the four function-definition forms in
+`PREPARSER_FORMS`, and in `test_security_bypass.py` that `__tmp__` cannot be
+read in any position, that no other dunder gained a write, and that
+`obj.__tmp__ = 1` is still an attribute write on a dunder.

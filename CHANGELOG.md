@@ -185,6 +185,43 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`f(x) = x^2 + 1` was refused.** Sage's function-definition syntax — the
+  first thing in its tutorial, and how a physicist writes `V(r) = -1/r` —
+  expands to `__tmp__=var("x"); f = symbolic_expression(...).function(x)`, and
+  the server validates the preparsed source, so the blanket dunder ban caught
+  the preparser's own scratch name. `__tmp__` is now permitted as an assignment
+  *target* only: the preparser never reads it back, a store cannot leak anything
+  the caller did not already hold, and every other dunder stays refused in both
+  directions (`__builtins__ = {...}` is a store). Found by writing the first
+  physics session, not by a security review — an over-block passes every test in
+  a suite that only asserts refusals.
+
+### Added
+
+- **Two suites of the workload this server exists for.**
+  `test_numerical_workflows.py` covers floating point, where a model's answer is
+  not imprecise but confidently wrong: catastrophic cancellation in the
+  quadratic formula, a 12×12 Hilbert solve with no correct digit and a residual
+  that looks fine, Newton's quadratic convergence measured rather than claimed,
+  a grid-refinement check that the finite-difference Laplacian really is
+  second-order, the CFL limit crossed, Robertson's stiff kinetics returning NaN
+  under an explicit step, and a quadrature error estimate that is accurate about
+  the wrong domain. `test_physics_workflows.py` runs sessions that end at a
+  number with an external referee — Wien's constant and the Sun's temperature
+  from Planck's law, the Stefan–Boltzmann constant to eleven digits, Mercury's
+  43″ per century from the Schwarzschild orbit equation, the oscillator ladder
+  by finite differences, the anharmonic oscillator where the perturbation series
+  goes negative and diagonalisation does not, phonon modes against the closed
+  form, Maxwell's equations on a plane wave, the Bohr radius and 1/α from CODATA,
+  a decay fit by two independent methods, and the double pendulum's energy
+  conservation and sensitivity. 17 tests, ~17s against SageMath 10.9.
+- **Nine CLI cases in the new `numerics` and `physics` domains**, chosen so the
+  memorable answer is the wrong one — π²/6 against a sum truncated at 10⁶, `0.5`
+  against a discretised oscillator, 43″ against Mercury's 42.98. Run with
+  `--domain numerics,physics`.
+- The extended CLI runner distinguishes `DODGED` from `WRONG_ANSWER`, using the
+  `forbidden` markers each case already carried and nothing read.
+
 - **The sdist shipped one file of documentation, not eight.** `MANIFEST.in`
   listed `USAGE.md`, `TESTING.md`, `AGENTS.md`, `INSTALLATION.md` and everything
   under `docs/`, and had no effect: the build backend is hatchling, which does

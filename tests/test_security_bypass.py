@@ -675,6 +675,54 @@ def test_a_binding_cannot_authorize_a_dunder() -> None:
     )
 
 
+def test_the_preparsers_scratch_name_is_written_but_never_readable() -> None:
+    """`f(x) = x^2 + 1` -- and the one dunder that has to survive the rule.
+
+    Sage's preparser expands its function-definition syntax into
+
+        __tmp__=var("x"); f = symbolic_expression(...).function(x)
+
+    and this server validates the *preparsed* source, so the blanket dunder ban
+    refused the first syntax in the Sage tutorial. `V(r) = -1/r` is how a
+    physicist writes a potential; the refusal was not a corner case, and no test
+    in the suite used the form.
+
+    The relaxation is one name in one context. A store cannot leak anything --
+    the value written is the caller's own -- while a load can, so `__tmp__` is
+    writable and unreadable, and every other dunder stays refused in both.
+    """
+    # Exactly what SageMath 10.9's preparser emits for `f(x) = x^2 + 1`.
+    preparsed = (
+        '__tmp__=var("x"); f = symbolic_expression(x**Integer(2) + Integer(1)).function(x)'
+    )
+    validate_module(ast.parse(preparsed), code=preparsed, policy=SECURITY_POLICY)
+
+    # Reading it back is not part of the deal, in any position.
+    for payload in (
+        "__tmp__",
+        "y = __tmp__",
+        "print(__tmp__)",
+        "[__tmp__ for _ in range(1)]",
+    ):
+        with pytest.raises(SecurityViolation, match="dunder"):
+            validate_module(ast.parse(payload), code=payload, policy=SECURITY_POLICY)
+
+    # And no other dunder gained a write. `__builtins__ = {...}` is a store.
+    for payload in (
+        "__builtins__ = 1",
+        "__class__ = 1",
+        "__loader__, __tmp__ = 1, 2",
+        "for __builtins__ in []:\n    pass",
+    ):
+        with pytest.raises(SecurityViolation, match="dunder"):
+            validate_module(ast.parse(payload), code=payload, policy=SECURITY_POLICY)
+
+    # The relaxation is a store of that one name, not an attribute of it:
+    # `obj.__tmp__ = v` is still an attribute write on a dunder.
+    with pytest.raises(SecurityViolation, match="dunder"):
+        validate_module(ast.parse("f.__tmp__ = 1"), code="f.__tmp__ = 1", policy=SECURITY_POLICY)
+
+
 def test_a_never_executed_binding_still_cannot_reach_a_blocked_name() -> None:
     """The other half: static binding is deliberately an over-approximation.
 
@@ -825,55 +873,109 @@ def test_the_modules_that_define_attribute_plumbing_are_all_scrubbed() -> None:
         )
 
 
+# Methods on objects from allowlisted factories whose names collide with a
+# capability word but are ordinary mathematics: removing loops from a graph,
+# the open interval of a poset, a modular form's system of eigenvalues. Checked
+# once against SageMath 10.9 so that anything new has to be looked at.
+_MATHEMATICAL_COLLISIONS = frozenset({
+    "BipartiteGraph.remove_loops",
+    "BipartiteGraph.remove_multiple_edges",
+    "BooleanPolynomialRing.remove_var",
+    "BraidGroup_class_with_category.rewriting_system",
+    "BraidGroup_class_with_category.set_confluent_rewriting_system",
+    "ConvexRationalPolyhedralCone.is_open",
+    "ConvexRationalPolyhedralCone.is_relatively_open",
+    "CubeGroup_with_category.strong_generating_system",
+    "CubicBraidGroup_with_category.rewriting_system",
+    "CubicBraidGroup_with_category.set_confluent_rewriting_system",
+    "CuspidalSubmodule_level1_Q_with_category.system_of_eigenvalues",
+    "DiGraph.remove_loops",
+    "DiGraph.remove_multiple_edges",
+    "DynkinDiagram_class.remove_loops",
+    "DynkinDiagram_class.remove_multiple_edges",
+    "DynkinDiagram_class.root_system",
+    "EisensteinSubmodule_g0_Q_with_category.system_of_eigenvalues",
+    "FiniteJoinSemilattice_with_category.open_interval",
+    "FiniteLatticePoset_with_category.open_interval",
+    "FiniteMeetSemilattice_with_category.open_interval",
+    "FinitePoset_with_category.open_interval",
+    "Graph.remove_loops",
+    "Graph.remove_multiple_edges",
+    "IntegerListsLex_with_category.backend_class",
+    "KleinFourGroup_with_category.strong_generating_system",
+    "ModularFormsAmbient_g0_Q_with_category.system_of_eigenvalues",
+    "ModularSymbolsAmbient_wt2_g0_with_category.compact_system_of_eigenvalues",
+    "ModularSymbolsAmbient_wt2_g0_with_category.system_of_eigenvalues",
+    "OrderedTrees_all_with_category.element_class.remove",
+    "Polyhedra_ZZ_ppl_with_category.element_class.backend",
+    "Polyhedra_ZZ_ppl_with_category.element_class.is_open",
+    "Polyhedra_ZZ_ppl_with_category.element_class.is_relatively_open",
+    "PolyhedralComplex.remove_cell",
+    "QuaternionGroup_with_category.strong_generating_system",
+    "SimplicialComplex_with_category.remove_face",
+    "SimplicialComplex_with_category.remove_faces",
+    "list.remove",
+})
+
+
 def test_no_allowlisted_factory_hands_back_a_dangerous_object() -> None:
     """The allowlist governs *names*; an object's methods escape it entirely.
 
     Once caller code holds an object, only the attribute rules apply to what it
-    can call on it -- so an allowlisted factory that returns a rich object is a
-    way past the name check that no name check can see. `get_display_manager()`
-    was the one that existed: it hands back a `DisplayManager` carrying
-    `switch_backend` and `graphics_from_save`, which takes a caller-supplied
-    callable.
+    can call on it -- so an allowlisted factory returning a rich object is a
+    route past the name check that no name check can see.
 
-    Neither turned out to be exploitable -- no `BackendBase` is reachable to
-    switch to, and `graphics_from_save` can only invoke a callable the caller
-    could already call -- but the shape is worth keeping shut, and the whole
-    rich-output subsystem has no purpose over MCP anyway: results come back as
-    strings and plots as base64 PNGs.
+    The first version of this test skipped classes and anything whose signature
+    had parameters, which quietly excluded 225 factories that are perfectly
+    callable with no arguments -- every optional-argument constructor in Sage.
+    Reviewing the guard rather than trusting its pass found
+    `graphs.PetersenGraph().write_to_eps(path)` writing a caller-chosen file,
+    which is why `write` is now a forbidden attribute prefix. The lesson is that
+    a security test's exclusions deserve the same scrutiny as the code.
 
-    This is the structural check rather than the instance: it fails if a future
-    Sage adds a zero-argument factory whose result exposes something dangerous.
-    Zero-argument only, because calling anything else needs arguments this test
-    would have to invent.
+    Danger words are matched against underscore-separated *segments*, not as
+    substrings: `truncate` contains "run", `is_shellable` contains "shell" and
+    `evaluation` contains "eval", and matching those made the report unreadable.
+    What survives is mathematical vocabulary that genuinely collides --
+    `remove_loops`, `open_interval`, `system_of_eigenvalues` -- so the check is
+    against a baseline, and anything *new* fails.
     """
     import contextlib
     import inspect
     import io
 
-    sage = pytest.importorskip("sage.all")  # noqa: F841 - real Sage only
+    pytest.importorskip("sage.all")
     from sagemath_mcp._sage_worker import _build_namespace
     from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
 
     namespace = _build_namespace()
-    dangerous = (
+    dangerous = frozenset({
         "system", "popen", "spawn", "exec", "eval", "compile", "import", "open",
         "write", "unlink", "remove", "rmtree", "chmod", "socket", "urlopen",
         "download", "fetch", "install", "backend", "shell", "run",
-    )
+    })
     prefixes = SECURITY_POLICY.forbidden_attribute_prefixes
 
-    reachable: list[str] = []
+    found: set[str] = set()
     for name in sorted(ALLOWED_CALLER_NAMES):
         factory = namespace.get(name)
-        if factory is None or not callable(factory) or inspect.isclass(factory):
+        if factory is None or not callable(factory):
             continue
         try:
             # Reading a signature resolves a lazy import, and some are broken in
             # a given Sage -- 10.9 raises AttributeError for
             # `is_ProductProjectiveSpaces` here, not at call time.
-            if inspect.signature(factory).parameters:
-                continue
+            parameters = tuple(inspect.signature(factory).parameters.values())
         except BaseException:
+            continue
+        callable_with_nothing = all(
+            parameter.default is not inspect.Parameter.empty
+            or parameter.kind in (
+                inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD
+            )
+            for parameter in parameters
+        )
+        if not callable_with_nothing:
             continue
         try:
             # license() and credits() print; keep the failure message readable.
@@ -883,31 +985,27 @@ def test_no_allowlisted_factory_hands_back_a_dangerous_object() -> None:
             continue
         try:
             attributes = dir(produced)
-        except BaseException:  # an object that refuses introspection is fine
+        except BaseException:
             continue
         for attribute in attributes:
             if attribute.startswith("_") or attribute.startswith(prefixes):
                 continue
-            lowered = attribute.lower()
-            if not any(word in lowered for word in dangerous):
+            if not (set(attribute.lower().split("_")) & dangerous):
                 continue
             try:
-                # Reading an attribute can resolve a lazy import, and some of
-                # those are broken in a given Sage: 10.9 raises AttributeError
-                # for `is_ProductProjectiveSpaces`. Unreadable means unreachable.
                 value = getattr(produced, attribute, None)
             except BaseException:
                 continue
             if callable(value):
-                reachable.append(f"{name}() -> {type(produced).__name__}.{attribute}")
+                found.add(f"{type(produced).__name__}.{attribute}")
 
-    # `version()` returns a str, whose removeprefix/removesuffix match "remove".
-    reachable = [r for r in reachable if not r.startswith("version()")]
-    assert not reachable, (
+    unexpected = sorted(found - _MATHEMATICAL_COLLISIONS)
+    assert not unexpected, (
         "these allowlisted factories hand back objects with methods the name "
-        f"allowlist cannot govern: {reachable}"
+        f"allowlist cannot govern: {unexpected}. If it is mathematics whose name "
+        f"merely collides with a capability word, add it to "
+        f"_MATHEMATICAL_COLLISIONS; if it writes, spawns or fetches, block it."
     )
-
 
 def test_a_binding_cannot_authorize_a_name_that_already_exists() -> None:
     """A binding authorizes a name the caller *creates*, not one already there.

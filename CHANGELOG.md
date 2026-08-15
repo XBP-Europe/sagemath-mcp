@@ -9,6 +9,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **A caller binding can no longer authorize a name that already exists.**
+  Binding is judged statically, so `leaked = smuggled(); smuggled = None`
+  authorized reading `smuggled` at the start of the module, where it still held
+  whatever the namespace had put there — a preloaded object from a custom
+  `SAGEMATH_MCP_STARTUP` executed. Splitting it across two calls worked too,
+  with the binding in a statement that raised before assigning. The rule is now
+  general: a name that is live but not offered is refused whatever authorizes
+  it, which is what the earlier dunder-only fix should have been. Not reachable
+  by an untrusted caller on a default deployment, since the startup is operator
+  configuration — but the same hole opens with no custom startup at all if a
+  SageMath upgrade lands before `make allowlist` is rerun.
+
+
 - **The rich-output subsystem is fully closed.** `get_display_manager` and
   `pretty_print` were the last live names from `sage.repl.rich_output`, joining
   `show` and `view` — removed by provenance this time, which also took

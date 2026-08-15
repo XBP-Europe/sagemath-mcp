@@ -14,6 +14,7 @@ import traceback
 from types import SimpleNamespace
 from typing import Any
 
+from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
 from sagemath_mcp.security import (
     SECURITY_POLICY,
     _bound_names,
@@ -39,6 +40,8 @@ _STARTUP_ERROR: str | None = None
 # nobody has found yet -- a name only becomes trusted by appearing as a target in
 # code the policy already approved.
 _CALLER_BOUND_NAMES: set[str] = set()
+# Snapshot of what the namespace held before any caller code ran.
+_WITHHELD_NAMES: frozenset[str] = frozenset()
 
 
 def _build_namespace() -> dict[str, Any]:
@@ -75,6 +78,8 @@ def _build_namespace() -> dict[str, Any]:
                 with contextlib.suppress(Exception):
                     ns[symbol] = ns["SR"].var(symbol)
     _CALLER_BOUND_NAMES.clear()      # a fresh namespace has no caller names in it
+    global _WITHHELD_NAMES
+    _WITHHELD_NAMES = _withheld_names(ns)
     return ns
 
 
@@ -367,9 +372,27 @@ def _preparse(code: str) -> str:
     return preparse(code)
 
 
+def _withheld_names(ns: dict[str, Any]) -> frozenset[str]:
+    """Names present at startup that callers are not offered.
+
+    Under the default startup this is only dunders, because the allowlist is
+    generated from exactly this namespace. It stops being only dunders the
+    moment anything else puts a name here -- a custom `SAGEMATH_MCP_STARTUP`,
+    or a Sage upgrade landing before the allowlist is regenerated -- and those
+    names must stay unreachable rather than becoming reachable to any caller who
+    happens to assign to them.
+
+    Taken once, before any caller code runs. Recomputing it per call would sweep
+    up the caller's own variables: they live in this same namespace, so `total`
+    would be withheld on the call after the one that created it.
+    """
+    return frozenset(n for n in ns if n not in ALLOWED_CALLER_NAMES)
+
+
 def _split_code(
     code: str, trusted: bool = False,
     session_names: frozenset[str] | set[str] = frozenset(),
+    withheld: frozenset[str] = frozenset(),
 ) -> SimpleNamespace:
     """Return the executable and tail expression chunks for *code*.
 
@@ -385,10 +408,15 @@ def _split_code(
     # runs once per request, keeping the execution fast while guarding against
     # disallowed imports/constructs early.
     policy = trusted_policy() if trusted else SECURITY_POLICY
-    validate_module(module, code=code, policy=policy, extra_allowed_names=session_names)
+    validate_module(
+        module, code=code, policy=policy,
+        extra_allowed_names=session_names, withheld_names=withheld,
+    )
     if not trusted:
-        # Approved, so what it binds is readable on later calls in this session.
-        _CALLER_BOUND_NAMES.update(_bound_names(module))
+        # Approved, so what it binds is readable on later calls in this session
+        # -- except a name that is already live and not offered, which the
+        # caller is shadowing rather than creating.
+        _CALLER_BOUND_NAMES.update(_bound_names(module) - withheld)
     ast.fix_missing_locations(module)
     if module.body and isinstance(module.body[-1], ast.Expr):
         prefix = ast.Module(
@@ -468,7 +496,10 @@ def _execute(
     start = time.perf_counter()
 
     try:
-        compiled = _split_code(code, trusted=trusted, session_names=_CALLER_BOUND_NAMES)
+        compiled = _split_code(
+            code, trusted=trusted, session_names=_CALLER_BOUND_NAMES,
+            withheld=_WITHHELD_NAMES,
+        )
     except Exception as exc:
         return {
             "ok": False,

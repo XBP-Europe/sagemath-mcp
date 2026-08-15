@@ -431,8 +431,18 @@ def validate_module(
     code: str | None = None,
     policy: SecurityPolicy | None = None,
     extra_allowed_names: frozenset[str] | set[str] = frozenset(),
+    withheld_names: frozenset[str] | set[str] = frozenset(),
 ) -> None:
-    """Validate *module* against the configured security policy."""
+    """Validate *module* against the configured security policy.
+
+    ``withheld_names`` are names that exist in the worker's namespace but are
+    not offered to callers. They are refused whatever else authorizes them,
+    because a caller's *binding* must authorize a name the caller creates and
+    not one that is already there holding something else. Binding is judged
+    statically -- `leaked = smuggled(); smuggled = None` binds `smuggled` for
+    the whole module -- so without this rule the read at the start is
+    authorized while the name still holds the preloaded object.
+    """
     policy = policy or SECURITY_POLICY
     if not policy.enabled:
         return
@@ -541,8 +551,9 @@ def validate_module(
             policy.enforce_name_allowlist
             and isinstance(node, ast.Name)
             and isinstance(node.ctx, ast.Load)
-            and node.id not in bound
-            and node.id not in policy.allowed_names
+            and (node.id in withheld_names or (
+                node.id not in bound and node.id not in policy.allowed_names
+            ))
         ):
             # Deny-by-default. Every bypass so far was a name no rule mentioned;
             # here an unrecognised name is refused instead of assumed harmless.

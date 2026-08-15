@@ -907,3 +907,45 @@ def test_no_allowlisted_factory_hands_back_a_dangerous_object() -> None:
         "these allowlisted factories hand back objects with methods the name "
         f"allowlist cannot govern: {reachable}"
     )
+
+
+def test_a_binding_cannot_authorize_a_name_that_already_exists() -> None:
+    """A binding authorizes a name the caller *creates*, not one already there.
+
+    The hole, reproduced against a worker started with a custom
+    `SAGEMATH_MCP_STARTUP` that preloads `smuggled`:
+
+        smuggled()                              -> refused, correctly
+        leaked = smuggled(); smuggled = None    -> **executed the preloaded object**
+
+    `_bound_names` collects targets across the whole module without asking
+    whether the assignment has run yet, so binding `smuggled` at the end
+    authorized reading it at the start -- and at that point the name still holds
+    the preloaded object. Splitting it across two calls worked too, with the
+    binding in a statement that raised before assigning anything.
+
+    The dunder case of this was closed in item 30 by refusing to record dunders.
+    That was the same bug seen through a keyhole: the general rule is that a
+    name which is live but not offered may not be authorized by anything.
+    """
+    module = ast.parse("leaked = smuggled(); smuggled = None; leaked")
+
+    # Without the rule, the binding makes this pass.
+    validate_module(module, extra_allowed_names=frozenset({"smuggled"}))
+
+    with pytest.raises(SecurityViolation, match="not a name this server offers"):
+        validate_module(
+            module,
+            extra_allowed_names=frozenset({"smuggled"}),
+            withheld_names=frozenset({"smuggled"}),
+        )
+
+
+def test_withholding_does_not_disturb_ordinary_variables() -> None:
+    """The rule must only bite names that are live and unoffered."""
+    validate_module(
+        ast.parse("total = 1\ntotal + 1"),
+        withheld_names=frozenset({"smuggled"}),
+    )
+    # Shadowing an offered name is still fine: `x` is predefined and allowlisted.
+    validate_module(ast.parse("x = 5\nx + 1"), withheld_names=frozenset({"smuggled"}))

@@ -1404,6 +1404,54 @@ attribute **resolves a lazy import**, and some are broken in a given Sage —
 `removeprefix`/`removesuffix` match a capability word; it is filtered, and
 exposing the Sage version is expected behaviour.
 
+## 37. A binding authorized a name that already existed — high — DONE
+
+Item 30 closed this for dunders and I recorded it as defence in depth, on the
+strength of a measurement: everything live-but-not-allowlisted was a dunder. That
+measurement was true only of the default startup, and the conclusion drawn from
+it was too narrow. Reproduced against a worker started with a custom
+`SAGEMATH_MCP_STARTUP` preloading `smuggled`:
+
+```
+smuggled()                                -> refused, correctly
+leaked = smuggled(); smuggled = None      -> PRELOADED OBJECT EXECUTED
+```
+
+and split across two calls, with the binding in a statement that raised before
+assigning anything:
+
+```
+call 1:  smuggled = 1/0                   -> ZeroDivisionError, binds nothing
+call 2:  smuggled()                       -> PRELOADED OBJECT EXECUTED
+```
+
+`_bound_names` collects targets across the whole module and never asks whether
+the assignment has run — it cannot, short of executing the code — so binding a
+name at the end authorizes reading it at the start, while the name still holds
+whatever was there before.
+
+**The general rule, which is what item 30 should have been.** A caller's binding
+authorizes a name the caller *creates*; it may not authorize one that already
+exists holding something else. `validate_module` takes `withheld_names` and
+refuses those whatever else authorizes them, and the worker passes everything
+live-but-unoffered. Dunders fall out of the same rule rather than needing their
+own.
+
+**Severity in context.** `SAGEMATH_MCP_STARTUP` is operator configuration, so
+this is not reachable by an untrusted caller on a default deployment, and an
+operator who can set it already owns the process. What it broke is the invariant
+this server documents — that a name is refused unless the allowlist offers it or
+the caller's own code bound it — and the same hole opens with no custom startup
+at all if a SageMath upgrade lands before `make allowlist` is rerun. That is a
+realistic sequence, and it is why this is fixed rather than filed as
+configuration.
+
+One mistake worth recording: the first fix recomputed the withheld set from the
+live namespace on every call, which swept up the caller's own variables — they
+live in that same namespace, so `total` was withheld on the call after the one
+that created it. Nineteen tests failed and said so. It is a snapshot taken once,
+before any caller code runs.
+
 SSH authentication to GitHub broke during this session (`ssh -T git@github.com`
 returns `Permission denied (publickey)` with keys loaded). `gh` still works
 because it uses token auth. If it persists, `git remote set-url origin https://…`

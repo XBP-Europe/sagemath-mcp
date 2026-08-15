@@ -2917,9 +2917,17 @@ is nearly free.
 All nine fixed, written test-first, and verified against real SageMath 10.9 in
 the `sage-mcp` container: the twelve escape payloads that ran a shell (or would
 have) now return `ok=False` with no marker file written, and the mathematics
-they collided with still computes. Unit suite 830 passed, coverage back to 100%
-(statements and branches), the denylist drift test and every math-coverage
-counterweight green.
+they collided with still computes.
+
+Shipped in PR #40 (squash-merged to `main` as `69221b4`). Full verification:
+host suite 830 passed; the complete container suite 972 passed (1 skipped, the
+opt-in doctest-execution run, which passes when enabled); coverage 100%
+(statements and branches); the denylist drift test and every math-coverage
+counterweight green; and all seven CI checks -- lint, security, test 3.12/3.13,
+smoke, helm, integration -- passed on the PR. Regenerating the allowlist removed
+exactly five names (`Pari`, `PariRing`, `PariGroup`, `libgap`, `Dokchitser`) and
+kept `PariError`, and `tests/test_sage_doctest_corpus.py` no longer asserts
+`libgap(5).Factorial()` works -- `factorial(5)` and the group methods cover it.
 
 **49 + 52 -- one rule, `security.py`.** The attribute-chain check now inspects
 every segment, not `segments[:-1]`. A forbidden name in **terminal** position is

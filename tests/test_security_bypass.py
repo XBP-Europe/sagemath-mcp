@@ -1348,3 +1348,55 @@ def test_a_forbidden_name_is_only_released_while_it_is_unreachable() -> None:
     for name in sorted(released):
         with pytest.raises(SecurityViolation):
             validate_module(ast.parse(f"{name}(1)"), code=f"{name}(1)")
+
+
+@pytest.mark.parametrize(
+    "label,payload",
+    [
+        # The reason `eval` may be an identifier: the danger is the attribute.
+        ("latex.eval runs the toolchain", "latex.eval('\\\\LaTeX')"),
+        ("eval on any object", "obj = 1\nobj.eval('1+1')"),
+        # Unbound, the names are refused by deny-by-default: they are absent
+        # from builtins, from the namespace and from the allowlist.
+        ("eval unbound", "eval('1+1')"),
+        ("vars unbound", "vars()"),
+        ("locals unbound", "locals()"),
+        ("input unbound", "input()"),
+        # And the primitives with no mathematical use stay refused outright.
+        ("exec", "exec('x=1')"),
+        ("open", "open('/etc/passwd')"),
+        ("globals", "globals()"),
+        ("compile", "compile('1', '<s>', 'eval')"),
+        ("getattr", "getattr(matrix, 'save')"),
+    ],
+)
+def test_the_attribute_only_names_are_still_shut_where_they_bite(label, payload) -> None:
+    with pytest.raises(SecurityViolation):
+        validate_module(ast.parse(payload), code=payload, policy=SECURITY_POLICY)
+
+
+def test_the_released_identifiers_reach_nothing() -> None:
+    """The ground under the attribute-only list, checked three ways.
+
+    `eval`, `vars`, `locals` and `input` are usable as identifiers now. That is
+    safe only while the bare name resolves to nothing at all -- so this asserts
+    the three places it could resolve from: the restricted builtins, the worker
+    namespace, and the generated allowlist. `getattr` is the counter-example
+    and stays fully forbidden: it *is* in the builtins, because Sage needs it.
+    """
+    pytest.importorskip("sage.all")
+    from sagemath_mcp import _sage_worker
+    from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
+
+    builtins = _sage_worker._restricted_builtins()
+    namespace = _sage_worker._build_namespace()
+
+    for name in SECURITY_POLICY.forbidden_attribute_only_names:
+        assert name not in builtins, f"{name} is reachable as a builtin"
+        assert name not in namespace, f"{name} is live in the worker namespace"
+        assert name not in ALLOWED_CALLER_NAMES, f"{name} is offered by the allowlist"
+
+    assert "getattr" in builtins, (
+        "getattr left the builtins -- if that is deliberate it can leave "
+        "forbidden_call_names too, and this test should say so"
+    )

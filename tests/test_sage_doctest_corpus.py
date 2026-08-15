@@ -211,6 +211,7 @@ def harvest(paths: list[Path]) -> Harvest:
             # scope, and it still names something the next line reads. Dropping
             # those bindings made ordinary code look refused.
             bound: set[str] = set()
+            evaluated = False
             for source in _examples(block):
                 result.examples += 1
                 try:
@@ -220,6 +221,13 @@ def harvest(paths: list[Path]) -> Harvest:
                     result.unparsed += 1
                     continue
                 bound |= _bound_names(module)
+                if evaluated:
+                    # The worker binds `_` to the previous result, as the Sage
+                    # REPL does, so every example after the first in a block can
+                    # read it. Without this the sweep reports 694 refusals for a
+                    # name that works in any real session.
+                    bound.add("_")
+                evaluated = True
                 label = _exclusion(source)
                 if label:
                     result.excluded += 1
@@ -256,20 +264,23 @@ def corpus() -> Harvest:
 # --- the assertions -----------------------------------------------------------
 #
 # Baselines measured against SageMath 10.9 (2026-08-15): 3,168 sources, 60,094
-# docstrings, 432,878 examples, of which 368,401 accepted, 6,027 refused and
-# 58,268 out of scope -- 98.39% acceptance among in-scope examples, in 48s.
+# docstrings, 432,878 examples, of which 369,168 accepted, 5,260 refused and
+# 58,268 out of scope -- 98.60% acceptance among in-scope examples, in 48s.
 # They carry margin because a Sage upgrade moves them, and a *drop* is the
 # signal. To refresh after an upgrade, call harvest() over the library and read
 # report(); a failing assertion prints it too.
 #
-# The first measurement was 97.81%, with 8,218 refusals. Item 46 removed 2,191
-# of them by releasing four things the policy blocked for no security reason --
-# `latex`, `operator.le`, the REPL's `_`, and every name that was dangerous as a
-# Sage global and unremarkable as a local or a method. Nothing was added to the
-# allowlist to achieve it except `latex` and `operator`.
+# The first measurement was 97.81%, with 8,218 refusals. Item 46 removed 2,958
+# of them -- 36% -- by releasing everything the policy blocked without a security
+# reason: `latex`, `operator.le`, the REPL's `_`, every name that is dangerous as
+# a Sage global and unremarkable as a local or a method, and the four evaluation
+# primitives whose *identifiers* mathematics uses (`eval` for an eigenvalue,
+# `vars` for a list of variables, `input` for an automaton's word, `locals` for
+# a dictionary) while their attribute forms stay refused. Two names were added to
+# the allowlist to achieve all of it: `latex` and `operator`.
 
 MINIMUM_EXAMPLES = 250_000
-MINIMUM_ACCEPTANCE = 0.975
+MINIMUM_ACCEPTANCE = 0.985
 
 
 @requires_sage
@@ -296,7 +307,7 @@ def test_the_corpus_is_the_whole_library(corpus: Harvest) -> None:
 def test_this_server_accepts_the_mathematics_sagemath_documents(corpus: Harvest) -> None:
     """The headline: how much of Sage's own idiom would this server refuse?
 
-    Measured at 98.39%, and the remaining 1.61% is itemised by the test below.
+    Measured at 98.60%, and the remaining 1.40% is itemised by the test below.
     This is the assertion that would have caught `f(x) = x^2 + 1`: that form
     appears about 1,400 times in the corpus, and refusing it moves this number
     by half a percent — silently, in a suite that only tests what someone
@@ -314,7 +325,7 @@ def test_this_server_accepts_the_mathematics_sagemath_documents(corpus: Harvest)
 # server does not offer. Item 46 emptied the three that used to be recorded as
 # debt -- see the note beside them, and REVIEW_ACTIONS.md items 45 and 46.
 DELIBERATE_RULES: dict[str, float] = {
-    "refused:'X' is not a name this server offers": 0.016,
+    "refused:'X' is not a name this server offers": 0.013,
     "refused:'X' is not defined": 0.003,
     "refused:Call to forbidden function 'X' is blocked": 0.001,
     "refused:Access through 'X' is blocked ('X' is not permitted in Sage executions)": 0.001,
@@ -332,16 +343,14 @@ DELIBERATE_RULES: dict[str, float] = {
     "refused:Sage code exceeds maximum length": 0.001,
     "refused:Sage code is too deeply nested": 0.001,
     "refused:Sage code has too many AST nodes": 0.001,
-    # These three were the shadowing class, and item 46 emptied them of it:
-    # 575 refusals became 67. What is left is the deliberate part -- the Python
-    # evaluation primitives, which stay refused in every position whatever the
-    # namespace looks like, because this policy is the only thing between a
-    # future namespace regression and arbitrary execution. In the corpus they
-    # are `vars`, `locals`, `input` and `eval` used as ordinary variable names,
-    # about 30 examples in 432,878, and that is the price.
-    "refused:Reference to forbidden name 'X' is blocked": 0.0005,
-    "refused:Access to forbidden function 'X' is blocked": 0.0005,
-    "refused:Call to forbidden attribute 'X' is blocked": 0.0005,
+    # These three were the shadowing class, and item 46 emptied them: 575
+    # refusals became 5 in 432,878 examples. What is left is `open`, `exec`,
+    # `compile`, `globals` and `getattr` -- primitives with no mathematical use,
+    # `getattr` because Sage needs it in the builtins and it is therefore
+    # genuinely reachable.
+    "refused:Reference to forbidden name 'X' is blocked": 0.0002,
+    "refused:Access to forbidden function 'X' is blocked": 0.0002,
+    "refused:Call to forbidden attribute 'X' is blocked": 0.0002,
 }
 
 # The three rules item 46 emptied of the shadowing class. Named separately so
@@ -399,11 +408,12 @@ def test_the_shadowing_rules_stay_emptied(corpus: Harvest) -> None:
     call their variables. All of it came from names that are dangerous as Sage
     globals and unremarkable in the position they were actually used.
 
-    67 refusals remain and they are the deliberate part -- `vars`, `locals`,
-    `input` and `eval` as ordinary variable names. Those stay refused in every
-    position whatever the namespace holds, because this policy is the last thing
-    between a namespace regression and arbitrary execution, and about 30
-    examples in 432,878 is what that costs.
+    Five refusals remain in 432,878 examples, and they are `open`, `exec`,
+    `compile`, `globals` and `getattr` -- primitives with no mathematical use.
+    `eval`, `vars`, `locals` and `input` were released as *identifiers* once
+    their absence from builtins, namespace and allowlist was asserted rather
+    than assumed; they stay refused as attributes, which is where `latex.eval()`
+    lives.
 
     A rise here means the shadowing class has come back.
     """
@@ -413,8 +423,8 @@ def test_the_shadowing_rules_stay_emptied(corpus: Harvest) -> None:
         if any(reason.startswith(rule) for rule in SHADOWING_RULES)
     )
     share = shadowing / corpus.in_scope
-    assert share < 0.0006, (
-        f"the shadowing rules now cover {share:.4%} of the corpus, up from 0.0179%:\n"
+    assert share < 0.0002, (
+        f"the shadowing rules now cover {share:.4%} of the corpus, up from 0.0013%:\n"
         f"{corpus.report(20)}"
     )
 

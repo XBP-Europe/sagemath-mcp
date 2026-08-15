@@ -77,15 +77,25 @@ class SecurityPolicy:
         "raw_getattr",
         "getattr_debug",
         "register_unpickle_override",
-        "eval",
         "exec",
         "compile",
         "__import__",
         "open",
-        "input",
         "globals",
-        "locals",
-        "vars",
+        # `eval`, `vars`, `locals` and `input` were here. They are refused as
+        # *attributes* instead -- see forbidden_attribute_only_names -- because
+        # that is where the danger actually is (`latex.eval()` runs a toolchain)
+        # and the bare identifiers reach nothing: measured against SageMath 10.9,
+        # each is absent from the restricted builtins, from the worker namespace
+        # and from the generated allowlist, all three. What the entries cost was
+        # the identifier, and mathematics uses all four:
+        #
+        #     eval = b.multi_point_evaluation(pts)     # an evaluation
+        #     delta = eval*evec - evec*A               # an eigenvalue
+        #     def christoffel(i, j, k, vars, g)        # Christoffel symbols
+        #     sol = desolve_system(des, vars, ics)
+        #     T.process(input)                         # an automaton's input word
+        #
         # Attribute access by name defeats every attribute rule below:
         # getattr(os, 'system')('id') never produces an ast.Attribute node.
         "getattr",
@@ -219,15 +229,24 @@ class SecurityPolicy:
     # was found writing a caller-chosen file: it is the same capability as
     # `.save()`, under a name the original three prefixes did not cover.
     forbidden_attribute_prefixes: tuple[str, ...] = ("save", "dump", "export", "write")
+    # Refused as an attribute and nowhere else. The bare names reach nothing --
+    # absent from builtins, namespace and allowlist alike -- but `x.eval(...)`
+    # can still reach a real method: `latex.eval()` runs the LaTeX toolchain,
+    # and that is the rule keeping it shut now that `latex` itself is offered.
+    # `eval` alone, because `eval` alone was demonstrated: `latex.eval()` runs
+    # the LaTeX toolchain, and `latex` is offered now. `vars`, `locals` and
+    # `input` were in this tuple for symmetry and came back out -- no reachable
+    # object has a dangerous method by those names, and `f.vars` is the variable
+    # list of a QEPCAD formula. Symmetry is not a security justification.
+    forbidden_attribute_only_names: tuple[str, ...] = ("eval",)
     # Method names that are dangerous whoever owns them. `remove`, `rmdir`,
-    # `unlink` and `walk` were here for `os.remove` and friends, and they were
-    # redundant twice over: `os` is a forbidden attribute parent *and* is absent
-    # from both the namespace and the allowlist, so `os.remove(...)` cannot be
-    # spelled at all. What they did reach was `list.remove`, `Graph.remove_edge`
-    # and every other collection method of the same name -- 53 refusals in the
-    # corpus, none of them touching a file.
+    # `unlink`, `walk` and `system` were here for `os.remove` and `os.system`,
+    # and they were redundant twice over: `os` is a forbidden attribute parent
+    # *and* is absent from the namespace and the allowlist, so `os.system(...)`
+    # cannot be spelled at all. What they did reach was `list.remove` and
+    # `IntegratedCurve.system()` -- the system of ODEs of a geodesic -- 79
+    # refusals in SageMath's own doctests, none of them touching a file.
     forbidden_attribute_names: tuple[str, ...] = (
-        "system",
         "popen",
         "popen2",
         "popen3",
@@ -757,7 +776,10 @@ def validate_module(
         #     sage.misc.sage_eval.sage_eval("__import__('os').getuid()")
         # returned the container uid. What matters is the final name, not
         # whether a dot precedes it.
-        if isinstance(node, ast.Attribute) and node.attr in policy.forbidden_call_names:
+        if isinstance(node, ast.Attribute) and (
+            node.attr in policy.forbidden_call_names
+            or node.attr in policy.forbidden_attribute_only_names
+        ):
             _raise_violation(
                 f"Access to forbidden function '{node.attr}' is blocked",
                 code=code,

@@ -669,6 +669,21 @@ ITEM_46_FORMS: list[tuple[str, str]] = [
     # `operator.le`, which is how a poset is built; 206 uses.
     ("operator.le builds a poset", "Poset((divisors(30), operator.le)).cardinality() == 8"),
     ("operator.add", "operator.add(2, 3) == 5"),
+    # The identifiers mathematics uses that the evaluation primitives had taken.
+    # Each is absent from builtins, namespace and allowlist alike, so the bare
+    # name reached nothing -- while `latex.eval()` still does, and is refused.
+    ("eval as an eigenvalue", "eval = 3\nevec = vector([1, 0])\n(eval*evec)[0] == 3"),
+    ("vars as a list of variables",
+     "vars = [x, y]\nlen(vars) == 2"),
+    ("vars in a Christoffel-style helper",
+     "def christoffel(i, j, vars, g):\n    return diff(g, vars[i], vars[j])\n"
+     "christoffel(0, 0, [x, y], x^2) == 2"),
+    ("input as an automaton word", "input = [1, 0, 1]\nsum(input) == 2"),
+    ("locals as a dictionary", "locals = {'a': 1}\nlocals['a'] == 1"),
+    # `.system()` is the system of ODEs of a geodesic, not `os.system`.
+    ("system as a method name",
+     "class Curve:\n    def system(self):\n        return [diff(x, t)]\n"
+     "len(Curve().system()) == 1"),
 ]
 
 
@@ -744,3 +759,34 @@ def test_the_released_names_are_absent_from_sage() -> None:
         f"{live} are live in the worker namespace and no longer refused by name -- "
         "either scrub them again or put them back in forbidden_call_names"
     )
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_the_attribute_forms_that_are_mathematics() -> None:
+    """`.vars`, `.locals` and `.input` name mathematics, not primitives.
+
+    They were refused as attributes for a while purely by symmetry with `eval`,
+    which is refused because `latex.eval()` runs the LaTeX toolchain. Nothing
+    reachable has a dangerous `.vars`; `f.vars` is the variable list of a
+    QEPCAD formula, and symmetry is not a security justification.
+    """
+    session = await _session("attribute-forms")
+    try:
+        assert await _value(
+            session,
+            "R.<u, v> = QQ[]\nsorted(str(g) for g in R.gens()) == ['u', 'v']",
+        ) == "True"
+        # A method by each released name, on an object the caller made.
+        assert await _value(session, (
+            "class Formula:\n"
+            "    vars = [x, y]\n"
+            "    def input(self):\n"
+            "        return 1\n"
+            "    def locals(self):\n"
+            "        return {}\n"
+            "F = Formula()\n"
+            "len(F.vars) == 2 and F.input() == 1 and F.locals() == {}"
+        )) == "True"
+    finally:
+        await session.shutdown()

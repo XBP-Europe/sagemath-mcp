@@ -1849,3 +1849,56 @@ between a namespace regression and arbitrary execution; the corpus says the cost
 is about 30 examples in 432,878. `latex.check_file` and `latex.has_file` read
 whether a `.sty` exists and are allowed — an existence check against the
 installation, judged not worth a rule.
+
+### 46, second pass: the rest of it
+
+The first pass took the four largest and stopped. Going through every remaining
+bucket by the same rule — *does this drop have a strong security justification?*
+— found five more, worth 767 refusals.
+
+**`eval`, `vars`, `locals` and `input` as identifiers.** They were kept out of
+the first pass as a backstop against a future namespace regression. That
+argument does not survive measurement: each is absent from the restricted
+builtins, from the worker namespace **and** from the generated allowlist, all
+three, so the bare name resolves to nothing and the AST entry bought only a
+message. What it cost is mathematics, in SageMath's own doctests:
+
+```
+eval = b.multi_point_evaluation(pts);  delta = eval*evec - evec*A   # an eigenvalue
+def christoffel(i, j, k, vars, g)                                   # Christoffel symbols
+sol = desolve_system(des, vars, ics)
+T.process(input)                                                    # an automaton's word
+locals['a']
+```
+
+They are refused as *attributes* instead — `latex.eval()` runs the LaTeX
+toolchain, and that is the demonstrated danger. `getattr` is the counter-example
+and stays fully forbidden: it really is in the builtins, because Sage needs it
+there, so the bare name really would resolve. A test asserts all four absences
+and that one presence, so the ground is checked rather than assumed.
+
+Then narrowed again: `vars`, `locals` and `input` came *out* of the
+attribute list too. They were there for symmetry with `eval`, and no reachable
+object has a dangerous method by those names, while `f.vars` is the variable
+list of a QEPCAD formula. Symmetry is not a security justification.
+
+**`system` as an attribute name.** It was in `forbidden_attribute_names` for
+`os.system`, and `os` is unreadable as a name and forbidden as a parent, so it
+was reaching nothing but `IntegratedCurve.system()` — the system of ODEs of a
+geodesic, 26 times in the corpus. Same argument that had already retired
+`remove`, `rmdir`, `unlink` and `walk`; it was simply missed.
+
+**The measurement itself was wrong about `_`.** The corpus sweep validated each
+docstring from an empty scope, so it reported 694 refusals of `_` — a name that
+works in any real session, since the worker binds it to the previous result. The
+harvest now models that, which is what a faithful measurement of a *session*
+requires.
+
+**Where this leaves it.** 97.81% → **98.60%**, 8,218 refusals → 5,258, a 36%
+reduction, with two names added to the allowlist in total. The shadowing rules
+that fired 575 times now fire **5 times in 432,878 examples**, and those five are
+`open`, `exec`, `compile`, `globals` and `getattr` — primitives with no
+mathematical use. Everything still refused is an external CAS interface (2,153,
+each proven to have a working in-process equivalent), module traversal, an
+import, a dunder, persistence, a size limit, an undeclared symbol, or a name the
+doctest invented and no allowlist could anticipate.

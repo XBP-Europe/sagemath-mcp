@@ -256,11 +256,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   form, Maxwell's equations on a plane wave, the Bohr radius and 1/α from CODATA,
   a decay fit by two independent methods, and the double pendulum's energy
   conservation and sensitivity. 17 tests, ~17s against SageMath 10.9.
-- **Four refusals that had no security justification are gone**, found by
-  categorising every refusal SageMath's doctest corpus provokes and fixed
+- **Every refusal without a security justification is gone**, found by
+  categorising all 8,218 that SageMath's doctest corpus provokes and fixed
   test-first with every bypass payload still refused. Corpus acceptance went
-  from 97.81% to **98.39%** — 2,191 refusals removed — and the allowlist gained
-  exactly two names.
+  from 97.81% to **98.60%** — 2,960 refusals removed, a 36% reduction — and the
+  allowlist gained exactly two names.
   - **`latex(...)` works again** (1,387 refusals). It was scrubbed alongside
     `show`/`view`/`html`, which write files; it builds a string. `latex.eval()`
     runs the toolchain and is still refused, by the rule that forbids `eval` as
@@ -279,6 +279,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     `operator.setitem` and `m = operator` do not.
   - **`_` holds the previous result** (694), as in every REPL Sage ships. Caller
     code only: a tool call in between cannot move it.
+  - **`eval`, `vars`, `locals` and `input` are usable as identifiers** (38) —
+    an eigenvalue, a list of variables, an automaton's input word, a dictionary.
+    Each is absent from the restricted builtins, the worker namespace *and* the
+    allowlist, so the bare name resolved to nothing and the ban bought only a
+    message; a test asserts all three absences. `latex.eval()` is the
+    demonstrated danger and stays refused, as an attribute. `getattr` stays
+    fully forbidden — it really is in the builtins, because Sage needs it.
+  - **`.system()` is a method again** (26) — the system of ODEs of a geodesic.
+    It was forbidden for `os.system`, and `os` cannot be spelled at all.
 - **SageMath's own doctests, run against the validator.**
   `tests/test_sage_doctest_corpus.py` harvests every `sage: ` example in the
   installed SageMath — 432,878 of them across 3,168 sources — and pushes each

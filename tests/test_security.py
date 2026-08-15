@@ -198,8 +198,16 @@ def test_trusted_policy_relaxes_only_the_three_evaluation_entry_points() -> None
     # Everything else about the policy is untouched.
     assert relaxed.forbidden_attribute_parents == SECURITY_POLICY.forbidden_attribute_parents
     assert relaxed.allow_imports == SECURITY_POLICY.allow_imports
-    for still_blocked in ("open", "eval", "exec", "getattr", "__import__"):
+    for still_blocked in ("open", "exec", "getattr", "__import__"):
         assert still_blocked in relaxed.forbidden_call_names
+
+    # `eval` moved to the attribute-only list -- the bare name reaches nothing
+    # (absent from builtins, namespace and allowlist), while `latex.eval()` runs
+    # the LaTeX toolchain. Generated code must not reach that either.
+    assert relaxed.forbidden_attribute_only_names == (
+        SECURITY_POLICY.forbidden_attribute_only_names
+    )
+    assert "eval" in relaxed.forbidden_attribute_only_names
 
 
 def test_trusted_policy_accepts_an_explicit_base_policy() -> None:

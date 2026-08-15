@@ -6,6 +6,7 @@ import ast
 import logging
 import os
 import re
+import textwrap
 from dataclasses import dataclass, replace
 
 from .allowlist import ALLOWED_CALLER_NAMES
@@ -357,15 +358,34 @@ def _bound_names(module: ast.Module) -> set[str]:
             bound.add((node.asname or node.name).split(".", 1)[0])
         elif isinstance(node, ast.Global | ast.Nonlocal):
             bound.update(node.names)
-        elif isinstance(node, ast.Call) and getattr(node.func, "id", None) == "var":
-            # var('t'), var('t s'), var('a,b') -- Sage's own spelling for
-            # declaring symbols, and the only common way a caller creates a name
-            # that no assignment reveals.
+        elif isinstance(node, ast.MatchAs | ast.MatchStar) and node.name:
+            # `case [a, *rest]`, `case int() as n`, `case other`. Patterns bind
+            # through their own node types, not Name nodes, so a Name-based walk
+            # sees a whole match statement's variables as undefined.
+            bound.add(node.name)
+        elif isinstance(node, ast.MatchMapping) and node.rest:
+            bound.add(node.rest)
+        elif isinstance(node, ast.Call) and getattr(node.func, "id", None) in ("var", "function"):
+            # var('t'), var('t s'), var('a,b') and function('f') -- Sage's own
+            # spellings for declaring symbols and symbolic functions. Both inject
+            # into the namespace, and they are the common way a caller creates a
+            # name that no assignment reveals.
             for argument in node.args:
                 if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
                     bound.update(re.split(r"[,\s]+", argument.value.strip()))
     bound.discard("")
     return {name for name in bound if not name.startswith("__")}
+
+
+def _looks_like_an_undeclared_symbol(name: str) -> bool:
+    """Does this read like a mathematical variable rather than a missing helper?
+
+    Deliberately narrow: short, no underscores, and not obviously a call to
+    something that was meant to exist. `y`, `t`, `theta`, `x1` are symbols a
+    caller forgot to declare; `unpickle_global` is not, and telling someone to
+    write `var('unpickle_global')` would be nonsense.
+    """
+    return len(name) <= 5 and "_" not in name and not name[0].isupper()
 
 
 def validate_module(
@@ -489,6 +509,21 @@ def validate_module(
         ):
             # Deny-by-default. Every bypass so far was a name no rule mentioned;
             # here an unrecognised name is refused instead of assumed harmless.
+            #
+            # The message matters as much as the refusal. Clients are models that
+            # retry on what they are told, and the common case by far is not an
+            # attack or a typo -- it is an undeclared symbol. SageMath predefines
+            # `x` and nothing else, so `diff(x^2*y^3, x, y)` is ordinary
+            # mathematics that needs `var('y')` first. Sending that caller to the
+            # allowlist points them at a fix they cannot perform and costs an
+            # exchange; naming the fix they can perform usually costs none.
+            if _looks_like_an_undeclared_symbol(node.id):
+                _raise_violation(
+                    f"'{node.id}' is not defined. SageMath predefines only 'x', so "
+                    f"declare it first with var('{node.id}') -- or assign it a value.",
+                    code=code,
+                    policy=policy,
+                )
             _raise_violation(
                 f"'{node.id}' is not a name this server offers. If it is a typo, "
                 "check the spelling; if it is a SageMath function that should be "
@@ -593,8 +628,24 @@ def validate_module(
         )
 
 
+def normalize_caller_code(code: str) -> str:
+    """Strip an indentation prefix the whole snippet shares.
+
+    Uniformly indented code is a syntax error in Python and in Sage's own REPL,
+    and clients are models that wrap and indent freely -- a snippet lifted out of
+    a markdown block arrives with four spaces on every line. Dedenting cannot
+    change a valid program, because valid module-level code has no common indent
+    to remove; it only admits input that was otherwise refused for its margin
+    rather than its mathematics.
+
+    Applied before validation and before execution, so both see the same text.
+    """
+    return textwrap.dedent(code)
+
+
 def validate_code(code: str, policy: SecurityPolicy | None = None) -> None:
     """Parse *code* and validate it against the policy."""
+    code = normalize_caller_code(code)
     try:
         module = ast.parse(code, mode="exec", type_comments=True)
     except SyntaxError as exc:  # pragma: no cover - already surfaced elsewhere

@@ -1153,6 +1153,85 @@ Two things found while probing, both left as they are:
   refused by name — but stale. `make allowlist` now regenerates through a temp
   file, and regeneration is idempotent.
 
+## 31. Nothing tested that mathematics still works — medium — DONE
+
+The allowlist inverted the default, and with it the failure mode. The security
+suite could not catch the new one: every test in it asserts something is
+*blocked*, so a policy that refused everything would pass all of them. Three
+real regressions were already shipped and invisible.
+
+`tests/test_math_coverage.py` covers the other direction in three layers, two of
+which need no Sage and run in the fast job, because that is where allowlist
+regressions come from:
+
+- **Binding forms** (35 cases) — every way Python and Sage create a name, since
+  a caller's own names bypass the allowlist and anything `_bound_names` misses
+  becomes an unusable variable.
+- **A mathematical corpus** (59 cases) — one per area this server advertises,
+  asserted to evaluate at all, so a whole area going dark cannot pass unnoticed.
+- **Allowlist reachability** — the names callers actually reach for, named by
+  area so a failure says which area broke rather than "1 of 1913 missing", plus
+  a size floor because a nearly-empty allowlist passes every security test.
+
+Found and fixed:
+
+- **`match` statements bound nothing.** Patterns bind through `MatchAs`,
+  `MatchStar` and `MatchMapping.rest`, not `Name` nodes, so every variable in a
+  match statement read as undefined for the rest of the session.
+- **`function('f')` bound nothing.** Sage's spelling for declaring a symbolic
+  function injects into the namespace exactly as `var()` does — verified against
+  10.9 — but only `var` was special-cased. `f = function('f')` worked, the bare
+  form did not, and the bare form is what the documentation shows.
+- **The refusal message sent callers after a fix they cannot perform.** `y` is
+  not predefined, in this server or in Sage itself, so `diff(x^2*y^3, x, y)` is
+  ordinary mathematics that needs `var('y')`. Being told the name "needs to be
+  added to the allowlist" is true and useless. Clients are models that retry on
+  the message they are given; short lowercase names now get told to declare the
+  symbol, longer ones still get the allowlist message.
+
+The suite was then deepened, because "it evaluated without raising" is a weak
+assertion -- this project has already shipped a silently wrong answer (integers
+above 2^53 corrupted by JSON parsing) that every no-exception test passed. Three
+layers were added:
+
+- **Mathematical truths** (72 predicates Sage evaluates to `True`) replaced the
+  no-exception corpus. Sage decides equality, so there are no brittle string
+  comparisons: `expand((x^2-1).factor()) == x^2-1` and `M * M.inverse() ==
+  identity_matrix(2)` are invariants, not printed output. `==` on symbolics
+  builds an *equation* rather than deciding one, so the harness wraps the final
+  line in `bool()`.
+- **Equivalent spellings** (19 groups) assert agreement *between* spellings —
+  `2^10`, `2**10`, `pow(2, 10)` — which catches a wrong answer without anyone
+  having to know the right one in advance.
+- **Preparser forms** (17) pin the ways Sage is not Python: `5/2` exact, `2^10`
+  a power, `R.<t> = QQ[]` a generator declaration.
+
+Two more real fixes came out of it, and one upstream limitation:
+
+- **Uniformly indented code was refused.** A snippet lifted out of a markdown
+  block arrives with four spaces on every line, and got a syntax error for its
+  margin rather than its mathematics. `normalize_caller_code()` dedents before
+  validation *and* before execution, so both see the same text. It cannot change
+  a valid program: valid module-level code has no common indent to remove.
+- **Layer 2 (bindings across calls)** was split, because `_bound_names`
+  over-approximates by design and comprehension targets and function arguments
+  are *supposed* to vanish. A caller reading one now provably gets Python's own
+  NameError rather than a security refusal — the difference between "you made a
+  mistake" and "the server withheld something", and the second sends them
+  hunting a permission problem that does not exist.
+- **`match` with numeric literal patterns is broken by SageMath itself.** The
+  preparser rewrites `case 1:` to `case _sage_const_1:`, which Python reads as a
+  name capture: "makes remaining patterns unreachable". Verified against plain
+  `sage script.sage` on 10.9 — inherited, not introduced, and nothing to fix
+  here. The test cases use patterns that survive the preparser.
+
+Two probe results worth keeping: `y`/`z`/`t` are genuinely not predefined in
+Sage either, so refusing them is correct rather than a regression — but the
+*tool* prelude declares `x, y, z, t`, so `differentiate_expression("x^2*y^3")`
+works where the equivalent `evaluate_sage` call does not. That inconsistency is
+recorded, not fixed: closing it means either predefining three symbols the Sage
+REPL does not, or making the tools stricter than they have been.
+
 SSH authentication to GitHub broke during this session (`ssh -T git@github.com`
 returns `Permission denied (publickey)` with keys loaded). `gh` still works
 because it uses token auth. If it persists, `git remote set-url origin https://…`

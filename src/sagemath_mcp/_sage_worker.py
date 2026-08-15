@@ -17,6 +17,7 @@ from typing import Any
 from sagemath_mcp.security import (
     SECURITY_POLICY,
     _bound_names,
+    normalize_caller_code,
     trusted_policy,
     validate_module,
 )
@@ -296,6 +297,7 @@ def _preparse(code: str) -> str:
     Caller code only. Server-generated templates are already plain Python -- a
     lint keeps `^` out of them -- and preparsing them would change their meaning.
     """
+    code = normalize_caller_code(code)
     if PURE_PYTHON:
         return code
     try:

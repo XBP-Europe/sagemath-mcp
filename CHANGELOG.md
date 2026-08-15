@@ -22,6 +22,7 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Tool *parameters* keep the previous rules and are not allowlisted -- they name
   things valid in a template's context (`HammingCode` inside `codes.`), and the
   denylist, import ban and persistence rules all still apply to them.
+
 - **A caller binding can no longer authorize a dunder.** Names the caller's own
   code binds are trusted without consulting the allowlist, and binding is judged
   statically — `if False: __builtins__ = 1` counts, as does `except ValueError as
@@ -76,6 +77,17 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a container, where the published port decides reachability, and wrong on a
   host; that distinction is now stated where the command appears.
 
+### Added
+
+- **A suite for mathematics that must work** (`tests/test_math_coverage.py`).
+  The security suite asserts things are blocked, so a policy that refused
+  everything would pass all of it. This covers the opposite failure, in six
+  layers: 34 binding forms, the same forms across calls, 72 mathematical truths
+  Sage itself evaluates, 19 groups of equivalent spellings that must agree, 17
+  preparser forms, and allowlist reachability by area with a size floor. Layers
+  that need no Sage run in the fast job, because that is where allowlist
+  regressions come from.
+
 ### Changed
 
 - **`evaluate_sage` now runs SageMath, not Python.** Caller code goes through
@@ -93,6 +105,23 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   hidden behind preparser-only syntax are rejected like any other.
 
 ### Fixed
+
+- **`match` statements and `function('f')` created unusable variables.** The
+  allowlist trusts names the caller's own code binds, and binding was detected
+  from `Name` nodes alone: `match` patterns bind through their own node types,
+  and Sage's `function('f')` injects a name exactly as `var()` does. Every
+  variable in a match statement, and every bare `function()` declaration, read
+  as undefined for the rest of the session.
+- **Uniformly indented code is no longer refused.** A snippet lifted out of a
+  markdown block arrives with four spaces on every line, and was rejected for
+  its margin rather than its mathematics. Caller code is dedented before
+  validation and before execution; a valid program cannot be changed by it,
+  since valid module-level code has no common indent to remove.
+- **A refusal now names a fix the caller can perform.** SageMath predefines only
+  `x`, so `diff(x^2*y^3, x, y)` needs `var('y')` — but the allowlist answered
+  that the name "needs to be added to the allowlist", which is true and useless
+  to a model that will simply retry. Short lowercase names are now told to
+  declare the symbol.
 
 - `evaluate_sage_streaming` had no error handling at all: a timeout, a security
   violation or a dead worker propagated raw and none were recorded, while

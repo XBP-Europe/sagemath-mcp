@@ -587,6 +587,23 @@ async def test_the_caller_allowlist_matches_this_sage():
     from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
 
     namespace = _build_namespace()
+    live_including_dunders = set(namespace) | set(_restricted_builtins())
+
+    # What is live but not allowlisted must be dunders and nothing else. A
+    # caller binding is trusted without consulting the allowlist, so anything
+    # sitting in this gap is reachable by binding the name in a branch that
+    # never runs. Dunders are safe there only because reading one is blocked
+    # outright and `_bound_names` refuses to record them; a non-dunder arriving
+    # here in a future Sage would have neither protection.
+    gap = sorted(n for n in live_including_dunders - ALLOWED_CALLER_NAMES
+                 if not n.startswith("__"))
+    assert not gap, (
+        f"these names are live in the worker namespace but not on the allowlist, "
+        f"and are not dunders: {gap}. Either allowlist them or scrub them from "
+        f"the namespace -- leaving them here makes them reachable by binding the "
+        f"name in an unexecuted branch."
+    )
+
     live = {name for name in namespace if not name.startswith("_")}
     live |= {name for name in _restricted_builtins() if not name.startswith("_")}
     # The generator also covers the pure-Python worker's `from math import *`, so
@@ -600,9 +617,13 @@ async def test_the_caller_allowlist_matches_this_sage():
         f"this SageMath offers {len(additions)} names the allowlist does not cover, "
         f"so callers cannot use them: {additions[:20]}"
         "\n\nReview each one -- a new helper that compiles, spawns or writes belongs "
-        "in _DANGEROUS_SAGE_MODULES instead -- then regenerate:\n"
-        "  docker exec -i sage-mcp bash -lc 'cd /workspace && sage -python "
-        "scripts/generate_allowlist.py' > src/sagemath_mcp/allowlist.py"
+        "in _DANGEROUS_SAGE_MODULES instead -- then regenerate through a temp "
+        "file (the generator imports allowlist.py, so redirecting straight over "
+        "it truncates its own input):\n"
+        "  docker exec sage-mcp bash -lc 'cd /workspace && sage -python "
+        "scripts/generate_allowlist.py > /tmp/allowlist_new.py'\n"
+        "  docker exec sage-mcp cat /tmp/allowlist_new.py "
+        "> src/sagemath_mcp/allowlist.py"
     )
     assert not removals, (
         f"the allowlist names {len(removals)} things this SageMath no longer has, "

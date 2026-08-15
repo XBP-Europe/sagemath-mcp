@@ -70,6 +70,15 @@ target-version = "py312"
 select = ["E", "F", "W", "B", "UP", "ASYNC", "RUF", "I"]
 ignore = ["E203"]
 
+[tool.ruff.lint.per-file-ignores]
+# Generated from the installed SageMath, which exports Unicode mathematical
+# names (Greek letters, look-alikes for Latin ones). Which of the ambiguous-
+# character rules fire depends on which names that Sage version happens to
+# export, so a file-level `noqa` in the generated output flips between
+# "needed" and "unused" (RUF100) across regenerations. Ignoring here keeps
+# `make allowlist` from producing a file that fails lint.
+"src/sagemath_mcp/allowlist.py" = ["RUF001", "RUF002", "RUF003"]
+
 [tool.pytest.ini_options]
 addopts = "-ra --ignore=tests/cli_integration"
 asyncio_mode = "auto"

@@ -46,9 +46,11 @@ Names the caller defines -- assignments, loop variables, function arguments,
 comprehension targets, `var('t')` -- are allowed without appearing here.
 """
 
-# Sage exports Unicode mathematical names -- the linter reads them as look-alikes
-# for Latin letters. They are the real spellings Sage binds.
-# ruff: noqa: RUF001, RUF003
+# Sage exports Unicode mathematical names -- Greek letters and look-alikes for
+# Latin ones. They are the real spellings Sage binds. The ambiguous-character
+# rules are switched off for this file in pyproject.toml rather than with a
+# `noqa` here: which of them fire depends on the installed Sage, so a directive
+# baked into generated output goes stale as RUF100 the next time it changes.
 
 from __future__ import annotations
 

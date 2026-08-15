@@ -14,7 +14,12 @@ import ast
 
 import pytest
 
-from sagemath_mcp.security import SECURITY_POLICY, SecurityViolation, validate_module
+from sagemath_mcp.security import (
+    SECURITY_POLICY,
+    SecurityViolation,
+    _bound_names,
+    validate_module,
+)
 
 # (id, payload). Every one of these reached outside the sandbox.
 BYPASS_PAYLOADS = [
@@ -598,3 +603,86 @@ def test_var_with_a_non_literal_argument_declares_nothing() -> None:
     # And a literal still declares, including several at once.
     code = "var('p q')\np + q"
     validate_module(ast.parse(code), code=code, policy=SECURITY_POLICY)
+
+
+def test_a_binding_primitive_cannot_launder_a_name_across_calls() -> None:
+    """Session trust is what validated code BOUND, not what the namespace gained.
+
+    `lazy_import('os', 'system')` reads no forbidden name: it binds one. Trusting
+    the namespace diff meant call one created the binding and call two read it
+    back as "the caller's own" -- and ran a shell. Recording static bindings from
+    approved code closes that for every such primitive, including any not yet
+    found.
+    """
+    created = _bound_names(ast.parse("lazy_import('os', 'system')"))
+    assert "system" not in created, (
+        "a name created by a call, not an assignment, must not count as bound"
+    )
+
+    # An assignment does count, which is what keeps stateful sessions working.
+    assert "total" in _bound_names(ast.parse("total = 1 + 1"))
+    assert {"p", "q"} <= _bound_names(ast.parse("var('p q')"))
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        "lazy_import('os', 'system')",
+        "unpickle_function(b'x')",
+        "pickle_function(sin)",
+        "load_session('/tmp/x')",
+        "save_session('/tmp/x')",
+        "set_verbose_files('/tmp/x')",
+    ],
+)
+def test_binding_and_pickle_primitives_are_gone(payload: str) -> None:
+    """Each was reachable, and each is a way to execute or persist."""
+    with pytest.raises(SecurityViolation):
+        validate_module(ast.parse(payload), code=payload, policy=SECURITY_POLICY)
+
+
+def test_a_binding_cannot_authorize_a_dunder() -> None:
+    """The gap the allowlist leaves, and why it is closed at the source.
+
+    Every name live in the worker namespace is on the allowlist except nine
+    dunders (`__builtins__`, `__import__`, `__build_class__`, ...). A caller
+    binding is trusted without consulting the allowlist, so a binding that never
+    executes -- `if False: __builtins__ = 1`, or `except ValueError as
+    __builtins__`, which binds without ever naming the object -- would authorize
+    reading the real one, and `__builtins__['__import__']('os')` is a shell.
+
+    Reading a dunder is independently blocked, so this was defence in depth
+    rather than a hole. But that made the whole allowlist rest on a rule
+    elsewhere, and on the accident that nothing non-dunder sits in the gap. A
+    name a caller may not read is not a name their binding may authorize.
+    """
+    for code in (
+        "if False:\n    __builtins__ = 1",
+        "try:\n    raise ValueError()\nexcept ValueError as __builtins__:\n    pass",
+        "for __import__ in []:\n    pass",
+        "def __build_class__():\n    pass",
+        "import os as __loader__",
+    ):
+        bound = _bound_names(ast.parse(code))
+        assert not any(name.startswith("__") for name in bound), (
+            f"{code!r} authorized a dunder: {sorted(bound)}"
+        )
+
+    # The ordinary case is untouched: real bindings still authorize their names.
+    assert "total" in _bound_names(ast.parse("total = 1"))
+    assert "err" in _bound_names(
+        ast.parse("try:\n    pass\nexcept ValueError as err:\n    pass")
+    )
+
+
+def test_a_never_executed_binding_still_cannot_reach_a_blocked_name() -> None:
+    """The other half: static binding is deliberately an over-approximation.
+
+    `_bound_names` does not ask whether the assignment runs -- it cannot, short
+    of executing the code. So the guarantee has to come from the other side:
+    authorizing a name must never be enough to reach an object the caller could
+    not otherwise have.
+    """
+    module = ast.parse("if False:\n    __builtins__ = 1\n__builtins__['__import__']('os')")
+    with pytest.raises(SecurityViolation, match="dunder"):
+        validate_module(module, extra_allowed_names=frozenset({"__builtins__"}))

@@ -22,6 +22,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Tool *parameters* keep the previous rules and are not allowlisted -- they name
   things valid in a template's context (`HammingCode` inside `codes.`), and the
   denylist, import ban and persistence rules all still apply to them.
+- **A caller binding can no longer authorize a dunder.** Names the caller's own
+  code binds are trusted without consulting the allowlist, and binding is judged
+  statically — `if False: __builtins__ = 1` counts, as does `except ValueError as
+  __builtins__`, which never names the object. Every name live in the worker
+  namespace is allowlisted except nine dunders, and `__builtins__['__import__']
+  ('os')` is a shell. Reading a dunder was already blocked by its own rule, so
+  this was the second lock rather than the first; bindings now drop dunders so
+  the allowlist does not depend on a rule enforced elsewhere. The drift test
+  checks the shape of the gap rather than filtering it out of the comparison.
 - **Caller code can no longer import anything.** `sage.*` was allowlisted for the
   generated prelude, and callers used it to re-import every helper the worker
   namespace scrub had removed: `from sage.misc.cython import compile_and_load`

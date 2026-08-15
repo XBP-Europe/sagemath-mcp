@@ -27,6 +27,15 @@ build:
 sage-container:
 	./scripts/setup_sage_container.sh
 
+# Regenerate the caller allowlist from the installed SageMath. Two steps on
+# purpose: the generator imports src/sagemath_mcp/allowlist.py, so a single
+# redirect would truncate its own input before it runs. Review the diff --
+# every new name is a name callers can reach.
+allowlist:
+	docker exec sage-mcp bash -lc 'cd /workspace && sage -python scripts/generate_allowlist.py > /tmp/allowlist_new.py'
+	docker exec sage-mcp cat /tmp/allowlist_new.py > src/sagemath_mcp/allowlist.py
+	@git --no-pager diff --stat src/sagemath_mcp/allowlist.py
+
 # No `docker compose up` here: the runner's ensure_docker_container() already
 # starts the container when it is not running, and it uses `docker-compose`
 # (v1). This target used the v2 spelling, so on a host with only v1 installed
@@ -43,4 +52,4 @@ cli-extended:
 
 all: test integration-test
 
-.PHONY: test sage-deps integration-test lint build sage-container cli-integration cli-extended all
+.PHONY: test sage-deps integration-test lint build sage-container allowlist cli-integration cli-extended all

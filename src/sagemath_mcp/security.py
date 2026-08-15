@@ -336,6 +336,12 @@ def _bound_names(module: ast.Module) -> set[str]:
 
     `var('t s')` is included because Sage callers create symbols that way
     constantly, and the names it makes exist only at runtime.
+
+    Dunders are excluded. Binding is not asked whether it runs -- `if False:`,
+    an except handler that never fires, a function argument -- so a binding of
+    `__builtins__` would authorize reading the real one, and every name live in
+    the namespace but off the allowlist is a dunder. Reading one is blocked
+    anyway, which makes this the second lock rather than the first.
     """
     bound: set[str] = set()
     for node in ast.walk(module):
@@ -359,7 +365,7 @@ def _bound_names(module: ast.Module) -> set[str]:
                 if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
                     bound.update(re.split(r"[,\s]+", argument.value.strip()))
     bound.discard("")
-    return bound
+    return {name for name in bound if not name.startswith("__")}
 
 
 def validate_module(

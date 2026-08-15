@@ -1115,6 +1115,44 @@ so the test kept passing while testing nothing. Both paths now translate the
 timeout, record the message (not the class name, which tells an operator nothing)
 and the test uses a long pure-Sage computation.
 
+## 30. A binding could authorize a name the allowlist withholds — medium — DONE
+
+The allowlist trusts two things: names it lists, and names the caller's own code
+binds. The second is deliberately an over-approximation — `_bound_names` collects
+static targets and never asks whether the assignment runs, because short of
+executing the code it cannot. So `if False: __builtins__ = 1` authorizes
+`__builtins__`, and `except ValueError as __builtins__` does it without the code
+ever naming the object.
+
+That only matters for names live in the worker namespace but absent from the
+allowlist. There are nine, all dunders — `__builtins__`, `__import__`,
+`__build_class__`, `__loader__` and friends — and `__builtins__['__import__']
+('os')` is a shell. Probed end to end against Sage 10.9: every route was refused,
+because reading a dunder is blocked by its own rule regardless of what authorized
+the name.
+
+So it was defence in depth, not a hole. Fixed anyway, on both sides:
+
+- `_bound_names` drops dunders, so a binding cannot authorize what a caller may
+  not read. The allowlist stops resting on a rule enforced elsewhere.
+- The drift test asserted `additions` over names filtered by `startswith("_")`,
+  which is exactly why the gap was invisible. It now asserts the *shape* of the
+  gap — everything live-but-not-allowlisted must be a dunder — so a future Sage
+  putting an ordinary name there fails the test instead of quietly widening what
+  a binding can reach.
+
+Two things found while probing, both left as they are:
+
+- `except ValueError as srange:` deletes `srange` at the end of the block, per
+  Python's own semantics, so a preloaded Sage function is gone for the rest of
+  that session. Self-inflicted, session-scoped, and no different in kind from
+  `srange = 5` shadowing it.
+- The committed allowlist still listed the twelve names from the modules added to
+  `_DANGEROUS_SAGE_MODULES` (`lazy_import`, `save_session`, …) because it predated
+  that change. Unreachable either way — they are scrubbed from the namespace and
+  refused by name — but stale. `make allowlist` now regenerates through a temp
+  file, and regeneration is idempotent.
+
 SSH authentication to GitHub broke during this session (`ssh -T git@github.com`
 returns `Permission denied (publickey)` with keys loaded). `gh` still works
 because it uses token auth. If it persists, `git remote set-url origin https://…`

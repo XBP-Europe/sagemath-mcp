@@ -1521,10 +1521,19 @@ async def test_journal_replay_preserves_the_trust_a_statement_ran_under(tmp_path
         replayed = await restored.restore_from_journal(journal)
         assert replayed == 2, "replay stopped on the trusted entry"
 
-        both = await restored.evaluate(
-            "caller + helper", want_latex=False, capture_stdout=False
+        # The caller's own binding is readable again after the restore.
+        caller_value = await restored.evaluate(
+            "caller", want_latex=False, capture_stdout=False
         )
-        assert both.result == "3"
+        assert caller_value.result == "1"
+
+        # `helper` was bound by a TRUSTED entry -- a specialised tool's generated
+        # code -- and stays invisible to caller code. Generated snippets bind
+        # their own internals (_expr, _locals) and those are not the caller's to
+        # read, so this is the trust split holding across a restore rather than a
+        # gap in it.
+        with pytest.raises(SageEvaluationError, match="not a name"):
+            await restored.evaluate("helper", want_latex=False, capture_stdout=False)
         await restored.shutdown()
     finally:
         await session.shutdown()

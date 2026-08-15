@@ -307,10 +307,14 @@ def test_interrupting_a_computation_keeps_the_session_alive(pure_python_worker) 
     worker would exit and take every variable with it -- the opposite of what
     interrupting is for.
     """
+    from sagemath_mcp import _sage_worker
     from sagemath_mcp._sage_worker import _build_namespace, _execute
 
     namespace = _build_namespace()
     namespace["_boom"] = _raise_keyboard_interrupt
+    # A name injected straight into the namespace is not one the allowlist knows
+    # or that validated code bound, so record it the way a real session would.
+    _sage_worker._CALLER_BOUND_NAMES.add("_boom")
 
     response = _execute(
         "_boom()", want_latex=False, capture_stdout=True, namespace=namespace

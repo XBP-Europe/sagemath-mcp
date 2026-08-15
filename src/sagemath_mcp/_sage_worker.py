@@ -14,7 +14,12 @@ import traceback
 from types import SimpleNamespace
 from typing import Any
 
-from sagemath_mcp.security import SECURITY_POLICY, trusted_policy, validate_module
+from sagemath_mcp.security import (
+    SECURITY_POLICY,
+    _bound_names,
+    trusted_policy,
+    validate_module,
+)
 
 PURE_PYTHON = os.getenv("SAGEMATH_MCP_PURE_PYTHON") == "1"
 STARTUP_CODE = os.getenv("SAGEMATH_MCP_STARTUP", "from sage.all import *")
@@ -22,10 +27,16 @@ STARTUP_CODE = os.getenv("SAGEMATH_MCP_STARTUP", "from sage.all import *")
 
 _STARTUP_ERROR: str | None = None
 
-# The names Sage itself provided. Anything the namespace gains after this is the
-# caller's own and readable by them; Sage's names are judged against the
-# allowlist, so a helper a future release adds stays denied until someone looks.
-_INITIAL_NAMESPACE_NAMES: frozenset[str] = frozenset()
+# Names the caller bound in code that passed validation.
+#
+# NOT the namespace diff, which is what this used to be. Diffing trusts anything
+# the namespace gained, and `lazy_import('os', 'system')` gains a binding to
+# os.system without reading a single forbidden name: call one created it, call two
+# read it back as "the caller's own", and ran a shell. Recording what validated
+# code *statically bound* closes that for every such primitive, including ones
+# nobody has found yet -- a name only becomes trusted by appearing as a target in
+# code the policy already approved.
+_CALLER_BOUND_NAMES: set[str] = set()
 
 
 def _build_namespace() -> dict[str, Any]:
@@ -58,8 +69,7 @@ def _build_namespace() -> dict[str, Any]:
         # and inventing more would shadow real objects.
         with contextlib.suppress(Exception):
             ns["x"] = ns["SR"].var("x")
-    global _INITIAL_NAMESPACE_NAMES
-    _INITIAL_NAMESPACE_NAMES = frozenset(ns)
+    _CALLER_BOUND_NAMES.clear()      # a fresh namespace has no caller names in it
     return ns
 
 
@@ -84,6 +94,10 @@ _DANGEROUS_SAGE_MODULES = (
     "sage.misc.trace",           # drops into the debugger
     "sage.misc.dev_tools",
     "sage.misc.package",         # inspects the installation
+    "sage.misc.lazy_import",     # binds any module attribute to a name
+    "sage.misc.fpickle",         # unpickle_function executes what it is given
+    "sage.misc.session",         # load_session unpickles a whole session
+    "sage.misc.verbose",         # set_verbose_files writes where it is told
     "sage.misc.temporary_file",  # creates files outside our control
 )
 
@@ -107,38 +121,46 @@ _EXTERNAL_INTERFACE_EXPORTS = "sage.interfaces.all"
 _DANGEROUS_SAGE_NAME_LIST: frozenset[str] = frozenset({
     "Axiom", "ECM", "EmptyNewstyleClass", "EmptyOldstyleClass", "FriCAS", "Gap",
     "Gap3", "Genus2reduction", "Gfan", "Giac", "Gp", "InlineFortran", "Kash",
-    "Khoca", "LiE", "Lisp", "Macaulay2", "Magma", "Maple", "Mathematica", "Mathics",
-    "Matlab", "Mupad", "Mwrank", "Octave", "PSage", "PackageInfo", "PickleDict",
-    "PickleExplainer", "PickleInstance", "PickleObject", "R", "Regina", "Sage",
-    "SagePickler", "SageUnpickler", "Sh", "Singular", "TestAppendList",
-    "TestAppendNonlist", "TestBuild", "TestBuildSetstate", "TestGlobalFunnyName",
-    "TestGlobalNewName", "TestGlobalOldName", "TestReduceGetinitargs",
-    "TestReduceNoGetinitargs", "add_attached_file", "atomic_dir", "atomic_write",
-    "attach", "attached_files", "axiom", "check_pickle", "compile_and_load",
-    "cython", "cython_compile", "cython_import", "cython_import_all",
-    "cython_lambda", "db", "db_save", "detach", "dumps", "ecm", "edit",
-    "edit_devel", "explain_pickle", "explain_pickle_string", "file_and_line",
-    "find_objects_from_name", "fortran", "four_ti_2", "fricas", "frobby", "gap",
-    "gap3", "gap3_version", "gap_reset_workspace", "genus2reduction",
-    "get_remote_file", "gfan", "giac", "gnuplot", "gp", "gp_version",
-    "import_statement_string", "import_statements", "installed_packages",
-    "interfaces", "is_loadable_filename", "is_package_installed",
-    "is_package_installed_and_updated", "kash", "kash_version", "lie", "lisp",
-    "list_packages", "load", "load_attach_mode", "load_attach_path", "load_cython",
-    "load_sage_element", "load_sage_object", "load_submodules", "load_wrap",
-    "loads", "macaulay2", "magma", "magma_free", "make_None", "maple",
-    "mathematica", "mathics", "matlab", "matlab_version", "maxima",
-    "modified_file_iterator", "mupad", "mwrank", "name_is_valid", "octave",
-    "package_manifest", "package_versions", "picklejar", "pip_installed_packages",
-    "pip_remote_version", "pkgname_split", "polymake", "povray", "qepcad",
-    "qepcad_formula", "qepcad_version", "r", "r_version", "read_data", "regina",
-    "register_unpickle_override", "reload_attached_files_if_modified", "reset",
-    "reset_load_attach_path", "runsnake", "sage0", "sage0_version", "sage_eval",
-    "sageobj", "sanitize", "save", "scilab", "set_edit_template", "set_editor",
-    "sh", "singular", "singular_version", "spkg_type", "spyx_tmp", "tachyon_rt",
-    "template_fields", "tmp_dir", "tmp_filename", "trace", "unpickle_all",
-    "unpickle_appends", "unpickle_build", "unpickle_extension", "unpickle_global",
-    "unpickle_instantiate", "unpickle_newobj", "unpickle_persistent"
+    "Khoca", "LazyImport", "LiE", "Lisp", "Macaulay2", "Magma", "Maple",
+    "Mathematica", "Mathics", "Matlab", "Mupad", "Mwrank", "Octave", "PSage",
+    "PackageInfo", "PickleDict", "PickleExplainer", "PickleInstance",
+    "PickleObject", "R", "Regina", "Sage", "SagePickler", "SageUnpickler", "Sh",
+    "Singular", "TestAppendList", "TestAppendNonlist", "TestBuild",
+    "TestBuildSetstate", "TestGlobalFunnyName", "TestGlobalNewName",
+    "TestGlobalOldName", "TestReduceGetinitargs", "TestReduceNoGetinitargs",
+    "add_attached_file", "atomic_dir", "atomic_write", "attach", "attached_files",
+    "attributes", "axiom", "call_pickled_function", "check_pickle",
+    "clean_namespace", "code_ctor", "compile_and_load", "cython", "cython_compile",
+    "cython_import", "cython_import_all", "cython_lambda", "db", "db_save",
+    "detach", "dumps", "ecm", "edit", "edit_devel", "ensure_startup_finished",
+    "explain_pickle", "explain_pickle_string", "file_and_line",
+    "find_objects_from_name", "finish_startup", "fortran", "four_ti_2", "fricas",
+    "frobby", "gap", "gap3", "gap3_version", "gap_reset_workspace",
+    "genus2reduction", "get_remote_file", "get_star_imports", "get_verbose",
+    "get_verbose_files", "gfan", "giac", "gnuplot", "gp", "gp_version",
+    "import_statement_string", "import_statements", "init", "installed_packages",
+    "interfaces", "is_during_startup", "is_loadable_filename",
+    "is_package_installed", "is_package_installed_and_updated", "kash",
+    "kash_version", "lazy_import", "lie", "lisp", "list_packages", "load",
+    "load_attach_mode", "load_attach_path", "load_cython", "load_sage_element",
+    "load_sage_object", "load_session", "load_submodules", "load_wrap", "loads",
+    "macaulay2", "magma", "magma_free", "make_None", "maple", "mathematica",
+    "mathics", "matlab", "matlab_version", "maxima", "modified_file_iterator",
+    "mupad", "mwrank", "name_is_valid", "octave", "package_manifest",
+    "package_versions", "pickleMethod", "pickleModule", "pickle_function",
+    "picklejar", "pip_installed_packages", "pip_remote_version", "pkgname_split",
+    "polymake", "povray", "qepcad", "qepcad_formula", "qepcad_version", "r",
+    "r_version", "read_data", "reduce_code", "regina", "register_unpickle_override",
+    "reload_attached_files_if_modified", "reset", "reset_load_attach_path",
+    "runsnake", "sage0", "sage0_version", "sage_eval", "sageobj", "sanitize",
+    "save", "save_cache_file", "save_session", "scilab", "set_edit_template",
+    "set_editor", "set_verbose", "set_verbose_files", "sh", "show_identifiers",
+    "singular", "singular_version", "spkg_type", "spyx_tmp", "tachyon_rt",
+    "template_fields", "test_fake_startup", "tmp_dir", "tmp_filename", "trace",
+    "unpickleMethod", "unpickleModule", "unpickle_all", "unpickle_appends",
+    "unpickle_build", "unpickle_extension", "unpickle_function", "unpickle_global",
+    "unpickle_instantiate", "unpickle_newobj", "unpickle_persistent",
+    "unset_verbose_files", "verbose"
 })
 
 
@@ -302,6 +324,9 @@ def _split_code(
     # disallowed imports/constructs early.
     policy = trusted_policy() if trusted else SECURITY_POLICY
     validate_module(module, code=code, policy=policy, extra_allowed_names=session_names)
+    if not trusted:
+        # Approved, so what it binds is readable on later calls in this session.
+        _CALLER_BOUND_NAMES.update(_bound_names(module))
     ast.fix_missing_locations(module)
     if module.body and isinstance(module.body[-1], ast.Expr):
         prefix = ast.Module(
@@ -381,10 +406,7 @@ def _execute(
     start = time.perf_counter()
 
     try:
-        # Everything the namespace has gained since startup belongs to the
-        # caller, and they may read it back on a later call.
-        session_names = set(namespace) - _INITIAL_NAMESPACE_NAMES
-        compiled = _split_code(code, trusted=trusted, session_names=session_names)
+        compiled = _split_code(code, trusted=trusted, session_names=_CALLER_BOUND_NAMES)
     except Exception as exc:
         return {
             "ok": False,

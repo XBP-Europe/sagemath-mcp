@@ -220,12 +220,24 @@ def _expected_exception(expected: str) -> str | None:
     return "Exception"
 
 
-async def run_block(session: SageSession, block: str, checker, flags: int,
-                    outcome: Outcome) -> None:
-    """Execute one docstring's examples in order, comparing what can be compared."""
+def runnable_examples(block: str) -> list[Example] | None:
+    """A docstring's examples, or None if the whole block is out of scope.
+
+    Separate from running them because deciding this is free and spawning a Sage
+    session is not: 0.6s each, against 0.04s to execute an example. Spawning
+    first and discarding after meant most of a full sweep was spent starting
+    workers for docstrings that were never going to run -- 3.3x more wall clock
+    than the work needed.
+    """
     parsed = examples_of(block)
     if not parsed or any(_UNRUNNABLE.search(example.source) for example in parsed):
-        return
+        return None
+    return parsed
+
+
+async def run_block(session: SageSession, parsed: list[Example], checker, flags: int,
+                    outcome: Outcome) -> None:
+    """Execute one docstring's examples in order, comparing what can be compared."""
     outcome.blocks += 1
 
     for example in parsed:
@@ -304,14 +316,18 @@ async def test_sagemath_computes_what_its_doctests_say() -> None:
         for block in _docstrings(path):
             if outcome.blocks >= budget:
                 break
+            parsed = runnable_examples(block)
+            if parsed is None:
+                continue
             # One session per docstring: Sage runs a docstring's examples against
-            # a shared scope, and so must this.
+            # a shared scope, and so must this. Spawned only once the block is
+            # known to be runnable -- see runnable_examples.
             session = SageSession(
                 f"doctest-{outcome.blocks}",
                 SageSettings(force_python_worker=False, eval_timeout=20.0),
             )
             try:
-                await run_block(session, block, checker, flags, outcome)
+                await run_block(session, parsed, checker, flags, outcome)
             except Exception as exc:  # a doctest that kills the worker
                 outcome.dead_workers += 1
                 outcome.failures.append(f"block aborted: {type(exc).__name__}: {exc}")

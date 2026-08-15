@@ -825,14 +825,31 @@ def test_a_withheld_name_names_the_spelling_that_works() -> None:
         else:  # pragma: no cover - a refusal is the point
             raise AssertionError(f"{code} was not refused at all")
 
-    # `r` is deliberately not in that list even though it is in the map: a lone
-    # `r` is a radius far more often than it is the R interface, and the
-    # undeclared-symbol message -- which names the fix the caller can perform --
-    # wins for single letters. That ordering is the right way round.
+    # `r` is the interesting one, because both messages are right depending on
+    # what the caller wrote. Being *called* settles it: a lone `r` is a radius
+    # far more often than the R interface, so the symbol message wins there --
+    # but `r("'abc'")` is calling the interface, and telling that caller to
+    # `var('r')` sends them somewhere with no answer in it. 135 refusals across
+    # SageMath's own doctests are that exact line.
     try:
         validate_module(ast.parse("r('mean(c(1,2,3))')"), code="r('mean(c(1,2,3))')")
     except SecurityViolation as exc:
-        assert "var('r')" in str(exc)
+        assert "RealDistribution" in str(exc), exc
+        assert "var('r')" not in str(exc), exc
+
+    for radius in ("area = pi*r^2", "sin(r) + 1", "[r for _ in range(3)]"):
+        try:
+            validate_module(ast.parse(radius), code=radius)
+        except SecurityViolation as exc:
+            assert "var('r')" in str(exc), f"{radius}: {exc}"
+
+    # And a name with no mathematical reading keeps the interface message
+    # whether it is called or not, since there is no radius called `singular`.
+    for spelling in ("singular('2+2')", "x = singular"):
+        try:
+            validate_module(ast.parse(spelling), code=spelling)
+        except SecurityViolation as exc:
+            assert "groebner_basis" in str(exc), f"{spelling}: {exc}"
 
     # A name with no known equivalent still gets the honest generic message.
     try:

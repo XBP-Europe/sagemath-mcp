@@ -850,6 +850,14 @@ def validate_module(
         and (node.value.id, node.attr) in policy.allowed_module_attributes
     }
 
+    # Names in call position, so a refusal can tell `r("'abc'")` apart from a
+    # radius called `r`.
+    called_names = {
+        id(node.func)
+        for node in ast.walk(module)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+    }
+
     # Does this snippet ask a Sage object to put names into the namespace?
     injects_names = any(
         isinstance(node, ast.Call)
@@ -981,6 +989,21 @@ def validate_module(
             # mathematics that needs `var('w')` first. Sending that caller to the
             # allowlist points them at a fix they cannot perform and costs an
             # exchange; naming the fix they can perform usually costs none.
+            equivalent = _native_equivalent(node.id)
+            if equivalent and id(node) in called_names:
+                # Being *called* settles it. A lone `r` is a radius far more
+                # often than the R interface, so the symbol message wins for
+                # `f(x, r)` -- but `r("'abc'")` is calling the interface, and
+                # telling that caller to `var('r')` sends them somewhere with no
+                # answer in it. 135 refusals in SageMath's own doctests are that
+                # exact line.
+                _raise_violation(
+                    f"'{node.id}' is not offered: it spawns an external program, "
+                    f"and this server does the same mathematics in process. "
+                    f"Use {equivalent}.",
+                    code=code,
+                    policy=policy,
+                )
             if _looks_like_an_undeclared_symbol(node.id):
                 _raise_violation(
                     f"'{node.id}' is not defined. This server predefines the symbols "
@@ -989,7 +1012,6 @@ def validate_module(
                     code=code,
                     policy=policy,
                 )
-            equivalent = _native_equivalent(node.id)
             if equivalent:
                 # The name is withheld on purpose and the mathematics is not.
                 # Saying which spelling works ends the exchange; saying only

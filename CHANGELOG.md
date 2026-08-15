@@ -162,6 +162,23 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A research-workflow suite** (`tests/test_research_workflows.py`): nine
+  multi-step sessions at genuinely open problems — Collatz, Goldbach and its
+  weak form, twin primes and Legendre, odd perfect numbers, the Riemann
+  hypothesis, Birch–Swinnerton-Dyer, Erdős–Straus, sums of three cubes, and abc.
+  They test the *session* rather than the call: a helper defined in step one is
+  used in step five, which is both what distinguishes this server from a
+  stateless evaluator and the strongest stress on deny-by-default caller code,
+  since a mathematician writes loops, comprehensions and helper functions
+  freely. Assertions prefer invariants over remembered constants. 7 s in the
+  integration suite.
+- **Five open-problem CLI cases** driving a real Claude/Gemini/Codex against the
+  server: twin-prime counts below 10^6, the Collatz record holder below 10^5,
+  the largest prime gap below 10^6, amicable pairs, and a curve's rank and
+  conductor. Every answer needs a real sweep, so a model that skips the server
+  cannot bluff past the wire-log check.
+
+
 - **A suite for mathematics that must work** (`tests/test_math_coverage.py`).
   The security suite asserts things are blocked, so a policy that refused
   everything would pass all of it. This covers the opposite failure, in six

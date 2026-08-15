@@ -27,6 +27,7 @@ that gap.
 | `test_math_suite.py` | no | Mathematical results the pure-Python worker can check |
 | `test_cli_harness.py` | no | The extended CLI harness's own verdict logic, fed synthetic wire logs |
 | `test_math_coverage.py` | **partly** | Mathematics that must *work*: binding forms and allowlist reachability without Sage, then truths Sage evaluates, equivalent spellings and preparser behaviour with it |
+| `test_research_workflows.py` | **yes** | Multi-step sessions on open problems — Collatz, Goldbach, twin primes, odd perfect numbers, zeta zeros, BSD, Erdős–Straus, three cubes, abc. The realistic workload, and the strongest stress on the allowlist |
 | `test_integration.py` | **yes** | Real Sage session lifecycle, monitoring, large payloads, and the drift checks that keep the allowlist and denylist honest against the installed Sage |
 | `test_math_examples.py` | **yes** | Every tool against the examples in its own documentation |
 | `test_syntax_variants.py` | **yes** | The input spellings each tool must accept or reject |
@@ -141,6 +142,15 @@ test anything.
 **Document a spelling and it becomes required.** `test_generated_code_lint.py` extracts
 every example from the tools' `Field(description=...)` text and asserts each appears in a
 test. Adding an example to a docstring without a matching test fails the unit suite.
+
+**Test the session, not only the call.** `test_research_workflows.py` runs the
+shape real work has — define a helper, sweep a range, find the extreme case,
+check it against what is known — across one held session per problem. It is
+where an allowlist regression surfaces as a refusal in the middle of ordinary
+mathematics, and where state that silently fails to persist between calls shows
+up as a `NameError` five steps in. Each test is a sitting at a genuinely open
+problem, so the assertions are invariants ("every even number in this range is a
+sum of two primes") rather than remembered constants wherever possible.
 
 **A suite of blocks needs a counterweight.** Every test in
 `test_security_bypass.py` asserts something is *refused*, so a policy that

@@ -106,6 +106,62 @@ EXTENDED_CASES: list[ToolForcingCase] = [
         accepted_tools=["coding_theory_operation", "evaluate_sage"],
     ),
     # ---- stateful: impossible to fake ---------------------------------------
+    # ---- open problems ------------------------------------------------------
+    # A mathematician's questions rather than a calculator's. Each answer needs a
+    # real sweep -- none is recallable, and none is doable in-head -- so a model
+    # that skips the server cannot bluff its way past the wire-log check. These
+    # also exercise the shape the research suite covers: define, sweep, report.
+    ToolForcingCase(
+        id="ext-open-twin-primes",
+        domain="open_problems",
+        prompt=(
+            "How many twin prime pairs (p, p+2) are there with p+2 below one million? "
+            "Twin primes are an open problem, so count them exactly rather than estimating."
+        ) + _SUFFIX,
+        expected_answers=["8169"],
+        accepted_tools=["evaluate_sage", "evaluate_sage_streaming", "number_theory_operation"],
+    ),
+    ToolForcingCase(
+        id="ext-open-collatz-record",
+        domain="open_problems",
+        prompt=(
+            "For the Collatz 3n+1 map, which starting value below 100000 takes the most "
+            "steps to reach 1, and how many steps does it take? Answer as 'value, steps'."
+        ) + _SUFFIX,
+        expected_answers=["77031"],
+        accepted_tools=["evaluate_sage", "evaluate_sage_streaming"],
+        timeout_seconds=420,
+    ),
+    ToolForcingCase(
+        id="ext-open-prime-gap",
+        domain="open_problems",
+        prompt=(
+            "What is the largest gap between consecutive primes below one million, and "
+            "which prime does that gap start at? Answer as 'gap, prime'."
+        ) + _SUFFIX,
+        expected_answers=["492113"],
+        accepted_tools=["evaluate_sage", "evaluate_sage_streaming", "number_theory_operation"],
+    ),
+    ToolForcingCase(
+        id="ext-open-amicable",
+        domain="open_problems",
+        prompt=(
+            "List every amicable pair (a, b) with a < b < 10000, where each number is the "
+            "sum of the other's proper divisors."
+        ) + _SUFFIX,
+        expected_answers=["6232"],
+        accepted_tools=["evaluate_sage", "evaluate_sage_streaming"],
+    ),
+    ToolForcingCase(
+        id="ext-open-bsd-rank",
+        domain="open_problems",
+        prompt=(
+            "For the elliptic curve y^2 + y = x^3 - 7x + 6, what is its Mordell-Weil rank "
+            "and its conductor? Answer as 'rank, conductor'."
+        ) + _SUFFIX,
+        expected_answers=["5077"],
+        accepted_tools=["elliptic_curve_operation", "evaluate_sage"],
+    ),
     ToolForcingCase(
         id="ext-session-state",
         domain="session",

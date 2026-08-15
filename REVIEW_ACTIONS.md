@@ -1290,6 +1290,40 @@ letter with an optional index, or one of the Greek names Sage binds.
 
 **These vectors exist in the released 0.5.0.** A 0.5.1 is not optional.
 
+## 34. A dangerous-module entry that protected nothing — medium — DONE
+
+Follow-up on item 33, from checking my own fix rather than a new report. The
+`sage.libs.pari.all` entry added to `_DANGEROUS_SAGE_MODULES` removed **zero
+names**. The derived set stayed at 198, identical to the baked list.
+
+`_dangerous_sage_names` takes only names *defined* in a listed module -- it has
+to, since `sage.misc.persist` also has `Integer` in scope and removing that
+would break the mathematics -- and `pari`, `pari_gen` and `PariError` are every
+one of them defined in `cypari2`. So the entry read like protection and was
+none. What actually removed `pari` was the explicit `_DANGEROUS_BARE_NAMES`
+entry, which is why the vector tested as closed.
+
+This is the failure mode the repository keeps meeting: a check that silently
+covers nothing while looking like it covers something. Fixed the same way as
+the generated-code lint's discovery floor -- an integration test now fails on
+any provenance entry that matches no names, so a dead entry cannot be added
+silently again. `pari` moved to the bare-name list with the reasoning written
+down beside it.
+
+Two things checked while there, both clean:
+
+- **`pari_gen` and `PariError` are still live and are inert.** `pari_gen()`
+  refuses to instantiate ("PARI objects cannot be instantiated directly"),
+  `.eval` is a forbidden function, and `__pari__` is a blocked dunder, so there
+  is no route from a Sage object back to a PARI evaluator.
+- **`SAGEMATH_MCP_STARTUP` cannot smuggle a name to callers.** A custom startup
+  does bind whatever it likes in the namespace -- `import os as helper` works --
+  but the allowlist is baked from the default namespace, so `helper` is refused
+  as "not a name this server offers". It is operator-controlled configuration
+  in any case, and anyone who can set it already owns the process. Worth
+  recording as a property the allowlist now provides for free: before it, a
+  custom startup was reachable by caller code.
+
 SSH authentication to GitHub broke during this session (`ssh -T git@github.com`
 returns `Permission denied (publickey)` with keys loaded). `gh` still works
 because it uses token auth. If it persists, `git remote set-url origin https://…`

@@ -565,6 +565,51 @@ async def test_the_baked_in_denylist_still_matches_this_sage():
 
 
 @requires_sage
+def test_every_dangerous_module_actually_contributes_a_name():
+    """A provenance entry that matches nothing is worse than no entry.
+
+    `_dangerous_sage_names` takes only names *defined* in each listed module --
+    "defined here, not merely imported here", because `sage.misc.persist` also
+    has `Integer` in scope and removing that would break the mathematics. The
+    consequence is that listing a module whose names are defined elsewhere
+    silently protects nothing while looking like protection.
+
+    That happened: `sage.libs.pari.all` was added after `pari('system("id")')`
+    was found to run a shell, and it contributed zero names, because `pari`,
+    `pari_gen` and `PariError` are all defined in `cypari2`. The removal that
+    actually worked was the explicit one. This fails if anyone adds another
+    entry that matches nothing.
+    """
+    import importlib
+
+    from sagemath_mcp._sage_worker import _DANGEROUS_SAGE_MODULES
+
+    barren = []
+    for module_name in _DANGEROUS_SAGE_MODULES:
+        try:
+            module = importlib.import_module(module_name)
+        except Exception:
+            continue  # not installed in this Sage; not this test's business
+        package = module_name.rsplit(".", 1)[0]
+        defined = [
+            name
+            for name, value in vars(module).items()
+            if not name.startswith("_")
+            and isinstance(home := getattr(value, "__module__", None), str)
+            and home.startswith(package)
+        ]
+        if not defined:
+            barren.append(module_name)
+
+    assert not barren, (
+        f"these modules are listed as dangerous but define none of the names in "
+        f"them, so listing them protects nothing: {barren}. Either name the module "
+        f"the objects are really defined in, or remove the entry and use "
+        f"_DANGEROUS_BARE_NAMES, which removes by name and demonstrably works."
+    )
+
+
+@requires_sage
 @pytest.mark.asyncio
 async def test_the_caller_allowlist_matches_this_sage():
     """The allowlist is baked in; this is what keeps it honest.

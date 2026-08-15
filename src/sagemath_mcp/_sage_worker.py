@@ -104,7 +104,6 @@ _DANGEROUS_SAGE_MODULES = (
     "sage.misc.session",         # load_session unpickles a whole session
     "sage.misc.verbose",         # set_verbose_files writes where it is told
     "sage.misc.temporary_file",  # creates files outside our control
-    "sage.libs.pari.all",        # pari('system("id")') ran a shell command
 )
 
 # Names bound in the namespace that no provenance rule catches, because their
@@ -124,6 +123,15 @@ _DANGEROUS_SAGE_MODULES = (
 # The rest each demonstrated a concrete capability under 10.9: `pari` a shell,
 # `oeis` a network request, and the display helpers files written to disk.
 _DANGEROUS_BARE_NAMES = (
+    # `pari` belongs here rather than in the provenance list above, and the
+    # distinction is not cosmetic: `pari('system("id")')` runs a shell, but
+    # listing `sage.libs.pari.all` removed nothing at all. That derivation takes
+    # only names *defined* in a module -- it has to, since `sage.misc.persist`
+    # also has `Integer` in scope -- and `pari`, `pari_gen` and `PariError` are
+    # every one of them defined in `cypari2`. An integration test now fails on
+    # any provenance entry that matches nothing, because an entry that looks
+    # like protection and is not is worse than no entry.
+    "pari",         # pari('system("id")') ran a shell command as the container user
     "operator",     # attrgetter/methodcaller: attribute access the AST cannot see
     "warnings",     # a module object, and a module object has __builtins__
     "oeis",         # queries oeis.org: egress from a sandbox with no network need

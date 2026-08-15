@@ -20,6 +20,12 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   which left `operator` as the only way in. `attrgetter`, `methodcaller` and
   `itemgetter` are now forbidden calls and `operator` a forbidden attribute
   parent.
+- **A dangerous-module entry that removed nothing.** `sage.libs.pari.all` was
+  listed after `pari` was found to run a shell, and contributed zero names: the
+  derivation takes only names *defined* in a module, and PARI's are defined in
+  `cypari2`. The removal that worked was the explicit one. An integration test
+  now fails on any provenance entry matching no names, so an entry that looks
+  like protection and is not cannot be added silently.
 - **`pari` executed shell commands.** `pari('system("id > /tmp/x")')` wrote a
   file as the container user. The scrub that removed `gp` and `maxima` works
   from `sage.interfaces.all`, and the PARI *library* interface comes from

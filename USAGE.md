@@ -4,9 +4,13 @@
 - Python 3.12+ with [uv](https://docs.astral.sh/uv/) installed (`curl -LsSf https://astral.sh/uv/install.sh | sh`).
 - A working SageMath installation. The reference environment uses Docker:  
   ```bash
-  docker pull sagemath/sagemath:latest
-  docker run --name sage-mcp -d -v "$PWD":/workspace -w /workspace sagemath/sagemath:latest tail -f /dev/null
+  docker pull sagemath/sagemath:10.9
+  docker run --name sage-mcp -d -v "$PWD":/workspace -w /workspace sagemath/sagemath:10.9 tail -f /dev/null
   ```
+  Pin the version rather than taking `:latest`. The set of names callers may use
+  is generated from a specific SageMath and baked into the package, so a
+  different release can offer names this build does not admit. A scheduled job
+  and an integration test both fail when the two disagree.
 - Alternatively, run `make sage-container` (or `./scripts/setup_sage_container.sh`) to pull and launch
   the Docker image automatically.
 - Optional: `sage` on your `PATH` if running outside Docker.
@@ -81,8 +85,12 @@ All math tools use **SageMath** as the computation backend.
 | `boolean_algebra_operation` | Sage | Boolean polynomial ring; evaluate, variables, degree, zero/one test. |
 | `polynomial_ring_operation` | Sage | Groebner bases, ideal dimension/variety, reduction, Groebner test. |
 | `geometry_operation` | Sage | Distance, polygon area, polytope volume, convex hull, compactness via `Polyhedron`. |
-| `cancel_sage_session` | Worker | Cancel the active computation and restart the underlying worker. |
+| `interrupt_sage_session` | Worker | Interrupt a running computation **and keep the variables defined so far**. Prefer this over cancelling. |
+| `cancel_sage_session` | Worker | Cancel the active computation and restart the underlying worker, discarding its variables. |
 | `reset_sage_session` | Worker | Clear the session state without cancelling a running job. |
+| `start_sage_session` | Worker | Start a **named workspace** with its own independent variables. |
+| `list_sage_sessions` | Worker | List the named workspaces belonging to this client. |
+| `stop_sage_session` | Worker | Stop a named workspace and release its worker. |
 | `resource://sagemath/session/{scope}` | Server | Inspect active sessions (`scope=all` or specific session id). |
 | `resource://sagemath/monitoring/{scope}` | Server | Fetch evaluation metrics (`scope=metrics` or `all`). |
 | `resource://sagemath/docs/{scope}` | Server | Retrieve SageMath documentation links (`scope=all`, `reference`, `tutorial`). |
@@ -153,18 +161,34 @@ For HTTP transports, point the client at `http://HOST:PORT/mcp` and enable strea
 
 ## Troubleshooting Tips
 - **ModuleNotFoundError for `sage`**: ensure the server is launched via `sage -python ...` so Sage’s site-packages are on `PYTHONPATH`.
-- **Long-running jobs**: use `cancel_sage_session`; the server restarts the worker and logs a warning for the calling context.
+- **Long-running jobs**: use `interrupt_sage_session` first — it stops the computation and keeps your variables. `cancel_sage_session` also works but restarts the worker, so everything defined in that session is gone.
 - **Idle sessions**: the background culler removes sessions after `SAGEMATH_MCP_IDLE_TTL` seconds (default 900). Adjust via environment variables as documented in `README.md`.
-- **`SecurityViolation` on ordinary-looking code**: imports, `eval`/`exec`,
-  `getattr`, dunder access, the `os`/`sys`/`subprocess` family, and Sage's own
-  `cython()`, `sh()`, `load()` and CAS interfaces (`gp`, `maxima`, `singular`, …)
-  are all refused. Each of those has executed code or run a shell in testing.
-  Rewrite with a Sage primitive; the specialised tools cover most of what people
-  reach for them for.
+- **`SecurityViolation` on ordinary-looking code**: caller code is checked
+  against an **allowlist**, so the question is not "is this name forbidden" but
+  "is this name offered". You get the mathematical names SageMath preloads, the
+  safe builtins, and whatever your own code defines — including names bound
+  earlier in the same session. Anything else is refused, including a helper a
+  future SageMath adds, until someone reviews it.
+
+  What that rules out in practice:
+
+  | Refused | Why, and what to do instead |
+  |---|---|
+  | `import` of anything | The names are already there without it. Drop the import. |
+  | `eval`, `exec`, `compile`, `getattr`, `setattr`, `vars` | Each has executed code in testing. |
+  | `attrgetter`, `methodcaller`, `itemgetter`, `operator.*` | They fetch attributes by a runtime string, which defeats every other rule here. |
+  | `gp`, `maxima`, `singular`, `pari`, … | Each spawns the real program, and those have shell escapes: `pari('system("id")')` ran one. |
+  | `cython()`, `sh()`, `load()`, `attach()`, `save`/`dump`/`export` | Compile, run a shell, execute a path, or write files. |
+  | `show`, `view`, `latex`, `html`, `animate`, `oeis` | Write to disk, launch a viewer or reach the network. **Use the plot tools instead** — `plot_expression` and friends return a base64 PNG, which is what you want over an MCP connection anyway. |
+
+  The specialised tools cover most of what people reach for these for.
 - **`'n' is larger than 2^53`**: pass that argument as a decimal string. A JSON
   number that large is not exact, so the server refuses it rather than computing
   from a rounded value.
 - **`'w' is not defined`**: `x`, `y`, `z` and `t` exist without being declared;
   anything else needs `var('w')` first, exactly as in the Sage REPL. The error
   says so and names the declaration to write.
+- **Indented code is fine.** A snippet pasted out of a markdown block with four
+  spaces on every line used to fail as a syntax error; the shared indentation is
+  now stripped before anything else happens.
 - **Permission denied on volume mounts**: the checkout is mounted read-only on purpose, so a write failure there is usually the application trying to write where it should not. If the path really is meant to be writable (a persistence volume), give that single path to UID/GID 1001 — not the whole tree.

@@ -55,6 +55,16 @@ code, so they are listed here rather than discovered.
 - **Documented examples must be exercised.** Anything quoted in a `Field(...)`
   description has to appear in a test — that rule exists because a documented
   spelling once shipped broken.
+- **The allowlist must match the installed Sage.** `allowlist.py` is generated,
+  and an integration test plus a weekly job fail when it and the running Sage
+  disagree in either direction: names Sage offers that callers cannot reach, or
+  names listed that no longer exist.
+- **Every tool must be documented.** A tool absent from `USAGE.md` and
+  `README.md` fails `tests/test_tool_inventory.py`. The usage table drifted by
+  four tools once, including the one the same page recommends in prose.
+- **A dangerous-module entry must remove something.** Listing a module in
+  `_DANGEROUS_SAGE_MODULES` that defines none of its own names protects nothing
+  while looking like protection; an integration test rejects that.
 
 ## Writing a security fix
 
@@ -69,6 +79,21 @@ The project has had several sandbox bypasses. The discipline that catches them:
    easiest way to break legitimate mathematics.
 4. **Record it in `REVIEW_ACTIONS.md`** with the reproduction and the fix, so the
    next person can see the shape of what has already been tried.
+
+Two things specific to this codebase:
+
+**Caller code is deny-by-default.** A name works only if `allowlist.py` offers it
+or the caller's own code bound it, so the usual fix for a newly-found dangerous
+name is to stop offering it rather than to add a rule. Regenerate with `make
+allowlist` after any change to what the worker namespace contains — including a
+Sage version bump — and read the diff, because every added name is a name every
+caller can now use.
+
+**Check you have not broken the mathematics.** Every test in
+`tests/test_security_bypass.py` asserts something is *blocked*, so a policy that
+refused everything would pass all of them. `tests/test_math_coverage.py` is the
+other direction: binding forms, truths Sage evaluates, equivalent spellings and
+preparser behaviour. Run both.
 
 ## Coding Standards
 

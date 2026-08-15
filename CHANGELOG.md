@@ -105,6 +105,25 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a container, where the published port decides reachability, and wrong on a
   host; that distinction is now stated where the command appears.
 
+### Documentation
+
+- **A documentation pass over every markdown file**, checking each claim against
+  the code rather than re-reading the prose. What it found: `USAGE.md` listed 33
+  of 37 tools while its header said 37 — the four missing ones were
+  `interrupt_sage_session`, which the same page recommends in prose, and the
+  three that make up named workspaces; `INSTALLATION.md` called the SageMath
+  runtime "optional" when without it every evaluation fails with `Unable to
+  locate Sage executable`; `EVALUATION.md` listed seven "remaining
+  opportunities" that had all shipped; the README architecture diagram
+  advertised response caching that was deliberately turned off as an isolation
+  bug. Test counts, the predefined symbols and the security framing were stale
+  in several places.
+- **A test now enforces that every tool is documented** in `USAGE.md` and
+  `README.md`, because that table drifted by four without anything failing.
+- Security documentation gained the design principle behind the `operator`
+  finding: every attribute rule is enforced on the source text, so any primitive
+  that fetches an attribute by a runtime string defeats all of them at once.
+
 ### Added
 
 - **A suite for mathematics that must work** (`tests/test_math_coverage.py`).

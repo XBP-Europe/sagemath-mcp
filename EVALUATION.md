@@ -4,10 +4,17 @@
 
 > **This is a snapshot, not the current state.** Its figures were true on that date
 > and are kept as a record of the evaluation. Since then the sandbox findings in
-> `REVIEW_ACTIONS.md` (items 1-3, 18, 19) were fixed, `server.py` was split into
-> `app`/`runtime`/`codegen` and a `tools/` package, and the suites grew to 496 unit
-> tests at 100% statement and branch coverage plus 575 against SageMath 10.9
-> (figures as of 2026-08-14).
+> `REVIEW_ACTIONS.md` (items 1-3, 18-34) were fixed, `server.py` was split into
+> `app`/`runtime`/`codegen` and a `tools/` package, caller code moved to a
+> deny-by-default allowlist, and the suites grew to 667 unit tests at 100%
+> statement and branch coverage plus 764 against SageMath 10.9 (figures as of
+> 2026-08-15).
+>
+> Its security assessment is the part that has aged worst: "AST-based validation
+> blocking dangerous operations" was true and insufficient. Nine bypass classes
+> were found afterwards, each a name no rule mentioned, which is what moved the
+> design to an allowlist. Read `SECURITY.md` for the current model, not this.
+>
 > For current numbers see `README.md` and `ROADMAP.md`.
 
 ## Overall Verdict
@@ -77,12 +84,19 @@ The initial evaluation identified the following problems. All have been addresse
 | 97% coverage | Expanded to 99% (242 tests) with targeted branch coverage |
 | No CLI-level validation | Added 43 CLI integration tests across 9 math domains |
 
-## Remaining Opportunities
+## Remaining Opportunities — all shipped since
 
-- **Combinatorics tool** — dedicated helper for permutations, combinations, graph theory (currently possible via `evaluate_sage`)
-- **Geometry tool** — distances, areas, transformations
-- **Probability distributions** — PDF, CDF, sampling
-- **Multi-expression plotting** — overlay multiple functions in one plot
-- **HTTP health check endpoint** — currently Helm probes use TCP socket; an HTTP `/health` endpoint would be more robust
-- **Streaming partial output** — for long-running computations
-- **Disk-backed session persistence** — survive server restarts
+Kept because the list is the record of what this evaluation asked for. Every
+item was built; none is outstanding. Do not read this section as a backlog.
+
+| Asked for | Shipped as |
+|---|---|
+| Combinatorics tool | `combinatorics_operation` (`tools/discrete.py`) |
+| Geometry tool | `geometry_operation` (`tools/plotting.py`) |
+| Probability distributions | `distribution_operation` (`tools/stats.py`) |
+| Multi-expression plotting | `plot_multi_expression` |
+| HTTP health check endpoint | `/health` via `mcp.custom_route`, replacing the TCP socket probe |
+| Streaming partial output | `evaluate_sage_streaming` |
+| Disk-backed session persistence | Session journals, replayed on restore with each statement's trust recorded |
+
+The open work is in `ROADMAP.md` and `TODO.md`.

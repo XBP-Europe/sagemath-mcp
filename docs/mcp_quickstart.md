@@ -38,7 +38,10 @@ All tools use **SageMath** as the computation backend unless noted.
 
 **It runs Sage, not Python.** Code is preparsed exactly as Sage's own REPL does:
 `2^3` is 8, not 1; integer literals are Sage `Integer`s; `K.<a> = NumberField(x^3 - 2)`
-parses; and `x` is already defined. Use `^^` if you actually want XOR.
+parses; and `x`, `y`, `z` and `t` are already defined. Any other symbol needs
+`var('w')` first, and the error message says so. Use `^^` if you actually want XOR.
+Code indented as a whole -- pasted out of a markdown block, say -- is accepted:
+the shared margin is stripped before parsing.
 
 **Large integers travel as decimal strings.** Above 2^53 a JSON number is no
 longer exact and a JavaScript-based client will round it before the server ever
@@ -53,11 +56,29 @@ sees it, so those parameters take strings and those results come back as strings
 omit it for `default`. A long exploration and a scratch calculation do not have to
 collide.
 
-**Some code is refused on purpose.** Imports, `eval`/`exec`, `getattr`, dunder
-access, the `os`/`sys`/`subprocess` family, Sage's own `cython()`, `sh()`,
-`load()` and the interfaces to other CAS programs (`gp`, `maxima`, `singular`, …)
-are all rejected. If you hit one, the answer is a Sage primitive, not a way
-around it — and every one of those has executed code or run a shell in testing.
+**You get an allowlist, not a blocklist.** A name works if SageMath preloads it
+for mathematics, if it is a safe builtin, or if your own code defined it —
+including earlier in the same session. Anything else is refused, so the question
+to ask is "is this offered" rather than "is this forbidden".
+
+The refusals worth knowing before you hit them:
+
+- **No imports.** The names are already there; drop the line.
+- **No `eval`, `exec`, `getattr`, `attrgetter`, `methodcaller`** or anything else
+  that reaches a name indirectly.
+- **No other CAS.** `gp`, `maxima`, `singular`, `pari` each spawn the real
+  program, and those have shell escapes — `pari('system("id")')` ran one.
+- **No `show()`, `view()`, `latex()`, `html()` or `animate()`.** This is the one
+  that catches people, because `show(plot(...))` is how you would do it in a
+  notebook. Over MCP you want **`plot_expression`** and its siblings, which
+  return a base64 PNG the client can actually display; `show` would write a file
+  on the server and try to open a viewer nobody is looking at.
+- **No file or network access** — `save`, `dump`, `export`, `load`, `attach`,
+  `oeis`, `get_remote_file`.
+
+If you hit one, the answer is a Sage primitive or the matching specialised tool,
+not a way around it: every name on that list executed code, ran a shell, wrote a
+file or reached the network during testing.
 
 ## Example Prompts
 

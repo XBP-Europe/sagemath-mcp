@@ -3,6 +3,18 @@
 This document collects platform-specific notes for installing and running the
 SageMath MCP server.
 
+> **SageMath itself is required, not optional.** Installing this package gives
+> you the MCP server; it does not give you Sage. Without a Sage runtime the
+> server starts and advertises all 37 tools, and then every evaluation fails
+> with `Unable to locate Sage executable 'sage'`. The supported way to supply
+> one is the Docker container below — the project is built and tested against
+> **SageMath 10.9**, and the set of names callers may use is generated from that
+> version.
+>
+> If `sage` is on your `PATH` already, the server uses it and no container is
+> needed. Point `SAGEMATH_MCP_SAGE_BINARY` at it if it is installed somewhere
+> unusual.
+
 ## Cross-platform (pip/uv)
 
 ```bash
@@ -44,8 +56,12 @@ drop the `:ro` on that one volume rather than changing ownership of the tree.
 ```bash
 helm install sagemath charts/sagemath-mcp \
   --set image.repository=<your-ghcr-namespace>/sagemath-mcp \
-  --set image.tag=latest
+  --set image.tag=v0.5.0
 ```
+
+Pin the tag to a released version rather than `latest`. `latest` gives you no
+way to say which build is running when something breaks, no clean rollback, and
+no guarantee that a restarted pod matches its neighbours.
 
 The chart enforces non-root execution and drops Linux capabilities. Edit `values.yaml` to customise
 ingress, resource limits, or environment variables.
@@ -66,7 +82,7 @@ ingress, resource limits, or environment variables.
    sagemath-mcp
    ```
    (Use `python -m sagemath_mcp.server` if the command is not on `PATH`.)
-5. Optional Sage runtime:
+5. Sage runtime (**required** — the server cannot evaluate anything without it):
    - Install [Docker Desktop](https://www.docker.com/products/docker-desktop/).
    - Run `pwsh -File scripts/setup_sage_container.ps1` to launch the container, or use Git Bash/WSL with `make sage-container`.
 6. For source development, clone the repository and run `uv pip install -e .[dev]`.
@@ -89,7 +105,7 @@ ingress, resource limits, or environment variables.
    ```bash
    sagemath-mcp
    ```
-5. Optional Sage runtime via Docker Desktop:
+5. Sage runtime via Docker Desktop (**required** — without it every evaluation fails):
    ```bash
    make sage-container  # or ./scripts/setup_sage_container.sh
    ```
@@ -117,5 +133,11 @@ make test
 - Only a dedicated persistence or scratch volume should ever be writable, and only that
   path needs to belong to UID/GID 1001 (`chown 1001:1001 <that-path>`). The checkout
   itself is mounted read-only by design; do not widen it to fix a permission error.
-- Security policy errors (e.g., "Import statements are disabled") typically indicate unsupported
-  operations; rewrite the Sage code using whitelisted modules or helper tools.
+- **"Unable to locate Sage executable"** means exactly that: the package is
+  installed but there is no Sage for it to drive. Start the container, or set
+  `SAGEMATH_MCP_SAGE_BINARY` to your own installation.
+- **Security policy errors** ("Import statements are disabled", "is not a name
+  this server offers") are the sandbox working as intended. Caller code is
+  checked against an allowlist, so the fix is a Sage primitive or the matching
+  specialised tool rather than a way around the rule — `USAGE.md` lists what is
+  refused and what to use instead.

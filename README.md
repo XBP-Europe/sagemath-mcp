@@ -89,42 +89,44 @@ Whether the task is symbolic calculus, number theory, linear algebra, differenti
 ## Architecture Overview
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
+┌─────────────────────────────────────────────────────────────────┐
 │  MCP Client (Claude Desktop, Gemini CLI, Codex CLI, etc.)       │
-└──────────────────────┬───────────────────────────────────────────┘
-                       │  MCP protocol (stdio or HTTP)
-                       ▼
-┌──────────────────────────────────────────────────────────────────┐
+└─────────────────────────────────────────────────────────────────┘
+                      │  MCP protocol (stdio or HTTP)
+                      ▼
+┌─────────────────────────────────────────────────────────────────┐
 │  app.py + tools/ --- FastMCP 3.x Application                    │
-│                                                                  │
+│                                                                 │
 │  ┌─────────────┐  ┌──────────────┐  ┌────────────────────────┐  │
-│  │ 37 MCP Tools│  │ 3 Resources  │  │ Middleware              │  │
-│  │ (evaluate,  │  │ (session,    │  │ - Request logging       │  │
-│  │  solve,     │  │  monitoring, │  │ - Response caching      │  │
-│  │  diff, ...)│  │  docs)       │  │ - Progress heartbeats   │  │
+│  │ 37 MCP Tools│  │ 3 Resources  │  │ Middleware             │  │
+│  │ (evaluate,  │  │ (session,    │  │ - Request logging      │  │
+│  │  solve,     │  │  monitoring, │  │ - Catalogue cache only │  │
+│  │  diff, ...) │  │  docs)       │  │ - Progress heartbeats  │  │
 │  └──────┬──────┘  └──────────────┘  └────────────────────────┘  │
-│         │                                                        │
-│  ┌──────▼──────────────────────────────────────────────────────┐ │
-│  │ session.py --- SageSessionManager                           │ │
-│  │  Per-client session map with asyncio locks, idle culling    │ │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │ │
-│  │  │ Session A   │  │ Session B   │  │ Session C   │  ...   │ │
-│  │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘        │ │
-│  └─────────┼───────────────┼───────────────┼──────────────────┘ │
-└────────────┼───────────────┼───────────────┼────────────────────┘
-             │               │               │
-             ▼               ▼               ▼
-     ┌───────────────────────────────────────────────┐
-     │  _sage_worker.py --- Subprocess Workers       │
+│         │                                                       │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │  session.py --- SageSessionManager                          ││
+│  │   Per-client session map with asyncio locks, idle culling   ││
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          ││
+│  │  │ Session A   │  │ Session B   │  │ Session C   │  ...     ││
+│  │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘          ││
+│  └─────────┼────────────────┼────────────────┼─────────────────┘│
+└────────────┼────────────────┼────────────────┼──────────────────┘
+             │                │                │
+             ▼                ▼                ▼
+     ┌────────────────────────────────────────────────┐
+     │  _sage_worker.py --- Subprocess Workers        │
      │  JSON stdin/stdout protocol                    │
      │                                                │
-     │  ┌────────────┐   ┌──────────────────────┐    │
-     │  │ security.py│──▶│ AST validation       │    │
-     │  │            │   │ before every exec()   │    │
-     │  └────────────┘   └──────────────────────┘    │
+     │  ┌────────────┐   ┌──────────────────────┐     │
+     │  │allowlist.py│──▶│ is this name offered?│     │
+     │  │security.py │   │ AST checks, then     │     │
+     │  │            │   │ exec() -- or refuse  │     │
+     │  └────────────┘   └──────────────────────┘     │
      │                                                │
-     │  Persistent namespace: vars, functions,        │
-     │  classes survive across calls                   │
+     │  Namespace scrubbed at startup, then           │
+     │  persistent: vars, functions and classes       │
+     │  survive across calls                          │
      └────────────────────────────────────────────────┘
 ```
 
@@ -134,7 +136,8 @@ Whether the task is symbolic calculus, number theory, linear algebra, differenti
 
 - **Process isolation:** Each session runs SageMath in a separate subprocess. A crash or timeout in one session cannot affect others.
 - **Stateful sessions:** Variables, functions, and assumptions persist across tool calls within the same MCP session, enabling multi-step mathematical workflows.
-- **Security by default:** Every code snippet passes through an AST-based validator before execution, blocking dangerous operations regardless of the tool used.
+- **Deny-by-default for caller code:** a name is refused unless the generated allowlist offers it or the caller's own code bound it. Every snippet also passes an AST validator before execution, whichever tool it arrived through. The allowlist came after a run of bypasses that shared one shape — a name nobody had thought to forbid — and it means a helper a future SageMath adds is refused until someone reviews it, rather than reachable the day it lands.
+- **Caching is deliberately narrow:** only the tool, resource and prompt *catalogues* are cached. Tool-call and resource-response caching are off, because the cache key does not include the client identity and two clients making the same call would collide.
 - **Progress heartbeats:** Long-running computations emit periodic progress events (~1.5s) so clients can display activity indicators and detect stalls.
 
 ---
@@ -241,7 +244,9 @@ The primary tool. Executes arbitrary SageMath code inside a persistent worker pr
 - While code is running, the server emits **progress heartbeats** roughly every 1.5 seconds so clients can display activity indicators.
 - If the evaluation exceeds the timeout, the worker process is restarted and a `TimeoutError` is raised. All session state from prior calls is lost.
 - If the startup code (`from sage.all import *` by default) failed when the worker launched, every subsequent `evaluate_sage` call returns a clear `StartupError` instead of a confusing NameError.
-- The AST security validator runs on every code snippet before execution (see [Security Sandbox](#security-sandbox)).
+- **Caller code is checked against an allowlist**, so a name works only if SageMath preloads it for mathematics, it is a safe builtin, or your own code defined it — including earlier in the same session. Anything else is refused, and the message names the fix where there is one (an undeclared symbol is told to `var()` it). The AST validator runs on top of that (see [Security Sandbox](#security-sandbox)).
+- **`x`, `y`, `z` and `t` are predefined**; any other symbol needs `var('w')` first.
+- Indentation shared by every line is stripped before parsing, so a snippet pasted out of a markdown block is accepted rather than failing as a syntax error.
 
 **Domain-specific examples** (these are included in the tool description LLMs see):
 
@@ -1094,7 +1099,15 @@ make integration-test           # pytest inside Sage Docker container
 make build                      # sdist + wheel via scripts/build_release.py
 make cli-integration            # Run CLI integration tests (Claude + Gemini)
 make sage-container             # Bootstrap the Sage Docker container
+make allowlist                  # Regenerate the caller allowlist from that Sage
 ```
+
+`make allowlist` is needed after a SageMath upgrade or any change to what the
+worker namespace contains; an integration test and a weekly job fail when the
+committed allowlist and the installed Sage disagree. It writes through a
+temporary file, because the generator imports the module it replaces. **Read the
+diff**: every added name is a name every caller can then use, and anything that
+compiles, spawns, writes or fetches belongs in `_DANGEROUS_BARE_NAMES` instead.
 
 ### Running Tests
 

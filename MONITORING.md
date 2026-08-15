@@ -11,7 +11,7 @@ Metrics are served through the `resource://sagemath/monitoring/metrics` MCP reso
 | `attempts` | Total evaluation attempts since the process started. |
 | `successes` | Successful evaluations. |
 | `failures` | Failed evaluations (including security violations). |
-| `security_failures` | Attempts blocked by the AST security policy. |
+| `security_failures` | Attempts refused by the security policy — the caller allowlist as well as the AST rules. |
 | `avg_elapsed_ms` | Average execution time (milliseconds, success only). |
 | `max_elapsed_ms` | Maximum execution time observed (milliseconds). |
 | `last_run_at` | UNIX timestamp of the most recent evaluation. |
@@ -144,6 +144,12 @@ All integration tests should pass, confirming that metrics update correctly unde
 ## Suggested Alerts
 
 * **Security violation spike**: alert on a sudden rise in `security_failures`.
+  Read the messages before assuming an attack. Caller code is deny-by-default, so
+  this counter also rises when ordinary mathematics is refused — most often
+  `'<name>' is not a name this server offers` after a SageMath upgrade left the
+  committed allowlist behind, which the integration test and the weekly drift job
+  are there to catch first. A refusal naming `os`, `eval`, `attrgetter` or a CAS
+  interface is the other kind.
 * **Failure rate**: track `(failures - security_failures)` to catch Sage worker issues.
 * **Latency**: alert if `max_elapsed_ms` exceeds expected thresholds.
 

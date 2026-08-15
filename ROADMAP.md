@@ -2,12 +2,21 @@
 
 This document tracks planned improvements to the SageMath MCP server, organized by priority and effort. The goal is to strengthen the server's position as a universal mathematics MCP server that enables LLMs to perform any symbolic or discrete mathematical operation.
 
-**Current state (v0.5.0):** 37 MCP tools (31 Sage-backed, 6 infrastructure) covering calculus, algebra, linear algebra, ODEs, number theory, combinatorics, graph theory, group theory, elliptic curves, coding theory, boolean algebra, polynomial rings, geometry, probability, vector calculus, statistics, 2D/3D plotting, numeric root-finding, and incremental streaming. As of 2026-08-14 the suites pass 496 unit tests at 100% statement and branch coverage, 575 against a real SageMath 10.9 runtime, and 27/27 of the extended CLI cases across Claude, Gemini and Codex. Counts are a snapshot; the coverage floor is the part CI enforces.
+**Current state (v0.5.0):** 37 MCP tools (31 Sage-backed, 6 infrastructure) covering calculus, algebra, linear algebra, ODEs, number theory, combinatorics, graph theory, group theory, elliptic curves, coding theory, boolean algebra, polynomial rings, geometry, probability, vector calculus, statistics, 2D/3D plotting, numeric root-finding, and incremental streaming. As of 2026-08-15 the suites pass 667 unit tests at 100% statement and branch coverage, 764 against a real SageMath 10.9 runtime, and 27/27 of the extended CLI cases across Claude, Gemini and Codex. Counts are a snapshot; the coverage floor is the part CI enforces.
 
 Integration coverage now includes every tool exercised against the examples in its own
 documentation, and a syntax matrix over the input spellings each tool must accept. Both
 run in CI, which had previously reported the integration job as passing while running
 nothing at all.
+
+**Caller code moved to deny-by-default in this window.** A name is refused unless
+the generated allowlist offers it or the caller's own code bound it. That closed
+a run of bypasses which shared one shape — a name nobody had thought to forbid —
+and it changes what callers may do: no imports, no external CAS interfaces, no
+`show`/`latex`/`html`, and `x, y, z, t` predefined where Sage predefines only
+`x`. See `SECURITY.md` for the model and `CHANGELOG.md` for the breaking
+details. It also created a new risk in the opposite direction — refusing
+legitimate mathematics — which `tests/test_math_coverage.py` exists to catch.
 
 ---
 

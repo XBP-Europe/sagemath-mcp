@@ -21,7 +21,8 @@
 - [ ] Documentation updated (README, USAGE, etc.) where needed.
 - [ ] Added/updated tests covering changes.
 - [ ] If a tool changed: snapshot regenerated (`python -m tests.test_tool_inventory --write`) and the diff reviewed.
-- [ ] If a security rule changed: the regression test was confirmed to **fail first**.
+- [ ] If a security rule changed: the regression test was confirmed to **fail first**, and `tests/test_math_coverage.py` still passes — every security test asserts something is *blocked*, so they cannot tell "secure" from "refuses everything".
+- [ ] If the worker namespace or the Sage version changed: `make allowlist` run and **every added name reviewed** — each one is a name every caller can then use.
 - [ ] If dependencies changed: `uv lock` run and the lockfile committed.
 - [ ] Verified non-root container behavior if deployment assets changed.
 - [ ] Confirmed CODEOWNERS and reviewers.

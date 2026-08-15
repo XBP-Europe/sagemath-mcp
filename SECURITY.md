@@ -17,7 +17,7 @@ This server **evaluates mathematics that a language model wrote**. Execution is
 the product, so "code ran" is not by itself a finding. What matters is where it
 ran and what it could reach.
 
-There are three layers, and only one of them is a boundary:
+There are four layers, and only one of them is a boundary:
 
 | Layer | What it is | What it is not |
 |-------|-----------|----------------|
@@ -25,6 +25,17 @@ There are three layers, and only one of them is a boundary:
 | AST policy (`security.py`) | Rejects disallowed imports, `eval`/`exec`, dunder access, indirection helpers, forbidden modules and known code-executing Sage helpers | **Not a boundary.** It is a denylist over a namespace thousands of names deep, and it has been bypassed and repaired repeatedly |
 | Worker namespace scrub (`_sage_worker.py`) | Removes known code-executing Sage helpers and external CAS interfaces from the worker's initial namespace | A backstop for spellings the policy misses, not a guarantee that Sage exposes no other route to the same capability |
 | **The container** | With the supplied configuration: a read-only root filesystem and checkout, dropped capabilities, no new privileges, and deployment-specific resource limits | **This is the process and filesystem boundary.** Run it; it does not itself block network egress or make readable secrets safe |
+
+One property of the AST policy is worth stating plainly, because it decides
+whether a finding is interesting: **every attribute rule is enforced on the
+source text.** The parent and the attribute are both read out of the AST. Any
+primitive that fetches an attribute by a *runtime string* therefore defeats all
+of them at once, which is why `attrgetter`, `methodcaller`, `itemgetter`,
+`getattr`, `setattr` and `vars` are refused as a class rather than as a list.
+`operator.attrgetter("misc.persist.unpickle_global")(sage)` returned the real
+function on SageMath 10.9 and was arbitrary code execution. If you find another
+way to reach an attribute by a name the parser never sees, that is a finding
+even if you cannot yet build a payload from it.
 
 The practical consequence: **run the container, and do not expose the port.**
 Defaults are loopback throughout — stdio transport, `--host 127.0.0.1`, the
@@ -71,7 +82,7 @@ untrusted MCP client
 MCP transport and tool routing  (no authentication in this project)
         |
         v
-AST validation + namespace scrub  (defence in depth, bypassable)
+allowlist + AST validation + namespace scrub  (defence in depth, bypassable)
         |
         v
 Sage worker in a hardened container  (process/filesystem boundary)
@@ -97,6 +108,7 @@ crosses a trust boundary.
 |--------|-----------|
 | Generated-code injection | Validate every caller-controlled fragment before it reaches a trusted template; reject rather than guess when syntax is outside the accepted subset |
 | Direct shell, file, network, loader, compiler, pickle or external-CAS access | Block known routes in the AST policy and worker namespace, test bypasses against real Sage, and contain any missed route in the hardened runtime |
+| Attribute access by a name the parser cannot see | Refuse string-path primitives as a class, since each one defeats every AST attribute rule at once |
 | Container or node escape | Run as non-root with a read-only root, dropped capabilities, no privilege escalation and current runtime/image security fixes |
 | Session crossover or stale responses | Bind requests, responses, journals and cancellation to the correct session and request identifiers |
 | Unauthenticated remote use | Keep listeners local by default; require deployment-provided authentication and authorization before broader exposure |

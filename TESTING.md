@@ -26,7 +26,8 @@ that gap.
 | `test_version_consistency.py` | no | Every declared version agrees, and the bump script updates them all |
 | `test_math_suite.py` | no | Mathematical results the pure-Python worker can check |
 | `test_cli_harness.py` | no | The extended CLI harness's own verdict logic, fed synthetic wire logs |
-| `test_integration.py` | **yes** | Real Sage session lifecycle, monitoring, large payloads |
+| `test_math_coverage.py` | **partly** | Mathematics that must *work*: binding forms and allowlist reachability without Sage, then truths Sage evaluates, equivalent spellings and preparser behaviour with it |
+| `test_integration.py` | **yes** | Real Sage session lifecycle, monitoring, large payloads, and the drift checks that keep the allowlist and denylist honest against the installed Sage |
 | `test_math_examples.py` | **yes** | Every tool against the examples in its own documentation |
 | `test_syntax_variants.py` | **yes** | The input spellings each tool must accept or reject |
 | `test_use_cases.py` | **yes** | End-to-end workflows mirroring real LLM usage |
@@ -52,7 +53,14 @@ Integration tests need a Sage container with the repository mounted at `/workspa
 make sage-container            # start it (reads the image from the Dockerfile)
 make sage-deps                 # install the dev extras into Sage's own Python
 make integration-test          # run the suite inside the container
+make allowlist                 # regenerate the caller allowlist from that Sage
 ```
+
+`make allowlist` is the one to reach for when the integration suite reports that
+the allowlist and the installed Sage disagree — after a Sage upgrade, or after
+changing what the worker namespace contains. It writes through a temporary file
+because the generator imports the module it replaces, and **every added name is
+a name every caller can then use**, so read the diff rather than committing it.
 
 `make sage-deps` is not optional. Sage bundles `pytest` but **not** `pytest-asyncio`, so
 without it every async test errors with *"async def functions are not natively
@@ -133,6 +141,14 @@ test anything.
 **Document a spelling and it becomes required.** `test_generated_code_lint.py` extracts
 every example from the tools' `Field(description=...)` text and asserts each appears in a
 test. Adding an example to a docstring without a matching test fails the unit suite.
+
+**A suite of blocks needs a counterweight.** Every test in
+`test_security_bypass.py` asserts something is *refused*, so a policy that
+refused everything would pass all of them — the suite cannot tell "secure" from
+"broken". `test_math_coverage.py` asserts the opposite direction and is why
+three regressions were caught: `match` statements bound no variables, Sage's
+`function('f')` bound nothing, and uniformly indented code was rejected for its
+margin rather than its mathematics. Tighten the policy, then run that file.
 
 **Prefer equivalence over expected values where possible.** `test_syntax_variants.py`
 asserts that spellings meaning the same thing produce the same answer. That needs no

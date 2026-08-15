@@ -15,6 +15,7 @@
 - `make integration-test` → runs pytest inside the Sage container and captures logs (`integration.log`, `integration-artifacts.tar.gz`)
 - `make build` → `uv run python scripts/build_release.py` (sdist/wheel; respects prerequisite guardrails)
 - `make all` → convenience alias (`make test` + `make integration-test`); keep targets separate when adding CI steps.
+- `make allowlist` → regenerates `src/sagemath_mcp/allowlist.py` from the installed Sage. Two steps on purpose: the generator imports the module it writes, so a single redirect truncates its own input. **Review every added name** before committing.
 - `make cli-extended` → drives the real Claude/Gemini/Codex CLIs and asserts from the proxy wire log that a tool was called. Costs model credits; runs nightly in CI and is worth a manual run before a release.
 
 ## Where Code Goes
@@ -30,13 +31,26 @@
   `trusted_policy()`, which permits `sage_eval`, so an ungated string is arbitrary
   execution -- there is a test that fails if one appears.
 - Adding a tool changes the MCP contract, so refresh the snapshot deliberately:
-  `python -m tests.test_tool_inventory --write`.
+  `python -m tests.test_tool_inventory --write`. A tool must also be mentioned in
+  `USAGE.md` and `README.md`; a test enforces that, because the usage table
+  silently drifted by four tools once.
+- **Caller code is deny-by-default.** A name works only if `allowlist.py` offers
+  it or the caller's own code bound it. If you make a Sage name reachable, or
+  bump the Sage version, run `make allowlist` and read the diff: each added name
+  is a name every caller can now use. Anything that compiles, spawns, writes or
+  fetches belongs in `_DANGEROUS_BARE_NAMES` in `_sage_worker.py` instead.
 
 ## Testing Expectations
 - Add new tests under `tests/`, mirroring the module under `src/`; mark async cases with `@pytest.mark.asyncio`.
 - Exercise both `make test` and `make integration-test` before landing changes; the latter requires the Sage container.
 - Cover MCP helper tools in `tests/test_server.py` and the code-building helpers (`_evaluate_structured`, the prelude, the validation gates) in `tests/test_codegen.py`; use `tests/test_use_cases.py` for Sage-manual scenarios.
 - CI enforces `--cov-fail-under=100`, so a new branch needs a test that reaches it.
+- Security work has a counterweight: every test in `tests/test_security_bypass.py`
+  asserts something is **blocked**, so a policy that refused everything would
+  pass all of them. `tests/test_math_coverage.py` asserts mathematics still
+  works -- binding forms, truths Sage evaluates, equivalent spellings, preparser
+  behaviour. Tightening the policy without running it is how you ship a server
+  that is secure and useless.
 - When introducing monitoring/security changes, ensure corresponding metrics assertions or timeout/cancellation cases land in integration tests.
 
 ## Documentation & Release Hygiene
@@ -50,7 +64,7 @@
 All items from the original TODO are complete. See `TODO.md` for the full checklist.
 
 ## Extra Tips
-- Use `cancel_sage_session` instead of force-stopping long Sage computations.
+- Use `interrupt_sage_session` to stop a long Sage computation: it keeps the session's variables, where `cancel_sage_session` restarts the worker and discards them.
 - Keep comments concise; explain non-obvious security or monitoring decisions inline.
 - Capture and attach integration artifacts/logs when debugging or updating CI.
 - Containerized workflows expect writable volumes for UID/GID 1001 (the `sage` user in SageMath 10.9); adjust permissions when mounting host paths.

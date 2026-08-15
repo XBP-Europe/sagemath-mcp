@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import pathlib
 from pathlib import Path
 
 import pytest
@@ -70,6 +71,28 @@ def test_the_snapshot_covers_every_tool() -> None:
     expected = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
     assert len(expected["tools"]) >= 37, "the snapshot lost tools"
     assert len(expected["resource_templates"]) == 3
+
+
+def test_every_tool_is_documented_for_users() -> None:
+    """A tool nobody documents is a tool nobody uses.
+
+    USAGE.md's table drifted by four tools without anyone noticing, and they
+    were not obscure ones: `interrupt_sage_session`, which the same page
+    recommends in prose as the option to prefer, and the three that make up
+    named workspaces -- a whole feature a reader had no way to discover there.
+    The header said "37 tools" throughout, which is what made the gap invisible.
+    """
+    import re
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    expected = set(json.loads(SNAPSHOT.read_text(encoding="utf-8"))["tools"])
+
+    for doc in ("USAGE.md", "README.md"):
+        text = (root / doc).read_text(encoding="utf-8")
+        # A tool counts as documented when it appears in a backticked mention.
+        mentioned = set(re.findall(r"`([a-z_0-9]+)`", text))
+        missing = sorted(expected - mentioned)
+        assert not missing, f"{doc} never mentions these tools: {missing}"
 
 
 if __name__ == "__main__":  # pragma: no cover - maintenance helper

@@ -1190,3 +1190,41 @@ def test_pre_binding_a_name_does_not_hand_over_what_a_tool_later_builds() -> Non
         "had bound it first"
     )
     _sage_worker._CALLER_BOUND_NAMES.clear()
+
+
+def test_trusted_code_overwriting_a_caller_name_takes_it_back() -> None:
+    """Introducing a name is not the only way trusted code can own one.
+
+    Item 41 withheld whatever *appeared* during trusted execution, by diffing
+    the namespace keys. That misses the case where the name was already there:
+
+        _fig = 5                  # the caller really creates it, successfully
+        plot_expression(...)      # the template assigns _fig = <Figure>
+        _fig                      # <Figure size 640x480 with 1 Axes>
+
+    A key diff cannot see an overwrite, so the caller kept the claim and
+    collected the object. The fix stops diffing for this and reads the trusted
+    code's own AST instead: every name it binds is trusted-owned, whether that
+    binding creates the name or replaces what the caller had. The diff is kept
+    as well, because `from sage.all import *` binds names no AST walk enumerates.
+    """
+    from sagemath_mcp import _sage_worker
+
+    namespace = {"__builtins__": _sage_worker._restricted_builtins(), "_fig": 5}
+    _sage_worker._CALLER_BOUND_NAMES.clear()
+    _sage_worker._CALLER_BOUND_NAMES.add("_fig")     # genuinely the caller's, until now
+    original = _sage_worker._STARTUP_ERROR
+    _sage_worker._STARTUP_ERROR = None
+    try:
+        _sage_worker._execute(
+            "_fig = 'the object a template built'",
+            want_latex=False, capture_stdout=False, namespace=namespace, trusted=True,
+        )
+    finally:
+        _sage_worker._STARTUP_ERROR = original
+
+    assert "_fig" not in _sage_worker._CALLER_BOUND_NAMES
+    assert "_fig" in _sage_worker._WITHHELD_NAMES, (
+        "trusted code overwrote a caller's name and the caller kept the claim"
+    )
+    _sage_worker._CALLER_BOUND_NAMES.clear()

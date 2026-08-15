@@ -442,12 +442,19 @@ def _split_code(
         module, code=code, policy=policy,
         extra_allowed_names=session_names, withheld_names=withheld,
     )
-    if not trusted:
+    bound_here: frozenset[str] = frozenset()
+    if trusted:
+        # Every name generated code binds belongs to it, whether the binding
+        # creates the name or replaces one the caller had. Read statically,
+        # because a namespace diff sees only the first kind.
+        bound_here = frozenset(_bound_names(module))
+    else:
         # Approved, so what it binds is readable on later calls in this session
         # -- except a name that is already live and not offered, which the
         # caller is shadowing rather than creating.
         _CALLER_BOUND_NAMES.update(_bound_names(module) - withheld)
     ast.fix_missing_locations(module)
+    # `bound_here` rides along so _execute can hand it to the reseal.
     if module.body and isinstance(module.body[-1], ast.Expr):
         prefix = ast.Module(
             body=list(module.body[:-1]),
@@ -456,8 +463,8 @@ def _split_code(
         tail = ast.Expression(body=module.body[-1].value)
         ast.fix_missing_locations(prefix)
         ast.fix_missing_locations(tail)
-        return SimpleNamespace(prefix=prefix, tail=tail, is_expr=True)
-    return SimpleNamespace(prefix=module, tail=None, is_expr=False)
+        return SimpleNamespace(bound_here=bound_here, prefix=prefix, tail=tail, is_expr=True)
+    return SimpleNamespace(bound_here=bound_here, prefix=module, tail=None, is_expr=False)
 
 
 
@@ -600,7 +607,14 @@ def _execute(
             # interrupted computation -- holding the door open, and that was
             # remote code execution. KeyboardInterrupt is a BaseException, so
             # this has to be `finally` rather than a cleanup in `except`.
-            _reseal_namespace(namespace, frozenset(namespace) - before_trusted)
+            # Two sources, because neither is complete on its own: the AST
+            # catches an overwrite of a name the caller already had, and the
+            # key diff catches what `from sage.all import *` brings in, which
+            # no AST walk enumerates.
+            _reseal_namespace(
+                namespace,
+                (frozenset(namespace) - before_trusted) | compiled.bound_here,
+            )
 
 def _main() -> int:
     namespace = _build_namespace()

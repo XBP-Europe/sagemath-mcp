@@ -16,7 +16,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and the prelude's symbol table. No capability was reachable through them, but
   holding trusted code's objects is the wrong side of the invariant. Whatever
   trusted execution introduces is now withheld regardless of what the caller
-  claimed first.
+  claimed first — determined from the generated code's own AST as well as from
+  a namespace diff, since the diff alone is blind to trusted code *overwriting*
+  a name the caller had legitimately created, and the AST alone cannot see what
+  `from sage.all import *` brings in.
 
 - **`write_*` methods wrote caller-chosen files.**
   `graphs.PetersenGraph().write_to_eps(path)` and

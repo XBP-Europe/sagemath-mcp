@@ -1555,6 +1555,37 @@ Checked in the same probe, and clean: `sage_eval` is refused by name even though
 the prelude imports it on every tool call, and a second tool call still works
 after the reseal has removed it, because the prelude re-imports it each time.
 
+## 42. A key diff cannot see an overwrite — low — DONE
+
+The hypothesis put to me was that caller names are recorded before execution, so
+a *failed* caller request could reserve a name for trusted code to fill. Tested:
+already closed — the failed assignment leaves no key, so the tool's assignment
+counts as an arrival and item 41's diff catches it.
+
+The neighbouring case was open, and it is the same defect in my own fix:
+
+```
+_fig = 5                  # the caller really creates it, successfully
+plot_expression(...)      # the template assigns _fig = <Figure>
+_fig                      # <Figure size 640x480 with 1 Axes>
+_buf.getvalue()[:4]       # b'\x89PNG'
+```
+
+Item 41 withheld whatever *appeared* during trusted execution by diffing
+namespace keys, and a key diff is blind to a name being replaced. So a caller
+who created the name honestly kept the claim while the object under it became
+the template's.
+
+Fixed by reading the trusted code's own AST rather than diffing for this: every
+name generated code binds is trusted-owned, whether the binding creates the name
+or replaces one. The diff is kept **as well**, because `from sage.all import *`
+binds names no AST walk enumerates — neither source is complete alone.
+
+Severity is low for the same reason as item 41: nothing reachable through the
+objects is a capability. What keeps being wrong is the ownership rule, and this
+is the second time I have fixed it with the wrong instrument — first a snapshot
+that could not see later arrivals, then a diff that could not see replacements.
+
 SSH authentication to GitHub broke during this session (`ssh -T git@github.com`
 returns `Permission denied (publickey)` with keys loaded). `gh` still works
 because it uses token auth. If it persists, `git remote set-url origin https://…`

@@ -66,7 +66,28 @@ _EQUALS_NOT_COMPARISON = re.compile(r"(?<![=<>!])=(?!=)")
 # Judging those against the caller allowlist would refuse the tools' own
 # documented inputs. Imports, forbidden names, the attribute rules and the
 # persistence prefixes all still apply.
-_FRAGMENT_POLICY = replace(SECURITY_POLICY, enforce_name_allowlist=False)
+#
+# `eval`, `vars`, `locals` and `input` are re-added to the forbidden call names
+# here, and this is not symmetry: they were removed from the caller policy on
+# the argument that they "reach nothing" -- absent from the restricted builtins,
+# the worker namespace and the allowlist. NONE of that holds on this path. The
+# allowlist is off, and the fragment is not run in the worker namespace at all:
+# it is handed to sage_eval, which resolves against sage.all's own globals, where
+# the real builtins are reachable. `eval('__import__("os").system("id")')` ran a
+# shell through calculate_expression exactly this way, and `locals()["__builtins
+# __"]["eval"]` is the same reach without naming eval. The scrub cannot cover
+# them -- they are builtins, not sage.all names -- so the gate must. See item 54.
+_FRAGMENT_POLICY = replace(
+    SECURITY_POLICY,
+    enforce_name_allowlist=False,
+    forbidden_call_names=(
+        *SECURITY_POLICY.forbidden_call_names,
+        "eval",
+        "vars",
+        "locals",
+        "input",
+    ),
+)
 
 
 def _refuse_scrubbed_names(parsed: ast.Expression, source: str) -> None:
@@ -178,6 +199,44 @@ def _screen_unparseable_fragment(fragment: str) -> None:
             )
 
 
+def _reject_statement_smuggling(text: str) -> None:
+    """Refuse a fragment that carries more than the single expression it claims.
+
+    Two shapes turned one interpolation slot into several statements once the
+    fragment reached the template:
+
+    * A comment. `ast.parse` and the token screen both discard everything after
+      `#`, so `1 # eval("x") = __import__("os").system("id")` validated as the
+      literal `1` -- and then `solve_equation`'s runtime `_eq_str.split('=')`
+      handed the hidden right-hand side to sage_eval as code (item 55).
+    * A `;`. `group_operation` interpolates a fragment at statement position, so
+      `SymmetricGroup(5); _z = plot(sin(x)).save_image('/path')` became two real
+      statements, the second writing a caller-chosen file (item 56).
+
+    A newline is not refused here -- it is folded to a space by _normalize_source
+    below, which is what lets a wrapped single expression through -- and folding
+    plus this check leaves no way to reach a second statement: juxtaposition
+    (`A B`) is a syntax error the template rejects, and `;` is gone.
+    """
+    try:
+        tokens = tokenize.generate_tokens(io.StringIO(text).readline)
+        for token in tokens:
+            if token.type == tokenize.COMMENT:
+                raise ToolError(
+                    "Rejected by the security policy: a comment is not permitted "
+                    "in an expression"
+                )
+            if token.type == tokenize.OP and token.string == ";":
+                raise ToolError(
+                    "Rejected by the security policy: ';' is not permitted in an "
+                    "expression"
+                )
+    except (tokenize.TokenError, IndentationError):
+        # Not tokenizable as-is (unbalanced brackets in Sage-only syntax, say):
+        # the parse/screen path below refuses or accepts it on its own terms.
+        return
+
+
 def _validated_expression(text: str) -> str:
     """Check a caller-supplied fragment before it is embedded in generated code.
 
@@ -188,12 +247,20 @@ def _validated_expression(text: str) -> str:
 
     Validating the fragment as an expression in its own right closes that, and
     is what makes the trusted worker path in _evaluate_structured safe.
+
+    The value returned is the whitespace-folded fragment, not the caller's raw
+    text: `group_operation` and friends interpolate it verbatim, so a fragment
+    that reaches here with an embedded newline must leave here without one, or
+    the newline becomes a statement break in the template (item 56). Folding
+    also validates exactly what runs -- `sage_eval` sees the folded string too.
     """
     if not isinstance(text, str):
         return text
-    stripped = text.strip()
+    folded = _normalize_source(text)
+    stripped = folded.strip()
     if not stripped:
         return text
+    _reject_statement_smuggling(stripped)
     try:
         parsed = ast.parse(stripped, mode="eval")
     except SyntaxError:
@@ -209,10 +276,10 @@ def _validated_expression(text: str) -> str:
                 parsed = ast.parse(equation, mode="eval")
             except SyntaxError:
                 _screen_unparseable_fragment(stripped)
-                return text
+                return folded
         else:
             _screen_unparseable_fragment(stripped)
-            return text
+            return folded
     try:
         _refuse_scrubbed_names(parsed, stripped)
         validate_module(
@@ -222,7 +289,7 @@ def _validated_expression(text: str) -> str:
         )
     except SecurityViolation as exc:
         raise ToolError(f"Rejected by the security policy: {exc}") from exc
-    return text
+    return folded
 
 
 def _encode_literal(value: str | Iterable) -> str:
@@ -245,8 +312,11 @@ _SHORT_NAME_RE = re.compile(r"^[A-Za-z]\d*$")
 _PROTECTED_CONSTANTS = frozenset({"e", "i", "I"})
 
 # A named graph from Sage's catalogue: "PetersenGraph", "PetersenGraph()" or a
-# parameterised one such as "CompleteGraph(4)".
-_NAMED_GRAPH_RE = re.compile(r"^(?P<name>[A-Za-z_]\w*)\s*(?P<call>\(.*\))?$", re.DOTALL)
+# parameterised one such as "CompleteGraph(4)". No re.DOTALL: `.` must not span
+# a newline, so a smuggled second statement cannot ride inside the call group
+# (item 56). `_validated_expression` folds newlines out before this runs, so
+# this is defence in depth rather than the only guard.
+_NAMED_GRAPH_RE = re.compile(r"^(?P<name>[A-Za-z_]\w*)\s*(?P<call>\(.*\))?$")
 
 
 def _declare_free_symbols(*sources: str | None) -> str:

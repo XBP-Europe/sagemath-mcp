@@ -893,57 +893,72 @@ async def test_cancel_sage_session(monkeypatch):
 # --- session_resource coverage ---
 
 
-@pytest.mark.asyncio
-async def test_session_resource_all(monkeypatch):
-    manager = SageSessionManager(server.DEFAULT_SETTINGS)
-    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
-
-    def fake_snapshot():
-        return [
-            {
-                "session_id": "s1",
-                "live": True,
-                "started_at": 1000.0,
-                "last_used_at": 1001.0,
-                "idle_seconds": 5.0,
-            }
-        ]
-
-    monkeypatch.setattr(runtime.SESSION_MANAGER, "snapshot", fake_snapshot)
-    raw = await server.session_resource("all", None)
-    result = json.loads(raw)
-    assert len(result) == 1
-    assert result[0]["session_id"] == "s1"
+# Two clients, each owning a default and a named workspace. The manager keys on
+# the MCP session id, so client A's keys are "A" and "A::curves" and client B's
+# are "B" and "B::scratch". The resource must show a caller only their own, and
+# only by workspace name -- never the raw key (which is the other client's MCP
+# session id). See REVIEW_ACTIONS.md item 57.
+def _two_client_snapshot():
+    return [
+        {"session_id": "A", "live": True, "started_at": 1000.0,
+         "last_used_at": 1001.0, "idle_seconds": 5.0},
+        {"session_id": "A::curves", "live": True, "started_at": 1000.0,
+         "last_used_at": 1001.0, "idle_seconds": 5.0},
+        {"session_id": "B", "live": True, "started_at": 1000.0,
+         "last_used_at": 1001.0, "idle_seconds": 5.0},
+        {"session_id": "B::scratch", "live": False, "started_at": 1000.0,
+         "last_used_at": 1001.0, "idle_seconds": 10.0},
+    ]
 
 
 @pytest.mark.asyncio
-async def test_session_resource_filtered(monkeypatch):
+async def test_session_resource_all_is_scoped_to_the_caller(monkeypatch):
     manager = SageSessionManager(server.DEFAULT_SETTINGS)
     monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime.SESSION_MANAGER, "snapshot", _two_client_snapshot)
 
-    def fake_snapshot():
-        return [
-            {
-                "session_id": "s1",
-                "live": True,
-                "started_at": 1000.0,
-                "last_used_at": 1001.0,
-                "idle_seconds": 5.0,
-            },
-            {
-                "session_id": "s2",
-                "live": False,
-                "started_at": 1000.0,
-                "last_used_at": 1001.0,
-                "idle_seconds": 10.0,
-            },
-        ]
+    raw = await server.session_resource("all", FakeContext("A"))
+    result = json.loads(raw)
+    # Client A sees exactly its two workspaces, named -- never B's, never a
+    # raw MCP session id.
+    names = sorted(entry["session_id"] for entry in result)
+    assert names == ["curves", "default"]
+    assert all(entry["session_id"] not in {"A", "B", "A::curves", "B::scratch"} for entry in result)
 
-    monkeypatch.setattr(runtime.SESSION_MANAGER, "snapshot", fake_snapshot)
-    raw = await server.session_resource("s2", None)
+
+@pytest.mark.asyncio
+async def test_session_resource_filters_by_workspace_name(monkeypatch):
+    manager = SageSessionManager(server.DEFAULT_SETTINGS)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime.SESSION_MANAGER, "snapshot", _two_client_snapshot)
+
+    raw = await server.session_resource("curves", FakeContext("A"))
     result = json.loads(raw)
     assert len(result) == 1
-    assert result[0]["session_id"] == "s2"
+    assert result[0]["session_id"] == "curves"
+
+
+@pytest.mark.asyncio
+async def test_session_resource_cannot_read_another_clients_scope(monkeypatch):
+    manager = SageSessionManager(server.DEFAULT_SETTINGS)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime.SESSION_MANAGER, "snapshot", _two_client_snapshot)
+
+    # The pre-fix exploit: pass another client's MCP session id as the scope.
+    # It must match nothing, because scope now selects a workspace name within
+    # the caller's own sessions.
+    raw = await server.session_resource("B", FakeContext("A"))
+    assert json.loads(raw) == []
+
+
+@pytest.mark.asyncio
+async def test_session_resource_without_context_returns_nothing(monkeypatch):
+    manager = SageSessionManager(server.DEFAULT_SETTINGS)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
+    monkeypatch.setattr(runtime.SESSION_MANAGER, "snapshot", _two_client_snapshot)
+
+    # Fails closed: no caller to scope to, so nothing is disclosed.
+    assert json.loads(await server.session_resource("all", None)) == []
 
 
 @pytest.mark.asyncio

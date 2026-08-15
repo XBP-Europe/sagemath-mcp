@@ -503,12 +503,16 @@ async def test_the_blocked_interfaces_do_not_block_the_mathematics() -> None:
         assert await value("K.class_number()") == "1"
         assert "C2 x Z" in await value("K.unit_group()")
 
-        # gap: group theory, including the in-process libgap.
+        # gap: group theory, through the native group methods. `libgap` itself
+        # is refused now -- it is an in-process GAP interface object, and one
+        # answers to every attribute name, so `libgap.Exec("id")` shelled out
+        # (REVIEW_ACTIONS.md item 51). The mathematics it was reached for is all
+        # here without it.
         await value("G = SymmetricGroup(5)")
         assert await value("G.order()") == "120"
         assert await value("len(G.conjugacy_classes())") == "7"
         assert await value("G.sylow_subgroup(5).order()") == "5"
-        assert await value("libgap(5).Factorial()") == "120"
+        assert await value("factorial(5)") == "120"
 
         # r: distributions, moments, fitting.
         assert await value("mean([1, 2, 3, 4, 5])") == "3"

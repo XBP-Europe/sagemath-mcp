@@ -307,6 +307,13 @@ class SecurityPolicy:
         "execvpe",
         "fork",
         "forkpty",
+        # `<obj>.gp()` hands back a live GP interpreter -- `Dokchitser(...).gp()`
+        # returned the `gp` interface the denylist removes, and GP shells out
+        # through `system(...)`. The interface is refused as a bare name and by
+        # provenance; this closes the method that reconstructs one. Blocked
+        # wherever it appears, because every `.gp()` in Sage returns that same
+        # interpreter -- there is no benign one to protect. See item 53.
+        "gp",
     )
     # EMPTY for caller code: an import is how you get back everything the worker
     # namespace scrub removed. `from sage.misc.cython import compile_and_load`
@@ -414,10 +421,10 @@ _IMPORT_ALTERNATIVES: tuple[tuple[str, str], ...] = (
 _NATIVE_EQUIVALENTS: dict[str, str] = {
     # The external CAS interfaces. Each spawns the real program and hands it a
     # string; Sage computes all of it in-process as well.
-    "gap": "SymmetricGroup(5), PermutationGroup([...]) and the group methods, "
-           "or libgap(...) for GAP itself",
-    "gap3": "the native group methods, or libgap(...)",
-    "libgap": "libgap is available; the group methods usually answer directly",
+    "gap": "SymmetricGroup(5), PermutationGroup([...]) and the group methods",
+    "gap3": "the native group methods",
+    "libgap": "the group methods usually answer directly: SymmetricGroup(5), "
+              "PermutationGroup([...]), and .order(), .gens(), .subgroups()",
     "singular": "ideal(...).groebner_basis(), .primary_decomposition() and the "
                 "polynomial ring methods",
     "maxima": "integrate(), limit(), desolve(), factor() and solve() -- all of "
@@ -628,6 +635,15 @@ _TRUSTED_CALLS = frozenset({"sage_eval", "preparse", "sage_input"})
 
 # Imports the generated templates need. Caller code imports nothing at all.
 _TRUSTED_IMPORTS = ("math", "cmath", "sage", "sage.all", "statistics", "base64", "io")
+
+# Forbidden-parent names that are ALSO real methods on a mathematical object, so
+# they are permitted as the terminal segment of a plain `object.method` chain
+# (two segments) even when the root is an offered name -- `pi.operator()`,
+# `M.trace()`, `E.pari()`. As a longer module path (`sage.misc.trace`,
+# `sage.misc.sh`) the same name is the module, and stays refused: that chain has
+# more than two segments, or reaches the name as a parent with a child hanging
+# off it. See the terminal-segment rule in validate_module (items 49/52).
+_TERMINAL_METHOD_NAMES = frozenset({"trace", "sh", "operator", "pari", "oeis"})
 
 
 def _is_dunder(name: str) -> bool:
@@ -1047,12 +1063,7 @@ def validate_module(
         # os.listdir, os.environ and os.chmod were not -- and the README claimed
         # subprocess.*, pathlib.* and socket.* were blocked when none of them were.
         if isinstance(node, ast.Attribute):
-            root_of = node
-            while isinstance(root_of, ast.Attribute):
-                root_of = root_of.value
             segments = _attribute_segments(node)
-            # Any segment, not just the root: sage.misc.temporary_file.os.getuid()
-            # is rooted at the permitted `sage` and reaches os in the middle.
             # A chain the caller rooted in their own value is not a module path.
             # `sh = 2; sh.bit_length()` is arithmetic; `sage.misc.sh.sh('id')` is
             # a shell. The root has to be a name the caller created *and* one
@@ -1065,16 +1076,52 @@ def validate_module(
                 and root in bound
                 and root not in policy.allowed_names
             )
-            for segment in segments[:-1]:
-                if segment in policy.forbidden_attribute_parents and not caller_owned:
-                    # ...unless this is exactly one of the module's permitted
-                    # functions. `operator.le` is a comparison; `operator.attrgetter`
-                    # is not, and is refused by its own name a few lines below.
-                    if (
-                        len(segments) == 2
-                        and (segments[0], segments[1]) in policy.allowed_module_attributes
-                    ):
-                        break
+            # `operator.le` and the rest of the permitted arithmetic: a
+            # whole-chain exemption for exactly the named (module, attr) pairs.
+            permitted_pair = (
+                len(segments) == 2
+                and (segments[0], segments[1]) in policy.allowed_module_attributes
+            )
+            if not permitted_pair:
+                # Every segment is inspected, not just segments[:-1]. Checking
+                # only the parents let two escapes through:
+                #   items 49/50/56: `m = sage.env.os` binds the real os module
+                #     under a fresh name -- `os` was the TERMINAL segment, never
+                #     reached -- and `m.system(...)` then ran unchecked. Same for
+                #     `f = sage.misc.persist` and `sage.env.sys.modules['os']`.
+                #   item 52: the caller_owned exemption skipped the WHOLE chain,
+                #     so `s = sage; s.misc.persist.unpickle_global(...)` walked
+                #     past `persist` on the strength of the caller-owned root `s`.
+                # A terminal forbidden name is a module only when the chain is a
+                # module path (rooted at an offered name); as a plain
+                # object.method it is real mathematics -- `A.trace()`,
+                # `(x+y).operator()`, `E.pari()` -- so those are left alone.
+                last = len(segments) - 1
+                for index, segment in enumerate(segments):
+                    if segment not in policy.forbidden_attribute_parents:
+                        continue
+                    if index == last:
+                        # A module path is a dotted chain from an offered NAME:
+                        # `sage.env.os`, `desolvers.os`. A single-segment chain
+                        # is `<expr>.method` -- `(x+y).operator()` -- where the
+                        # root was a Call or BinOp, not a Name, so `segments[0]`
+                        # is the method, not a module. `operator` and `pari` are
+                        # offered names AND forbidden parents, so len>=2 is what
+                        # tells the module `operator` from the `.operator()`
+                        # method.
+                        module_path = len(segments) >= 2 and root in policy.allowed_names
+                        object_method = (
+                            len(segments) == 2 and segment in _TERMINAL_METHOD_NAMES
+                        )
+                        if not module_path or object_method:
+                            continue
+                    elif index == 0 and caller_owned:
+                        # The caller rebound a name that happens to be a
+                        # forbidden parent. Only the ROOT is theirs -- a
+                        # forbidden parent deeper in the chain is an attribute of
+                        # a real object (`s.misc.persist` after `s = sage`) and
+                        # stays refused.
+                        continue
                     _raise_violation(
                         f"Access through '{segment}' is blocked "
                         f"('{segment}' is not permitted in Sage executions)",

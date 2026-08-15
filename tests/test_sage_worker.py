@@ -619,3 +619,37 @@ def test_a_list_result_is_formatted_the_way_sage_prints_it(monkeypatch) -> None:
     broken = types.ModuleType("sage.repl.display.util")
     monkeypatch.setitem(sys.modules, "sage.repl.display.util", broken)
     assert _sage_worker._format_result([AsciiArt()]).startswith("[<")
+
+
+def test_tall_layout_is_declined_when_an_element_says_no() -> None:
+    """`_wants_tall_layout` when a probe answers falsy rather than raising.
+
+    The layout is opt-in: an element, or its parent, has to say it is ascii art
+    via `_repr_option`. Existing coverage had elements that say yes (return True)
+    and elements with no such method (raise AttributeError). The third case --
+    an element that *has* the option and returns False -- was never exercised,
+    so the branch where the first probe is falsy and the loop tries the second,
+    then exhausts, went uncovered. That is the ordinary object: it answers no.
+    """
+    from sagemath_mcp import _sage_worker
+
+    class Parent:
+        def _repr_option(self, key):
+            return False   # the parent also declines
+
+    class Element:
+        def _repr_option(self, key):
+            return False   # not None and not raising -- a real "no"
+
+        def parent(self):
+            return Parent()
+
+    assert _sage_worker._wants_tall_layout([Element(), Element()]) is False
+
+    # And it still says yes when an element opts in, so the no-path did not
+    # break the yes-path.
+    class AsciiArt(Element):
+        def _repr_option(self, key):
+            return key == "ascii_art"
+
+    assert _sage_worker._wants_tall_layout([Element(), AsciiArt()]) is True

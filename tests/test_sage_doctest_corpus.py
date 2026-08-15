@@ -47,8 +47,14 @@ from pathlib import Path
 
 import pytest
 
+from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
 from sagemath_mcp.config import SageSettings
-from sagemath_mcp.security import SecurityViolation, _bound_names, validate_module
+from sagemath_mcp.security import (
+    SecurityViolation,
+    _bound_names,
+    rewrite_permitted_imports,
+    validate_module,
+)
 from sagemath_mcp.session import SageSession
 
 requires_sage = pytest.mark.skipif(
@@ -589,3 +595,68 @@ async def test_the_mathematics_behind_an_import_is_still_reachable() -> None:
         assert await value("bool(surfaces.Sphere() is not None)") == "True"
     finally:
         await session.shutdown()
+
+
+@requires_sage
+def test_the_imports_that_change_nothing_are_dropped_at_scale() -> None:
+    """What the import rewrite bought, which the acceptance sweep cannot see.
+
+    Every test above skips an example that contains an import before validating
+    anything, so the headline ratio is blind to this by construction. This walks
+    the skipped pile instead: of the corpus examples that contain an import, how
+    many have it dropped and then simply run?
+
+    Measured against SageMath 10.9: 1,840 of 19,191 dropped, 1,819 of those then
+    running. The rest ask for something the server does not offer -- 16,808 are
+    `sage.*` submodule paths, whose mathematics
+    `test_the_mathematics_behind_an_import_is_still_reachable` shows is reachable
+    by its public spelling, and the remainder are numpy, sympy, gmpy2 and
+    friends.
+
+    A fall here means the rewrite has stopped recognising the shapes it was
+    written for.
+    """
+    from sage.repl.preparse import preparse
+
+    library = sage_library()
+    if library is None:  # pragma: no cover - integration only
+        pytest.skip("SageMath library not importable")
+
+    contains_import = re.compile(r"(?m)^\s*(import|from)\s+\w")
+    seen = dropped = ran = 0
+
+    for path in sorted(library.rglob("*.py")) + sorted(library.rglob("*.pyx")):
+        for block in _docstrings(path):
+            bound: set[str] = set()
+            for source in _examples(block):
+                if not contains_import.search(source):
+                    continue
+                seen += 1
+                try:
+                    module = ast.parse(preparse(source))
+                except (SyntaxError, ValueError, RecursionError, TypeError):
+                    continue
+                rewritten = rewrite_permitted_imports(
+                    module, offered=ALLOWED_CALLER_NAMES
+                )
+                if any(
+                    isinstance(node, (ast.Import, ast.ImportFrom))
+                    for node in ast.walk(rewritten)
+                ):
+                    continue
+                dropped += 1
+                bound |= _bound_names(rewritten)
+                try:
+                    validate_module(
+                        rewritten, code=source, extra_allowed_names=frozenset(bound)
+                    )
+                    ran += 1
+                except (SecurityViolation, RecursionError):
+                    pass
+
+    assert seen > 15_000, f"only {seen} examples with an import; the walk has shrunk"
+    assert dropped > 1_500, (
+        f"only {dropped} of {seen} imports dropped, was 1,840 -- the rewrite has "
+        "stopped recognising the shapes it was written for"
+    )
+    assert ran > 1_500, f"{dropped} imports dropped but only {ran} examples then ran"

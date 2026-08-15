@@ -37,6 +37,8 @@ Five assertions:
 | `test_every_refusal_is_a_rule_we_meant_to_write` | no refusal may come from a rule that is not named and capped in the file |
 | `test_the_shadowing_rules_stay_emptied` | the three rules item 46 emptied of the shadowing class stay empty of it |
 | `test_the_blocked_interfaces_do_not_block_the_mathematics` | every scrubbed CAS interface's computation is still reachable in-process |
+| `test_the_mathematics_behind_an_import_is_still_reachable` | the 138 mathematical names that live behind an import are reachable by their public spelling |
+| `test_the_imports_that_change_nothing_are_dropped_at_scale` | the import rewrite still recognises the shapes it was written for — 1,840 of 19,191 dropped, 1,819 then running |
 
 `scripts/analyse_doctest_refusals.py` categorises the refusals by whether the
 security justification holds. It is a script rather than a test because its
@@ -70,6 +72,12 @@ acceptance among in-scope examples: 98.60%
 The first measurement was 97.81%, with 8,218 refusals. Categorising those
 (below) found that a third had no security justification; fixing them removed
 2,960 refusals — 36% — and added two names to the allowlist.
+
+The acceptance ratio is **blind to the import rewrite by construction**: any
+example containing an import is skipped before validation, so an import that is
+now dropped never enters the count. Measured separately, 1,840 of the 19,191
+examples containing an import have it dropped and 1,819 then run — the change
+moves that number, not this one.
 
 Out of scope means the example uses a capability this server does not offer:
 imports (19,149), examples tagged `# optional`/`# needs` (30,219), persistence,

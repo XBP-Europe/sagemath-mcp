@@ -1456,3 +1456,43 @@ def test_latex_the_function_and_its_harmless_methods_still_work() -> None:
         "latex.matrix_delimiters('[', ']')",  # sets state
     ):
         validate_module(ast.parse(code))
+
+
+ALIAS_FORMS = [
+    ("assign", "f = latex.has_file\nf('x; id > /tmp/pwned')"),
+    ("list", "[latex.has_file][0]('x; id > /tmp/pwned')"),
+    ("lambda-default", "(lambda f=latex.has_file: f('x; id > /tmp/pwned'))()"),
+    ("bare-reference", "latex.has_file"),
+    ("tuple", "(latex.has_file,)[0]('x')"),
+    ("dict-value", "{'f': latex.has_file}['f']('x')"),
+    # Not `latex`: the rule is about the method, so any holder must be refused.
+    ("popen-alias", "g = SR.popen\ng()"),
+    ("rmtree-alias", "h = SR.rmtree\nh('/')"),
+]
+
+
+@pytest.mark.parametrize(
+    "code", [c for _, c in ALIAS_FORMS], ids=[i for i, _ in ALIAS_FORMS],
+)
+def test_a_forbidden_attribute_cannot_be_reached_by_alias(code: str) -> None:
+    """Refusing the call and permitting the reference refuses nothing.
+
+    Confirmed against SageMath 10.9: each of the first three wrote
+    `uid=1001(sage)` to disk.
+
+        f = latex.has_file; f('x; id > /tmp/pwned')
+        [latex.has_file][0]('x; id > /tmp/pwned')
+        (lambda f=latex.has_file: f('x; id > /tmp/pwned'))()
+
+    The rule was written at the call site -- `Call(func=Attribute(...))` -- so
+    binding the bound method to a name and calling the name passed validation.
+    My own regression: I had written the check on the attribute node, then
+    removed it as a duplicate of the call-site one. It was the broader of the
+    two, not a duplicate.
+
+    Wider than `latex`, and it predates that: `popen`, `rmtree` and the `spawn*`
+    family have been on this list far longer, guarded the same call-only way, so
+    an alias reached them too.
+    """
+    with pytest.raises(SecurityViolation):
+        validate_module(ast.parse(code))

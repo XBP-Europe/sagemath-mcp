@@ -9,6 +9,14 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **A forbidden attribute could be reached by alias.** The rule fired only when
+  the attribute was the callee, so `f = latex.has_file; f(payload)` passed
+  validation and ran a shell — as did the list, tuple, dict and lambda-default
+  spellings. Reaching the attribute is the capability, so the check moved to the
+  attribute node. Older and wider than the `latex` methods: `popen`, `rmtree`
+  and the `spawn*` family had been guarded the same call-only way for far
+  longer. No new over-block — the doctest corpus still passes.
+
 - **Re-offering `latex` handed over a shell (remote code execution).**
   `Latex.has_file(name)` runs `call("kpsewhich %s" % name, shell=True)`, so
   `latex.has_file('x; id > /tmp/x')` executed a command as the container user;

@@ -346,6 +346,139 @@ def _format_violation(message: str, code: str | None) -> str:
     return message
 
 
+# What to reach for instead, when an import asks for something this server does
+# not offer. A refusal that names the alternative costs the caller nothing; one
+# that says only "disabled" costs an exchange, and models do not always recover
+# from it -- three physics cases were lost to exactly that.
+_IMPORT_ALTERNATIVES: tuple[tuple[str, str], ...] = (
+    ("numpy", "SageMath's own arrays: matrix(RDF, ...), vector(RDF, ...), srange"),
+    ("scipy", "numerical_integral, find_root, desolve_odeint, minimize"),
+    ("sympy", "SageMath is a superset: var(), integrate(), solve(), simplify()"),
+    ("matplotlib", "plot(), plot3d(), list_plot(), parametric_plot()"),
+    ("math", "sqrt, exp, log, pi and the rest are already available"),
+    ("cmath", "ComplexField, I, and the usual functions are already available"),
+    ("random", "random(), randint(), shuffle(), sample(), set_random_seed()"),
+    ("fractions", "QQ and Rational are already available"),
+    ("decimal", "RealField(precision) is already available"),
+    ("statistics", "mean, median, variance, std are already available"),
+    ("itertools", "product, permutations and combinations of Sage's own"),
+)
+
+
+def _import_alternative(module: str) -> str | None:
+    root = (module or "").split(".", 1)[0]
+    for name, advice in _IMPORT_ALTERNATIVES:
+        if root == name:
+            return advice
+    return None
+
+
+def rewrite_permitted_imports(
+    module: ast.Module,
+    *,
+    offered: frozenset[str] | set[str],
+    policy: SecurityPolicy | None = None,
+) -> ast.Module:
+    """Drop the imports that would change nothing, before anything is validated.
+
+    Callers cannot import, and that rule is load-bearing: an import is how you
+    get back everything the namespace scrub removed. But a great deal of what
+    arrives is an import that would achieve *nothing* -- a reflex line at the top
+    of a snippet, or a name the namespace already holds -- and refusing those
+    costs the whole snippet for no gain. Gemini opens numerical work with
+    `import numpy as np` and then never uses `np`; that line was worth ignoring,
+    not erroring on.
+
+    Three shapes are dropped, and the safety of all three is the same argument:
+    **nothing is imported, so nothing new becomes reachable.**
+
+    1. `from X import a, b` where every name is already offered *and* live. The
+       source module is never touched, so it does not matter what it is: the
+       caller ends up with the object they could already read. An alias is
+       checked against the name being imported, not the alias, so
+       `from sage.all import os as m` is still refused -- that was a real bypass.
+    2. `from sage.all import *`, which is what the namespace already is.
+    3. Any import whose bound names are never read in this snippet. Binding
+       nothing changes nothing, and the code that follows runs.
+
+    Everything else is left in place for the validator to refuse, with a message
+    that now names the alternative.
+    """
+    policy = policy or SECURITY_POLICY
+    if not policy.enforce_name_allowlist:
+        return module
+
+    read: set[str] = {
+        node.id
+        for node in ast.walk(module)
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
+    }
+    read |= {
+        segment
+        for node in ast.walk(module)
+        if isinstance(node, ast.Attribute)
+        for segment in _attribute_segments(node)
+    }
+
+    def replacement(node: ast.Import | ast.ImportFrom) -> list[ast.stmt] | None:
+        """The statements to put in place of *node*, or None to leave it alone."""
+        bound_by = {(alias.asname or alias.name).split(".", 1)[0] for alias in node.names}
+        star = any(alias.name == "*" for alias in node.names)
+
+        if star:
+            # Only from the namespace's own source, and only as a no-op.
+            if isinstance(node, ast.ImportFrom) and node.module in ("sage.all", "sage"):
+                return []
+            return None if bound_by - read else []
+
+        if isinstance(node, ast.Import) and not bound_by & read:
+            # A plain `import numpy as np` that nothing reads is a reflex line at
+            # the top of a snippet, and dropping it cannot change the result.
+            #
+            # Deliberately NOT extended to `from X import Y`. That form names a
+            # specific object, and a caller who asks for one this server does not
+            # offer deserves to be told now rather than on the next call, when
+            # the failure has moved to a bare `Y` and says nothing about the
+            # import. Measured on SageMath's own doctests, dropping unused
+            # from-imports moved acceptance from 98.6% to 91.0% -- 32,000
+            # examples whose clear refusal became a confusing one.
+            return []
+
+        if isinstance(node, ast.ImportFrom):
+            wanted = [alias.name for alias in node.names]
+            if all(name in offered for name in wanted):
+                # Bind the object the caller could already read. Only an alias
+                # needs a statement; without one the name is already correct.
+                aliased = [alias for alias in node.names if alias.asname]
+                return [
+                    ast.Assign(
+                        targets=[ast.Name(id=alias.asname, ctx=ast.Store())],
+                        value=ast.Name(id=alias.name, ctx=ast.Load()),
+                    )
+                    for alias in aliased
+                ]
+        # `import X` binds a module object, which is a capability even when the
+        # name looks familiar: `import sage.misc.persist` is not a no-op.
+        return None
+
+    changed = False
+    body: list[ast.stmt] = []
+    for statement in module.body:
+        if isinstance(statement, (ast.Import, ast.ImportFrom)):
+            substitute = replacement(statement)
+            if substitute is not None:
+                body.extend(substitute)
+                changed = True
+                continue
+        body.append(statement)
+
+    if not changed:
+        return module
+    rewritten = ast.Module(body=body, type_ignores=list(module.type_ignores))
+    ast.fix_missing_locations(rewritten)
+    return rewritten
+
+
 def _raise_violation(
     message: str, *, code: str | None, policy: SecurityPolicy | None
 ) -> None:
@@ -606,11 +739,19 @@ def validate_module(
                 # happened not to write the line. The namespace already holds
                 # everything the import was for, which is a fix the caller can
                 # act on; "disabled" is not.
+                advice = next(
+                    (found for found in (_import_alternative(mod) for mod in modules)
+                     if found),
+                    None,
+                )
                 _raise_violation(
                     "Import statements are disabled for Sage executions. "
-                    "SageMath is already loaded: use matrix, vector, RDF, srange, "
-                    "numerical_integral, desolve_odeint and the rest directly, "
-                    "without importing anything",
+                    + (f"Use {advice}. " if advice else
+                       "SageMath is already loaded: use matrix, vector, RDF, srange, "
+                       "numerical_integral, desolve_odeint and the rest directly. ")
+                    + "An import that would change nothing is dropped rather than "
+                    "refused, so this one is asking for something the server does "
+                    "not offer",
                     code=code,
                     policy=policy,
                 )
@@ -697,6 +838,18 @@ def validate_module(
                 code=code,
                 policy=policy,
             )
+        # Reaching the attribute is the capability; calling it is one thing you
+        # can do next. Guarding only `Call(func=Attribute(...))` meant
+        # `f = latex.has_file; f(payload)` passed, and each of those spellings
+        # ran a shell on 10.9. That gap was as old as the list itself -- `popen`
+        # and `rmtree` were reachable the same way.
+        if isinstance(node, ast.Attribute) and node.attr in policy.forbidden_attribute_names:
+            _raise_violation(
+                f"Access to forbidden attribute '{node.attr}' is blocked",
+                code=code,
+                policy=policy,
+            )
+
         # A forbidden module is forbidden entirely. Requiring the attribute to
         # ALSO be on a list of eighteen names meant os.system was blocked while
         # os.listdir, os.environ and os.chmod were not -- and the README claimed

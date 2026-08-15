@@ -1624,6 +1624,36 @@ test asserts it is refused through an unrelated object too.
 Kept working, and tested: `latex(x^2 + 1)`, `str(latex(matrix(...)))`,
 `latex.extra_preamble()`, `latex.matrix_delimiters('[', ']')`.
 
+## 48. The rule refused the call and permitted the reference — critical — DONE
+
+Item 47's fix, incomplete, and my own regression. Confirmed against 10.9 — each
+of these wrote `uid=1001(sage)`:
+
+```
+f = latex.has_file; f('x; id > /tmp/pwned')
+[latex.has_file][0]('x; id > /tmp/pwned')
+(lambda f=latex.has_file: f('x; id > /tmp/pwned'))()
+```
+
+The rule was enforced at the call site, `Call(func=Attribute(...))`, so binding
+the bound method to a name and calling the name passed validation. **Reaching
+the attribute is the capability; calling it is just what you do next.**
+
+I had written the check on the attribute node and then deleted it as a
+duplicate of the call-site rule while tidying. It was the broader of the two.
+The lesson is narrow and worth keeping: when two rules overlap, the one to keep
+is the one that fires earlier in the expression, not the one that reads more
+specifically.
+
+**Older and wider than `latex`.** `popen`, `rmtree` and the `spawn*` family have
+been on `forbidden_attribute_names` far longer and were guarded the same
+call-only way, so an alias reached them too. The regression test asserts the
+alias forms through an unrelated object for exactly that reason.
+
+Checked, because a reference-level rule is broader than a call-level one: the
+doctest corpus still passes with no new over-block, so refusing the reference
+costs none of SageMath's own documented mathematics.
+
 SSH authentication to GitHub broke during this session (`ssh -T git@github.com`
 returns `Permission denied (publickey)` with keys loaded). `gh` still works
 because it uses token auth. If it persists, `git remote set-url origin https://…`

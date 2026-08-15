@@ -140,6 +140,27 @@ _DANGEROUS_SAGE_MODULES = (
     # `logstr` and `preparser` come from here, and both are REPL plumbing with
     # no mathematical content. Found by the same sweep.
     "sage.repl.interpreter",
+    # `Pari`, `PariRing` and `PariGroup` are constructors that funnel a
+    # caller-controlled string into the `pari` singleton the bare-name list
+    # already removes: `sage.rings.pari_ring` holds a module-level `from
+    # sage.libs.pari import pari` and does `self.__x = pari(x)`, so `Pari('
+    # system("id")')` ran a shell as the container user even though the name
+    # `pari` was gone. `sage.groups.pari_group` does the same. Removing the name
+    # is not removing the capability; removing the constructors is. See item 50.
+    "sage.rings.pari_ring",       # defines Pari, PariRing
+    "sage.groups.pari_group",     # defines PariGroup
+    # `libgap` is an in-process GAP interface, and an interface object answers to
+    # *every* attribute name -- `libgap.Exec("id")` and
+    # `libgap.function_factory("Exec")("id")` both shelled out, because only
+    # `libgap.eval` was ever refused. Same shape as `maxima_calculus` above: no
+    # name-based attribute rule can cover an object that fabricates attributes on
+    # demand, so the object has to go. See item 51.
+    "sage.libs.gap.libgap",       # defines Gap, libgap
+    # `Dokchitser(...).gp()` returns the `gp` interpreter the interface scrub
+    # removes -- GP shells out through `system(...)`. Stripping the constructor
+    # stops a caller reconstructing it; the `.gp` method is also refused as a
+    # forbidden attribute. See item 53.
+    "sage.lfunctions.dokchitser", # defines Dokchitser, reduce_load_dokchitser
 )
 
 # Names bound in the namespace that no provenance rule catches, because their
@@ -215,14 +236,14 @@ _EXTERNAL_INTERFACE_EXPORTS = "sage.interfaces.all"
 # version that adds or renames a helper fails the suite rather than the user.
 _DANGEROUS_SAGE_NAME_LIST: frozenset[str] = frozenset({
     "AttrCallObject", "AttributeErrorMessage", "Axiom", "DisplayException", "DisplayManager",
-    "ECM", "EmptyNewstyleClass", "EmptyOldstyleClass", "FriCAS", "Gap", "Gap3",
+    "Dokchitser", "ECM", "EmptyNewstyleClass", "EmptyOldstyleClass", "FriCAS", "Gap", "Gap3",
     "Genus2reduction", "Gfan", "Giac", "Gp", "InlineFortran", "InterfaceShellTransformer",
     "Kash", "Khoca", "LazyImport", "LiE", "Lisp", "Macaulay2", "Magma", "Maple", "Mathematica",
     "Mathics", "Matlab", "MaximaLib", "MaximaLibElement", "MaximaLibElementFunction", "Mupad",
-    "Mwrank", "Octave", "OutputTypeException", "PSage", "PackageInfo", "PickleDict",
-    "PickleExplainer", "PickleInstance", "PickleObject", "R", "Regina", "RichReprWarning",
-    "Sage", "SageCrashHandler", "SageNotebookInteractiveShell", "SagePickler",
-    "SagePreparseTransformer", "SageShellOverride", "SageTerminalApp",
+    "Mwrank", "Octave", "OutputTypeException", "PSage", "PackageInfo", "Pari", "PariGroup",
+    "PariRing", "PickleDict", "PickleExplainer", "PickleInstance", "PickleObject", "R",
+    "Regina", "RichReprWarning", "Sage", "SageCrashHandler", "SageNotebookInteractiveShell",
+    "SagePickler", "SagePreparseTransformer", "SageShellOverride", "SageTerminalApp",
     "SageTerminalInteractiveShell", "SageTestShell", "SageUnpickler", "SequencePrettyPrinter",
     "Sh", "Singular", "TestAppendList", "TestAppendNonlist", "TestBuild", "TestBuildSetstate",
     "TestGlobalFunnyName", "TestGlobalNewName", "TestGlobalOldName", "TestReduceGetinitargs",
@@ -239,19 +260,19 @@ _DANGEROUS_SAGE_NAME_LIST: frozenset[str] = frozenset({
     "giac", "gnuplot", "gp", "gp_version", "import_statement_string", "import_statements",
     "init", "installed_packages", "interface_shell_embed", "interfaces", "is_during_startup",
     "is_loadable_filename", "is_package_installed", "is_package_installed_and_updated", "kash",
-    "kash_version", "lazy_import", "lie", "lisp", "list_packages", "load", "load_attach_mode",
-    "load_attach_path", "load_cython", "load_sage_element", "load_sage_object", "load_session",
-    "load_submodules", "load_wrap", "loads", "logstr", "macaulay2", "magma", "magma_free",
-    "make_None", "maple", "mathematica", "mathics", "matlab", "matlab_version",
-    "max_at_to_sage", "max_harmonic_to_sage", "max_pochhammer_to_sage", "max_to_sr",
-    "max_to_string", "maxima", "maxima_calculus", "maxima_lib", "mdiff_to_sage",
-    "mlist_to_sage", "modified_file_iterator", "mqapply_to_sage", "mrat_to_sage", "mupad",
-    "mwrank", "name_is_valid", "octave", "package_manifest", "package_versions",
-    "parse_max_string", "pickleMethod", "pickleModule", "pickle_function", "picklejar",
-    "pip_installed_packages", "pip_remote_version", "pkgname_split", "polymake", "povray",
-    "preparser", "pretty_print", "pyobject_to_max", "qepcad", "qepcad_formula",
+    "kash_version", "lazy_import", "libgap", "lie", "lisp", "list_packages", "load",
+    "load_attach_mode", "load_attach_path", "load_cython", "load_sage_element",
+    "load_sage_object", "load_session", "load_submodules", "load_wrap", "loads", "logstr",
+    "macaulay2", "magma", "magma_free", "make_None", "maple", "mathematica", "mathics",
+    "matlab", "matlab_version", "max_at_to_sage", "max_harmonic_to_sage",
+    "max_pochhammer_to_sage", "max_to_sr", "max_to_string", "maxima", "maxima_calculus",
+    "maxima_lib", "mdiff_to_sage", "mlist_to_sage", "modified_file_iterator", "mqapply_to_sage",
+    "mrat_to_sage", "mupad", "mwrank", "name_is_valid", "octave", "package_manifest",
+    "package_versions", "parse_max_string", "pickleMethod", "pickleModule", "pickle_function",
+    "picklejar", "pip_installed_packages", "pip_remote_version", "pkgname_split", "polymake",
+    "povray", "preparser", "pretty_print", "pyobject_to_max", "qepcad", "qepcad_formula",
     "qepcad_version", "r", "r_version", "raw_getattr", "read_data", "reduce_code",
-    "reduce_load_MaximaLib", "regina", "register_unpickle_override",
+    "reduce_load_MaximaLib", "reduce_load_dokchitser", "regina", "register_unpickle_override",
     "reload_attached_files_if_modified", "reset", "reset_load_attach_path", "restricted_output",
     "runsnake", "sage0", "sage0_version", "sage_eval", "sage_rat", "sageobj", "sanitize",
     "save", "save_cache_file", "save_session", "scilab", "set_edit_template", "set_editor",

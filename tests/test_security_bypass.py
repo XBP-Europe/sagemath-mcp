@@ -1962,10 +1962,12 @@ def test_the_mathematics_tool_parameters_carry_still_passes(fragment: str) -> No
     "fragment",
     [
         # Sage-only syntax the Python parser rejects, so the token screen runs
-        # instead of the AST path -- with a scrubbed name riding along.
-        "R.<xx> = QQ[]; unpickle_global('os', 'system')('id')",
+        # instead of the AST path -- with a scrubbed name riding along. Written
+        # without a `;`, which _validated_expression now refuses outright before
+        # the screen ever runs (see test_a_semicolon_cannot_smuggle_a_statement).
+        "R.<xx> = QQ[unpickle_global]",
         "unpickle_global('os','system')('id') if R.<y> = QQ[] else 0",
-        "K.<a> = GF(9); cython('print(1)')",
+        "K.<a> = GF(9)[cython]",
     ],
     ids=["generator-prefix", "unparseable-tail", "field-generator"],
 )
@@ -2106,3 +2108,176 @@ def test_the_sage_root_backstop_leaves_ordinary_parameters_alone(fragment: str) 
     from sagemath_mcp.codegen import _validated_expression
 
     _validated_expression(fragment)
+
+
+# --- 2026-08-16 review, items 49-56 -----------------------------------------
+
+# Module objects reached as the TERMINAL segment of a chain, then rebound and
+# used -- the parent loop only ever inspected segments[:-1], so the leaf module
+# was never seen. `m = sage.env.os; m.system(...)` ran a shell (item 49). The
+# `f = sage.misc.persist` / `f = sage.misc.trace` forms are the same shape one
+# submodule up (item 52's terminal-extraction variant).
+TERMINAL_MODULE_EXTRACTION = [
+    ("env-os", "m = sage.env.os\nm.system('id')"),
+    ("env-sys", "p = sage.env.sys\np.modules['os'].system('id')"),
+    ("desolvers-os", "m = desolvers.os\nm.system('id')"),
+    ("bare-terminal-os", "sage.env.os"),
+    ("bare-terminal-persist", "f = sage.misc.persist"),
+    ("bare-terminal-trace", "f = sage.misc.trace"),
+    ("bare-terminal-sh", "x = sage.misc.sh"),
+]
+
+
+@pytest.mark.parametrize(
+    ("case_id", "payload"),
+    TERMINAL_MODULE_EXTRACTION,
+    ids=[c for c, _ in TERMINAL_MODULE_EXTRACTION],
+)
+def test_a_terminal_module_cannot_be_extracted_from_a_module_path(case_id, payload):
+    with pytest.raises(SecurityViolation):
+        _validate(payload)
+
+
+# Aliasing the allowlisted `sage` module bought a whole-chain exemption: the
+# caller-owned root `s` disabled the parent check for every segment after it, so
+# `s.misc.persist.unpickle_global(...)` walked past `persist` (item 52). The
+# exemption now covers the ROOT only.
+ALIASED_MODULE_PATH = [
+    ("s-persist", "s = sage\ns.misc.persist.unpickle_global('os','system')('id')"),
+    ("s-sh", "s = sage\ns.misc.sh.sh('id')"),
+    ("s-trace", "s = sage\ns.misc.trace.trace('code')"),
+    ("default-arg", "def g(s=sage): return s.misc.persist.unpickle_global('os','system')('id')"),
+    ("comprehension", "[s.misc.sh.sh('id') for s in [sage]]"),
+]
+
+
+@pytest.mark.parametrize(
+    ("case_id", "payload"), ALIASED_MODULE_PATH, ids=[c for c, _ in ALIASED_MODULE_PATH]
+)
+def test_aliasing_sage_does_not_exempt_a_deeper_forbidden_parent(case_id, payload):
+    with pytest.raises(SecurityViolation):
+        _validate(payload)
+
+
+def test_a_rebound_forbidden_parent_name_is_still_arithmetic():
+    """The exemption the item-52 fix narrowed must still cover its one real use.
+
+    `sh` is a forbidden parent so `sage.misc.sh.sh(...)` is refused, but a caller
+    who binds `sh` to their own value is doing arithmetic, and `sh.bit_length()`
+    keeps the exemption because `sh` is the ROOT of that chain.
+    """
+    _validate("sh = 2\nsh.bit_length()")
+    _validate("trace = matrix([[1, 2], [3, 4]])\ntrace.trace()")
+
+
+def test_a_real_method_named_like_a_forbidden_parent_is_left_alone():
+    """`.trace()`, `.operator()` and `.pari()` are mathematics, not modules."""
+    _validate("matrix([[1, 2], [3, 4]]).trace()")
+    _validate("(x + y).operator()")
+    _validate("SR(1).operator()")
+
+
+def test_the_gp_interface_method_is_refused(case_id=None):
+    """`<obj>.gp()` reconstructs the GP interpreter the denylist removes (item 53)."""
+    with pytest.raises(SecurityViolation):
+        _validate("L.gp()")
+    with pytest.raises(SecurityViolation):
+        _validate("Dokchitser(conductor=1, gammaV=[0], weight=1, eps=1).gp()")
+
+
+# The fragment gate (tool parameters) runs with the allowlist off, so the four
+# Python evaluation primitives that "reach nothing" on the caller path DO reach
+# the real builtins here, through sage_eval's sage.all globals (item 54).
+FRAGMENT_EVAL_PRIMITIVES = [
+    ("eval", "eval('__import__(\"os\").system(\"id\")')"),
+    ("locals-builtins", "locals()['__builtins__']['eval']('1')"),
+    ("vars", "vars()"),
+    ("input", "input()"),
+]
+
+
+@pytest.mark.parametrize(
+    ("case_id", "fragment"),
+    FRAGMENT_EVAL_PRIMITIVES,
+    ids=[c for c, _ in FRAGMENT_EVAL_PRIMITIVES],
+)
+def test_the_fragment_gate_refuses_the_evaluation_primitives(case_id, fragment):
+    from fastmcp.exceptions import ToolError
+
+    from sagemath_mcp.codegen import _validated_expression
+
+    with pytest.raises(ToolError):
+        _validated_expression(fragment)
+
+
+def test_a_comment_cannot_hide_a_payload_from_the_split(case_id=None):
+    """`1 # ... = payload` validated as `1`, then the runtime split ran the
+    hidden right-hand side (item 55). Comments are refused at the gate."""
+    from fastmcp.exceptions import ToolError
+
+    from sagemath_mcp.codegen import _validated_expression
+
+    with pytest.raises(ToolError):
+        _validated_expression('1 # eval("x") = __import__("os").system("id")')
+    with pytest.raises(ToolError):
+        _validated_expression("x^2 - 1 # = __import__('os').system('id')")
+
+
+def test_a_semicolon_cannot_smuggle_a_statement(case_id=None):
+    """A fragment is one expression; `;` made it two once interpolated (item 56)."""
+    from fastmcp.exceptions import ToolError
+
+    from sagemath_mcp.codegen import _validated_expression
+
+    with pytest.raises(ToolError):
+        _validated_expression("SymmetricGroup(5); _z = save(1, '/tmp/x')")
+
+
+def test_a_newline_is_folded_out_so_it_cannot_break_a_statement(case_id=None):
+    """`group_operation` interpolates the fragment verbatim, so a newline would
+    become a statement break (item 56). The gate folds it to a space, which
+    turns a two-statement payload into a syntax error rather than an injection,
+    while a genuinely wrapped single expression still passes."""
+    from sagemath_mcp.codegen import _validated_expression
+
+    # A wrapped single expression survives, folded.
+    assert _validated_expression("2 +\n2") == "2 + 2"
+    # The returned value never contains a newline, whatever came in.
+    folded = _validated_expression("SymmetricGroup(5)\n_z = 1")
+    assert "\n" not in folded
+
+
+# Names removed from the allowlist because a bare-name / provenance removal did
+# not remove the capability behind them (items 50, 51, 53). Deny-by-default now
+# refuses each -- they are no longer offered.
+REMOVED_FROM_ALLOWLIST = [
+    ("Pari", "Pari('system(\"id\")')"),
+    ("PariRing", "PariRing()('system(\"id\")')"),
+    ("PariGroup", "PariGroup('x', 1)"),
+    ("libgap-call", "libgap(5)"),
+    ("libgap-Exec", "libgap.Exec('id')"),
+    ("libgap-factory", "libgap.function_factory('Exec')"),
+    ("Dokchitser", "Dokchitser(conductor=1, gammaV=[0], weight=1, eps=1)"),
+]
+
+
+@pytest.mark.parametrize(
+    ("case_id", "payload"),
+    REMOVED_FROM_ALLOWLIST,
+    ids=[c for c, _ in REMOVED_FROM_ALLOWLIST],
+)
+def test_names_that_reconstruct_a_removed_capability_are_refused(case_id, payload):
+    with pytest.raises(SecurityViolation):
+        _validate(payload)
+
+
+def test_an_untokenizable_fragment_is_still_rejected(case_id=None):
+    """A fragment that will not even tokenize (unbalanced brackets) must not
+    slip through the statement-smuggling screen -- the parse/screen path below
+    it refuses it on its own terms."""
+    from fastmcp.exceptions import ToolError
+
+    from sagemath_mcp.codegen import _validated_expression
+
+    with pytest.raises(ToolError):
+        _validated_expression("matrix([1, 2")

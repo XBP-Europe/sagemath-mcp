@@ -24,6 +24,7 @@ from ..models import (
 )
 from ..session import (
     DEFAULT_SESSION_NAME,
+    SageSessionManager,
 )
 from ..text import SESSION_ARG_DESC as _SESSION_ARG_DESC
 
@@ -144,23 +145,42 @@ async def stop_sage_session(
 
 @mcp.resource("resource://sagemath/session/{scope}")
 async def session_resource(scope: str, ctx: Context | None = None) -> str:
-    """Expose a resource describing active Sage sessions for observability."""
+    """Describe the caller's own Sage workspaces, for observability.
+
+    Scoped to the requesting client. The manager holds one entry per (MCP
+    session, workspace), keyed by the client's `Mcp-Session-Id`, and this used
+    to return the whole map -- so any client could read `.../session/all`, learn
+    every other client's session id, and replay it in an `Mcp-Session-Id` header
+    to act inside their namespace (item 57). Now the caller sees only their own
+    sessions, identified by workspace *name* rather than by the raw key, so no
+    MCP session id crosses the wire. `{scope}` selects a single workspace by
+    name, or "all" for every workspace this client owns.
+
+    Fails closed: without a request context there is no caller to scope to, so
+    nothing is returned. `/health` still reports the process-wide session count
+    for operators who need the aggregate.
+    """
     import json as _json
 
-    del ctx  # resource does not require request context
-    data = runtime.SESSION_MANAGER.snapshot()
-    if scope != "all":
-        data = [entry for entry in data if entry["session_id"] == scope]
-    snapshots = [
-        SessionSnapshot(
-            session_id=entry["session_id"],
-            live=bool(entry["live"]),
-            started_at=float(entry["started_at"]),
-            last_used_at=float(entry["last_used_at"]),
-            idle_seconds=float(entry["idle_seconds"]),
+    if ctx is None or ctx.session_id is None:
+        return _json.dumps([])
+    my_scope = ctx.session_id
+    snapshots = []
+    for entry in runtime.SESSION_MANAGER.snapshot():
+        entry_scope, workspace = SageSessionManager.split_key(str(entry["session_id"]))
+        if entry_scope != my_scope:
+            continue
+        if scope != "all" and workspace != scope:
+            continue
+        snapshots.append(
+            SessionSnapshot(
+                session_id=workspace,
+                live=bool(entry["live"]),
+                started_at=float(entry["started_at"]),
+                last_used_at=float(entry["last_used_at"]),
+                idle_seconds=float(entry["idle_seconds"]),
+            )
         )
-        for entry in data
-    ]
     return _json.dumps([s.model_dump() for s in snapshots])
 
 

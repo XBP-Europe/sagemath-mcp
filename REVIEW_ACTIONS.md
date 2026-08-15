@@ -2126,3 +2126,866 @@ no import of theirs survives validation.
 `prelude-reseal.patch` is deleted rather than applied. Resealing the namespace
 before the caller's fragment runs could not have closed this: `sage_eval` was
 never reading the namespace.
+
+---
+
+# Review actions — 2026-08-15
+
+Findings from a security review of the 100-commit range `HEAD~100..HEAD` (the
+range that split `server.py` into `app`/`runtime`/`codegen` and the `tools`
+package, generated the allowlist, and relaxed items 45 and 46). Nine findings,
+all open. Eight are sandbox escapes; the ninth is a cross-client authorization
+break.
+
+**Four were reproduced end to end against real SageMath 10.9 in the `sage-mcp`
+container and actually ran a shell as uid 1001** — items 49, 50, 51 and 53. Four
+more (52, 54, 55, 56) were verified against the real validator and the real
+fragment gate in pure Python, with the runtime half argued from this repo's own
+recorded behaviour rather than executed; each says which half is which. Item 57
+was verified by reading the installed MCP SDK.
+
+Severity is about consequence, not effort. Nothing below is fixed.
+
+| # | Severity | Item | Status |
+|---|----------|------|--------|
+| 49 | **Critical** | The terminal segment of an attribute chain is never checked | **done** |
+| 50 | **Critical** | `Pari`/`PariRing`/`PariGroup` reconstruct the `pari` singleton the denylist removed | **done** |
+| 51 | **Critical** | `libgap` answers to `Exec`, and only `eval` was ever blocked | **done** |
+| 52 | **Critical** | Aliasing the `sage` module disables the parent-attribute rule entirely | **done** |
+| 53 | **Critical** | `Dokchitser(...).gp()` hands back the interface the denylist removed | **done** |
+| 54 | **Critical** | The fragment gate accepts bare `eval`, and none of the three locks apply there | **done** |
+| 55 | **Critical** | A comment-hidden payload becomes code when the template splits on `=` | **done** |
+| 56 | **Critical** | Unparseable fragments are returned verbatim into statement position | **done** |
+| 57 | High | The session resource publishes every live MCP session ID | **done** |
+
+**What these have in common, which is the finding behind the findings.** Six of
+the eight escapes are the same shape as something already in this file, one
+displacement away:
+
+- Item 34 said a provenance entry that matches no names is not protection. Item
+  50 is that again, one level down: a name that *is* removed is not protection
+  either, if an offered constructor holds a module-level reference to it.
+- Item 47 said an interface object answers to every attribute, so the fix is to
+  stop offering the object. Item 51 is that same object class, offered — and
+  item 53 is a *method* that hands one back, which no name-based rule covers.
+- Item 37 closed re-claiming a name the namespace already had. Item 52 is the
+  same trapdoor reached by aliasing instead of re-claiming.
+- Item 46 freed names on the argument that the objects behind them are gone.
+  Items 49 and 53 are two more places where the object is not gone.
+
+The pattern is that every one of these was closed *by name* and reopened *by
+reference*. A name-based rule over a namespace this large keeps losing to the
+object graph behind it.
+
+## 49. The terminal segment of an attribute chain is never checked — **critical** — DONE
+
+**Verified end to end against real Sage; ran a shell.**
+
+`security.py:1068` loops `for segment in segments[:-1]`, so the last segment of
+a chain is never tested against `forbidden_attribute_parents`. For
+`sage.env.os` the segments are `['sage', 'env', 'os']` and `os` is terminal, so
+it walks straight through. Nothing else catches it:
+
+- `forbidden_call_names` — `os` absent
+- `forbidden_attribute_only_names` = `("eval",)` — no
+- `forbidden_attribute_names` — `system`, `remove` and `unlink` were removed by
+  item 46 (`security.py:280-310`), on the argument that "`os.system(...)`
+  cannot be spelled at all"
+- the bare-`os` rule at `:1112` — fires on `ast.Name` only, and the payload
+  never writes a bare `os`
+
+Assignment then launders the module object into an ordinary local, and the
+`caller_owned` exemption means no later rule inspects it.
+
+The asymmetry is the tell:
+
+```
+ALLOWED : m = sage.env.os
+          m.system("id")
+ALLOWED : p = sage.env.sys
+          p.modules["os"].system("id")
+BLOCKED : sage.env.os.environ        # terminal is .environ, so os IS in segments[:-1]
+BLOCKED : sage.env.os.system("id")   # same reason
+```
+
+In the container, through `_build_namespace()` + `_execute(...)`, both payloads
+returned `{'ok': True}` and wrote `uid=1001(sage) gid=1001(sage) groups=1001(sage)`.
+
+`_strip_from_sage_all` (`_sage_worker.py:408-438`) only deletes keys from
+`sage.all.__dict__`; it never touches submodule attributes, so `sage.env.os` is
+`<module 'os'>` at runtime and `.system` is the builtin.
+
+**`sage` is not the only root.** Enumerating allowlisted module objects in the
+live namespace, `desolvers` also exposes `desolvers.os` and `desolvers.shutil`,
+and `m = desolvers.os; m.system(...)` executed the shell too. Patching
+`sage.env` alone leaves the class of bug intact.
+
+### Suggested fix
+
+Iterate all `segments`, not `segments[:-1]`, for forbidden module names — then
+`sage.env.os` is refused exactly as `sage.env.os.environ` already is. Keep the
+`caller_owned` root exemption so `sh = 2; sh.bit_length()` still works (but see
+item 52, which is about that exemption). Defence in depth: extend the scrub to
+null out forbidden submodule attributes (`sage.env.os`, `desolvers.os`) rather
+than only `sage.all.__dict__`.
+
+### How to verify
+
+Regression tests for `m = sage.env.os; m.system(...)`, the
+`sage.env.sys.modules["os"]` subscript path, and `desolvers.os.system(...)`.
+Each must fail before the fix. The existing tests
+(`tests/test_security_bypass.py:34`, `tests/test_security.py:254`) only cover
+chains where the forbidden module is a *middle* segment — that is exactly the
+gap.
+
+## 50. `Pari`, `PariRing` and `PariGroup` reconstruct the removed `pari` — **critical** — DONE
+
+**Verified end to end against real Sage; ran a shell.**
+
+`_sage_worker.py:170` removes the bare name for a recorded reason:
+
+```
+    "pari",         # pari('system("id")') ran a shell command as the container user
+```
+
+`allowlist.py:184` then offers the capitalized forms:
+
+```
+    "ParametrizedSurface3D", "Parent", "Pari", "PariError", "PariGroup", "PariRing",
+```
+
+The offered `Pari` is **not** `cypari2.Pari` — its `__module__` is
+`sage.rings.pari_ring`. That module does `from sage.libs.pari import pari` at
+module scope, and `Pari.__init__` does `self.__x = pari(x)`. Deleting the name
+from the worker namespace and from `sage.all` cannot reach a reference another
+module already holds. `sage/groups/pari_group.py:27` does the same thing, and
+`PariRing()(s)` routes to `Pari(s)`.
+
+Through `_execute(..., trusted=False)` — the real untrusted path, normalization
+and `validate_code` included:
+
+```
+code:  Pari('system("id > /tmp/pwn_e2e")')
+       {'ok': True, 'result_type': 'expression', 'result': '0'}
+       marker: uid=1001(sage) gid=1001(sage) groups=1001(sage)
+```
+
+`PariRing()('system("touch ...")')` and `PariGroup('system(...)', 1)` also
+succeed. PARI's `secure` default is not set in this build, so `system()` shells
+out.
+
+Allowlist membership proves runtime reachability here, which is worth stating
+plainly: `scripts/generate_allowlist.py` calls `_build_namespace()`, so the list
+is derived *after* both scrubs. Every name in `allowlist.py` is by construction
+a name that survived.
+
+### Suggested fix
+
+Add `sage.rings.pari_ring` and `sage.groups.pari_group` to
+`_DANGEROUS_SAGE_MODULES`. Unlike the `sage.libs.pari.all` entry from item 34,
+these modules genuinely *define* the three names, so the provenance derivation
+will remove them and the "entry that matches nothing" integration test will
+pass. Regenerate with `make allowlist`.
+
+### How to verify
+
+A bypass test asserting all three constructions are refused. Then the general
+sweep this implies: grep the modules that define allowlisted names for
+`pari(`, `maxima(`, `gp(` — any offered callable that passes a caller string to
+a removed singleton is equivalent to the removed name.
+
+## 51. `libgap` answers to `Exec`, and only `eval` was ever blocked — **critical** — DONE
+
+**Verified end to end against real Sage; ran a shell.**
+
+`allowlist.py:376` offers `libgap`, and `security.py:417-420` *recommends* it in
+the refusal text shown when `gap` is withheld:
+
+```python
+"gap": "SymmetricGroup(5), PermutationGroup([...]) and the group methods, "
+       "or libgap(...) for GAP itself",
+"gap3": "the native group methods, or libgap(...)",
+"libgap": "libgap is available; the group methods usually answer directly",
+```
+
+`libgap` is a `sage.libs.gap.libgap.Gap`, whose `__getattr__` resolves any GAP
+global. GAP ships `Exec`, which runs a command in the OS shell, and `Process`.
+`libgap.eval(...)` is blocked — but only because `eval` happens to be the sole
+entry in `forbidden_attribute_only_names` (`security.py:279`). `Exec`,
+`Process` and `function_factory` are in no denylist:
+
+```
+ALLOWED : libgap.Exec("id")
+ALLOWED : libgap.function_factory("Exec")("id")
+ALLOWED : libgap.Process(...)
+BLOCKED : libgap.eval('Exec("id")')
+```
+
+Through the worker JSON protocol, untrusted `execute`:
+
+```
+libgap.Exec              -> {"ok": true, "result": "1"}   uid=1001(sage)...
+libgap.function_factory  -> {"ok": true, "result": "1"}   uid=1001(sage)...
+```
+
+In-process libgap still forks and execs — GAP's `Exec` is built on the kernel
+`Process` primitive, which is linked into the library.
+
+`function_factory` is a documented public method that resolves a GAP global
+**from a string**. That is structurally an `attrgetter`, which item 33 refused
+outright as a class.
+
+The irony is sharp and worth recording: `tests/test_security_bypass.py:450`
+already asserts `gap('Exec("id")')` is blocked. The project identified GAP's
+`Exec` as a shell escape, removed the subprocess interface, and then offered the
+in-process one with attribute access to the same function — and told callers to
+use it.
+
+### Suggested fix
+
+Item 47 already wrote the rule: an interface object answers to every attribute
+name, so no name-based attribute rule can cover it, and the fix is to stop
+offering the object. Add `sage.libs.gap.libgap` to `_DANGEROUS_SAGE_MODULES` (or
+`libgap` to `_DANGEROUS_BARE_NAMES`), regenerate, and correct the three
+`_NATIVE_EQUIVALENTS` entries so the refusal text stops recommending the escape.
+`tests/test_sage_doctest_corpus.py:511` (`libgap(5).Factorial()`) needs updating
+with it.
+
+If libgap must stay for group theory, the only sound form is a wrapper enforcing
+an **allowlist** of permitted GAP function names. A denylist cannot work here
+for the same reason it could not work for `maxima_calculus`.
+
+## 52. Aliasing the `sage` module disables the parent rule — **critical** — DONE
+
+**Verified against the real validator; runtime reachability argued from the
+repo's own comments and the generated allowlist, not executed.**
+
+`security.py:1061-1067`:
+
+```python
+root = segments[0] if segments else ""
+caller_owned = bool(policy.enforce_name_allowlist and root
+                    and root in bound and root not in policy.allowed_names)
+for segment in segments[:-1]:
+    if segment in policy.forbidden_attribute_parents and not caller_owned:
+```
+
+`caller_owned` is decided by the root identifier's **spelling**, not by the
+value it holds, and `bound` is every name bound anywhere in the module —
+including in `if False:` branches, function defaults and comprehension targets.
+So binding any fresh name to the allowlisted `sage` module object marks the
+entire chain caller-owned and skips the parent check:
+
+```
+ALLOWED : s = sage
+          s.misc.persist.unpickle_global("os","system")("id")
+ALLOWED : s = sage
+          s.misc.sh.sh("id")
+ALLOWED : f = sage.misc.persist
+          f.unpickle_global("os","system")("id")
+ALLOWED : def g(s=sage): return s.misc.persist.unpickle_global("os","system")("id")
+          g()
+ALLOWED : [s.misc.persist.unpickle_global("os","system")("id") for s in [sage]]
+BLOCKED : sage.misc.persist.unpickle_global("os","system")("id")   # unaliased only
+BLOCKED : if False: sage = 1
+          sage.misc.sh.sh("id")                                    # item 37's trap only
+```
+
+Passing `withheld_names` changes nothing — that rule is an `ast.Name` rule and
+never sees an attribute segment.
+
+The `_bound_names` docstring (`security.py:684-694`) states the assumption that
+fails: *"the caller's binding is their own value, and the dangerous originals
+are gone from the namespace."* Both halves are false here. `s` holds the genuine
+`sage` module, and the originals are not gone — the scrub only cleans
+`sage.all.__dict__`, never `sage.misc.persist.__dict__`.
+
+Item 37 closed the adjacent case. `tests/test_math_coverage.py:600-614`
+(`test_the_item_46_relaxations_opened_nothing`) tests `if False: sage = 1` then
+`sage.misc.sh.sh('id')`, and `sage.misc.trace.trace(...)` followed by
+`sage = 1` — but never the aliased form. The alias tests in
+`tests/test_security_bypass.py:101-165` and `:1488-1496` all alias *forbidden*
+names, which fail because those roots are unreadable; aliasing a *permitted*
+root is the untested case.
+
+`unpickle_global` and `sh` are deliberately absent from `forbidden_call_names`,
+so the parent rule is their only AST lock, and this removes it. Every forbidden
+parent becomes reachable the same way — `cython`, `repl`, `interfaces`,
+`temporary_file`, `remote_file`, `explain_pickle`, `edit_module`, `dev_tools`,
+`trace`. Only entries that *also* appear in `forbidden_call_names` still fail.
+
+Runtime reachability of `sage` itself is not in doubt: `STARTUP_CODE` is
+`from sage.all import *`, `sage` is in neither denylist, and it appears in the
+generated `allowlist.py:424` — which is derived post-scrub.
+
+### Suggested fix
+
+Make the exemption value-aware. Compute a set of module-tainted locals during
+`_bound_names` — any target bound from an allowlisted `ast.Name`, from a chain
+rooted at one, or from a default or iterable containing one — and exclude those
+from `caller_owned`. A cheaper stopgap: disable the exemption for the whole
+snippet if any RHS reads an allowlisted name that is a module object at runtime.
+
+Note `security.py:1120-1124` is the analogous bare-name exemption and is **not**
+part of this bypass — it is correct as written, because `sage` is in
+`allowed_names` there too. The bug is solely that `caller_owned` trusts a root
+by spelling.
+
+### How to verify
+
+Regression tests for all five aliased spellings above, each failing before the
+fix. Belt and braces: add `unpickle_global`, `unpickle_function`,
+`unpickle_all` and `sh` to a terminal-segment check (which item 49's fix
+supplies), and consider scrubbing `sage.misc.persist.__dict__` the way
+`sage.all.__dict__` is scrubbed.
+
+## 53. `Dokchitser(...).gp()` hands back the removed interface — **critical** — DONE
+
+**Verified end to end against real Sage; ran a shell.**
+
+`allowlist.py:90` offers `Dokchitser`. `sage/lfunctions/dokchitser.py` defines:
+
+```python
+def gp(self):
+    """Return the gp interpreter that is used to implement this Dokchitser L-function."""
+    if self.__gp is None:
+        self._instantiate_gp()
+```
+
+The `Gp` class and the bare name `gp` are both stripped. The method that returns
+a live instance is not, `sage.lfunctions.dokchitser` is not in
+`_DANGEROUS_SAGE_MODULES`, and `gp` appears in none of
+`forbidden_call_names`, `forbidden_attribute_names` or
+`forbidden_attribute_only_names` — so the attribute spelling is unguarded.
+
+```
+ALLOWED : L = Dokchitser(conductor=1, gammaV=[0], weight=1, eps=1)
+          L.gp()('system("id")')
+BLOCKED : gp('system("id")')     # by the allowlist, not by any name rule
+```
+
+Constructing succeeds without gp present; `.gp()` then spawns it and returns a
+`sage.interfaces.gp.Gp`. Through the real worker: `{"ok": true, "result": "0"}`,
+marker written as `uid=1001(sage)`. This file already records
+`gp('system("id > /tmp/x")')` writing a file as the container user — this hands
+back the identical object.
+
+**One correction to the original report.** `EllipticCurve("389a").lseries()
+.dokchitser()` does *not* work on 10.9 — it returns a
+`sage.lfunctions.pari.LFunction`, which has no `.gp`, and `algorithm='gp'`
+raises `ValueError: algorithm must be "pari" or "magma"`. The direct
+construction is the real vector and is sufficient.
+
+### Suggested fix
+
+Add `sage.lfunctions.dokchitser` to `_DANGEROUS_SAGE_MODULES` and regenerate.
+Additionally add `gp` to `forbidden_attribute_names`, so `.gp()` is refused
+wherever it appears — the `ast.Attribute` check at `security.py:1136-1141`
+already has the right shape.
+
+### How to verify
+
+A bypass test on the direct construction. Then the sweep this implies, which is
+the general finding: **stripping interface names does not strip methods that
+return interface instances.** Grep the installed Sage for methods returning any
+stripped `sage.interfaces.*` class. This is item 47's failure mode displaced
+from names to methods, and `Dokchitser.gp` is unlikely to be the only one.
+
+## 54. The fragment gate accepts bare `eval` — **critical** — DONE
+
+**Verified against the real gate; the `sage_eval` globals half is asserted by
+this repo's own comments rather than executed locally.**
+
+Item 46's second pass removed `eval` from `forbidden_call_names` (commit
+`b38b7ee`), on a three-lock argument recorded at `security.py:123-139`: the bare
+identifier is *"absent from the restricted builtins, from the worker namespace
+and from the generated allowlist, all three."*
+
+**All three are locks on the caller-code path. None of them is the fragment
+path.**
+
+1. `codegen.py:69` is `_FRAGMENT_POLICY = replace(SECURITY_POLICY,
+   enforce_name_allowlist=False)`. The allowlist is off by construction.
+2. The fragment is never executed in the worker namespace. It goes to
+   `sage_eval`, which resolves against `sage.all.__dict__` — stated twice in
+   this repo, at `codegen.py:116-117` and `_sage_worker.py:376-378`, and it is
+   the premise of item 48.
+3. `_restricted_builtins()` is installed only as `ns["__builtins__"]`
+   (`_sage_worker.py:71`). Nothing ever replaces `sage.all.__dict__["__builtins__"]`.
+
+`_names_the_scrub_removes()` — the denylist that is supposed to be the fragment
+path's substitute for the allowlist — does not contain `eval`. So:
+
+```
+PASS   eval('__import__("os").system("id > /tmp/pwned")')
+PASS   eval('1+1')      PASS  input()      PASS  vars(1)      PASS  locals()
+BLOCK  open(...)   BLOCK exec(...)   BLOCK __import__(...)   BLOCK compile(...)
+eval in forbidden_call_names: False | in scrub set: False | in ALLOWED_CALLER_NAMES: False
+```
+
+And the assembled snippet passes trusted validation, because the payload is an
+`ast.Constant` string there:
+
+```
+_expr = sage_eval("eval('__import__(\"os\").system(\"id > /tmp/pwned\")')", locals=_locals)
+```
+
+`_SymbolLocals.__missing__` raises `KeyError` for a four-character name, so
+lookup falls through to globals and builtins. Even in the worst case where
+`sage.all.__dict__` lacked `__builtins__`, CPython's `eval` injects the real
+builtins — confirmed with a standalone probe. `__import__` is deliberately
+retained (`_sage_worker.py:500-506`), supplying stage two.
+
+**The blind spot is in the tests, not just the code.** Every `eval`-blocking
+assertion passes `SECURITY_POLICY` explicitly —
+`tests/test_security_bypass.py:849`, `:1380`,
+`tests/test_generated_code_lint.py:225-250`. Not one exercises
+`_validated_expression` or `_FRAGMENT_POLICY` with `eval`.
+
+Reachable through every tool that routes a string via
+`_encode_literal`/`_validated_expression` — 64 call sites across `tools/`:
+`calculate_expression`, `simplify_expression`, `factor_expression`,
+`differentiate_expression`, `integrate_expression`, `solve_equation`,
+`plot_expression` and the rest.
+
+### Suggested fix
+
+Restore the evaluation primitives on the fragment policy specifically. They are
+exactly the names whose "reaches nothing" argument does not survive with the
+allowlist off:
+
+```python
+_FRAGMENT_POLICY = replace(
+    SECURITY_POLICY,
+    enforce_name_allowlist=False,
+    forbidden_call_names=SECURITY_POLICY.forbidden_call_names
+        + ("eval", "vars", "locals", "input"),
+)
+```
+
+This closes the unparseable path for free, since `_screen_unparseable_fragment`
+already reads `_FRAGMENT_POLICY.forbidden_call_names`.
+
+Also fix the stale claims that `_validated_expression` "enforces the allowlist"
+(`_sage_worker.py:421`, `tests/test_security_bypass.py:2009`). That drift is the
+root cause — item 48 relied on it in writing.
+
+### How to verify
+
+`test_the_attribute_only_names_are_still_shut_where_they_bite`, parameterised
+over `_FRAGMENT_POLICY` rather than `SECURITY_POLICY`. Verify against real Sage.
+
+## 55. A comment becomes code when the template splits on `=` — **critical** — DONE
+
+**Verified against the real gate; the `__import__` half is recorded as verified
+against real Sage under item 18.**
+
+The gate validates the whole string with `ast.parse`, which discards everything
+after `#`. The generated trusted snippet then splits that same string at runtime
+and hands each half to `sage_eval` separately — at which point the commented
+text is no longer a comment. It is the right-hand operand.
+
+`tools/algebra.py:59-66`:
+
+```
+for _eq_str in {_encode_literal(equations)}:
+    parts = _eq_str.split('=')
+    if len(parts) == 2:
+        left = sage_eval(parts[0].strip(), locals=_locals)
+        right = sage_eval(parts[1].strip(), locals=_locals)
+```
+
+`tools/calculus.py:201-206` is the identical shape on `_ode_text`,
+unconditional. `tools/core.py:329-337` does it in the `except SyntaxError:`
+branch of the whole-string `sage_eval`.
+
+Gate run:
+
+```
+ACCEPTED: 1 # eval("x") = __import__("os").system("id > /tmp/pwned")
+   encoded: "1 # eval(\"x\") = __import__(\"os\").system(\"id > /tmp/pwned\")"
+   split -> ['1 # eval("x")', '__import__("os").system("id > /tmp/pwned")']
+```
+
+`_normalize_source` only collapses whitespace, so `#` survives encoding. There
+is no comment stripping and no `#` rejection anywhere in `codegen.py`.
+
+**The unparseable path leaks the same way**, which makes `find_root` reachable
+too: `_screen_unparseable_fragment` screens `tokenize` NAME tokens, and a
+comment is a `COMMENT` token, so it is never inspected:
+
+```
+ACCEPTED '1 if else # = __import__("os").system("id")'
+   split -> ['1 if else #', '__import__("os").system("id")']
+```
+
+That string does raise `SyntaxError` from the whole-string `sage_eval`, so it
+reaches `find_root`'s split branch. All three sites are live.
+
+`__import__` is blocked on the ordinary path — `validate_code('__import__("os")
+.system("id")')` raises `Call to forbidden function '__import__' is blocked` —
+so this is a genuine escalation, not an already-available capability.
+`_sage_worker.py:498-506` says it outright: *"The defence against item 18 is
+therefore the validation gate on every string that reaches a trusted template,
+not the namespace backstop, which cannot cover this name."* This is a hole in
+that gate.
+
+No test covers it. `grep -rn -i comment tests/` finds only
+`test_math_coverage.py:384`, a *functional* test asserting comments still
+evaluate.
+
+### Suggested fix
+
+Do the `=` split at **gate time**, in `codegen.py`, and validate each half
+independently before encoding, so the runtime snippet receives pre-validated
+halves instead of re-deriving them.
+
+Additionally reject `tokenize.COMMENT` tokens outright in both
+`_validated_expression` and `_screen_unparseable_fragment`. A mathematical
+fragment has no legitimate use for `#`, and per-half revalidation alone stays
+fragile against the next runtime transform someone adds.
+
+### How to verify
+
+Regression tests for the parseable and unparseable comment variants on all three
+tools:
+
+```
+solve_equation(equation='1 # eval("x") = __import__("os").system("id > /tmp/pwned")', variable="x")
+solve_ode(equation='1 # y = __import__("os").system("id")')
+find_root(expression='1 if else # = __import__("os").system("id")')
+```
+
+## 56. Unparseable fragments are returned verbatim into statement position — **critical** — DONE
+
+**Verified against the real gate and by assembling the real snippets; the
+file-write half is inferred.**
+
+`codegen.py:197-215`: when `ast.parse(..., mode="eval")` raises and the `=`→`==`
+rewrite also fails, `_screen_unparseable_fragment(stripped)` runs and the
+function does `return text` — the **original, unstripped, unnormalized** string.
+`_normalize_source`, which would collapse the newline and kill this, is applied
+only inside `_encode_literal`, never on this return path.
+
+The token screen at `:137-146` builds its forbidden set from exactly:
+
+```python
+set(_FRAGMENT_POLICY.forbidden_call_names)
+| set(_FRAGMENT_POLICY.forbidden_attribute_parents)
+| _names_the_scrub_removes()
+```
+
+plus a dunder check. It never consults `forbidden_attribute_prefixes`
+(`security.py:269`, `("save","dump","export","write")`), which `trusted_policy()`
+deliberately clears (`security.py:622`). It also never runs
+`_refuse_scrubbed_names`, so the `sage`-module-root backstop added in `239d6d6`
+(`codegen.py:101-105`) is bypassed on this path as well.
+
+A fragment with a newline is unparseable as an expression and perfectly valid as
+two statements once interpolated. `_sage_prelude()` is dedented and ends at
+column 0, so the fragment lands at column 0 — no `IndentationError`:
+
+```
+_locals = _SymbolLocals({name: var(name) for name in ['x', 'y', 'z', 't']})
+_G = SymmetricGroup(5)
+_zz = plot(sin(x)).matplotlib().savefig('/home/sage/.sage/init.sage')
+int(_G.order())
+```
+
+`ast.parse` OK, 7 top-level statements, and `validate_module(..., policy=
+trusted_policy())` **passes**.
+
+**Three sinks, not two.** `group_operation` (`discrete.py:271`) and
+`coding_theory_operation` (`discrete.py:378`) interpolate at statement position
+directly. `graph_operation` (`discrete.py:191,197`) is a third, via a different
+route: `_NAMED_GRAPH_RE` (`codegen.py:249`) uses `re.DOTALL`, so `\(.*\)`
+greedily swallows the newline and the injected statement whenever the fragment
+ends in `)`:
+
+```
+graph="PetersenGraph()\n_zz = plot(sin(x)).matplotlib().savefig('/tmp/pwn.png')"
+-> _G = graphs.PetersenGraph()
+   _zz = plot(sin(x)).matplotlib().savefig('/tmp/pwn.png')
+```
+
+Assembled: parses, 7 statements, trusted validation passes.
+
+`polynomial_ring_operation` (`algebra.py:297`) is **not** vulnerable — confirmed.
+It interpolates inside `PolynomialRing(...)`, where a newline is only a
+continuation; three breakout attempts were rejected at the gate with
+`tokenize.TokenError`, and the one fragment that passed produced a
+`SyntaxError` when assembled.
+
+**Why the fallback exists, and why fixing it costs nothing.** It is there for
+Sage-only syntax the Python parser rejects: the generator form `R.<a,b> = QQ[]`
+(`tests/test_codegen.py:191`) and the documented equation form `x^2 - 1 = 0`
+(handled by the `=`→`==` rewrite). Neither contains a newline.
+
+**On impact, stated honestly.** The immediate primitive is an arbitrary-path
+file write as the worker user — `savefig`, `save_image`, `write_to_eps` all pass
+the gate and trusted validation with a caller-chosen path. Bare `save`, `load`,
+`dumps`, `open`, `sage_eval` and `__import__` are correctly blocked by the token
+screen. The `init.sage` persistence angle is weaker than it first looks:
+`docker-compose.yml:20-23` and `charts/sagemath-mcp/values.yaml:38,45-49` mount
+tmpfs/emptyDir at `/tmp` and `/home/sage/.sage`, so the path is writable but not
+restart-persistent, and the content would be PNG bytes rather than Python. The
+default stdio deployment is uncontainerized with a fully writable home. The core
+issue is not the file write: it is **arbitrary statement execution under
+`trusted_policy()`**, strictly wider than the single expression the tool
+contract promises, including unrestricted `sage.*` tree traversal
+(`_z = sage.features.Executable('sh','sh').absolute_filename()` passes, because
+the `sage`-root backstop does not run on this path).
+
+The namespace-poisoning escalation is closed: `_sage_worker.py:395-399,869-884`
+removes trusted-introduced names from `_CALLER_BOUND_NAMES` on every trusted
+call.
+
+No test covers it. `tests/test_security_bypass.py:216`, `:1961-1990` and
+`tests/test_codegen.py:184-191` exercise the unparseable path only with
+single-line payloads.
+
+### Suggested fix
+
+One line that breaks nothing: reject any fragment containing a newline in
+`_validated_expression` before attempting the parse — or apply
+`_normalize_source(text)` to the fragment, which is what `_encode_literal`
+already does and whose docstring (`codegen.py:40-48`) states the exact
+rationale: *"Every tool here evaluates its input as a single expression, so an
+embedded newline is a syntax error."* Both documented unparseable forms are
+single-line, so nothing legitimate regresses.
+
+Also make `_screen_unparseable_fragment` consult `forbidden_attribute_prefixes`
+and apply the same `sage`-root refusal as `_refuse_scrubbed_names`, and drop
+`re.DOTALL` from `_NAMED_GRAPH_RE`.
+
+### How to verify
+
+Regression tests on all three sinks, including the `graph_operation` variant
+that the first pass of this review wrongly cleared:
+
+```
+group_operation(group="SymmetricGroup(5)\n_zz = plot(sin(x)).save_image('/tmp/pwn.png')",
+                operation="order")
+graph_operation(graph="PetersenGraph()\n_zz = graphs.PetersenGraph().write_to_eps('/tmp/pwn.eps')",
+                operation="order")
+```
+
+Assert `polynomial_ring_operation` stays refused, so the fix is not over-fitted.
+
+## 57. The session resource publishes every live MCP session ID — high — DONE
+
+**Verified by reading the installed MCP SDK.**
+
+`tools/session.py:145-164`:
+
+```python
+@mcp.resource("resource://sagemath/session/{scope}")
+async def session_resource(scope: str, ctx: Context | None = None) -> str:
+    """Expose a resource describing active Sage sessions for observability."""
+    import json as _json
+
+    del ctx  # resource does not require request context
+    data = runtime.SESSION_MANAGER.snapshot()
+    if scope != "all":
+        data = [entry for entry in data if entry["session_id"] == scope]
+```
+
+`ctx` is discarded before use, so the caller's identity never enters the query.
+`scope == "all"` returns the whole global map. `snapshot()`
+(`session.py:813-824`) emits the manager key verbatim, and `key_for()`
+(`session.py:680-688`) returns the bare scope for a default workspace — which is
+literally the client's `Mcp-Session-Id` (FastMCP's `Context.session_id` is
+`request.headers.get("mcp-session-id")`). Named workspaces leak it too, since
+`scope::name` still contains the UUID.
+
+The sibling tool `list_sage_sessions` (`tools/session.py:122-127`) scopes
+correctly via `list_for_scope(ctx.session_id)`, so the omission is inconsistent
+with the file's own pattern rather than a considered decision.
+
+**The load-bearing link holds.** `mcp/server/streamable_http_manager.py:252-280`
+in the installed SDK:
+
+```python
+user = scope.get("user")
+requestor = authorization_context(user) if isinstance(user, AuthenticatedUser) else None
+
+if request_mcp_session_id is not None and request_mcp_session_id in self._server_instances:
+    transport = self._server_instances[request_mcp_session_id]
+    if requestor != self._session_owners.get(request_mcp_session_id):
+        ... 404 "Session not found" ...
+    await transport.handle_request(scope, receive, send)
+```
+
+Session creation only records an owner `if requestor is not None`. Unauthenticated,
+both sides are `None`, `None != None` is `False`, and the request is dispatched
+into the victim's transport. `_server_instances` is a plain dict keyed solely on
+the header value; there is no transport or connection binding. **The only
+protection for a session is the unguessability of its ID**, and this resource
+publishes it.
+
+`fastmcp/server/http.py:43` subclasses the SDK manager and overrides only
+`event_store`; `_handle_stateful_request` is inherited unmodified, and
+`stateless_http` defaults to `False`.
+
+Exposure is the shipped HTTP deployment: the `Dockerfile` CMD is
+`["--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8314"]`, and
+`charts/sagemath-mcp/templates/deployment.yaml` runs that image with `args: []`
+behind a Service. The CLI default is stdio (single client, unaffected), and
+compose binds `127.0.0.1`, which limits the network but not multi-client access
+on the host.
+
+Attack: open a session, read `resource://sagemath/session/all`, take a victim
+UUID, send `POST /mcp` with `Mcp-Session-Id: <victim>`, then `evaluate_sage`
+inside their persistent namespace — reading their variables, overwriting
+results, or destroying state with `reset_sage_session`.
+
+This is the property item 10 was about. `app.py:106-120` disabled response
+caching because *"a state-dependent expression can return another client's
+value"*; this defeats the same property more directly.
+
+**Pre-existing, moved in range.** `git log -S 'entry["session_id"] == scope'`
+gives `93e016b` (initial commit) and `d8e3a4c` (the `tools/` split), the latter
+inside this range.
+
+### Suggested fix
+
+Scope the resource to its caller, as every other tool in the file does: require
+`ctx` and `ctx.session_id`, filter `snapshot()` by
+`split_key(key)[0] == ctx.session_id` (or reuse `list_for_scope`), and emit the
+workspace **name** rather than the raw key so session IDs never cross the wire.
+Treat `scope == "all"` as "all of *my* workspaces". `/health` already covers the
+"how many sessions" observability need without naming them.
+
+Defence in depth: derive the manager key from an HMAC of `ctx.session_id`, so a
+leaked key is not a usable header value.
+
+### How to verify
+
+A test asserting the resource returns only the caller's own sessions given two
+distinct `ctx.session_id` values, and that no raw `Mcp-Session-Id` appears in
+the payload. Review `monitoring_resource` at the same time — it has the same
+`del ctx` shape (see below).
+
+## Reported and not carried
+
+Three candidates were raised and dropped. Recorded so the next review does not
+re-litigate them.
+
+**Global monitoring metrics leak** — `tools/session.py:167-174`. The chain is
+accurate and I am not disputing the mechanics: `_METRICS` is a process-global
+singleton (`monitoring.py:52`), `monitoring_resource` does `del ctx` with no
+scoping, `core.py:137` and `:393` pass `details=exc.traceback or exc.stdout`,
+and the `KeyboardInterrupt` path at `_sage_worker.py:841-854` really does return
+`traceback: ""` with populated stdout — so an interrupted evaluation puts
+another client's full, untruncated stdout into a globally readable field
+(`_truncate_stdout` is applied only on the success path). But the data is CAS
+output and exception text, not secrets or PII; only one value survives before
+the next failure overwrites it; `README.md:798` documents it as part of the
+resource contract; and `monitoring.py` is untouched across this range. **Low,
+not medium.** Worth doing with item 57 — deleting the `del ctx` at
+`session.py:170` is the same fix — but not a finding on its own.
+
+**Unpinned GitHub Actions in the release jobs** — `release.yml:126` and the
+`docker/*` actions. Every attack path starts with compromising PyPA-, Docker- or
+Sigstore-owned repositories. No actor can exploit it today; the jobs run only on
+a tag push or dispatch by someone with write access, who could edit the workflow
+directly anyway. Pinning to full commit SHAs is a good hardening ticket and not
+a vulnerability.
+
+**`mcp-publisher` downloaded from `releases/latest`** — `release.yml:154-157`,
+new in this range. More defensible than the above: pinned to nothing at all, no
+checksum or signature, piped into `tar xz` and executed, then handed the repo's
+OIDC identity. But the precondition is still a third-party compromise, transport
+integrity rests on HTTPS with `curl -f`, and the job holds only `id-token: write`
+scoped to the MCP registry. Pin the release and verify a published checksum, but
+it is not a reportable vulnerability.
+
+Also noted while reading, not findings: `release.yml:10-15` declares a `dry_run`
+input that is never read — the publish gate is
+`startsWith(github.ref, 'refs/tags/v')`, so dispatching against an existing tag
+with `dry_run: true` really publishes. A maintainer footgun, not an untrusted-actor
+issue. And `scripts/generate_denylist.py:52-70` splices whitespace-split tokens
+from a predictable `/tmp` path into `_sage_worker.py` as `"{name}",` with no
+escaping; only reachable by a local attacker pre-creating the file on a shared
+dev machine, but `mktemp` plus a `^[A-Za-z_][A-Za-z0-9_]*$` check on each token
+is nearly free.
+
+---
+
+## Items 49-57, resolved (2026-08-16)
+
+All nine fixed, written test-first, and verified against real SageMath 10.9 in
+the `sage-mcp` container: the twelve escape payloads that ran a shell (or would
+have) now return `ok=False` with no marker file written, and the mathematics
+they collided with still computes. Unit suite 830 passed, coverage back to 100%
+(statements and branches), the denylist drift test and every math-coverage
+counterweight green.
+
+**49 + 52 -- one rule, `security.py`.** The attribute-chain check now inspects
+every segment, not `segments[:-1]`. A forbidden name in **terminal** position is
+refused when the chain is a module path -- rooted (len >= 2) at an offered name
+-- so `m = sage.env.os`, `desolvers.os`, `sage.env.sys.modules['os']` and the
+`f = sage.misc.persist` / `sage.misc.trace` extractions are all blocked at the
+binding. A plain two-segment `object.method` is left alone through
+`_TERMINAL_METHOD_NAMES = {trace, sh, operator, pari, oeis}`, so `A.trace()`,
+`(x+y).operator()` and `E.pari()` still work. The `caller_owned` exemption now
+covers the **root** segment only, so `sh = 2; sh.bit_length()` is still
+arithmetic while `s = sage; s.misc.persist.unpickle_global(...)` is refused at
+`persist` -- the deeper forbidden parent is an attribute of a real object, not
+the caller's rebinding. Regression tests: `test_a_terminal_module_cannot_be_
+extracted_from_a_module_path`, `test_aliasing_sage_does_not_exempt_a_deeper_
+forbidden_parent`, `test_a_rebound_forbidden_parent_name_is_still_arithmetic`,
+`test_a_real_method_named_like_a_forbidden_parent_is_left_alone`.
+
+**50 + 51 + 53 -- provenance, `_sage_worker.py`.** Four modules added to
+`_DANGEROUS_SAGE_MODULES` and the baked list + allowlist regenerated (`make
+denylist`, `make allowlist`): `sage.rings.pari_ring` and `sage.groups.pari_
+group` (remove `Pari`, `PariRing`, `PariGroup` -- constructors that funnel a
+string into the module-level `pari` reference the bare name could not reach);
+`sage.libs.gap.libgap` (removes `libgap`, the in-process GAP interface that
+answered to `Exec` and `function_factory`); `sage.lfunctions.dokchitser`
+(removes `Dokchitser`, whose `.gp()` returned the GP interpreter). Exactly five
+names left the allowlist, `PariError` correctly kept. The refusal text in
+`_NATIVE_EQUIVALENTS` no longer recommends `libgap(...)`. For 53, `gp` was also
+added to `forbidden_attribute_names`, so `.gp()` is refused wherever it appears.
+`tests/test_sage_doctest_corpus.py` no longer asserts `libgap(5).Factorial()`
+works -- the mathematics is `factorial(5)` and the group methods, which do.
+Regression: `test_names_that_reconstruct_a_removed_capability_are_refused`,
+`test_the_gp_interface_method_is_refused`.
+
+**54 -- fragment policy, `codegen.py`.** `_FRAGMENT_POLICY` re-adds `eval`,
+`vars`, `locals` and `input` to `forbidden_call_names`. On the tool path the
+allowlist is off and the fragment is handed to `sage_eval`, which resolves in
+`sage.all`'s globals where the real builtins live, so the "reaches nothing"
+argument that freed them on the caller path does not hold -- `eval('...')` and
+`locals()["__builtins__"]["eval"]` both reached RCE. They affect fragments only;
+no tool fragment calls `.vars()`/`.locals()`. Regression:
+`test_the_fragment_gate_refuses_the_evaluation_primitives`.
+
+**55 + 56 -- the fragment gate, `codegen.py`.** `_validated_expression` now folds
+whitespace (so a newline can never survive into a template that interpolates the
+fragment verbatim) and returns the folded text, and `_reject_statement_
+smuggling` refuses any comment or `;`. A comment hid a payload from `ast.parse`
+that the runtime `.split('=')` revived (55); a newline or `;` turned one
+interpolation slot into two statements (56). With newlines folded and `;`
+refused, the only remaining shape is juxtaposition, which is a syntax error the
+worker rejects -- confirmed end to end for `group_operation`, `graph_operation`
+and `coding_theory_operation`, no file written. `re.DOTALL` dropped from
+`_NAMED_GRAPH_RE` as defence in depth. A wrapped single expression (`"2 +\n2"`)
+still passes, folded. Regression: `test_a_comment_cannot_hide_a_payload_from_
+the_split`, `test_a_semicolon_cannot_smuggle_a_statement`, `test_a_newline_is_
+folded_out_so_it_cannot_break_a_statement`, `test_an_untokenizable_fragment_is_
+still_rejected`.
+
+**57 -- the session resource, `tools/session.py`.** `session_resource` is scoped
+to its caller: it requires the request context, returns only the sessions whose
+key is rooted at `ctx.session_id`, and reports the workspace **name** rather than
+the raw key, so no `Mcp-Session-Id` crosses the wire and `{scope}` selects a
+workspace within the caller's own sessions. It fails closed -- no context, no
+output -- and `/health` still gives operators the aggregate count. `monitoring_
+resource` carries the same `del ctx` shape and the same aggregate-only,
+cross-tenant concern noted under "Reported and not carried"; it is a narrower
+(LOW) leak and is left for a follow-up. Regression: `test_session_resource_all_
+is_scoped_to_the_caller`, `test_session_resource_filters_by_workspace_name`,
+`test_session_resource_cannot_read_another_clients_scope`, `test_session_
+resource_without_context_returns_nothing`.

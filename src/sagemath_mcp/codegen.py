@@ -15,6 +15,7 @@ through ``_encode_literal``, ``_validated_expression`` or
 from __future__ import annotations
 
 import ast
+import functools
 import io
 import json
 import re
@@ -59,6 +60,50 @@ _EQUALS_NOT_COMPARISON = re.compile(r"(?<![=<>!])=(?!=)")
 # documented inputs. Imports, forbidden names, the attribute rules and the
 # persistence prefixes all still apply.
 _FRAGMENT_POLICY = replace(SECURITY_POLICY, enforce_name_allowlist=False)
+
+
+def _refuse_scrubbed_names(parsed: ast.Expression, source: str) -> None:
+    """Refuse a fragment that names something the worker's scrub removes.
+
+    Kept here rather than in `validate_module`, and that is the whole design
+    decision. Trusted templates and caller fragments both run under a policy
+    with the allowlist switched off -- the template needs to read its own
+    `_locals`, the fragment needs to name what the template puts in scope -- so
+    a rule written inside the validator cannot tell them apart, and one written
+    outside the allowlist check refused the templates' own variables. The
+    fragment is the only one of the two that a caller wrote, so the rule belongs
+    at the fragment gate.
+    """
+    withheld = _names_the_scrub_removes()
+    for node in ast.walk(parsed):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+            if node.id in withheld:
+                raise ToolError(
+                    f"Rejected by the security policy: '{node.id}' is not a name "
+                    f"this server offers"
+                )
+
+
+@functools.cache
+def _names_the_scrub_removes() -> frozenset[str]:
+    """The names a fragment may not use, because nothing else stops it.
+
+    Tool parameters are validated without the allowlist -- they legitimately
+    name what a template puts in scope, `codes.HammingCode` inside `codes.` --
+    so the denylist is what guards them. Some names were never on the denylist
+    because the *namespace scrub* removed them instead, and the scrub cannot
+    reach a fragment: `sage_eval` evaluates "in namespace of sage.all plus
+    locals", never in the worker's namespace. That gap ran a shell:
+
+        calculate_expression("unpickle_global('os','system')('id > /tmp/x')")
+
+    So the fragment policy withholds exactly what the scrub removes -- no more,
+    because refusing the whole allowlist would cost the tools mathematics they
+    are meant to do.
+    """
+    from ._sage_worker import _DANGEROUS_BARE_NAMES, _DANGEROUS_SAGE_NAME_LIST
+
+    return frozenset(_DANGEROUS_SAGE_NAME_LIST) | frozenset(_DANGEROUS_BARE_NAMES)
 
 
 def _screen_unparseable_fragment(fragment: str) -> None:
@@ -125,6 +170,7 @@ def _validated_expression(text: str) -> str:
             _screen_unparseable_fragment(stripped)
             return text
     try:
+        _refuse_scrubbed_names(parsed, stripped)
         validate_module(
             ast.Module(body=[ast.Expr(value=parsed.body)], type_ignores=[]),
             code=stripped,

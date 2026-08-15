@@ -573,3 +573,35 @@ def test_an_injecting_call_hands_its_new_names_to_the_caller() -> None:
         "a name the caller asked to have injected must be readable afterwards"
     )
     _sage_worker._CALLER_BOUND_NAMES.clear()
+
+
+def test_a_list_result_is_formatted_the_way_sage_prints_it(monkeypatch) -> None:
+    """`_format_result` reaches for Sage's own list formatter, and copes without it.
+
+    Both halves need a namespace the unit suite does not build: the formatter
+    lives in `sage.repl.display.util`, and the branch is skipped entirely in
+    pure-Python mode. Stood up here with a stand-in module, and with the import
+    failing, because "Sage is present but that import moved" is the case the
+    `except` exists for -- a result that cannot be pretty-printed must still be
+    returned, not lost.
+    """
+    import sys
+    import types
+
+    from sagemath_mcp import _sage_worker
+
+    monkeypatch.setattr(_sage_worker, "PURE_PYTHON", False)
+
+    formatter = types.ModuleType("sage.repl.display.util")
+    formatter.format_list = lambda value: f"[{', '.join(str(v) for v in value)}]"
+    monkeypatch.setitem(sys.modules, "sage.repl.display.util", formatter)
+    assert _sage_worker._format_result([1, 2, 3]) == "[1, 2, 3]"
+    assert _sage_worker._format_result((1, 2)) == "[1, 2]"
+
+    # A non-sequence never goes near it.
+    assert _sage_worker._format_result(42) == "42"
+
+    # And when the import fails, the value still comes back.
+    broken = types.ModuleType("sage.repl.display.util")
+    monkeypatch.setitem(sys.modules, "sage.repl.display.util", broken)
+    assert _sage_worker._format_result([1, 2]) == repr([1, 2])

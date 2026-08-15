@@ -1890,3 +1890,69 @@ def test_the_scope_statements_are_still_refusable(statement: str, flag: str, wor
 
     # And with the shipped default, the same code is ordinary mathematics.
     validate_module(ast.parse(statement), policy=SECURITY_POLICY)
+
+
+FRAGMENT_PAYLOADS = [
+    ("unpickle-global", "unpickle_global('os','system')('id > /tmp/pwned')"),
+    ("maxima-calculus", "maxima_calculus.system('id > /tmp/pwned')"),
+    ("cython", "cython('print(1)')"),
+    ("save-session", "save_session('/tmp/pwned')"),
+    ("get-remote-file", "get_remote_file('http://x/y')"),
+]
+
+
+@pytest.mark.parametrize(
+    "fragment", [f for _, f in FRAGMENT_PAYLOADS], ids=[i for i, _ in FRAGMENT_PAYLOADS],
+)
+def test_a_tool_parameter_cannot_name_what_the_scrub_removes(fragment: str) -> None:
+    """The tool surface's own door, which the namespace scrub does not reach.
+
+    Confirmed as remote code execution against SageMath 10.9 -- it wrote
+    `uid=1001(sage)`:
+
+        calculate_expression("unpickle_global('os','system')('id > /tmp/x')")
+
+    Tool parameters are checked by the *fragment* policy, which sets
+    `enforce_name_allowlist=False`, because a parameter legitimately names
+    things in a template's context. The denylist still applies, which is why
+    `attrcall`, `raw_getattr` and `operator` were refused. `unpickle_global` was
+    never on the denylist: the namespace scrub handled it -- and the scrub
+    cannot reach a fragment, because `sage_eval` evaluates "in namespace of
+    sage.all plus locals", not in the worker's namespace.
+
+    So resealing that namespace closes nothing here, whenever it runs. The
+    decision has to be made at validation, and the narrow form is the right one:
+    refuse exactly the names the scrub removes, since those are the ones relying
+    on it. Refusing the whole allowlist instead would cost the tools mathematics
+    they legitimately reach for.
+    """
+    from fastmcp.exceptions import ToolError
+
+    from sagemath_mcp.codegen import _validated_expression
+
+    # The gate wraps the violation for the client, so this is what a caller sees.
+    with pytest.raises(ToolError, match="Rejected by the security policy"):
+        _validated_expression(fragment)
+
+
+@pytest.mark.parametrize(
+    "fragment",
+    [
+        "x^2 - 1",
+        "integrate(sin(x), x)",
+        "matrix([[1, 2], [3, 4]]).det()",
+        "codes.HammingCode(GF(2), 3).minimum_distance()",
+        "graphs.PetersenGraph().chromatic_number()",
+        "EllipticCurve([0, 0, 1, -1, 0]).rank()",
+    ],
+)
+def test_the_mathematics_tool_parameters_carry_still_passes(fragment: str) -> None:
+    """The other half, and the reason this is narrow rather than an allowlist.
+
+    A parameter names things a template puts in scope -- `codes.HammingCode`,
+    `graphs.PetersenGraph` -- which is exactly what the fragment policy exists
+    to permit.
+    """
+    from sagemath_mcp.codegen import _validated_expression
+
+    _validated_expression(fragment)

@@ -310,6 +310,31 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **The specialised tools declare a symbol on sight, the way `SR` does.**
+  `simplify_expression("w^2 + w^2")` answers `2*w^2` where it used to fail, and
+  `expand_expression("(θ + φ)^2")` answers in the letters you wrote. The rule is
+  SageMath's own and it is two rules, not one: `w + 1` typed as *code* is a
+  `NameError` in Sage as it is here, while `SR("a*b + a")` — a string parsed
+  into the symbolic ring — creates `a` and `b`. The tools take an expression as
+  a string, so they follow the second; `evaluate_sage` is code and still refuses
+  with the message that names `var('w')`.
+
+  Narrower than `SR` in the way that matters. `SR` invents any identifier, so
+  `SR("sinn(x)")` returns `sinn(x)` and `SR("pi2*2")` returns `2*pi2` — a typo
+  becomes a symbol and the caller gets a confident wrong answer. Only
+  symbol-shaped names are declared: a letter with an optional index, a
+  spelled-out Greek name, or a Greek letter. `sinn`, `foobar` and `pi2` are
+  still errors.
+
+  Names SageMath already defines are never shadowed, which took two goes to get
+  right. The first version used `str.isalpha()` and declared a fresh `π`,
+  turning `π.n()` into "cannot evaluate symbolic expression numerically" — the
+  generated check was more permissive than the `_SYMBOL_SHAPE` regex it was
+  meant to mirror, which is ASCII-only. The Greek letters come back through the
+  allowlist instead, so `π`, `σ`, `ζ`, `Γ` and `ψ` keep their meanings — pi, the
+  divisor sum, zeta, gamma and digamma — and the other twenty-four declare.
+
+
 - **A sequence of matrices is laid out the way Sage lays it out.** `repr`
   stacks a basis one matrix after another; Sage prints them side by side, in
   columns, and for eight 3×3 matrices that is 4 lines against 32. It matters for

@@ -43,6 +43,7 @@ import shutil
 
 import pytest
 
+from sagemath_mcp import runtime
 from sagemath_mcp.security import SECURITY_POLICY, SecurityViolation, _bound_names, validate_module
 
 requires_sage = pytest.mark.skipif(
@@ -956,3 +957,82 @@ async def test_a_sequence_of_matrices_is_laid_out_the_way_sage_lays_it_out() -> 
         assert await _value(session, "matrix(QQ, [[1, 2], [3, 4]])") == "[1 2]\n[3 4]"
     finally:
         await session.shutdown()
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_the_tools_declare_a_symbol_the_way_SR_does() -> None:
+    """A tool takes an expression as a *string*, which is SR's contract.
+
+    SageMath declares a variable when it parses a string into the symbolic ring
+    -- `SR("a*b + a")` creates `a` and `b` -- and not when it runs code, where
+    `w + 1` is a NameError. `evaluate_sage` is code and still refuses, naming
+    the fix; these tools are strings and behave like SR.
+
+    Narrower than SR in the one way that matters. SR invents any identifier:
+    `SR("sinn(x)")` returns `sinn(x)` and `SR("pi2*2")` returns `2*pi2`, so a
+    typo becomes a symbol and the caller gets a confident wrong answer. Only
+    symbol-shaped names are declared here.
+    """
+    from sagemath_mcp import server
+    from sagemath_mcp.config import SageSettings
+    from sagemath_mcp.session import SageSessionManager
+
+    from . import conftest
+
+    manager = SageSessionManager(SageSettings(force_python_worker=False))
+    original = runtime.SESSION_MANAGER
+    runtime.SESSION_MANAGER = manager
+    ctx = conftest.FakeContext("symbol-declaration")
+    try:
+        # Declared on sight, as SR would.
+        assert (await server.simplify_expression("w^2 + w^2", ctx=ctx))["simplified"] == "2*w^2"
+        assert (await server.expand_expression("(a+b)^2", ctx=ctx))["expanded"] == (
+            "a^2 + 2*a*b + b^2"
+        )
+        assert (await server.differentiate_expression("w^3", "w", ctx=ctx))["derivative"] == (
+            "3*w^2"
+        )
+        assert (await server.calculate_expression("x_2 + x_2", ctx=ctx))["string"] == "2*x_2"
+        assert (await server.calculate_expression("alpha*2", ctx=ctx))["string"] == "2*alpha"
+
+        # Never for a name SageMath already defines: `e` is Euler's number, `I`
+        # the imaginary unit, `gamma` and `zeta` are functions. Declaring any of
+        # them would shadow real mathematics with an empty symbol.
+        assert (await server.calculate_expression("e^0", ctx=ctx))["string"] == "1"
+        assert (await server.calculate_expression("I^2", ctx=ctx))["string"] == "-1"
+        assert (await server.calculate_expression("gamma(5)", ctx=ctx))["string"] == "24"
+        assert (await server.calculate_expression("zeta(2)", ctx=ctx))["string"] == "1/6*pi^2"
+
+        # The Greek alphabet declares as letters too, because that is how a
+        # physicist writes it.
+        assert (await server.calculate_expression(
+            "\u03b1*2 + \u03b1", ctx=ctx))["string"] == "3*\u03b1"
+        assert (await server.simplify_expression(
+            "\u03c9^2 + \u03c9^2", ctx=ctx))["simplified"] == "2*\u03c9^2"
+        assert (await server.expand_expression(
+            "(\u03b8 + \u03c6)^2", ctx=ctx))["expanded"] == (
+            "\u03b8^2 + 2*\u03b8*\u03c6 + \u03c6^2"
+        )
+        assert (await server.calculate_expression("\u03a9*3", ctx=ctx))["string"] == "3*\u03a9"
+
+        # Except the five SageMath already owns. `str.isalpha()` calls them
+        # letters, so without filtering them through the allowlist this declared
+        # a fresh symbol for pi and turned `pi.n()` into "cannot evaluate
+        # symbolic expression numerically".
+        assert (await server.calculate_expression(
+            "\u03c0.n()", ctx=ctx))["string"].startswith("3.14159")
+        assert (await server.calculate_expression("\u03c3(6)", ctx=ctx))["string"] == "12"
+        assert (await server.calculate_expression("\u03b6(2)", ctx=ctx))["string"] == "1/6*pi^2"
+        assert (await server.calculate_expression("\u0393(5)", ctx=ctx))["string"] == "24"
+
+        # And a typo stays an error rather than becoming a symbol, which is the
+        # whole reason this is narrower than SR.
+        from sagemath_mcp.session import SageEvaluationError
+
+        for typo in ("sinn(3)", "foobar + 1", "pi2*2"):
+            with pytest.raises(SageEvaluationError, match="is not defined"):
+                await server.calculate_expression(typo, ctx=ctx)
+    finally:
+        await manager.shutdown()
+        runtime.SESSION_MANAGER = original

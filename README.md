@@ -685,8 +685,24 @@ are predefined. Use `^^` for XOR, as in Sage.
 Sage's own REPL predefines `x` alone. This server predefines four, because the
 specialised tools have always declared `x, y, z, t` in their prelude: with only
 `x`, `differentiate_expression("x^2*y^3")` worked while the identical
-mathematics through `evaluate_sage` failed. Any other symbol needs `var('w')`,
-and the error message says so.
+mathematics through `evaluate_sage` failed.
+
+**In `evaluate_sage`, any other symbol needs `var('w')`,** and the error message
+says so. That is exactly SageMath's own rule: `w + 1` typed as *code* is a
+`NameError` there too.
+
+**The specialised tools declare a symbol on sight,** because they take an
+expression as a *string* and that is SageMath's other rule — `SR("a*b + a")`
+creates `a` and `b`. So `simplify_expression("w^2 + w^2")` answers `2*w^2`, and
+`expand_expression("(θ + φ)^2")` answers in the letters you wrote.
+
+Narrower than `SR` in the way that matters: `SR` invents *any* identifier, so
+`SR("sinn(x)")` returns `sinn(x)` and a typo becomes a silent wrong answer.
+Only symbol-shaped names are declared — a letter with an optional index (`a`,
+`w`, `x_2`), a spelled-out Greek name (`alpha`), or a Greek letter (`α`, `Ω`) —
+so `sinn`, `foobar` and `pi2` are still errors. Names SageMath already defines
+are never shadowed: `e` stays Euler's number, `I` the imaginary unit, and
+`gamma`, `zeta`, `π`, `σ`, `Γ` and `ψ` stay the functions they are.
 
 Only caller code is preparsed. The specialised tools build plain Python around
 `sage_eval`, and preparsing those templates would change what they mean.

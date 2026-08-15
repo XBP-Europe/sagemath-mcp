@@ -185,9 +185,14 @@ For HTTP transports, point the client at `http://HOST:PORT/mcp` and enable strea
 - **`'n' is larger than 2^53`**: pass that argument as a decimal string. A JSON
   number that large is not exact, so the server refuses it rather than computing
   from a rounded value.
-- **`'w' is not defined`**: `x`, `y`, `z` and `t` exist without being declared;
-  anything else needs `var('w')` first, exactly as in the Sage REPL. The error
-  says so and names the declaration to write.
+- **`'w' is not defined`**: in `evaluate_sage`, `x`, `y`, `z` and `t` exist
+  without being declared and anything else needs `var('w')` first, exactly as in
+  the Sage REPL — `w + 1` as code is a `NameError` there too. The error says so
+  and names the declaration to write. The specialised tools do not need it: they
+  take an expression as a string, which is `SR`'s contract, and declare a
+  symbol-shaped name on sight (`a`, `x_2`, `alpha`, `α`, `Ω`). A name that is
+  not symbol-shaped stays an error, so a typo like `sinn(3)` is reported rather
+  than quietly turned into a symbol.
 - **Indented code is fine.** A snippet pasted out of a markdown block with four
   spaces on every line used to fail as a syntax error; the shared indentation is
   now stripped before anything else happens.

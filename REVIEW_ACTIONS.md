@@ -1364,6 +1364,46 @@ evaluation — but there was no tooling to rebuild it, so the instruction was
 the container mounts the checkout read-only), and the drift test names the
 command instead of the intention.
 
+## 36. Objects from allowlisted factories escape the name check — low — DONE
+
+**No working exploit, and saying so plainly matters more than the fix.** The
+report pointed at `get_display_manager()`, which is allowlisted and hands back a
+`DisplayManager` carrying `switch_backend` and `graphics_from_save` — the latter
+taking a caller-supplied callable, and named so that the `save*` prefix rule
+does not touch it. Probed against 10.9:
+
+- `switch_backend` is inert: it requires a `BackendBase` **instance**, not a
+  name, and no backend class is reachable (`BackendBase`, `BackendSimple`,
+  `BackendIPython`, `get_backend`, `DisplayManager` are none of them allowlisted).
+- `graphics_from_save` is a gadget with no ammunition. It invokes a callable the
+  caller supplies with a temp path — but supplying a *dangerous* one means
+  naming it, which the allowlist refuses, or reaching it by attribute, which the
+  attribute rules refuse. `P.save` was blocked at the AST, as designed.
+
+The general point behind it is real, though: **the allowlist governs names, and
+an object's methods are governed only by the attribute rules.** Any factory
+handing back a rich object is a route the name check cannot see. So the fix is
+structural rather than specific — a test now sweeps every allowlisted zero-argument
+factory, calls it, and fails if the result exposes a method matching a
+capability word. It reports nothing today, which is the point: a future Sage
+adding such a factory fails the suite instead of waiting to be probed.
+
+Closed the subsystem anyway, since it costs nothing: `sage.repl.rich_output`'s
+last two live names, `get_display_manager` and `pretty_print`, join `show` and
+`view` — removed by provenance this time rather than by name, which also took
+`DisplayManager`, `restricted_output` and five others. None has a purpose over
+MCP, where results are strings and plots are base64 PNGs from the plot tools.
+Verified afterwards that plotting and `want_latex` still work: the LaTeX path
+imports `latex` from `sage.all` inside the worker rather than reading the
+caller namespace.
+
+Two things the sweep taught, both now handled: reading a `signature` or an
+attribute **resolves a lazy import**, and some are broken in a given Sage —
+10.9 raises `AttributeError` for `is_ProductProjectiveSpaces` during
+`inspect.signature`, not at call time. And `version()` returns a `str`, whose
+`removeprefix`/`removesuffix` match a capability word; it is filtered, and
+exposing the Sage version is expected behaviour.
+
 SSH authentication to GitHub broke during this session (`ssh -T git@github.com`
 returns `Permission denied (publickey)` with keys loaded). `gh` still works
 because it uses token auth. If it persists, `git remote set-url origin https://…`

@@ -9,6 +9,21 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **The rich-output subsystem is fully closed.** `get_display_manager` and
+  `pretty_print` were the last live names from `sage.repl.rich_output`, joining
+  `show` and `view` — removed by provenance this time, which also took
+  `DisplayManager` and `restricted_output`. The manager hands back an object
+  carrying `switch_backend` and `graphics_from_save`; neither is exploitable on
+  10.9 (no backend class is reachable, and `graphics_from_save` can only invoke
+  a callable the caller could already call), but none of it has a purpose over
+  MCP. Plotting and `want_latex` are unaffected.
+- **A structural guard for objects returned by allowlisted factories.** The
+  allowlist governs names; an object's methods are governed only by the
+  attribute rules, so a factory handing back a rich object is a route no name
+  check can see. A test now calls every allowlisted zero-argument factory and
+  fails if the result exposes a method matching a capability word.
+
+
 - **Sage's own string-path primitives are refused.** The previous round blocked
   Python's `operator.attrgetter` and left SageMath's equivalents in place.
   `attrcall('save', path)(M)`, `raw_getattr(M, 'save')(M, path)` and

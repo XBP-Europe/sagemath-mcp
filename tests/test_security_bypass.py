@@ -823,3 +823,87 @@ def test_the_modules_that_define_attribute_plumbing_are_all_scrubbed() -> None:
         assert module in _DANGEROUS_SAGE_MODULES, (
             f"{module} defines attribute-by-name plumbing and must be scrubbed wholesale"
         )
+
+
+def test_no_allowlisted_factory_hands_back_a_dangerous_object() -> None:
+    """The allowlist governs *names*; an object's methods escape it entirely.
+
+    Once caller code holds an object, only the attribute rules apply to what it
+    can call on it -- so an allowlisted factory that returns a rich object is a
+    way past the name check that no name check can see. `get_display_manager()`
+    was the one that existed: it hands back a `DisplayManager` carrying
+    `switch_backend` and `graphics_from_save`, which takes a caller-supplied
+    callable.
+
+    Neither turned out to be exploitable -- no `BackendBase` is reachable to
+    switch to, and `graphics_from_save` can only invoke a callable the caller
+    could already call -- but the shape is worth keeping shut, and the whole
+    rich-output subsystem has no purpose over MCP anyway: results come back as
+    strings and plots as base64 PNGs.
+
+    This is the structural check rather than the instance: it fails if a future
+    Sage adds a zero-argument factory whose result exposes something dangerous.
+    Zero-argument only, because calling anything else needs arguments this test
+    would have to invent.
+    """
+    import contextlib
+    import inspect
+    import io
+
+    sage = pytest.importorskip("sage.all")  # noqa: F841 - real Sage only
+    from sagemath_mcp._sage_worker import _build_namespace
+    from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
+
+    namespace = _build_namespace()
+    dangerous = (
+        "system", "popen", "spawn", "exec", "eval", "compile", "import", "open",
+        "write", "unlink", "remove", "rmtree", "chmod", "socket", "urlopen",
+        "download", "fetch", "install", "backend", "shell", "run",
+    )
+    prefixes = SECURITY_POLICY.forbidden_attribute_prefixes
+
+    reachable: list[str] = []
+    for name in sorted(ALLOWED_CALLER_NAMES):
+        factory = namespace.get(name)
+        if factory is None or not callable(factory) or inspect.isclass(factory):
+            continue
+        try:
+            # Reading a signature resolves a lazy import, and some are broken in
+            # a given Sage -- 10.9 raises AttributeError for
+            # `is_ProductProjectiveSpaces` here, not at call time.
+            if inspect.signature(factory).parameters:
+                continue
+        except BaseException:
+            continue
+        try:
+            # license() and credits() print; keep the failure message readable.
+            with contextlib.redirect_stdout(io.StringIO()):
+                produced = factory()
+        except BaseException:  # a factory that refuses to be called is fine
+            continue
+        try:
+            attributes = dir(produced)
+        except BaseException:  # an object that refuses introspection is fine
+            continue
+        for attribute in attributes:
+            if attribute.startswith("_") or attribute.startswith(prefixes):
+                continue
+            lowered = attribute.lower()
+            if not any(word in lowered for word in dangerous):
+                continue
+            try:
+                # Reading an attribute can resolve a lazy import, and some of
+                # those are broken in a given Sage: 10.9 raises AttributeError
+                # for `is_ProductProjectiveSpaces`. Unreadable means unreachable.
+                value = getattr(produced, attribute, None)
+            except BaseException:
+                continue
+            if callable(value):
+                reachable.append(f"{name}() -> {type(produced).__name__}.{attribute}")
+
+    # `version()` returns a str, whose removeprefix/removesuffix match "remove".
+    reachable = [r for r in reachable if not r.startswith("version()")]
+    assert not reachable, (
+        "these allowlisted factories hand back objects with methods the name "
+        f"allowlist cannot govern: {reachable}"
+    )

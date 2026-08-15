@@ -328,8 +328,12 @@ async def test_sagemath_computes_what_its_doctests_say() -> None:
     # An unexpected exception is the more interesting failure: it is code Sage
     # documents as working that this server could not run.
     assert outcome.errors <= outcome.examples * 0.05, outcome.report(20)
-    # And the layout comparisons are actually being reached. They were skipped
-    # while this server stacked a sequence of matrices that Sage lays out in
-    # columns; they pass now, and a run where none appears means the harness has
-    # stopped getting to them rather than that the formatting is fine.
-    assert outcome.tall_layouts >= 1, outcome.report()
+    # `tall_layouts` is reported, deliberately not asserted on. The count is
+    # what the *sample* happened to contain: nine at 400 blocks and none at the
+    # default 60, so asserting it made the suite fail on a run whose agreement
+    # was 100% with no errors at all. An assertion about a sample's contents is
+    # an assertion about luck.
+    #
+    # The layout itself is pinned where it can be pinned deterministically, by
+    # `test_a_sequence_of_matrices_is_laid_out_the_way_sage_lays_it_out` in
+    # test_math_coverage.py, which asks for a basis and checks the columns.

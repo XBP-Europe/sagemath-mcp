@@ -686,3 +686,73 @@ def test_a_never_executed_binding_still_cannot_reach_a_blocked_name() -> None:
     module = ast.parse("if False:\n    __builtins__ = 1\n__builtins__['__import__']('os')")
     with pytest.raises(SecurityViolation, match="dunder"):
         validate_module(module, extra_allowed_names=frozenset({"__builtins__"}))
+
+
+# --- String-based attribute traversal ------------------------------------------
+# Every attribute rule this server has is enforced on the AST: the parent and the
+# attribute name are both read out of the source. `operator.attrgetter` takes its
+# path as a *runtime string*, so none of that machinery sees it, and Sage's
+# namespace binds `sage` itself -- which made the whole module tree reachable.
+#
+# Confirmed against SageMath 10.9 before the fix, each of these worked:
+#   operator.attrgetter("misc.persist.unpickle_global")(sage)  -> the real function
+#   operator.attrgetter("__builtins__")(warnings)              -> the builtins dict
+#   operator.attrgetter("__class__.__base__.__subclasses__")(1)()
+#   operator.methodcaller("save", "/tmp/x")(matrix([[1, 2], [3, 4]]))  -> wrote it
+# The first is arbitrary code execution; the second reaches __import__.
+
+STRING_TRAVERSAL_PAYLOADS = [
+    ("attrgetter-sage-tree", 'operator.attrgetter("misc.persist.unpickle_global")(sage)'),
+    ("attrgetter-builtins", 'operator.attrgetter("__builtins__")(warnings)'),
+    ("attrgetter-subclasses", 'operator.attrgetter("__class__.__base__.__subclasses__")(1)()'),
+    ("methodcaller-save", 'operator.methodcaller("save", "/tmp/x")(matrix([[1, 2], [3, 4]]))'),
+    ("itemgetter", 'operator.itemgetter(0)([1, 2])'),
+    ("bare-attrgetter", 'attrgetter("__class__")(1)'),
+    ("bare-methodcaller", 'methodcaller("save", "/tmp/x")(matrix([[1, 2]]))'),
+]
+
+
+@pytest.mark.parametrize(
+    "code", [c for _, c in STRING_TRAVERSAL_PAYLOADS],
+    ids=[i for i, _ in STRING_TRAVERSAL_PAYLOADS],
+)
+def test_string_based_attribute_traversal_is_refused(code: str) -> None:
+    """No primitive may fetch an attribute by a name the AST cannot see.
+
+    This is a class, not a list of names: any such primitive makes every
+    attribute rule here decorative. The defence is that none is reachable.
+    """
+    with pytest.raises(SecurityViolation):
+        validate_module(ast.parse(code))
+
+
+@pytest.mark.parametrize("name", ["operator", "warnings", "pari", "oeis"])
+def test_dangerous_modules_are_not_offered_to_callers(name: str) -> None:
+    """`pari` ran a shell; `oeis` reached the network; `operator` traversed.
+
+    `pari('system("id > /tmp/x")')` wrote a file as the container user -- the
+    PARI *library* interface was never covered by the external-interface scrub
+    that took `gp` and `maxima`, because it comes from `sage.libs.pari`.
+    """
+    from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
+
+    assert name not in ALLOWED_CALLER_NAMES, (
+        f"{name!r} is offered to callers; it was proven to execute a shell, reach "
+        f"the network or defeat the attribute rules"
+    )
+    with pytest.raises(SecurityViolation):
+        validate_module(ast.parse(f"{name}.anything"))
+
+
+def test_no_module_object_exposes_a_getattr_primitive() -> None:
+    """The structural claim, checked rather than asserted.
+
+    Sage binds 22 module objects, `sage` among them, so a single string-path
+    primitive anywhere reaches the entire tree. Instead of chasing modules, the
+    rule is that the primitives themselves are unreachable -- and `getattr`,
+    `setattr` and `vars` were already refused, which is why this only ever
+    needed `operator` to be closed.
+    """
+    for primitive in ("getattr", "setattr", "vars", "globals", "eval", "exec", "compile"):
+        with pytest.raises(SecurityViolation):
+            validate_module(ast.parse(f"{primitive}(1)"))

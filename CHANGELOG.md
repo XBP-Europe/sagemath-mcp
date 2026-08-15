@@ -9,6 +9,28 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **String-path attribute access is refused.** Every attribute rule in this
+  server is enforced on the AST, and `operator.attrgetter` takes its path as a
+  runtime string the AST never sees — so
+  `operator.attrgetter("misc.persist.unpickle_global")(sage)` returned the real
+  function, which is arbitrary code execution, and
+  `operator.attrgetter("__builtins__")(warnings)` returned the builtins dict.
+  Sage binds 22 module objects including `sage` itself, so one such primitive
+  reaches the whole tree; `getattr`, `setattr` and `vars` were already refused,
+  which left `operator` as the only way in. `attrgetter`, `methodcaller` and
+  `itemgetter` are now forbidden calls and `operator` a forbidden attribute
+  parent.
+- **`pari` executed shell commands.** `pari('system("id > /tmp/x")')` wrote a
+  file as the container user. The scrub that removed `gp` and `maxima` works
+  from `sage.interfaces.all`, and the PARI *library* interface comes from
+  `sage.libs.pari`, so it was never covered.
+- **`oeis` reached the network**, and `install_doc`, `show`, `view`, `animate`,
+  `html` and `latex` each wrote to disk or read the installation. All are
+  removed from the caller namespace. Plotting and LaTeX output are unaffected:
+  the plot tools render through `.savefig(BytesIO)`, and `latex` is imported
+  from `sage.all` inside the worker rather than read from that namespace.
+
+
 - **Caller code is checked against an allowlist.** A name may be read only if
   this server offers it: the mathematical names SageMath preloads, the safe
   builtins, and whatever the caller defines itself -- including names created

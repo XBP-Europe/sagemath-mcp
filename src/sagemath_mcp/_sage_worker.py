@@ -104,6 +104,39 @@ _DANGEROUS_SAGE_MODULES = (
     "sage.misc.session",         # load_session unpickles a whole session
     "sage.misc.verbose",         # set_verbose_files writes where it is told
     "sage.misc.temporary_file",  # creates files outside our control
+    "sage.libs.pari.all",        # pari('system("id")') ran a shell command
+)
+
+# Names bound in the namespace that no provenance rule catches, because their
+# provenance is not a Sage module at all or is one we otherwise want.
+#
+# `operator` is the important one. Every attribute rule this server has is
+# enforced on the AST -- parent and attribute both read out of the source --
+# and `attrgetter` takes its path as a runtime string, so none of it applies:
+#
+#     operator.attrgetter("misc.persist.unpickle_global")(sage)
+#
+# returned the real function, which is arbitrary code execution. Sage binds
+# `sage` itself along with 21 other module objects, so one string-path
+# primitive reaches the whole tree; `getattr`, `setattr` and `vars` were
+# already refused, which is what left `operator` as the only way in.
+#
+# The rest each demonstrated a concrete capability under 10.9: `pari` a shell,
+# `oeis` a network request, and the display helpers files written to disk.
+_DANGEROUS_BARE_NAMES = (
+    "operator",     # attrgetter/methodcaller: attribute access the AST cannot see
+    "warnings",     # a module object, and a module object has __builtins__
+    "oeis",         # queries oeis.org: egress from a sandbox with no network need
+    "install_doc",  # writes documentation to a caller-chosen path
+    "show",         # renders to a file and tries to launch a viewer
+    "view",         # same
+    "animate",      # writes an animation file
+    "html",         # renders to disk
+    "latex",        # latex.eval() writes and runs a toolchain
+    "search_src",   # reads the installation
+    "search_doc",
+    "reference",
+    "Profiler",
 )
 
 # Sage's interfaces to other computer algebra systems. Each one spawns the real
@@ -213,7 +246,7 @@ def _strip_dangerous_sage_names(ns: dict[str, Any]) -> int:
     there cost more than the protection was worth.
     """
     removed = 0
-    for name in _DANGEROUS_SAGE_NAME_LIST:
+    for name in (*_DANGEROUS_SAGE_NAME_LIST, *_DANGEROUS_BARE_NAMES):
         if name in ns:
             del ns[name]
             removed += 1

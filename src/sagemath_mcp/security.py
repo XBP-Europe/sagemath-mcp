@@ -60,6 +60,14 @@ class SecurityPolicy:
     forbid_global_stmt: bool = True
     forbid_nonlocal_stmt: bool = True
     forbidden_call_names: tuple[str, ...] = (
+        # String-path attribute access. These defeat every attribute rule in
+        # this file, because the attribute name is a runtime value the AST never
+        # sees: on SageMath 10.9,
+        # `operator.attrgetter("misc.persist.unpickle_global")(sage)` returned
+        # the real function, which is arbitrary code execution.
+        "attrgetter",
+        "methodcaller",
+        "itemgetter",
         "eval",
         "exec",
         "compile",
@@ -123,6 +131,13 @@ class SecurityPolicy:
         "sage0",
     )
     forbidden_attribute_parents: tuple[str, ...] = (
+        # `operator` carries the string-path primitives; `pari` runs a shell
+        # through PARI's own `system()`; `oeis` reaches the network. Each was
+        # demonstrated against 10.9 before being listed here.
+        "operator",
+        "pari",
+        "oeis",
+        "warnings",
         "os",
         "sys",
         "pathlib",
@@ -380,16 +395,25 @@ def _bound_names(module: ast.Module) -> set[str]:
 
 _PREDEFINED_LIST = ", ".join(PREDEFINED_SYMBOLS)
 
+# A single letter with an optional index: y, w, t1, x_2 as callers write them.
+_SYMBOL_SHAPE = re.compile(r"^[a-zA-Z]_?\d?$")
+_GREEK_NAMES = frozenset({
+    "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota",
+    "kappa", "lamda", "mu", "nu", "xi", "omicron", "rho", "sigma", "tau",
+    "upsilon", "phi", "chi", "psi", "omega",
+})
+
 
 def _looks_like_an_undeclared_symbol(name: str) -> bool:
     """Does this read like a mathematical variable rather than a missing helper?
 
-    Deliberately narrow: short, no underscores, and not obviously a call to
-    something that was meant to exist. `y`, `t`, `theta`, `x1` are symbols a
-    caller forgot to declare; `unpickle_global` is not, and telling someone to
-    write `var('unpickle_global')` would be nonsense.
+    Narrow on purpose, and narrower than it first was. "short and lowercase"
+    also matched `pari`, `oeis` and `show` -- names deliberately withheld
+    because they run a shell, reach the network or write files -- and advising
+    `var('pari')` is both wrong and faintly absurd. A symbol is a single letter
+    with an optional index, or one of the Greek names Sage itself binds.
     """
-    return len(name) <= 5 and "_" not in name and not name[0].isupper()
+    return bool(_SYMBOL_SHAPE.match(name)) or name in _GREEK_NAMES
 
 
 def validate_module(

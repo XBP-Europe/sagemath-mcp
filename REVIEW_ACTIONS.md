@@ -1232,6 +1232,64 @@ works where the equivalent `evaluate_sage` call does not. That inconsistency is
 recorded, not fixed: closing it means either predefining three symbols the Sage
 REPL does not, or making the tools stricter than they have been.
 
+## 33. String-path attribute access defeated every attribute rule — critical — DONE
+
+Codex asked whether a dead assignment could authorize a worker-global the
+allowlist excluded. That specific path was already closed — the gap contains
+only dunders, and there is a test asserting it — but the search list attached to
+the question (`attrgetter|methodcaller|itemgetter|partial|reduce|operator`)
+pointed at something worse, and it was live.
+
+**Every attribute rule this server has is enforced on the AST**: the parent and
+the attribute are both read out of the source. `operator.attrgetter` takes its
+path as a *runtime string*, so none of that machinery applies. Sage binds 22
+module objects including `sage` itself, so one string-path primitive reaches the
+whole tree. Confirmed against 10.9, each of these ran:
+
+| Payload | Result |
+|---|---|
+| `pari('system("id > /tmp/x")')` | **shell command executed**, file written |
+| `operator.attrgetter("misc.persist.unpickle_global")(sage)` | returned the real function — arbitrary code execution |
+| `operator.attrgetter("__builtins__")(warnings)` | the real builtins dict, and from there `__import__` |
+| `operator.attrgetter("__class__.__base__.__subclasses__")(1)()` | the classic escape, invisible to the dunder rule |
+| `operator.methodcaller("save", "/tmp/x")(matrix(...))` | **file written**, defeating the `save*` prefix rule |
+| `oeis(45)` | network request from a sandbox with no network need |
+
+Root cause is structural, and it is the same one as before: the allowlist is
+generated as *whatever survives the namespace scrub*, so it inherits every gap
+in that scrub. `operator` and `warnings` are stdlib modules with no Sage
+provenance; `pari` is the PARI **library** interface, which the external-CAS
+scrub missed because it comes from `sage.libs.pari` rather than
+`sage.interfaces.all`.
+
+Fixed on both sides. `attrgetter`, `methodcaller` and `itemgetter` are forbidden
+call names, and `operator`, `warnings`, `pari` and `oeis` are forbidden
+attribute parents, so the refusal happens before anything runs. The namespace
+scrub drops those four plus the display and IO helpers that each demonstrated a
+concrete capability — `install_doc`, `show`, `view`, `animate`, `html`, `latex`,
+`search_src`, `search_doc`, `reference`, `Profiler`. The allowlist regenerated to
+exactly −14 names, nothing else.
+
+Worth being precise about why removing `operator` is the load-bearing part
+rather than removing modules: **any** module object yields `__builtins__` through
+a string path, so chasing modules one at a time was never going to work.
+`getattr`, `setattr` and `vars` were already refused, which is what left
+`operator` as the only remaining way in — verified by probing each primitive
+individually rather than assumed.
+
+Two things checked before trusting the removals: `latex` is imported from
+`sage.all` inside `_latex()` rather than read from the caller namespace, so
+LaTeX output is unaffected, and the plot tools render through
+`.savefig(BytesIO)` rather than `show`. Both confirmed by the full suite — 763
+tests against real Sage.
+
+The undeclared-symbol heuristic was tightened in the same change: "short and
+lowercase" also matched `pari`, `oeis` and `show`, so the server was advising
+`var('pari')` for a name it had deliberately withheld. A symbol is now a single
+letter with an optional index, or one of the Greek names Sage binds.
+
+**These vectors exist in the released 0.5.0.** A 0.5.1 is not optional.
+
 SSH authentication to GitHub broke during this session (`ssh -T git@github.com`
 returns `Permission denied (publickey)` with keys loaded). `gh` still works
 because it uses token auth. If it persists, `git remote set-url origin https://…`

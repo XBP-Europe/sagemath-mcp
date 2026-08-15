@@ -1669,3 +1669,129 @@ exists in SageMath at all, so a hallucinated name and a genuinely missing one
 read alike. Telling them apart means reporting what the namespace holds, and
 `test_the_allowlist_message_never_leaks_what_exists` exists to prevent exactly
 that.
+
+## 45. A forbidden global shadows an ordinary local — medium — OPEN
+
+Found by running SageMath's own doctest corpus through the validator: 432,878
+examples out of the installed library, 97.81% of the in-scope ones accepted, and
+575 of the refusals are one mistake wearing three messages.
+
+```
+matrix(QQ, [[1,2],[3,4]]).trace()   -> Access to forbidden function 'trace' is blocked
+l = [1,2,3]; l.remove(2)            -> Call to forbidden attribute 'remove' is blocked
+db = digraphs.DeBruijn(2, 2)        -> Reference to forbidden name 'db' is blocked
+gap = 7; gap - 1                    -> Reference to forbidden name 'gap' is blocked
+sol = desolve_system(des, vars, ics)-> Reference to forbidden name 'vars' is blocked
+vecs = list(map(range, os))         -> Reference to forbidden module 'os' is blocked
+```
+
+The trace of a matrix is not Sage's `trace()` debugger. `list.remove` is not
+`os.remove`. `db`, `gap`, `vars`, `os` and `package` are what people call their
+variables — `gap` especially, in a project whose own test suite computes prime
+gaps. Every one of these is refused because a name that is dangerous at module
+scope is unremarkable in the position it is actually used.
+
+**Why it is not fixed in the change that found it.** The rules involved are the
+ones that closed items 24 and 33: a forbidden name is forbidden *however it is
+spelled*, because `sage.misc.sage_eval.sage_eval("...")` reached the real
+function through an attribute chain rooted at the permitted `sage`. Relaxing
+attribute access by name would reopen that. And relaxing the bare-name rule for
+caller bindings would reopen item 37 — binding is judged statically, so
+`if False: db = 1` followed by `db(...)` authorizes a read of the *live* object.
+
+The shape of a fix, for whoever takes it:
+
+* Split `forbidden_call_names` by *why* each entry is there. `eval`, `exec`,
+  `getattr`, `__import__` are Python primitives and must stay unspellable. The
+  Sage globals — `db`, `gap`, `maxima`, `sh`, `trace`, `load` — are already
+  **removed from the worker namespace** by the startup scrub and the reseal, so
+  the AST rule for them exists to produce a clear message rather than a
+  `NameError`. For that second group the safe test is the one item 37 already
+  established: refuse the name when it is *live* (in the withheld set), and let
+  a caller create their own when it is not.
+* Attribute position is a separate question from name position. `x.trace()` can
+  only reach an attribute of `x`; what the item-24 payload needed was a chain
+  rooted at a *module*. `forbidden_attribute_parents` already covers the module
+  roots.
+* `forbidden_attribute_names` needs the same treatment: it exists for
+  `os.system` and `os.remove`, and `remove` is also `list.remove`.
+
+Any change here is test-first, verified against real Sage, and must keep every
+payload in `test_security_bypass.py` refused. `tests/test_sage_doctest_corpus.py`
+holds the counts as `KNOWN_DEBT_RULES` so the debt cannot grow quietly, and
+asserts it is still non-zero so this entry cannot outlive the defect.
+
+**Also raised by the same sweep, and deliberately left alone.** `latex(...)` is
+the single most-used name the corpus reaches for that this server refuses — 1,203
+uses. It was removed alongside `show`, `view` and `html` because that family
+writes files or reads the installation; `latex(expr)` itself only builds a
+string, and `(x^2+1)._latex_()` is allowed and returns exactly the same thing.
+So the capability is present and the idiom is not. Worth a decision rather than
+an accident. Same for `_`, the REPL's previous-result name, which the corpus
+uses 539 times and a stateful session could plausibly offer.
+
+## 46. Where the policy prohibits more than security requires — medium — OPEN
+
+Item 45 named one over-block. This is the whole picture, from categorising all
+8,218 refusals the SageMath doctest corpus provokes
+(`scripts/analyse_doctest_refusals.py`, SageMath 10.9, 432,878 examples):
+
+| verdict | refusals | share | meaning |
+|---|---|---|---|
+| deliberate, strong justification | 2,941 | 35.8% | the capability is dangerous and the mathematics is reachable another way |
+| not ours | 2,413 | 29.4% | names the doctest created at run time, or examples past the input size limit |
+| **deliberate, weak justification** | **2,081** | **25.3%** | intended, but the security content does not hold up |
+| **over-block** | **783** | **9.5%** | ordinary code refused because a global's name is unremarkable in the position it is used |
+
+So **a third of everything this server refuses is refused for no strong security
+reason**. It breaks into four items, largest first.
+
+**1. `latex(...)` — 1,387 refusals, 16.9% of all of them, the single biggest.**
+It was scrubbed alongside `show`, `view` and `html`, which write files or read
+the installation. `latex(expr)` does neither: it builds a string. The proof that
+the capability is already exposed is that `(x^2+1)._latex_()` is *allowed* and
+returns exactly the same thing — so the policy blocks the idiom and ships the
+result. The object's surface on 10.9 is `add_macro`,
+`add_package_to_preamble_if_available`, `add_to_preamble`, `blackboard_bold`,
+`check_file`, `engine`, `eval`, `extra_macros`, `extra_preamble`, `has_file`,
+`matrix_column_alignment`, `matrix_delimiters`, `vector_delimiters`. Only `eval`
+executes anything, and `eval` is already refused as an attribute name by an
+independent rule. Recommendation: allow `latex`, with a test that
+`latex.eval(...)` stays refused.
+
+**2. The shadowing class — 783 refusals.** Item 45, now measured in two halves:
+447 where the name is used as a *method or a variable* (`x.trace()` 159,
+variables called `maxima` 115, `gap` 68, `db` 31, `sh` 14) and 187 where a
+forbidden global's name is simply someone's local (`list.remove` 53, `system`
+26, `locals` 12, `input` 10, `vars` 9). The remaining 149 are names that exist
+in SageMath and nothing offers — `unpickle_global`, `Gp`, `Singular`, `mwrank`
+among them, correctly refused, and `lazy_import`, `show_identifiers`, which have
+no mathematical content either way.
+
+**3. `_`, the previous-result name — 694 refusals, 8.4%.** Never a security
+decision: the worker does not bind it. In a REPL it holds the last value, and
+this server is stateful enough to do the same. Either offer it or decline it on
+the record; at present it is refused by omission.
+
+**4. `operator.le` and friends — 206 of the 362 module traversals.** `operator`
+is a forbidden attribute parent because `operator.attrgetter` was a confirmed
+RCE (item 33). But `attrgetter`, `methodcaller` and `itemgetter` are *also*
+forbidden by name, independently, so the module ban is buying nothing that the
+name ban does not already buy — while refusing `Poset((divisors(30),
+operator.le))`, which is how posets are built. Recommendation: allow a named
+subset (`le`, `lt`, `ge`, `gt`, `eq`, `ne`, `add`, `sub`, `mul`, `neg`, `and_`,
+`or_`, `xor`) rather than the module.
+
+**What the same measurement vindicates.** The external CAS interfaces are 2,153
+refusals, and every one of them is worth it: `gap(...)`, `singular(...)`,
+`pari(...)` and `maxima(...)` spawn programs with shell escapes, and
+`test_the_blocked_interfaces_do_not_block_the_mathematics` shows the mathematics
+behind each is reachable in-process — Gröbner bases, character tables, class
+numbers, integration, distributions. `attrcall` and the evaluation primitives
+(178) are the payloads from items 33 and 35. Imports, dunders, persistence and
+`sys`/`subprocess`/`warnings` traversal are each load-bearing. No mathematical
+name is missing from the allowlist anywhere in the corpus.
+
+Each of the four items above is a policy change and gets its own test-first
+pass, verified against real Sage, with every payload in
+`test_security_bypass.py` still refused.

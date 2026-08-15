@@ -256,6 +256,22 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   form, Maxwell's equations on a plane wave, the Bohr radius and 1/α from CODATA,
   a decay fit by two independent methods, and the double pendulum's energy
   conservation and sensitivity. 17 tests, ~17s against SageMath 10.9.
+- **SageMath's own doctests, run against the validator.**
+  `tests/test_sage_doctest_corpus.py` harvests every `sage: ` example in the
+  installed SageMath — 432,878 of them across 3,168 sources — and pushes each
+  through `preparse` + `validate_module`, grouped by docstring so names bound
+  early in a block authorise reads later, as a session does. It answers at scale
+  the question a hand-written table can only sample: *would this server refuse
+  the mathematics SageMath itself documents?* Against 10.9, in 48 seconds:
+  **97.81% of in-scope examples accepted**, every refusal attributable to a rule
+  that is named and capped in the file, and no allowlist gap in any mathematical
+  name. The corpus is SageMath's, GPL-2.0-or-later, read at run time and never
+  copied into this repository — only counts reach the assertions.
+- **`scripts/analyse_doctest_refusals.py`**, which categorises the 8,218
+  refusals by whether the security justification holds: 35.8% deliberate and
+  sound, 29.4% not ours at all, and **a third with no strong justification** —
+  `latex(...)` at 1,387, the forbidden-global-shadows-a-local class at 783, the
+  REPL's `_` at 694, and `operator.le` at 206. Recorded as items 45 and 46.
 - **Nine CLI cases in the new `numerics` and `physics` domains**, chosen so the
   memorable answer is the wrong one — π²/6 against a sum truncated at 10⁶, `0.5`
   against a discretised oscillator, 43″ against Mercury's 42.98. Run with

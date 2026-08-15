@@ -30,6 +30,7 @@ that gap.
 | `test_research_workflows.py` | **yes** | Multi-step sessions on open problems — Collatz, Goldbach, twin primes, odd perfect numbers, zeta zeros, BSD, Erdős–Straus, three cubes, abc. The realistic workload, and the strongest stress on the allowlist |
 | `test_numerical_workflows.py` | **yes** | Floating point, where the remembered answer is wrong: cancellation, conditioning, Newton's rate, order of accuracy, CFL, stiffness, quadrature over the wrong domain |
 | `test_physics_workflows.py` | **yes** | Physics sessions that end at a measured number — Wien and the Sun's temperature, Stefan–Boltzmann, Mercury's 43″/century, the oscillator ladder, anharmonic diagonalisation, phonons, Maxwell, the Bohr radius, a decay fit, the double pendulum |
+| `test_sage_doctest_corpus.py` | **yes** | SageMath's own doctests — every `sage: ` example in the installed library — pushed through preparse + the validator, to measure what share of Sage's documented mathematics this server would refuse |
 | `test_integration.py` | **yes** | Real Sage session lifecycle, monitoring, large payloads, and the drift checks that keep the allowlist and denylist honest against the installed Sage |
 | `test_math_examples.py` | **yes** | Every tool against the examples in its own documentation |
 | `test_syntax_variants.py` | **yes** | The input spellings each tool must accept or reject |
@@ -196,6 +197,39 @@ margin rather than its mathematics. Tighten the policy, then run that file.
 **Prefer equivalence over expected values where possible.** `test_syntax_variants.py`
 asserts that spellings meaning the same thing produce the same answer. That needs no
 hardcoded expectation and catches silently-wrong results, not just errors.
+
+**And when a hand-written table is the counterweight, borrow a bigger one.**
+`test_math_coverage.py` covers roughly 19 preparser forms and 60 truths, which
+is 19 and 60 things somebody thought to type — and the last two policy defects
+were both forms nobody had. `test_sage_doctest_corpus.py` closes that by running
+**SageMath's own doctests**: every `sage: ` example in the installed library,
+432,878 of them, through `preparse` + `validate_module`, grouped by docstring so
+names bound early in a block authorise reads later, exactly as a session does.
+It takes 48 seconds and answers one question at scale — *would this server
+refuse the mathematics SageMath itself documents?* Measured against 10.9: 97.81%
+of in-scope examples accepted, every refusal attributable to a rule that is
+named and capped in the file, and no allowlist gap in any mathematical name.
+
+### The corpus is SageMath's, and is not in this repository
+
+SageMath is Copyright (C) The Sage Development Team, licensed
+**GPL-2.0-or-later**; this project is MIT. The corpus is therefore **read at run
+time** from the SageMath installation the tests run against, held in memory, and
+never copied into this tree, committed, or redistributed. Only counts reach the
+assertions, which is why the baselines are numbers rather than lists of
+snippets, and why a failure prints its examples instead of storing them. See
+<https://www.sagemath.org/> and <https://github.com/sagemath/sage>.
+
+Two consequences worth knowing. A Sage upgrade moves the baselines — a *drop* in
+acceptance is the signal, and the numbers are refreshed by reading the report a
+failing assertion prints. And the corpus reaches for capabilities this server
+does not offer (imports, persistence, file paths, the external CAS interfaces,
+`%` magics, network); those are classified and counted, never asserted over.
+Whether blocking them costs anyone their mathematics is a separate question, and
+`test_the_blocked_interfaces_do_not_block_the_mathematics` answers it directly:
+Gröbner bases, character tables, class numbers, integration and distributions
+are each computed through the native in-process path that the blocked interface
+would have shelled out to.
 
 ## Key fixtures
 

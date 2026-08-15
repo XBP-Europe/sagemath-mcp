@@ -44,10 +44,10 @@ been fixed.
 What remains is that breakdown read the other way round: not *is this refusal
 justified* but *what would it take for this mathematics to work?* Five items
 came out of it, each with the count that motivates it and each reproduced
-against SageMath 10.9. Four are done — `nonlocal` and `global`, room for a
-pasted matrix, and refusal messages that name the spelling which works. Two
-remain, in [TODO.md](TODO.md) with the detail: run-time names from
-`inject_variables()`, and executing the corpus rather than only validating it.
+against SageMath 10.9. Five are done — `nonlocal` and `global`, room for a
+pasted matrix, refusal messages that name the spelling which works, and run-time
+names from `inject_variables()`. One remains, in [TODO.md](TODO.md): executing
+the corpus rather than only validating it.
 
 Deliberately *not* among them: the external CAS interfaces (2,153 refusals),
 whose mathematics is reachable in-process and tested to be; the 538 uses of

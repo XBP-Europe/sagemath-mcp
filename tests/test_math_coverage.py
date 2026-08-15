@@ -839,3 +839,33 @@ def test_a_withheld_name_names_the_spelling_that_works() -> None:
         validate_module(ast.parse("no_such_helper(1)"), code="no_such_helper(1)")
     except SecurityViolation as exc:
         assert "not a name this server offers" in str(exc)
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_inject_variables_creates_names_a_session_can_use() -> None:
+    """The other way to write `R.<u, v> = QQ[]`, and it has to work too.
+
+    The generator syntax is covered because the preparser binds statically.
+    `R = PolynomialRing(QQ, 'u,v')` followed by `R.inject_variables()` is the
+    same mathematics, creates its names while the snippet runs, and was refused
+    -- 741 refusals in SageMath's own doctests.
+
+    The second half matters as much as the first: the names have to survive into
+    the next call, or a session is just a sequence of snippets.
+    """
+    session = await _session("inject")
+    try:
+        assert await _value(session, (
+            "A = FreeAlgebra(QQ, 2, 'p,q')\nA.inject_variables()\np*q - q*p == p*q - q*p"
+        )) == "True"
+
+        await _value(session, "R = PolynomialRing(QQ, 'u,v')\nR.inject_variables()\nu^2 + v")
+        # A separate call, reading names the previous one created at run time.
+        assert await _value(session, "(u^3 + v).degree() == 3") == "True"
+        assert await _value(session, "u.parent() is R") == "True"
+
+        await _value(session, "K = NumberField(x^3 - 2, 'w')\nK.inject_variables()")
+        assert await _value(session, "w^3 == 2") == "True"
+    finally:
+        await session.shutdown()

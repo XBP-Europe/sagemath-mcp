@@ -16,6 +16,7 @@ from typing import Any
 
 from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
 from sagemath_mcp.security import (
+    _NAME_INJECTING_METHODS,
     SECURITY_POLICY,
     _bound_names,
     check_source_length,
@@ -497,6 +498,16 @@ def _split_code(
         # -- except a name that is already live and not offered, which the
         # caller is shadowing rather than creating.
         _CALLER_BOUND_NAMES.update(_bound_names(module) - withheld)
+    # `A.inject_variables()` creates names while the snippet runs. The validator
+    # lets the snippet read them; this tells _execute to find out what they were,
+    # so the *next* call can read them too -- which is what makes a session a
+    # session rather than a sequence of snippets.
+    injects = any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr in _NAME_INJECTING_METHODS
+        for node in ast.walk(module)
+    )
     ast.fix_missing_locations(module)
     # `bound_here` rides along so _execute can hand it to the reseal.
     if module.body and isinstance(module.body[-1], ast.Expr):
@@ -507,8 +518,10 @@ def _split_code(
         tail = ast.Expression(body=module.body[-1].value)
         ast.fix_missing_locations(prefix)
         ast.fix_missing_locations(tail)
-        return SimpleNamespace(bound_here=bound_here, prefix=prefix, tail=tail, is_expr=True)
-    return SimpleNamespace(bound_here=bound_here, prefix=module, tail=None, is_expr=False)
+        return SimpleNamespace(bound_here=bound_here, prefix=prefix, tail=tail,
+                               is_expr=True, injects=injects)
+    return SimpleNamespace(bound_here=bound_here, prefix=module, tail=None,
+                           is_expr=False, injects=injects)
 
 
 
@@ -593,6 +606,7 @@ def _execute(
         }
 
     before_trusted = frozenset(namespace) if trusted else frozenset()
+    before_execution = set(namespace) if compiled.injects and not trusted else set()
     try:
         with contextlib.redirect_stdout(stdout_buffer or io.StringIO()):
             exec(compile(compiled.prefix, "<sagecell>", "exec"), namespace)
@@ -603,6 +617,15 @@ def _execute(
             if compiled.is_expr and compiled.tail is not None:
                 result_obj = eval(compile(compiled.tail, "<sagecell>", "eval"), namespace)
                 result_type = "expression"
+        if compiled.injects and not trusted:
+            # Only for a snippet that *asked* for an injection, and only for
+            # names that were not there before it ran. A namespace diff is not
+            # trusted in general -- `lazy_import('os', 'system')` gains a
+            # binding without reading a forbidden name, which is why
+            # _CALLER_BOUND_NAMES is built from the AST -- so this is gated on
+            # the caller having written the call, and `lazy_import` itself is
+            # scrubbed from the namespace and refused by name.
+            _CALLER_BOUND_NAMES.update(set(namespace) - before_execution)
         stdout_value = stdout_buffer.getvalue() if stdout_buffer else ""
         if result_obj is not None and not trusted:
             # `_` is the previous result, as in every REPL Sage ships. It was

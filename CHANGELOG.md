@@ -249,6 +249,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     of parsing, measured: preparse, parse and validate cost about 1.1µs per
     character on 10.9, linearly. Execution is bounded separately by
     `eval_timeout`.
+  - **`A.inject_variables()` works, and the names outlive the call.**
+    `R.<u, v> = QQ[]` was fine because the preparser binds statically, while
+    `R = PolynomialRing(QQ, 'u,v')` followed by `R.inject_variables()` — the
+    same mathematics written the other way — was refused, 741 times across the
+    corpus. A snippet that asks for an injection now has the *allowlist* half of
+    deny-by-default suspended, and only that half: the withheld check still
+    refuses every name that is live and not offered, so what suspending buys is
+    names that are not live at all, which are either the injected ones or a
+    `NameError`. The worker records what appeared so the next call can read it,
+    gated on the caller having written the call. `inject_shorthands` is
+    deliberately excluded — Sage routes it through the REPL's globals, so
+    nothing lands here and the undeclared-symbol message is the better answer.
   - A name withheld because it spawns an external program now names the
     in-process equivalent: `gap(...)` points at `SymmetricGroup(5)` and
     `libgap`, `singular(...)` at `ideal(...).groebner_basis()`,

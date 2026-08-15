@@ -454,6 +454,21 @@ _NATIVE_EQUIVALENTS: dict[str, str] = {
 }
 
 
+# Sage's own ways of putting names into the caller's namespace. Each takes them
+# from the object -- `variable_names()`, or the basis shorthands -- so what lands
+# is that object's generators, and none of it is knowable before the call runs.
+_NAME_INJECTING_METHODS: frozenset[str] = frozenset({
+    "inject_variables",
+})
+# `inject_shorthands` is deliberately not here. It looks like a sibling and is
+# not: Sage sends it through `sage.repl.user_globals`, so it writes into the
+# REPL's namespace and nothing lands in the worker's. Gating on it would suspend
+# the allowlist for a snippet where nothing is injected, and trade a message
+# that names the fix -- "declare it first with var('s')" -- for a bare
+# NameError. Confirmed against 10.9: after `S.inject_shorthands()`, `s` is
+# undefined here.
+
+
 def _native_equivalent(name: str) -> str | None:
     return _NATIVE_EQUIVALENTS.get(name)
 
@@ -835,6 +850,14 @@ def validate_module(
         and (node.value.id, node.attr) in policy.allowed_module_attributes
     }
 
+    # Does this snippet ask a Sage object to put names into the namespace?
+    injects_names = any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr in _NAME_INJECTING_METHODS
+        for node in ast.walk(module)
+    )
+
     for node in ast.walk(module):
         if isinstance(node, (ast.Import, ast.ImportFrom)) and not policy.allow_imports:
             modules = []
@@ -925,7 +948,23 @@ def validate_module(
             and isinstance(node, ast.Name)
             and isinstance(node.ctx, ast.Load)
             and (node.id in withheld_names or (
-                node.id not in bound and node.id not in policy.allowed_names
+                node.id not in bound
+                and node.id not in policy.allowed_names
+                # `A.inject_variables()` creates names while the snippet runs,
+                # and no static analysis can know them: they are whatever the
+                # object's `variable_names()` says. `R.<u, v> = QQ[]` is covered
+                # because the preparser binds statically, but
+                # `R = PolynomialRing(QQ, 'u,v'); R.inject_variables(); u^2 + v`
+                # is the same mathematics written the other way and was refused.
+                #
+                # So a snippet that asks for an injection has the *allowlist*
+                # half of this rule suspended -- and only that half. The
+                # withheld check above still applies, which is the half with the
+                # security content: every name that is live and not offered is
+                # still refused, whatever the snippet contains. What suspending
+                # buys is names that are not live at all, and those are either
+                # the injected ones or a NameError.
+                and not injects_names
             ))
             # `operator` in `operator.le` is live and deliberately not offered as
             # a value: reading it on its own stays refused, and reading one of

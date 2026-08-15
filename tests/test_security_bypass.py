@@ -1694,3 +1694,50 @@ def test_oversized_code_is_refused_by_length_not_by_the_parser() -> None:
 
     # Ordinary code passes through untouched.
     check_source_length("integrate(x^2, x)", SECURITY_POLICY)
+
+
+def test_an_injection_suspends_the_allowlist_and_nothing_else() -> None:
+    """`A.inject_variables()` creates names no static analysis can know.
+
+    `R.<u, v> = QQ[]` is covered because the preparser binds statically, but
+    `R = PolynomialRing(QQ, 'u,v'); R.inject_variables(); u^2 + v` is the same
+    mathematics written the other way, and it was refused. A snippet that asks
+    for an injection therefore has the *allowlist* half of the deny-by-default
+    rule suspended.
+
+    Only that half. The withheld check is the half with the security content --
+    every name that is live and not offered stays refused whatever the snippet
+    contains -- and suspending the other buys names that are not live at all,
+    which are either the injected ones or a NameError. Every other rule is
+    untouched, which is what this asserts.
+    """
+    prefix = "R = PolynomialRing(QQ, 'g')\nR.inject_variables()\n"
+
+    # The point of the change: an unknown name is no longer refused outright.
+    validate_module(ast.parse(prefix + "g^2 + 1"), code=prefix, policy=SECURITY_POLICY)
+
+    # And every rule that was doing real work still is.
+    for payload in (
+        "cython('x')",
+        "sage_input(1)",
+        "attrcall('save', '/tmp/x')(1)",
+        "os.getuid()",
+        "().__class__.__bases__[0].__subclasses__()",
+        "M = matrix(QQ, [[1]])\nM.save('/tmp/x')",
+        "operator.attrgetter('__class__')('')",
+    ):
+        source = prefix + payload
+        with pytest.raises(SecurityViolation):
+            validate_module(ast.parse(source), code=source, policy=SECURITY_POLICY)
+
+    # A withheld name -- live, and not offered -- stays refused even here.
+    withheld = prefix + "smuggled"
+    with pytest.raises(SecurityViolation):
+        validate_module(
+            ast.parse(withheld), code=withheld, policy=SECURITY_POLICY,
+            withheld_names=frozenset({"smuggled"}),
+        )
+
+    # Without an injection in the snippet, nothing is suspended.
+    with pytest.raises(SecurityViolation):
+        validate_module(ast.parse("g^2 + 1"), code="g^2 + 1", policy=SECURITY_POLICY)

@@ -30,16 +30,6 @@ From categorising all 5,266 refusals SageMath's own doctest corpus provokes
 (ROADMAP.md has the framing; REVIEW_ACTIONS.md items 45 and 46 have the security
 half). Each count is measured, each case reproduced against SageMath 10.9.
 
-- [ ] **Names created at run time by `inject_variables()`.** 741 refusals of
-      undeclared symbols, and this is the honest part: `R.<u, v> = QQ[]` works
-      because the preparser binds `u` and `v` statically, but
-      `A = SomeAlgebra(...)` followed by `A.inject_variables()` creates names no
-      static analysis can see. A namespace diff would find them and must not be
-      used — `lazy_import('os', 'system')` gains a binding the same way, which
-      is why `_CALLER_BOUND_NAMES` is built from the AST. The narrow version is
-      to recognise the call itself and learn the names from the object's own
-      `variable_names()`, which is delicate enough to deserve its own pass.
-
 - [ ] **Execute the corpus rather than only validating it.** The sweep proves
       this server would *accept* Sage's mathematics; it does not prove Sage
       computes it. A bounded spike measured 26.5 examples/second and 98.3%

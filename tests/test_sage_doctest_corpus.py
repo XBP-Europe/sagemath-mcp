@@ -270,8 +270,15 @@ def corpus() -> Harvest:
 # --- the assertions -----------------------------------------------------------
 #
 # Baselines measured against SageMath 10.9 (2026-08-15): 3,168 sources, 60,094
-# docstrings, 432,878 examples, of which 369,168 accepted, 5,260 refused and
+# docstrings, 432,878 examples, of which 369,197 accepted, 5,231 refused and
 # 58,268 out of scope -- 98.60% acceptance among in-scope examples, in 48s.
+#
+# Two changes are understated here by construction, both for the same reason:
+# the sweep judges one example at a time. An import that is now dropped never
+# enters scope at all (see the test at the end of this file for the number that
+# did move), and `A.inject_variables()` usually sits in one example while the
+# names it creates are read in the next -- which works in a session, because the
+# worker records them, and cannot be seen by a per-example walk.
 # They carry margin because a Sage upgrade moves them, and a *drop* is the
 # signal. To refresh after an upgrade, call harvest() over the library and read
 # report(); a failing assertion prints it too.

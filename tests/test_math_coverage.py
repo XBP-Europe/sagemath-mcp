@@ -869,3 +869,37 @@ async def test_inject_variables_creates_names_a_session_can_use() -> None:
         assert await _value(session, "w^3 == 2") == "True"
     finally:
         await session.shutdown()
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_the_preparser_cannot_blow_past_the_length_limit_silently() -> None:
+    """The limit has to be checked twice, and the second time is the one that bites.
+
+    Raising `max_source_chars` to 131,072 made a new failure reachable: Sage
+    rewrites every literal, so `1+1` becomes `Integer(1)+Integer(1)` and 92 KB of
+    arithmetic arrives at the parser as 506 KB. The worker parses before it
+    validates, so CPython got there first and answered `RecursionError: maximum
+    recursion depth exceeded during ast construction` -- telling a caller their
+    mathematics broke the interpreter, when it had exceeded a documented limit.
+
+    So the length is checked on what the caller wrote *and* on what the
+    preparser produced, and the message says which.
+    """
+    session = await _session("length-limit")
+    try:
+        # Under the limit as typed, five times over it once expanded.
+        arithmetic = "t = " + "+".join(str(i % 9 + 1) for i in range(46_000)) + "\nt"
+        assert len(arithmetic) < 131_072
+
+        with pytest.raises(Exception) as raised:
+            await _value(session, arithmetic)
+        message = str(raised.value)
+        assert "maximum length" in message, message
+        assert "preparser" in message, message
+        assert "RecursionError" not in message, message
+
+        # The session is unharmed, which is the other half of a good refusal.
+        assert await _value(session, "2 + 2") == "4"
+    finally:
+        await session.shutdown()

@@ -261,6 +261,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     gated on the caller having written the call. `inject_shorthands` is
     deliberately excluded — Sage routes it through the REPL's globals, so
     nothing lands here and the undeclared-symbol message is the better answer.
+  - **The length limit is checked before the preparser and after it.** Raising
+    `max_source_chars` made a new failure reachable: Sage rewrites every literal,
+    so 92 KB of arithmetic arrives at the parser as 506 KB, and the worker parses
+    before it validates. CPython got there first and answered `RecursionError:
+    maximum recursion depth exceeded during ast construction` — telling a caller
+    their mathematics broke the interpreter when it had exceeded a documented
+    limit. The check now runs on what the caller wrote *and* on what the
+    preparser produced, and the message says which: a number measured against
+    the typed source is the one the caller can act on.
   - A name withheld because it spawns an external program now names the
     in-process equivalent: `gap(...)` points at `SymmetricGroup(5)` and
     `libgap`, `singular(...)` at `ideal(...).groebner_basis()`,

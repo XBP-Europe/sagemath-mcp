@@ -98,9 +98,18 @@ def test_execute_returns_error_on_validation_failure(monkeypatch):
 
     monkeypatch.setenv("SAGEMATH_MCP_PURE_PYTHON", "1")
     monkeypatch.setattr(_sage_worker, "PURE_PYTHON", True)
-    response = _sage_worker._execute("import os", False, False, {})
+    # The import has to be *used*. A bare `import os` binds a name nothing reads,
+    # and an import that would change nothing is dropped rather than refused --
+    # see rewrite_permitted_imports. What must still fail is an import the
+    # snippet actually depends on.
+    response = _sage_worker._execute("import os\nos.getuid()", False, False, {})
     assert response["ok"] is False
     assert response["error"]["type"] in {"SecurityViolation", "ValueError"}
+
+    # And the dropped form really does run, rather than passing by accident.
+    ignored = _sage_worker._execute("import os\n2 + 2", False, False, {})
+    assert ignored["ok"] is True
+    assert ignored["result"] == "4"
 
 
 def test_latex_handles_none(monkeypatch):

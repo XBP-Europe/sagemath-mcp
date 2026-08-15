@@ -86,8 +86,11 @@ async def test_server_monitoring_resource_with_real_sage(monkeypatch):
         success = await server.evaluate_sage("factorial(6)", ctx=ctx)
         assert success.result == "720"
 
+        # The refusal has to be one the policy still makes: a bare `import os`
+        # binds a name nothing reads, and an import that would change nothing is
+        # dropped rather than refused now.
         with pytest.raises(server.ToolError):
-            await server.evaluate_sage("import os", ctx=ctx)
+            await server.evaluate_sage("import os\nos.getuid()", ctx=ctx)
 
         raw = await server.monitoring_resource("metrics", None)
         assert raw

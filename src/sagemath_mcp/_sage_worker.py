@@ -129,6 +129,17 @@ _DANGEROUS_SAGE_MODULES = (
     # are base64 PNGs from the plot tools.
     "sage.repl.rich_output.display_manager",
     "sage.repl.rich_output.pretty_print",
+    # `maxima_calculus` is a MaximaLib interface bound in the namespace, and an
+    # interface object answers to *every* attribute name: it builds a Maxima
+    # call out of whatever you ask for, so `hasattr` is True for `system`,
+    # `unlink`, `popen`, `fork` and the rest at once. That is why no name-based
+    # attribute rule could have covered it, and why the fix is to stop offering
+    # the object. It reached the namespace because `sage.interfaces.all` does
+    # not re-export it, so the interface scrub never saw it.
+    "sage.interfaces.maxima_lib",
+    # `logstr` and `preparser` come from here, and both are REPL plumbing with
+    # no mathematical content. Found by the same sweep.
+    "sage.repl.interpreter",
 )
 
 # Names bound in the namespace that no provenance rule catches, because their
@@ -205,41 +216,49 @@ _EXTERNAL_INTERFACE_EXPORTS = "sage.interfaces.all"
 _DANGEROUS_SAGE_NAME_LIST: frozenset[str] = frozenset({
     "AttrCallObject", "AttributeErrorMessage", "Axiom", "DisplayException", "DisplayManager",
     "ECM", "EmptyNewstyleClass", "EmptyOldstyleClass", "FriCAS", "Gap", "Gap3",
-    "Genus2reduction", "Gfan", "Giac", "Gp", "InlineFortran", "Kash", "Khoca", "LazyImport",
-    "LiE", "Lisp", "Macaulay2", "Magma", "Maple", "Mathematica", "Mathics", "Matlab", "Mupad",
+    "Genus2reduction", "Gfan", "Giac", "Gp", "InlineFortran", "InterfaceShellTransformer",
+    "Kash", "Khoca", "LazyImport", "LiE", "Lisp", "Macaulay2", "Magma", "Maple", "Mathematica",
+    "Mathics", "Matlab", "MaximaLib", "MaximaLibElement", "MaximaLibElementFunction", "Mupad",
     "Mwrank", "Octave", "OutputTypeException", "PSage", "PackageInfo", "PickleDict",
     "PickleExplainer", "PickleInstance", "PickleObject", "R", "Regina", "RichReprWarning",
-    "Sage", "SagePickler", "SageUnpickler", "SequencePrettyPrinter", "Sh", "Singular",
-    "TestAppendList", "TestAppendNonlist", "TestBuild", "TestBuildSetstate",
+    "Sage", "SageCrashHandler", "SageNotebookInteractiveShell", "SagePickler",
+    "SagePreparseTransformer", "SageShellOverride", "SageTerminalApp",
+    "SageTerminalInteractiveShell", "SageTestShell", "SageUnpickler", "SequencePrettyPrinter",
+    "Sh", "Singular", "TestAppendList", "TestAppendNonlist", "TestBuild", "TestBuildSetstate",
     "TestGlobalFunnyName", "TestGlobalNewName", "TestGlobalOldName", "TestReduceGetinitargs",
     "TestReduceNoGetinitargs", "add_attached_file", "atomic_dir", "atomic_write", "attach",
     "attached_files", "attrcall", "attributes", "axiom", "call_method", "call_pickled_function",
     "check_pickle", "clean_namespace", "code_ctor", "compile_and_load", "cython",
     "cython_compile", "cython_import", "cython_import_all", "cython_lambda", "db", "db_save",
-    "detach", "dir_with_other_class", "dumps", "ecm", "edit", "edit_devel",
+    "detach", "dir_with_other_class", "dummy_integrate", "dumps", "ecm", "edit", "edit_devel",
     "ensure_startup_finished", "explain_pickle", "explain_pickle_string", "file_and_line",
     "find_objects_from_name", "finish_startup", "fortran", "four_ti_2", "fricas", "frobby",
     "gap", "gap3", "gap3_version", "gap_reset_workspace", "genus2reduction",
-    "get_display_manager", "get_remote_file", "get_star_imports", "get_verbose",
-    "get_verbose_files", "getattr_debug", "getattr_from_other_class", "gfan", "giac", "gnuplot",
-    "gp", "gp_version", "import_statement_string", "import_statements", "init",
-    "installed_packages", "interfaces", "is_during_startup", "is_loadable_filename",
-    "is_package_installed", "is_package_installed_and_updated", "kash", "kash_version",
-    "lazy_import", "lie", "lisp", "list_packages", "load", "load_attach_mode",
+    "get_display_manager", "get_remote_file", "get_star_imports", "get_test_shell",
+    "get_verbose", "get_verbose_files", "getattr_debug", "getattr_from_other_class", "gfan",
+    "giac", "gnuplot", "gp", "gp_version", "import_statement_string", "import_statements",
+    "init", "installed_packages", "interface_shell_embed", "interfaces", "is_during_startup",
+    "is_loadable_filename", "is_package_installed", "is_package_installed_and_updated", "kash",
+    "kash_version", "lazy_import", "lie", "lisp", "list_packages", "load", "load_attach_mode",
     "load_attach_path", "load_cython", "load_sage_element", "load_sage_object", "load_session",
-    "load_submodules", "load_wrap", "loads", "macaulay2", "magma", "magma_free", "make_None",
-    "maple", "mathematica", "mathics", "matlab", "matlab_version", "maxima",
-    "modified_file_iterator", "mupad", "mwrank", "name_is_valid", "octave", "package_manifest",
-    "package_versions", "pickleMethod", "pickleModule", "pickle_function", "picklejar",
+    "load_submodules", "load_wrap", "loads", "logstr", "macaulay2", "magma", "magma_free",
+    "make_None", "maple", "mathematica", "mathics", "matlab", "matlab_version",
+    "max_at_to_sage", "max_harmonic_to_sage", "max_pochhammer_to_sage", "max_to_sr",
+    "max_to_string", "maxima", "maxima_calculus", "maxima_lib", "mdiff_to_sage",
+    "mlist_to_sage", "modified_file_iterator", "mqapply_to_sage", "mrat_to_sage", "mupad",
+    "mwrank", "name_is_valid", "octave", "package_manifest", "package_versions",
+    "parse_max_string", "pickleMethod", "pickleModule", "pickle_function", "picklejar",
     "pip_installed_packages", "pip_remote_version", "pkgname_split", "polymake", "povray",
-    "pretty_print", "qepcad", "qepcad_formula", "qepcad_version", "r", "r_version",
-    "raw_getattr", "read_data", "reduce_code", "regina", "register_unpickle_override",
+    "preparser", "pretty_print", "pyobject_to_max", "qepcad", "qepcad_formula",
+    "qepcad_version", "r", "r_version", "raw_getattr", "read_data", "reduce_code",
+    "reduce_load_MaximaLib", "regina", "register_unpickle_override",
     "reload_attached_files_if_modified", "reset", "reset_load_attach_path", "restricted_output",
-    "runsnake", "sage0", "sage0_version", "sage_eval", "sageobj", "sanitize", "save",
-    "save_cache_file", "save_session", "scilab", "set_edit_template", "set_editor",
+    "runsnake", "sage0", "sage0_version", "sage_eval", "sage_rat", "sageobj", "sanitize",
+    "save", "save_cache_file", "save_session", "scilab", "set_edit_template", "set_editor",
     "set_verbose", "set_verbose_files", "sh", "shortrepr", "show", "show_identifiers",
-    "singular", "singular_version", "spkg_type", "spyx_tmp", "tachyon_rt", "template_fields",
-    "test_fake_startup", "tmp_dir", "tmp_filename", "trace", "type_debug", "unpickleMethod",
+    "singular", "singular_version", "spkg_type", "spyx_tmp", "sr_to_max", "stdout_to_string",
+    "tachyon_rt", "template_fields", "test_fake_startup", "test_max_equal", "test_max_notequal",
+    "test_max_relation", "tmp_dir", "tmp_filename", "trace", "type_debug", "unpickleMethod",
     "unpickleModule", "unpickle_all", "unpickle_appends", "unpickle_build",
     "unpickle_extension", "unpickle_function", "unpickle_global", "unpickle_instantiate",
     "unpickle_newobj", "unpickle_persistent", "unset_verbose_files", "verbose",
@@ -257,10 +276,23 @@ def _dangerous_sage_names() -> frozenset[str]:
     costs nothing and touches nothing else.
     """
     names: set[str] = set()
+    # Several of these cannot be imported on their own -- `sage.interfaces.
+    # maxima_lib` raises `module 'sage' has no attribute 'functions'` unless the
+    # library is already up. The loop below swallows an ImportError and moves on,
+    # which is how `maxima_calculus` stayed reachable after its module was
+    # listed: the entry looked like protection and contributed nothing. Loading
+    # sage.all first costs a second here and this function runs offline, in the
+    # generator and the drift test, never at worker startup.
+    sage_all = None
+    with contextlib.suppress(Exception):
+        sage_all = importlib.import_module("sage.all")
+
+    failed: list[str] = []
     try:
         interfaces = importlib.import_module(_EXTERNAL_INTERFACE_EXPORTS)
     except Exception:
         interfaces = None
+        failed.append(_EXTERNAL_INTERFACE_EXPORTS)
     if interfaces is not None:
         names.update(n for n in vars(interfaces) if not n.startswith("_"))
 
@@ -268,6 +300,7 @@ def _dangerous_sage_names() -> frozenset[str]:
         try:
             module = importlib.import_module(module_name)
         except Exception:
+            failed.append(module_name)
             continue
         for name, value in vars(module).items():
             if name.startswith("_"):
@@ -280,6 +313,45 @@ def _dangerous_sage_names() -> frozenset[str]:
                 home == module_name or home.startswith(module_name + ".")
             ):
                 names.add(name)
+
+    # Second pass, over the namespace itself, because the first pass can only
+    # see a name where it is *defined*. Two shapes escape it:
+    #
+    #   sage/calculus/all.py:  from .calculus import maxima as maxima_calculus
+    #   sage/all.py:           lazy_import('sage.x', 'y')
+    #
+    # An alias is defined nowhere, and a LazyImport reports
+    # `sage.misc.lazy_import` as its type's module -- so every provenance check
+    # in this file classifies it as harmless and moves on. `maxima_calculus` is
+    # what that cost: a live MaximaLib interface, offered to callers, answering
+    # to `system`, `unlink`, `popen` and every other attribute an interface
+    # object fabricates on demand.
+    #
+    # Resolving the namespace is the 1.8-second cost this function exists to
+    # keep out of worker startup, and it is free here: this runs in the
+    # generator and the drift test, never at start.
+    for name, value in list(vars(sage_all).items()) if sage_all else []:
+        if name.startswith("_") or name in names:
+            continue
+        try:
+            resolved = value._get_object() if type(value).__name__ == "LazyImport" else value
+            home = getattr(resolved, "__module__", None)
+        except Exception:
+            continue
+        if isinstance(home, str) and any(
+            home == module or home.startswith(module + ".")
+            for module in (*_DANGEROUS_SAGE_MODULES, _EXTERNAL_INTERFACE_EXPORTS)
+        ):
+            names.add(name)
+
+    if failed:
+        # Not raised: the drift test needs a value to compare. Reported, because
+        # a module that cannot be imported protects nothing, and silence here is
+        # what let that happen once already.
+        print(
+            f"could not import for denylist derivation: {', '.join(failed)}",
+            file=sys.stderr,
+        )
     return frozenset(names)
 
 

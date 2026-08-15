@@ -923,6 +923,23 @@ def test_the_modules_that_define_attribute_plumbing_are_all_scrubbed() -> None:
 # the open interval of a poset, a modular form's system of eigenvalues. Checked
 # once against SageMath 10.9 so that anything new has to be looked at.
 _MATHEMATICAL_COLLISIONS = frozenset({
+    # Unmasked when the shell/filesystem sweep below started resolving lazy
+    # imports. The guard had been reading unresolved LazyImport objects for
+    # these names and seeing nothing -- the same blind spot that let
+    # `maxima_calculus` stay offered, in a third place. Every one is
+    # mathematics: epsilon transitions come out of an automaton, a species has
+    # an algebraic equation system, and a RealSet is open or closed.
+    "Automaton.remove_epsilon_transitions",
+    "CombinatorialSpecies.algebraic_equation_system",
+    "FiniteStateMachine.remove_epsilon_transitions",
+    "RealSet_with_category.closed_open",
+    "RealSet_with_category.is_open",
+    "RealSet_with_category.open",
+    "RealSet_with_category.open_closed",
+    "RealSet_with_category.unbounded_above_open",
+    "RealSet_with_category.unbounded_below_open",
+    "Transducer.remove_epsilon_transitions",
+    "RootedTrees_all_with_category.element_class.remove",
     "BipartiteGraph.remove_loops",
     "BipartiteGraph.remove_multiple_edges",
     "BooleanPolynomialRing.remove_var",
@@ -1741,3 +1758,82 @@ def test_an_injection_suspends_the_allowlist_and_nothing_else() -> None:
     # Without an injection in the snippet, nothing is suspended.
     with pytest.raises(SecurityViolation):
         validate_module(ast.parse("g^2 + 1"), code="g^2 + 1", policy=SECURITY_POLICY)
+
+
+# Combinatorial containers with a `.remove` that removes an element from a
+# structure -- a tableau cell, a tree child, a bit. Reviewed, and the reason
+# `remove` is not a forbidden attribute name: this is what it was refusing.
+_COMBINATORIAL_REMOVE = frozenset({
+    "Bitset", "IncreasingTableau", "LabelledOrderedTree", "LabelledRootedTree",
+    "LittlewoodRichardsonTableau", "OrderedTree", "ParallelogramPolyomino",
+    "RibbonShapedTableau", "RibbonTableau", "RootedTree", "RowStandardTableau",
+    "SemistandardSuperTableau", "SemistandardTableau", "SkewTableau",
+    "StandardSuperTableau", "StandardTableau", "StrongTableau", "Tableau",
+    "WeakReversePlanePartition",
+})
+
+
+def test_no_offered_object_answers_to_a_shell_or_filesystem_name() -> None:
+    """The guard the `remove`/`system` relaxation actually rests on.
+
+    Those names left `forbidden_attribute_names` on the argument that `os` is
+    unreadable and forbidden as a parent, so nothing dangerous could be reached
+    through a method of that name. That argument was incomplete, and
+    `maxima_calculus` was the counterexample: a live MaximaLib interface, bound
+    in the namespace as an alias `sage/calculus/all.py` created, exposing
+    `.system`, `.unlink`, `.popen`, `.fork` -- an interface object fabricates
+    *every* attribute on demand, so no name-based rule could have covered it.
+
+    The real defence is that no such object is offered, which is a property of
+    the namespace rather than of the rules, so it is checked here rather than
+    argued. Everything that survives is a combinatorial container whose
+    `.remove` takes a cell out of a tableau.
+
+    A new name here means either the object should not be offered, or the method
+    name belongs back in `forbidden_attribute_names`.
+    """
+    pytest.importorskip("sage.all")
+    import warnings
+
+    from sagemath_mcp import _sage_worker
+    from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
+
+    capability = ("system", "unlink", "rmdir", "walk", "rmtree", "popen",
+                  "spawnv", "fork", "execv")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        namespace = _sage_worker._build_namespace()
+
+    offenders: dict[str, list[str]] = {}
+    for name in sorted(ALLOWED_CALLER_NAMES):
+        value = namespace.get(name)
+        if value is None:
+            continue
+        try:
+            found = [method for method in capability if hasattr(value, method)]
+        except Exception:  # an object that raises on hasattr is not offering it
+            continue
+        if found:
+            offenders[name] = found
+
+    assert not offenders, (
+        "an offered object answers to a shell or filesystem method name, which "
+        "is what `remove` and `system` leaving forbidden_attribute_names assumed "
+        f"could not happen: {offenders}"
+    )
+
+    # `.remove` is checked separately because the answer is not "none": a great
+    # deal of combinatorics has one, and that is precisely why the name was
+    # freed. The list is reviewed, so an addition has to be looked at.
+    removers = set()
+    for name in sorted(ALLOWED_CALLER_NAMES):
+        value = namespace.get(name)
+        try:
+            if value is not None and hasattr(value, "remove"):
+                removers.add(name)
+        except Exception:
+            continue
+    assert removers <= _COMBINATORIAL_REMOVE, (
+        "a new offered object has a .remove that nobody has reviewed: "
+        f"{sorted(removers - _COMBINATORIAL_REMOVE)}"
+    )

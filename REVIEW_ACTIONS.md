@@ -2022,3 +2022,63 @@ of mathematics reachable another way, 190 string-path primitives, 178 test
 plumbing, 124 module traversals, 69 file writes, 56 `latex.` attribute reaches,
 33 `global` statements, 11 imports, 5 evaluation primitives, 4 `.eval()`
 attributes and 3 examples past the input size limit.
+
+## 47. A CAS interface survived every provenance check — high — DONE
+
+Reported by a parallel review of items 45 and 46, and confirmed:
+`maxima_calculus` was **offered to callers**. It is a live MaximaLib interface,
+and an interface object fabricates attributes on demand, so it answered to
+`system`, `unlink`, `remove`, `rmdir`, `walk`, `rmtree`, `popen`, `spawnv`,
+`fork` and `execv` — every name item 46 had removed from
+`forbidden_attribute_names`. `maxima_calculus.system('id > /tmp/x')` reached
+Maxima and died on an ECL internal rather than running a shell, which is luck,
+not design.
+
+**Item 46's justification for freeing those names was incomplete.** It said `os`
+is unreadable and forbidden as a parent, so nothing dangerous could be reached
+through a method of that name. That is true of `os` and says nothing about any
+other object. The correct statement is that no *offered object* answers to those
+names — a property of the namespace, not of the rules, and now a test:
+`test_no_offered_object_answers_to_a_shell_or_filesystem_name`. Everything that
+survives it is a combinatorial container whose `.remove` takes a cell out of a
+tableau, which is what the names were freed for.
+
+Note that blocking `system` would not have helped. An interface object answers
+to *every* attribute, so a name-based rule cannot cover one; the only fix is to
+stop offering the object.
+
+**Why every provenance check missed it, which is the general finding.** Three
+mechanisms, each defeating classification by `__module__`:
+
+1. `sage/calculus/all.py` does `from .calculus import maxima as maxima_calculus`.
+   The name is an *alias*, defined in no module, so a derivation that takes the
+   names a module defines can never see it.
+2. In `sage.all` it is a `LazyImport`, whose `type(...).__module__` reports
+   `sage.misc.lazy_import` rather than what it wraps. 438 of the offered names
+   are LazyImports.
+3. `sage.interfaces.maxima_lib` cannot be imported on its own — it raises
+   `module 'sage' has no attribute 'functions'` — and `_dangerous_sage_names`
+   swallowed that with `except Exception: continue`. Adding the module to
+   `_DANGEROUS_SAGE_MODULES` therefore removed nothing, silently. That is the
+   same shape as `sage.libs.pari.all` in item 34: an entry that looks like
+   protection and is not.
+
+Fixed at the derivation rather than by naming one more helper. It now imports
+`sage.all` first so the listed modules can load, reports any that still fail
+instead of swallowing them, and walks the namespace resolving aliases and
+LazyImports to what they actually wrap. That is the 1.8-second cost this
+function exists to keep out of worker startup, and it is free here: the
+derivation runs in the generator and the drift test, never at start.
+
+`make denylist` then found `maxima_calculus` structurally, along with `logstr`
+and `preparser` from `sage.repl.interpreter` — REPL plumbing with no
+mathematical content — and 23 more names from `sage.interfaces.maxima_lib`. The
+allowlist lost exactly three names on regeneration.
+
+**A fourth place had the same blind spot.** Once the sweep resolved the lazy
+imports, `test_no_allowlisted_factory_hands_back_a_dangerous_object` started
+seeing eleven objects it had been reading as unresolved LazyImports —
+`Automaton.remove_epsilon_transitions`, `RealSet.is_open`,
+`CombinatorialSpecies.algebraic_equation_system` among them. All are
+mathematics, all are now in the reviewed baseline, and the guard is stronger for
+seeing them: it had been under-testing by exactly that much.

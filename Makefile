@@ -53,6 +53,17 @@ allowlist:
 cli-integration:
 	uv run python -m tests.cli_integration.run_cli_tests --cli both
 
+# SageMath's own doctests, executed and compared against the output they
+# document. Opt-in and sampled: 26 examples a second, so the whole corpus is
+# about three and a half hours. Widen it with SAGEMATH_MCP_DOCTEST_BLOCKS and
+# SAGEMATH_MCP_DOCTEST_STRIDE.
+doctest-execution:
+	docker exec -e SAGEMATH_MCP_DOCTEST_EXECUTION=1 \
+		-e SAGEMATH_MCP_DOCTEST_BLOCKS=$${BLOCKS:-60} \
+		-e SAGEMATH_MCP_DOCTEST_STRIDE=$${STRIDE:-40} \
+		$(SAGEMATH_MCP_DOCKER_CONTAINER) bash -lc \
+		"cd /workspace && sage -python -m pytest tests/test_sage_doctest_execution.py -q"
+
 # Tool-forcing cases across Claude, Gemini and Codex. Unlike cli-integration,
 # these assert from the proxy's wire log that a tool was actually called, so a
 # model answering from memory fails instead of passing.
@@ -61,4 +72,4 @@ cli-extended:
 
 all: test integration-test
 
-.PHONY: test sage-deps integration-test lint build sage-container allowlist denylist cli-integration cli-extended all
+.PHONY: test sage-deps integration-test lint build sage-container allowlist denylist doctest-execution cli-integration cli-extended all

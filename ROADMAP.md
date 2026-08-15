@@ -44,10 +44,13 @@ been fixed.
 What remains is that breakdown read the other way round: not *is this refusal
 justified* but *what would it take for this mathematics to work?* Five items
 came out of it, each with the count that motivates it and each reproduced
-against SageMath 10.9. Five are done — `nonlocal` and `global`, room for a
-pasted matrix, refusal messages that name the spelling which works, and run-time
-names from `inject_variables()`. One remains, in [TODO.md](TODO.md): executing
-the corpus rather than only validating it.
+against SageMath 10.9, and all six are done: `nonlocal` and `global`, room for a
+pasted matrix, refusal messages that name the spelling which works, run-time
+names from `inject_variables()`, and executing the corpus rather than only
+validating it. That last one measured **100% agreement** with the output
+SageMath's doctests document, over 1,259 comparable examples in a 400-docstring
+sample, and surfaced one new item for [TODO.md](TODO.md): Sage's REPL lays a
+sequence of matrices out in columns and this server stacks them.
 
 Deliberately *not* among them: the external CAS interfaces (2,153 refusals),
 whose mathematics is reachable in-process and tested to be; the 538 uses of

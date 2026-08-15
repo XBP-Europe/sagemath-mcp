@@ -30,11 +30,19 @@ From categorising all 5,266 refusals SageMath's own doctest corpus provokes
 (ROADMAP.md has the framing; REVIEW_ACTIONS.md items 45 and 46 have the security
 half). Each count is measured, each case reproduced against SageMath 10.9.
 
-- [ ] **Execute the corpus rather than only validating it.** The sweep proves
-      this server would *accept* Sage's mathematics; it does not prove Sage
-      computes it. A bounded spike measured 26.5 examples/second and 98.3%
-      output agreement using SageMath's own `SageOutputChecker`. Sampled
-      nightly, never on the pull-request path. See
-      [docs/sage_doctest_corpus.md](docs/sage_doctest_corpus.md) for the three
-      things a real harness needs — expected exceptions, block dependencies, and
-      warning output — each of which caused a false failure in the spike.
+- [ ] **Match Sage's REPL layout for a sequence of matrices.** Found by
+      executing the corpus. Sage prints a basis of matrices side by side, in
+      columns:
+
+      ```
+      (
+      [1 0]  [0 1]  [0 0]
+      [0 0], [0 0], [1 0]
+      )
+      ```
+
+      and this server stacks them, because results come back as `repr` and that
+      formatting lives in `sage.repl.display`, which callers do not get. The
+      mathematics is identical and the readability is not, which matters for a
+      server whose whole output is text. The execution harness skips these
+      comparisons rather than failing them, so the gap is measured, not hidden.

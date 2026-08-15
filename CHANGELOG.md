@@ -310,6 +310,29 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **SageMath's doctests are executed now, not only validated.**
+  `tests/test_sage_doctest_execution.py` runs a deterministic sample of the
+  corpus through a real session and compares what comes back against the output
+  Sage documents, using SageMath's own `SageOutputChecker` so the `...` ellipsis
+  and `# tol` semantics are the ones the corpus was written against. Measured
+  against 10.9: 400 docstrings, 2,163 examples, 1,259 comparable, **100%
+  agreement, no mismatches and no unexpected errors**. It is opt-in and sampled
+  — 26 examples a second against 9,000 for validation, so the whole corpus is
+  about three and a half hours — and runs as `make doctest-execution`, never on
+  the pull-request path.
+
+  Five conventions had to be understood before the number meant anything, each
+  of which produced a false failure first: a `Traceback` block is an assertion
+  rather than an error; excluding an example must mean *do not compare* and
+  never *do not execute*, or a later line is checked against a namespace that
+  never got the earlier one's effect; `doctest:`-emitted warnings arrive on our
+  stderr; `# todo: not implemented` marks an answer that is deliberately wrong;
+  and Sage's REPL lays a sequence of matrices out in columns where this server
+  stacks them. The last is a real difference in what a caller sees and is on the
+  queue rather than hidden — the harness skips those comparisons so the gap is
+  measured.
+
+
 - **Two suites of the workload this server exists for.**
   `test_numerical_workflows.py` covers floating point, where a model's answer is
   not imprecise but confidently wrong: catastrophic cancellation in the

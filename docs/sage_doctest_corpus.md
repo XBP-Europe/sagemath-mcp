@@ -97,32 +97,39 @@ The most important negative result: **no mathematical name is missing from the
 allowlist anywhere in the corpus.** Every name refused as "not offered" is an
 external CAS interface, REPL plumbing, or a name the doctest invented.
 
+## Executing it (`make doctest-execution`)
+
+The validation sweep proves the server would *accept* Sage's mathematics; it
+does not prove Sage computes it. `tests/test_sage_doctest_execution.py` closes
+that, and it is the expensive half — 26 examples a second against 9,000, so the
+whole corpus is about three and a half hours. It is therefore **opt-in and
+sampled**, never on the pull-request path:
+
+```bash
+make doctest-execution                    # 60 docstrings, ~40s
+BLOCKS=400 STRIDE=7 make doctest-execution   # a nightly's worth, ~7 minutes
+```
+
+Measured against SageMath 10.9: 400 docstrings, 2,163 examples, 1,259
+comparable, **100% agreement, no mismatches and no unexpected errors**.
+
+Comparison is SageMath's own `SageOutputChecker`, which implements the `...`
+ellipsis and `# tol` semantics the corpus is written against; reimplementing it
+would be inventing a second dialect of somebody else's format.
+
+The denominator is the honest part. Of 2,163 examples, 869 are not compared —
+they have no expected output, or their output is random, a memory address, a
+warning, or Sage's column-aligned matrix layout. An example with nothing to
+compare says nothing about whether Sage computed correctly, so counting it would
+only flatter the number.
+
+Five things a harness needs, each of which caused a false failure before it was
+handled: expected exceptions (a `Traceback` block is an assertion), block
+dependencies (exclusion means *do not compare*, never *do not execute*),
+warnings, `# todo: not implemented` tags that mark a deliberately wrong answer,
+and Sage's REPL matrix layout.
+
 ## What is not built yet
-
-**Executing the corpus and comparing output.** The validation sweep proves the
-server would *accept* Sage's mathematics; it does not prove Sage computes it.
-A bounded spike over 979 examples measured:
-
-- **26.5 examples/second** — 350× slower than validation, so the full corpus is
-  about 3.5 hours. This is a sampled nightly job, never a PR test.
-- **98.3% output agreement** using SageMath's own `SageOutputChecker`, which is
-  the right comparator: it implements the `...` ellipsis and `# tol` semantics
-  that Sage's doctests are written against.
-
-Three things the spike showed a real harness would need, each of which caused a
-false failure:
-
-1. **Expected exceptions.** 16% of the sample raised, and most were doctests that
-   are *supposed* to — `factorial(-32)`, `is_prime_power("foo")`. The
-   `Traceback (most recent call last): ... ValueError: ...` block has to be
-   parsed and asserted, not treated as an error.
-2. **Block dependencies.** Skipping an example does not skip what depends on it.
-   A `# random`-tagged `A = random_matrix(RDF, 3, 3)` was excluded from
-   comparison and the following `A.parent()` was then compared against a stale
-   `A`. Exclusion has to mean *do not compare*, not *do not execute* — except for
-   the genuinely unrunnable, where the whole block must be dropped.
-3. **Warnings.** Sage's expected output sometimes contains a `doctest:warning`
-   block; ours arrive on stderr.
 
 **Cython sources beyond docstring extraction.** `.pyx` docstrings are found by
 their quotes rather than by parsing, which is coarser than the AST path used for

@@ -434,3 +434,29 @@ def test_x_is_not_invented_in_pure_python_mode(pure_python_worker) -> None:
     from sagemath_mcp._sage_worker import _build_namespace
 
     assert "x" not in _build_namespace()
+
+
+def test_a_predefined_symbol_that_already_exists_is_left_alone(monkeypatch) -> None:
+    """The `if symbol not in ns` guard, and the branch nothing covered.
+
+    Real Sage already binds `x`, so the guard is what stops this server
+    replacing Sage's own symbol with a freshly made one. Every unit test built a
+    namespace where none of the four were present, so the guard's other edge had
+    never run -- which is why the repository's 100% gate was quietly sitting at
+    99.96% on one partial branch.
+
+    Worth having beyond the number: it pins the reason the guard is written that
+    way, which a reader would otherwise have to infer.
+    """
+    from sagemath_mcp import _sage_worker
+
+    monkeypatch.setattr(_sage_worker, "PURE_PYTHON", False)
+    monkeypatch.setattr(_sage_worker, "STARTUP_CODE", "x = 'Sage already made this'")
+    monkeypatch.setattr(_sage_worker, "_STARTUP_ERROR", None)
+
+    namespace = _sage_worker._build_namespace()
+
+    assert namespace["x"] == "Sage already made this", "the guard overwrote Sage's own x"
+    # The other three have nothing to make them from here, and the suppressed
+    # failure is the point: a missing SR must not stop the namespace being built.
+    assert "y" not in namespace

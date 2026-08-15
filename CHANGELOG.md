@@ -9,6 +9,23 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **Sage's own string-path primitives are refused.** The previous round blocked
+  Python's `operator.attrgetter` and left SageMath's equivalents in place.
+  `attrcall('save', path)(M)`, `raw_getattr(M, 'save')(M, path)` and
+  `getattr_debug(M, 'save')(path)` each wrote a real file, and `getattr_debug`
+  is a full `getattr` equivalent that reached
+  `__class__.__base__.__subclasses__()`. A source scan cannot find this class of
+  helper — 807 of the 1902 allowlisted names are compiled Cython with no
+  readable source — so the fix is by provenance: `sage.misc.call`,
+  `sage.cpython.getattr` and `sage.cpython.debug` are scrubbed wholesale, which
+  also caught `getattr_from_other_class` and `dir_with_other_class` that nobody
+  had named.
+- **`make denylist`.** Adding a module to `_DANGEROUS_SAGE_MODULES` used to
+  remove nothing until a hand-maintained baked list was updated, and there was
+  no command to update it — which is why `sage.misc.call` was added and
+  `attrcall` stayed reachable. The drift test now names the command.
+
+
 - **String-path attribute access is refused.** Every attribute rule in this
   server is enforced on the AST, and `operator.attrgetter` takes its path as a
   runtime string the AST never sees — so

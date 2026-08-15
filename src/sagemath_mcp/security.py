@@ -68,6 +68,15 @@ class SecurityPolicy:
         "attrgetter",
         "methodcaller",
         "itemgetter",
+        # Sage's own equivalents. `attrcall('save', path)(M)` wrote a file, and
+        # `getattr_debug` resolves anything getattr does, including
+        # `__class__.__base__.__subclasses__()`.
+        "attrcall",
+        "call_method",
+        "AttrCallObject",
+        "raw_getattr",
+        "getattr_debug",
+        "register_unpickle_override",
         "eval",
         "exec",
         "compile",

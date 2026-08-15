@@ -756,3 +756,70 @@ def test_no_module_object_exposes_a_getattr_primitive() -> None:
     for primitive in ("getattr", "setattr", "vars", "globals", "eval", "exec", "compile"):
         with pytest.raises(SecurityViolation):
             validate_module(ast.parse(f"{primitive}(1)"))
+
+
+# --- Sage's own string-path primitives -----------------------------------------
+# The `operator` round blocked Python's attrgetter/methodcaller and left Sage's
+# equivalents in place, which is fixing the instance instead of the class. All
+# three of these were confirmed against SageMath 10.9, each writing a real file:
+#
+#   attrcall('save', '/tmp/x')(matrix([[1, 2], [3, 4]]))
+#   raw_getattr(M, 'save')(M, '/tmp/x')
+#   getattr_debug(M, 'save')('/tmp/x')
+#
+# `getattr_debug` is a full getattr equivalent and reached
+# `__class__.__base__.__subclasses__()` as well. `raw_getattr` bypasses the
+# descriptor protocol, so it returns a descriptor rather than the class -- but
+# it resolves methods, which is all a file write needs.
+
+SAGE_STRING_PATH_PAYLOADS = [
+    ("attrcall", "attrcall('save', '/tmp/x')(matrix([[1, 2], [3, 4]]))"),
+    ("call-method", "call_method(matrix([[1, 2]]), 'save', '/tmp/x')"),
+    ("attrcall-object", "AttrCallObject('save', ('/tmp/x',), {})(matrix([[1, 2]]))"),
+    ("raw-getattr", "raw_getattr(matrix([[1, 2]]), 'save')"),
+    ("getattr-debug", "getattr_debug(matrix([[1, 2]]), 'save')"),
+    ("unpickle-override", "register_unpickle_override('os', 'system', int)"),
+]
+
+
+@pytest.mark.parametrize(
+    "code", [c for _, c in SAGE_STRING_PATH_PAYLOADS],
+    ids=[i for i, _ in SAGE_STRING_PATH_PAYLOADS],
+)
+def test_sage_string_path_primitives_are_refused(code: str) -> None:
+    """Sage ships its own attrgetter, and it is not called attrgetter."""
+    with pytest.raises(SecurityViolation):
+        validate_module(ast.parse(code))
+
+
+@pytest.mark.parametrize(
+    "name", ["attrcall", "call_method", "AttrCallObject", "raw_getattr",
+             "getattr_debug", "register_unpickle_override"],
+)
+def test_sage_string_path_primitives_are_not_offered(name: str) -> None:
+    from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
+
+    assert name not in ALLOWED_CALLER_NAMES, (
+        f"{name!r} resolves an attribute from a runtime string, which defeats every "
+        f"attribute rule in security.py at once"
+    )
+
+
+def test_the_modules_that_define_attribute_plumbing_are_all_scrubbed() -> None:
+    """The class, not the instance -- three rounds of the same finding.
+
+    Blocking names one at a time has now missed `operator`, then Sage's
+    `attrcall`, then `raw_getattr` and `getattr_debug`. Listing the *modules*
+    that exist to resolve attributes by name means a helper a future SageMath
+    adds to one of them is scrubbed on arrival rather than found by probing.
+
+    The source scan that would otherwise catch these cannot: 807 of the 1902
+    allowlisted names are compiled Cython with no readable source, and
+    `attrcall` is one of them.
+    """
+    from sagemath_mcp._sage_worker import _DANGEROUS_SAGE_MODULES
+
+    for module in ("sage.misc.call", "sage.cpython.getattr", "sage.cpython.debug"):
+        assert module in _DANGEROUS_SAGE_MODULES, (
+            f"{module} defines attribute-by-name plumbing and must be scrubbed wholesale"
+        )

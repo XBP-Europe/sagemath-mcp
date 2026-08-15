@@ -1324,6 +1324,46 @@ Two things checked while there, both clean:
   recording as a property the allowlist now provides for free: before it, a
   custom startup was reachable by caller code.
 
+## 35. Sage ships its own attrgetter, and it is not called attrgetter — critical — DONE
+
+Item 33 blocked Python's `operator.attrgetter`/`methodcaller`. That was fixing the
+instance, not the class: SageMath has its own string-path primitives, and three
+were still offered. Each confirmed against 10.9, each writing a real file:
+
+| Payload | Result |
+|---|---|
+| `attrcall('save', '/tmp/x')(matrix([[1,2],[3,4]]))` | **file written** |
+| `raw_getattr(M, 'save')(M, '/tmp/x')` | **file written** |
+| `getattr_debug(M, 'save')('/tmp/x')` | **file written** |
+| `getattr_debug` chained through `__class__` → `__base__` → `__subclasses__()` | **reached the class list** |
+
+`getattr_debug` is a complete `getattr` equivalent, so the classic traversal was
+open through it. `raw_getattr` deliberately skips the descriptor protocol, so it
+returns a descriptor rather than a class — but it resolves *methods*, which is
+all a file write needs.
+
+**Why name-by-name blocking kept missing these.** I scanned every allowlisted
+callable for `getattr(` in its source. It found fourteen, none of them these:
+**807 of the 1902 allowlisted names are compiled Cython with no readable
+source**, and `attrcall` is one of them. A source scan cannot see this class.
+
+Fixed by provenance instead — `sage.misc.call`, `sage.cpython.getattr` and
+`sage.cpython.debug` are scrubbed wholesale, so a helper a future Sage adds to
+any of them is gone on arrival. That immediately caught two more nobody had
+named: `getattr_from_other_class` and `dir_with_other_class`. Ten names in
+total, and the allowlist lost four of them (`attrcall`, `raw_getattr`,
+`getattr_debug`, `type_debug`).
+
+**A process defect underneath it.** Adding a module to `_DANGEROUS_SAGE_MODULES`
+removed nothing, because the worker strips by a *baked* list and the derived one
+is only compared to it by a test. The list is baked deliberately — deriving it at
+startup resolves Sage's lazy imports and cost 1.8 s inside the caller's first
+evaluation — but there was no tooling to rebuild it, so the instruction was
+"regenerate" with no command. `make denylist` now does it
+(`scripts/generate_denylist.py`, emit inside Sage and splice on the host, since
+the container mounts the checkout read-only), and the drift test names the
+command instead of the intention.
+
 SSH authentication to GitHub broke during this session (`ssh -T git@github.com`
 returns `Permission denied (publickey)` with keys loaded). `gh` still works
 because it uses token auth. If it persists, `git remote set-url origin https://…`

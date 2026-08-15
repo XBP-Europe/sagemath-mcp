@@ -560,7 +560,8 @@ async def test_the_baked_in_denylist_still_matches_this_sage():
     missing = sorted(derived - _DANGEROUS_SAGE_NAME_LIST)
     assert not missing, (
         "this Sage defines dangerous helpers the baked-in list does not cover: "
-        f"{missing}. Regenerate _DANGEROUS_SAGE_NAME_LIST."
+        f"{missing}. Adding a module to _DANGEROUS_SAGE_MODULES does not strip "
+        f"anything until the baked list is rebuilt: run `make denylist`."
     )
 
 

@@ -104,6 +104,14 @@ _DANGEROUS_SAGE_MODULES = (
     "sage.misc.session",         # load_session unpickles a whole session
     "sage.misc.verbose",         # set_verbose_files writes where it is told
     "sage.misc.temporary_file",  # creates files outside our control
+    # Modules whose job is resolving an attribute from a name. Listed wholesale
+    # rather than by name because that has now missed three rounds running --
+    # Python's `operator`, then `attrcall`, then `raw_getattr`/`getattr_debug` --
+    # and because a source scan cannot find them: 807 of the allowlisted names
+    # are compiled Cython with no readable source, `attrcall` among them.
+    "sage.misc.call",        # attrcall, call_method, AttrCallObject
+    "sage.cpython.getattr",  # raw_getattr: getattr without the descriptor protocol
+    "sage.cpython.debug",    # getattr_debug: a full getattr equivalent
 )
 
 # Names bound in the namespace that no provenance rule catches, because their
@@ -165,48 +173,44 @@ _EXTERNAL_INTERFACE_EXPORTS = "sage.interfaces.all"
 # still exists below and a test re-runs it against the installed Sage, so a
 # version that adds or renames a helper fails the suite rather than the user.
 _DANGEROUS_SAGE_NAME_LIST: frozenset[str] = frozenset({
-    "Axiom", "ECM", "EmptyNewstyleClass", "EmptyOldstyleClass", "FriCAS", "Gap",
-    "Gap3", "Genus2reduction", "Gfan", "Giac", "Gp", "InlineFortran", "Kash",
-    "Khoca", "LazyImport", "LiE", "Lisp", "Macaulay2", "Magma", "Maple",
-    "Mathematica", "Mathics", "Matlab", "Mupad", "Mwrank", "Octave", "PSage",
-    "PackageInfo", "PickleDict", "PickleExplainer", "PickleInstance",
-    "PickleObject", "R", "Regina", "Sage", "SagePickler", "SageUnpickler", "Sh",
-    "Singular", "TestAppendList", "TestAppendNonlist", "TestBuild",
-    "TestBuildSetstate", "TestGlobalFunnyName", "TestGlobalNewName",
-    "TestGlobalOldName", "TestReduceGetinitargs", "TestReduceNoGetinitargs",
-    "add_attached_file", "atomic_dir", "atomic_write", "attach", "attached_files",
-    "attributes", "axiom", "call_pickled_function", "check_pickle",
-    "clean_namespace", "code_ctor", "compile_and_load", "cython", "cython_compile",
-    "cython_import", "cython_import_all", "cython_lambda", "db", "db_save",
-    "detach", "dumps", "ecm", "edit", "edit_devel", "ensure_startup_finished",
-    "explain_pickle", "explain_pickle_string", "file_and_line",
-    "find_objects_from_name", "finish_startup", "fortran", "four_ti_2", "fricas",
-    "frobby", "gap", "gap3", "gap3_version", "gap_reset_workspace",
-    "genus2reduction", "get_remote_file", "get_star_imports", "get_verbose",
-    "get_verbose_files", "gfan", "giac", "gnuplot", "gp", "gp_version",
-    "import_statement_string", "import_statements", "init", "installed_packages",
-    "interfaces", "is_during_startup", "is_loadable_filename",
-    "is_package_installed", "is_package_installed_and_updated", "kash",
-    "kash_version", "lazy_import", "lie", "lisp", "list_packages", "load",
-    "load_attach_mode", "load_attach_path", "load_cython", "load_sage_element",
-    "load_sage_object", "load_session", "load_submodules", "load_wrap", "loads",
-    "macaulay2", "magma", "magma_free", "make_None", "maple", "mathematica",
-    "mathics", "matlab", "matlab_version", "maxima", "modified_file_iterator",
-    "mupad", "mwrank", "name_is_valid", "octave", "package_manifest",
-    "package_versions", "pickleMethod", "pickleModule", "pickle_function",
-    "picklejar", "pip_installed_packages", "pip_remote_version", "pkgname_split",
-    "polymake", "povray", "qepcad", "qepcad_formula", "qepcad_version", "r",
-    "r_version", "read_data", "reduce_code", "regina", "register_unpickle_override",
-    "reload_attached_files_if_modified", "reset", "reset_load_attach_path",
-    "runsnake", "sage0", "sage0_version", "sage_eval", "sageobj", "sanitize",
-    "save", "save_cache_file", "save_session", "scilab", "set_edit_template",
-    "set_editor", "set_verbose", "set_verbose_files", "sh", "show_identifiers",
-    "singular", "singular_version", "spkg_type", "spyx_tmp", "tachyon_rt",
-    "template_fields", "test_fake_startup", "tmp_dir", "tmp_filename", "trace",
-    "unpickleMethod", "unpickleModule", "unpickle_all", "unpickle_appends",
-    "unpickle_build", "unpickle_extension", "unpickle_function", "unpickle_global",
-    "unpickle_instantiate", "unpickle_newobj", "unpickle_persistent",
-    "unset_verbose_files", "verbose"
+    "AttrCallObject", "AttributeErrorMessage", "Axiom", "ECM", "EmptyNewstyleClass",
+    "EmptyOldstyleClass", "FriCAS", "Gap", "Gap3", "Genus2reduction", "Gfan", "Giac", "Gp",
+    "InlineFortran", "Kash", "Khoca", "LazyImport", "LiE", "Lisp", "Macaulay2", "Magma",
+    "Maple", "Mathematica", "Mathics", "Matlab", "Mupad", "Mwrank", "Octave", "PSage",
+    "PackageInfo", "PickleDict", "PickleExplainer", "PickleInstance", "PickleObject", "R",
+    "Regina", "Sage", "SagePickler", "SageUnpickler", "Sh", "Singular", "TestAppendList",
+    "TestAppendNonlist", "TestBuild", "TestBuildSetstate", "TestGlobalFunnyName",
+    "TestGlobalNewName", "TestGlobalOldName", "TestReduceGetinitargs",
+    "TestReduceNoGetinitargs", "add_attached_file", "atomic_dir", "atomic_write", "attach",
+    "attached_files", "attrcall", "attributes", "axiom", "call_method", "call_pickled_function",
+    "check_pickle", "clean_namespace", "code_ctor", "compile_and_load", "cython",
+    "cython_compile", "cython_import", "cython_import_all", "cython_lambda", "db", "db_save",
+    "detach", "dir_with_other_class", "dumps", "ecm", "edit", "edit_devel",
+    "ensure_startup_finished", "explain_pickle", "explain_pickle_string", "file_and_line",
+    "find_objects_from_name", "finish_startup", "fortran", "four_ti_2", "fricas", "frobby",
+    "gap", "gap3", "gap3_version", "gap_reset_workspace", "genus2reduction", "get_remote_file",
+    "get_star_imports", "get_verbose", "get_verbose_files", "getattr_debug",
+    "getattr_from_other_class", "gfan", "giac", "gnuplot", "gp", "gp_version",
+    "import_statement_string", "import_statements", "init", "installed_packages", "interfaces",
+    "is_during_startup", "is_loadable_filename", "is_package_installed",
+    "is_package_installed_and_updated", "kash", "kash_version", "lazy_import", "lie", "lisp",
+    "list_packages", "load", "load_attach_mode", "load_attach_path", "load_cython",
+    "load_sage_element", "load_sage_object", "load_session", "load_submodules", "load_wrap",
+    "loads", "macaulay2", "magma", "magma_free", "make_None", "maple", "mathematica", "mathics",
+    "matlab", "matlab_version", "maxima", "modified_file_iterator", "mupad", "mwrank",
+    "name_is_valid", "octave", "package_manifest", "package_versions", "pickleMethod",
+    "pickleModule", "pickle_function", "picklejar", "pip_installed_packages",
+    "pip_remote_version", "pkgname_split", "polymake", "povray", "qepcad", "qepcad_formula",
+    "qepcad_version", "r", "r_version", "raw_getattr", "read_data", "reduce_code", "regina",
+    "register_unpickle_override", "reload_attached_files_if_modified", "reset",
+    "reset_load_attach_path", "runsnake", "sage0", "sage0_version", "sage_eval", "sageobj",
+    "sanitize", "save", "save_cache_file", "save_session", "scilab", "set_edit_template",
+    "set_editor", "set_verbose", "set_verbose_files", "sh", "shortrepr", "show_identifiers",
+    "singular", "singular_version", "spkg_type", "spyx_tmp", "tachyon_rt", "template_fields",
+    "test_fake_startup", "tmp_dir", "tmp_filename", "trace", "type_debug", "unpickleMethod",
+    "unpickleModule", "unpickle_all", "unpickle_appends", "unpickle_build",
+    "unpickle_extension", "unpickle_function", "unpickle_global", "unpickle_instantiate",
+    "unpickle_newobj", "unpickle_persistent", "unset_verbose_files", "verbose",
 })
 
 

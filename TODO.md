@@ -23,3 +23,55 @@ out of date.
       needs its own round of testing against real Sage.
 - [ ] Smithery: connect the repository at https://smithery.ai/new with an account that owns it; `smithery.yaml` is already in place and read from the default branch.
 - [ ] Glama: already auto-indexed; claim the listing at https://glama.ai with a GitHub account that owns the repository ([review item 7](REVIEW_ACTIONS.md)) — needs repository-owner access.
+
+## Letting more legitimate mathematics through
+
+From categorising all 5,266 refusals SageMath's own doctest corpus provokes
+(ROADMAP.md has the framing; REVIEW_ACTIONS.md items 45 and 46 have the security
+half). Each count is measured, each case reproduced against SageMath 10.9.
+
+- [ ] **`nonlocal`, and probably `global`.** 33 refusals.
+      `forbid_global_stmt` and `forbid_nonlocal_stmt` are bare policy flags with
+      no comment, no recorded rationale and no test named for either. `nonlocal`
+      is the clear one: it rebinds a name in an enclosing *function*, so it
+      cannot touch the namespace at all, and
+      `def outer(): ... def inner(): nonlocal total` is refused today. `global`
+      needs one round of thought — it binds at module scope — but a caller can
+      already assign there, and item 37's withheld-name rule governs what the
+      binding is allowed to name. Cheap, and it is ordinary Python that
+      mathematics uses for accumulators.
+
+- [ ] **Room for a pasted matrix.** `max_source_chars` is 8,000, and a 40×40
+      integer matrix written out is 17,706 — refused before anything looks at
+      it. Three corpus examples trip the limit and all three are literal data
+      tables, which is exactly the shape a physicist pastes. The limit exists to
+      bound parse cost, so the question is what number does that without
+      refusing a matrix; `max_ast_nodes` already bounds the real work.
+
+- [ ] **Names created at run time by `inject_variables()`.** 741 refusals of
+      undeclared symbols, and this is the honest part: `R.<u, v> = QQ[]` works
+      because the preparser binds `u` and `v` statically, but
+      `A = SomeAlgebra(...)` followed by `A.inject_variables()` creates names no
+      static analysis can see. A namespace diff would find them and must not be
+      used — `lazy_import('os', 'system')` gains a binding the same way, which
+      is why `_CALLER_BOUND_NAMES` is built from the AST. The narrow version is
+      to recognise the call itself and learn the names from the object's own
+      `variable_names()`, which is delicate enough to deserve its own pass.
+
+- [ ] **Refusal messages that name the native equivalent.** ~2,300 refusals.
+      `gap('SymmetricGroup(5)')` is told only that `gap` is not offered, when
+      the answer is `SymmetricGroup(5)` itself or `libgap`; `singular('...')` is
+      `I.groebner_basis()`; `attrcall('bruhat_le')` is
+      `lambda a, b: a.bruhat_le(b)`. The pattern already exists for imports —
+      numpy is pointed at `matrix(RDF, ...)` — and
+      `test_the_blocked_interfaces_do_not_block_the_mathematics` already proves
+      each equivalent works, so this is writing down what that test knows.
+
+- [ ] **Execute the corpus rather than only validating it.** The sweep proves
+      this server would *accept* Sage's mathematics; it does not prove Sage
+      computes it. A bounded spike measured 26.5 examples/second and 98.3%
+      output agreement using SageMath's own `SageOutputChecker`. Sampled
+      nightly, never on the pull-request path. See
+      [docs/sage_doctest_corpus.md](docs/sage_doctest_corpus.md) for the three
+      things a real harness needs — expected exceptions, block dependencies, and
+      warning output — each of which caused a false failure in the spike.

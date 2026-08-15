@@ -33,6 +33,28 @@ item 7: the Smithery and Glama submissions need repository-owner access.
 - [ ] Glama: claim the auto-indexed listing — needs owner access
 - [ ] Cut 0.5.1. Security fixes and a user-visible behaviour change are unreleased while 0.5.0 is the live version.
 
+## Letting more legitimate mathematics through (measured 2026-08-15)
+
+Running SageMath's own doctests through the validator — 432,878 examples,
+`tests/test_sage_doctest_corpus.py` — accepts 98.59% of what is in scope. The
+5,266 refusals were categorised by whether the security justification holds
+(REVIEW_ACTIONS.md items 45 and 46), and everything that failed that test has
+been fixed.
+
+What remains is that breakdown read the other way round: not *is this refusal
+justified* but *what would it take for this mathematics to work?* Five items
+came out of it, each with the count that motivates it and each reproduced
+against SageMath 10.9 — `nonlocal` and `global`, room for a pasted matrix,
+run-time names from `inject_variables()`, refusal messages that name the native
+equivalent, and executing the corpus rather than only validating it. They are in
+[TODO.md](TODO.md) with the detail.
+
+Deliberately *not* among them: the external CAS interfaces (2,153 refusals),
+whose mathematics is reachable in-process and tested to be; the 538 uses of
+Sage's internal spellings for mathematics that has a public one; and the
+evaluation primitives, which stay refused whatever the namespace holds. Those
+are boundaries, not gaps.
+
 ## Competitive position (surveyed 2026-08-13)
 
 ### The SageMath MCP field

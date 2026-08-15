@@ -78,7 +78,7 @@ Whether the task is symbolic calculus, number theory, linear algebra, differenti
 | **Statistics** | `statistics_summary` | Sage | Mean, median, population & sample variance/std dev, min, max |
 | **Probability** | `distribution_operation` | Sage | Normal, exponential, Poisson, chi-squared, Student-t, uniform, beta, gamma; PDF, CDF, quantile, analytic mean/variance, sampling |
 | **Visualization** | `plot_expression`, `plot3d_expression`, `plot_multi_expression` | Sage | 2D plots, 3D surface plots, multi-function overlays as base64-encoded PNG |
-| **Numeric methods** | `find_root` | Sage | Numeric root-finding in an interval via Sage's `find_root()` |
+| **Numeric methods** | `find_root` | Sage | Numeric root-finding in an interval via Sage's `find_root()`, from an expression or an equation |
 | **Vector calculus** | `vector_calculus_operation` | Sage | Gradient, divergence, curl, Laplacian on scalar/vector fields |
 | **Session control** | `reset_sage_session`, `interrupt_sage_session`, `cancel_sage_session` | Worker | Clear state, or stop a computation with or without keeping variables |
 | **Named workspaces** | `start_sage_session`, `list_sage_sessions`, `stop_sage_session` | Worker | Several independent variable namespaces per client |

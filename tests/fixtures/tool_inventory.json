@@ -393,12 +393,12 @@
       }
     },
     "find_root": {
-      "description": "Find a numeric root of an expression in a given interval",
+      "description": "Find a numeric root of an expression or equation in a given interval",
       "input_schema": {
         "additionalProperties": false,
         "properties": {
           "expression": {
-            "description": "Expression to find root of (e.g. 'x - cos(x)')",
+            "description": "Expression or equation to find a root of (e.g. 'x - cos(x)', or 'E - 0.6*sin(E) = 0.75')",
             "type": "string"
           },
           "lower_bound": {

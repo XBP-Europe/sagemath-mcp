@@ -141,6 +141,23 @@ GROUPS: dict[str, list] = {
         # doc: 'x - cos(x)' -- the Dottie number
         ("doc:dottie number", lambda c: S.find_root("x - cos(x)", "x", 0.0, 1.0, ctx=c),
          "root", approx(0.7390851332151607, 1e-9)),
+        # doc: 'E - 0.6*sin(E) = 0.75' -- Kepler's equation, stated as an
+        # equation because that is how it is written and how it arrives.
+        ("doc:keplers equation",
+         lambda c: S.find_root("E - 0.6*sin(E) = 0.75", "E", 0.0, 3.0, ctx=c),
+         "root", approx(1.3331346926634313, 1e-9)),
+        ("equation with ==",
+         lambda c: S.find_root("E - 0.6*sin(E) == 0.75", "E", 0.0, 3.0, ctx=c),
+         "root", approx(1.3331346926634313, 1e-9)),
+        # The same root the plain-expression way: the two spellings must agree.
+        ("equation rearranged by hand",
+         lambda c: S.find_root("E - 0.6*sin(E) - 0.75", "E", 0.0, 3.0, ctx=c),
+         "root", approx(1.3331346926634313, 1e-9)),
+        # A keyword argument is not an equation. This is why the split happens
+        # only after the whole string fails to parse.
+        ("keyword argument is not an equation",
+         lambda c: S.find_root("log(x, base=2) - 1", "x", 1.0, 4.0, ctx=c),
+         "root", approx(2.0, 1e-9)),
     ],
     "matrix_multiply": [
         ("2x2", lambda c: S.matrix_multiply([[1, 2], [3, 4]], [[5, 6], [7, 8]], ctx=c),

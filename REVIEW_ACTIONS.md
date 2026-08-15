@@ -1591,7 +1591,7 @@ returns `Permission denied (publickey)` with keys loaded). `gh` still works
 because it uses token auth. If it persists, `git remote set-url origin https://…`
 with `gh auth setup-git` routes git through the same token.
 
-## 40. The dunder rule refused Sage's own function syntax — high — DONE
+## 43. The dunder rule refused Sage's own function syntax — high — DONE
 
 Not an escape. The opposite failure, and the one this project's security suite
 is structurally unable to see: an over-block that refuses ordinary mathematics.
@@ -1634,3 +1634,38 @@ Both directions are now regression-tested: the four function-definition forms in
 `PREPARSER_FORMS`, and in `test_security_bypass.py` that `__tmp__` cannot be
 read in any position, that no other dunder gained a write, and that
 `obj.__tmp__ = 1` is still an attribute write on a dunder.
+
+## 44. Two refusals that told a model nothing it could act on — medium — DONE
+
+Found by running the physics and numerics cases against Claude, Gemini and
+Codex rather than by reading the code. All three met the same two walls, and the
+walls were right — what was wrong was what they said.
+
+**`find_root` could not take an equation.** Kepler's equation is written
+`E - e sin E = M`, and that is how every model sent it. The reply was
+`invalid syntax (<string>, line 1)`, from `sage_eval` and about a string the
+caller never wrote as Python. `solve_equation` has accepted the form since it
+was written, so the two tools disagreed about what an equation is. Now split the
+same way, and only after the plain expression fails to parse — a keyword
+argument (`log(x, base=2) - 1`) contains an `=` and must not be split.
+
+**"Import statements are disabled for Sage executions."** True, deliberate, and
+useless. Gemini opens numerical work with `import numpy as np`, and failed
+`ext-phys-schrodinger-fd`, `ext-phys-anharmonic` and `ext-phys-bessel-zero` in a
+row without ever recovering — while Claude, which does not write the line,
+passed all three. The refusal now adds that SageMath is already loaded and names
+what to use instead. Re-run against the same model: two of the three pass.
+
+The measurement is the point. This server's clients are models that retry on
+what they are told, which the undeclared-symbol message already recognises
+("declare it first with `var('w')`"); these two had not been held to the same
+standard, and the cost was invisible until a model was actually watched hitting
+them. The third case still fails, on `bessel_Jn_zeros` — SciPy's name for
+Bessel zeros, which SageMath does not have. That refusal is correct and its
+message already says to check the spelling.
+
+Not fixed, and deliberately: the allowlist refusal does not say whether the name
+exists in SageMath at all, so a hallucinated name and a genuinely missing one
+read alike. Telling them apart means reporting what the namespace holds, and
+`test_the_allowlist_message_never_leaks_what_exists` exists to prevent exactly
+that.

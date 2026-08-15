@@ -76,7 +76,7 @@ All math tools use **SageMath** as the computation backend.
 | `plot_expression` | Sage | Render a 2D plot and return a base64-encoded PNG image. |
 | `plot3d_expression` | Sage | Render a 3D surface plot and return a base64-encoded PNG image. |
 | `plot_multi_expression` | Sage | Overlay multiple functions in a single 2D plot. |
-| `find_root` | Sage | Numeric root-finding in an interval via Sage's `find_root()`. |
+| `find_root` | Sage | Numeric root-finding in an interval via Sage's `find_root()`. Accepts an expression or an equation (`E - 0.6*sin(E) = 0.75`). |
 | `vector_calculus_operation` | Sage | Gradient, divergence, curl, Laplacian on scalar/vector fields. |
 | `graph_operation` | Sage | Named graphs and adjacency dicts; chromatic number, connectivity, planarity, diameter, shortest path. |
 | `group_operation` | Sage | Symmetric, dihedral, cyclic, alternating groups; order, abelian/cyclic test, center, exponent. |

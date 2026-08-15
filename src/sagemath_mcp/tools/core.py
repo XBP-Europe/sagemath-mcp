@@ -296,9 +296,15 @@ async def factor_expression(
     return {"factored": result}
 
 
-@mcp.tool(description="Find a numeric root of an expression in a given interval")
+@mcp.tool(description="Find a numeric root of an expression or equation in a given interval")
 async def find_root(
-    expression: Annotated[str, Field(description="Expression to find root of (e.g. 'x - cos(x)')")],
+    expression: Annotated[
+        str,
+        Field(
+            description="Expression or equation to find a root of "
+            "(e.g. 'x - cos(x)', or 'E - 0.6*sin(E) = 0.75')"
+        ),
+    ],
     variable: Annotated[str, Field(description="Variable")] = "x",
     lower_bound: Annotated[float, Field(description="Left bound of search interval")] = -10.0,
     upper_bound: Annotated[float, Field(description="Right bound of search interval")] = 10.0,
@@ -308,12 +314,27 @@ async def find_root(
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
     session = await runtime.resolve_session(ctx.session_id, session)
+    # An equation is what a caller reaches for when the problem is stated as one
+    # -- Kepler's `E - e sin E = M`, a matching condition, a threshold. Every
+    # model tried it, and `sage_eval` answered "invalid syntax (<string>, line
+    # 1)", which names neither the cause nor the fix. `solve_equation` has always
+    # accepted the form; this splits the same way, and only after the plain
+    # expression fails to parse, so `f(x, base=2) - 1` is untouched.
     code = (
         _sage_prelude([variable])
         + textwrap.dedent(
             f"""
         _var = var({_encode_literal(variable)})
-        _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
+        _text = {_encode_literal(expression)}
+        try:
+            _expr = sage_eval(_text, locals=_locals)
+        except SyntaxError:
+            _sep = '==' if '==' in _text else '='
+            _sides = _text.split(_sep)
+            if len(_sides) != 2:
+                raise
+            _expr = (sage_eval(_sides[0].strip(), locals=_locals)
+                     - sage_eval(_sides[1].strip(), locals=_locals))
         float(find_root(_expr, {lower_bound}, {upper_bound}))
         """
         )

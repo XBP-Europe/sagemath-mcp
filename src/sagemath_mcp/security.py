@@ -519,8 +519,18 @@ def validate_module(
                     policy=policy,
                 )
             if not all(_is_allowed_import(mod, policy) for mod in modules):
+                # Say what to do instead. Gemini opens numerical work with
+                # `import numpy as np` or `from sage.all import *`, was told only
+                # that imports are disabled, and did not recover across three
+                # cases -- while the same questions passed on a client that
+                # happened not to write the line. The namespace already holds
+                # everything the import was for, which is a fix the caller can
+                # act on; "disabled" is not.
                 _raise_violation(
-                    "Import statements are disabled for Sage executions",
+                    "Import statements are disabled for Sage executions. "
+                    "SageMath is already loaded: use matrix, vector, RDF, srange, "
+                    "numerical_integral, desolve_odeint and the rest directly, "
+                    "without importing anything",
                     code=code,
                     policy=policy,
                 )

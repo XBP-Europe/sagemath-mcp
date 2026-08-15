@@ -437,6 +437,15 @@ PREPARSER_FORMS: list[tuple[str, str]] = [
     # Greek names are real Sage spellings; the linter reads them as Latin
     # look-alikes.
     ("unicode-identifier", "var('α')\nα + 1 == α + 1"),  # noqa: RUF001
+    # The function-definition syntax, which is the first thing in the Sage
+    # tutorial and the way a physicist writes a potential. It expands to
+    # `__tmp__=var("x"); f = symbolic_expression(...).function(x)`, and this
+    # server validates the preparsed source -- so the dunder rule refused all
+    # four of these until `__tmp__` was allowed as a store.
+    ("function-definition-syntax", "f(x) = x^2 + 1\nf(3) == 10"),
+    ("function-definition-two-variables", "g(x, y) = x*y\ng(3, 4) == 12"),
+    ("function-definition-declares-its-argument", "V(r) = -1/r\nV(2) == -1/2"),
+    ("function-definition-is-symbolic", "h(x) = sin(x)^2 + cos(x)^2\nh(x).simplify_full() == 1"),
 ]
 
 
@@ -469,6 +478,7 @@ async def test_the_preparser_behaves_like_sage() -> None:
         "integrate(x^2, x)",
         "var('t')\nt^2 + 1",
         "f = function('f')\nf(x)",
+        '__tmp__=var("x"); f = symbolic_expression(x**Integer(2)).function(x)',
         "[is_prime(j) for j in range(10)]",
         "def fact(k):\n    return 1 if k <= 1 else k*fact(k - 1)\nfact(6)",
         "match 1:\n    case int() as found:\n        found",

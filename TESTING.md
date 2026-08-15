@@ -28,6 +28,8 @@ that gap.
 | `test_cli_harness.py` | no | The extended CLI harness's own verdict logic, fed synthetic wire logs |
 | `test_math_coverage.py` | **partly** | Mathematics that must *work*: binding forms and allowlist reachability without Sage, then truths Sage evaluates, equivalent spellings and preparser behaviour with it |
 | `test_research_workflows.py` | **yes** | Multi-step sessions on open problems — Collatz, Goldbach, twin primes, odd perfect numbers, zeta zeros, BSD, Erdős–Straus, three cubes, abc. The realistic workload, and the strongest stress on the allowlist |
+| `test_numerical_workflows.py` | **yes** | Floating point, where the remembered answer is wrong: cancellation, conditioning, Newton's rate, order of accuracy, CFL, stiffness, quadrature over the wrong domain |
+| `test_physics_workflows.py` | **yes** | Physics sessions that end at a measured number — Wien and the Sun's temperature, Stefan–Boltzmann, Mercury's 43″/century, the oscillator ladder, anharmonic diagonalisation, phonons, Maxwell, the Bohr radius, a decay fit, the double pendulum |
 | `test_integration.py` | **yes** | Real Sage session lifecycle, monitoring, large payloads, and the drift checks that keep the allowlist and denylist honest against the installed Sage |
 | `test_math_examples.py` | **yes** | Every tool against the examples in its own documentation |
 | `test_syntax_variants.py` | **yes** | The input spellings each tool must accept or reject |
@@ -124,6 +126,18 @@ Two cases are stateful on purpose. They define a variable in one call and read
 it in a second, which no model can fake, so they prove session state survives
 between separate MCP invocations.
 
+The `numerics` and `physics` domains sharpen point 1. A question with no
+memorable answer only tests whether the model *tried*; these have an answer that
+is memorable and **wrong** — π²/6 for a sum truncated at 10⁶, `0.5` for a
+discretised oscillator, 43″ for Mercury when four figures are 42.98. Recall
+lands close enough to sound certain, so the expected values carry more
+significant figures than anyone memorises, and the only route to them is the
+server.
+
+```bash
+uv run python -m tests.cli_integration.run_extended --cli all --domain numerics,physics
+```
+
 Each CLI needs its own flag to use tools non-interactively: Claude
 `--allowedTools`, Gemini `--yolo`, Codex `exec --skip-git-repo-check`. Without
 them the model silently declines every call and the run looks like a server
@@ -151,6 +165,25 @@ mathematics, and where state that silently fails to persist between calls shows
 up as a `NameError` five steps in. Each test is a sitting at a genuinely open
 problem, so the assertions are invariants ("every even number in this range is a
 sum of two primes") rather than remembered constants wherever possible.
+
+**End a physics test at a number the session did not choose.**
+`test_physics_workflows.py` computes quantities with an external referee — the
+CODATA constants, the Sun's effective temperature, Mercury's perihelion advance
+— so a sign error, a dropped `c^2` or a solver that quietly returned its initial
+condition all fail. "The code ran" is not an assertion. The same file is the
+only place the idioms a physicist types are exercised end to end: `V(r) = -1/r`,
+`function('theta')(t)`, `desolve_odeint` over `srange`, `units.*`. The first of
+those was *refused* by the dunder rule until item 43, and nothing else in the
+suite used it.
+
+**Assert the failure mode, not just the success.** `test_numerical_workflows.py`
+is built around the cases where a plausible answer is a wrong one: the naive
+quadratic formula, a double-precision Hilbert solve whose residual looks fine,
+an explicit step across the CFL limit, a quadrature error estimate that is
+accurate about the wrong domain. Each test computes the naive result *and* the
+trustworthy one and asserts they differ by what the theory predicts, because a
+test that only checks the good path cannot tell a working numeric from a lucky
+one.
 
 **A suite of blocks needs a counterweight.** Every test in
 `test_security_bypass.py` asserts something is *refused*, so a policy that

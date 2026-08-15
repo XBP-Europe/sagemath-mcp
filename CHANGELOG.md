@@ -221,6 +221,22 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   physics session, not by a security review — an over-block passes every test in
   a suite that only asserts refusals.
 
+- **`find_root` accepts an equation.** Kepler's equation arrives written as
+  `E - 0.6*sin(E) = 0.75`, every CLI passed it that way, and `sage_eval`
+  answered `invalid syntax (<string>, line 1)` — which names neither the cause
+  nor the fix, while `solve_equation` had always accepted the form. The string
+  is split the same way, and only after the plain expression fails to parse, so
+  `log(x, base=2) - 1` is untouched.
+
+- **The import refusal now says what to do instead.** "Import statements are
+  disabled for Sage executions" is true and useless: Gemini opens numerical work
+  with `import numpy as np`, was told only that imports are disabled, and failed
+  three physics cases in a row without recovering. The message now adds that
+  SageMath is already loaded and names what to reach for. The same three cases
+  were re-run against the same model: two now pass, and the third fails on a
+  function Gemini invented (`bessel_Jn_zeros`, which is SciPy's name), where the
+  refusal is correct.
+
 ### Added
 
 - **Two suites of the workload this server exists for.**
@@ -246,6 +262,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `--domain numerics,physics`.
 - The extended CLI runner distinguishes `DODGED` from `WRONG_ANSWER`, using the
   `forbidden` markers each case already carried and nothing read.
+- **The runner reports what the server actually said.** `TOOL_ERROR` used to
+  print "the server returned isError for a tool call", so every diagnosis meant
+  re-running with the temporary wire log kept. It now quotes the message, which
+  turned three opaque Gemini failures into one word — `import` — on the first
+  read.
+- **A failed call whose *mathematics* Sage rejected no longer fails the case.**
+  A divergent integral, a bracket with no sign change, an unevaluated `limit()`
+  that `N()` cannot reduce: the model tries something else and answers
+  correctly, which is a session working. Refusals, dead workers and timeouts
+  stay fatal whatever happens afterwards — those are the defects this suite
+  exists to catch — and nothing passes without an accepted tool that succeeded
+  and the expected answer.
 
 - **The sdist shipped one file of documentation, not eight.** `MANIFEST.in`
   listed `USAGE.md`, `TESTING.md`, `AGENTS.md`, `INSTALLATION.md` and everything

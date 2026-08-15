@@ -154,7 +154,6 @@ _DANGEROUS_BARE_NAMES = (
     # any provenance entry that matches nothing, because an entry that looks
     # like protection and is not is worse than no entry.
     "pari",         # pari('system("id")') ran a shell command as the container user
-    "operator",     # attrgetter/methodcaller: attribute access the AST cannot see
     "warnings",     # a module object, and a module object has __builtins__
     "oeis",         # queries oeis.org: egress from a sandbox with no network need
     "install_doc",  # writes documentation to a caller-chosen path
@@ -162,7 +161,21 @@ _DANGEROUS_BARE_NAMES = (
     "view",         # same
     "animate",      # writes an animation file
     "html",         # renders to disk
-    "latex",        # latex.eval() writes and runs a toolchain
+    # `latex` and `operator` were here and are not any more. Both were removed
+    # for something they carry rather than something they are, and in both cases
+    # the thing they carry is refused by name in its own right:
+    #
+    #   latex.eval()          runs the toolchain -- and `eval` is a forbidden
+    #                         attribute, so `latex.eval(...)` is still blocked.
+    #   operator.attrgetter   is attribute access the AST cannot see -- and
+    #                         `attrgetter`, `methodcaller` and `itemgetter` are
+    #                         forbidden names in every position.
+    #
+    # What the removal cost, measured against SageMath's own doctests: `latex`
+    # was the single most-refused name in the corpus at 1,387 uses, while
+    # `(x^2+1)._latex_()` was allowed and returns the identical string -- the
+    # policy blocked the idiom and shipped the result. `operator.le` is how a
+    # poset is built, 206 times. See REVIEW_ACTIONS.md item 46.
     "search_src",   # reads the installation
     "search_doc",
     "reference",
@@ -317,9 +330,19 @@ def _strip_forbidden_modules(ns: dict[str, Any]) -> None:
     `from sage.all import *` binds os, sys and friends as ordinary globals, so
     `m = os` handed caller code the real module. The validator now refuses to
     read those names, and this makes the object unreachable even if it does.
+
+    One module survives, and only in pieces. `operator` stays a forbidden parent
+    -- `m = operator` is refused, and so is every attribute of it -- except for
+    the arithmetic and comparison functions named in
+    `SecurityPolicy.allowed_module_attributes`, which the validator lets through
+    one at a time. Keeping the object in the namespace is what makes those
+    spellings resolve; keeping the module forbidden is what makes everything
+    else about it, including anything a future Python adds, refused by default.
     """
+    permitted = {module for module, _ in SECURITY_POLICY.allowed_module_attributes}
     for name in SECURITY_POLICY.forbidden_attribute_parents:
-        ns.pop(name, None)
+        if name not in permitted:
+            ns.pop(name, None)
 
 
 # Builtins that are dangerous in this context and have no place in a maths
@@ -560,6 +583,16 @@ def _execute(
                 result_obj = eval(compile(compiled.tail, "<sagecell>", "eval"), namespace)
                 result_type = "expression"
         stdout_value = stdout_buffer.getvalue() if stdout_buffer else ""
+        if result_obj is not None and not trusted:
+            # `_` is the previous result, as in every REPL Sage ships. It was
+            # refused 694 times across SageMath's own doctests -- `_.parent()`,
+            # `_.simplify()` -- and never for a security reason: this worker
+            # simply never bound it. A session that keeps variables between
+            # calls can keep this one. Caller code only: a tool's generated
+            # snippet must not move it, or `_` would mean whichever helper the
+            # model happened to call in between.
+            namespace["_"] = result_obj
+            _CALLER_BOUND_NAMES.add("_")
         result_repr = None if result_obj is None else repr(result_obj)
         latex_repr = _latex(result_obj) if result_obj is not None and want_latex else None
         elapsed_ms = (time.perf_counter() - start) * 1000.0

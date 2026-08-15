@@ -1670,7 +1670,7 @@ read alike. Telling them apart means reporting what the namespace holds, and
 `test_the_allowlist_message_never_leaks_what_exists` exists to prevent exactly
 that.
 
-## 45. A forbidden global shadows an ordinary local — medium — OPEN
+## 45. A forbidden global shadows an ordinary local — medium — DONE (item 46)
 
 Found by running SageMath's own doctest corpus through the validator: 432,878
 examples out of the installed library, 97.81% of the in-scope ones accepted, and
@@ -1730,7 +1730,7 @@ So the capability is present and the idiom is not. Worth a decision rather than
 an accident. Same for `_`, the REPL's previous-result name, which the corpus
 uses 539 times and a stateful session could plausibly offer.
 
-## 46. Where the policy prohibits more than security requires — medium — OPEN
+## 46. Where the policy prohibits more than security requires — medium — DONE
 
 Item 45 named one over-block. This is the whole picture, from categorising all
 8,218 refusals the SageMath doctest corpus provokes
@@ -1795,3 +1795,57 @@ name is missing from the allowlist anywhere in the corpus.
 Each of the four items above is a policy change and gets its own test-first
 pass, verified against real Sage, with every payload in
 `test_security_bypass.py` still refused.
+
+### 46, resolved
+
+All four were changed, test-first, verified against SageMath 10.9, with every
+payload in `test_security_bypass.py` still refused. Corpus acceptance went from
+**97.81% to 98.39%** — 2,191 refusals removed, a 27% reduction — and the
+allowlist gained exactly two names, `latex` and `operator`.
+
+**`latex`** left `_DANGEROUS_BARE_NAMES`. It was there for `latex.eval()`, which
+runs the toolchain, and `eval` is refused as an attribute by an independent
+rule — so `latex(x^2+1)` works and `latex.eval('\LaTeX')` does not. 1,387
+refusals gone.
+
+**The shadowing class.** `db`, `sh`, `trace`, `edit`, `detach` and the eleven CAS
+interface spellings left `forbidden_call_names`, on a ground that is now
+asserted rather than assumed: every one of them is absent from the worker
+namespace *and* from the generated allowlist, so an unbound read is refused by
+deny-by-default and a caller's binding creates a fresh name holding their own
+value (`test_a_forbidden_name_is_only_released_while_it_is_unreachable`, and
+`test_the_released_names_are_absent_from_sage` against the real namespace).
+
+Two of them had to be re-cut where they actually live: `sage` is live and
+allowlisted, so `sage.misc.sh.sh('id')` and `sage.misc.trace.trace(code)` were
+reachable the moment the names were released — caught by the existing bypass
+suite, which is what it is for. Both are now `forbidden_attribute_parents`,
+which blocks the *path* and leaves `A.trace()` alone, since only the parents of
+an attribute chain are checked. `remove`, `rmdir`, `unlink` and `walk` left
+`forbidden_attribute_names`: they were there for `os.remove`, and `os` is
+unreadable as a name and forbidden as a parent, so they were reaching nothing
+but `list.remove`.
+
+The exemption for a caller-rooted chain excludes any name this server offers, so
+`if False: sage = 1` cannot claim `sage` — item 37's trap, in a new place, and
+tested.
+
+**`operator`** stays a forbidden parent and stays out of the namespace scrub, so
+the module object resolves while every attribute of it is refused *except* the
+arithmetic and comparison functions named in
+`SecurityPolicy.allowed_module_attributes`. `operator.le` works;
+`operator.attrgetter`, `operator.setitem` and `m = operator` do not. A future
+Python adding a dangerous function to the module is denied until someone reads
+it, which is the same default the caller allowlist uses.
+
+**`_`** is bound by the worker to the previous result, for caller code only —
+a tool's generated snippet must not move it, or `_` would mean whichever helper
+the model happened to call in between.
+
+**Not changed, and on the record.** `vars`, `locals`, `input` and `eval` stay
+refused as identifiers even though they are equally absent from the namespace.
+They are the Python evaluation primitives, and this policy is the last thing
+between a namespace regression and arbitrary execution; the corpus says the cost
+is about 30 examples in 432,878. `latex.check_file` and `latex.has_file` read
+whether a `.sty` exists and are allowed — an existence check against the
+installation, judged not worth a rule.

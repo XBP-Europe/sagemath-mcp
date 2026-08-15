@@ -33,9 +33,9 @@ Five assertions:
 | test | what it protects |
 |---|---|
 | `test_the_corpus_is_the_whole_library` | the harvest cannot silently evaporate: floors on files, docstrings, examples, and a ceiling on unparsable ones |
-| `test_this_server_accepts_the_mathematics_sagemath_documents` | the headline acceptance ratio, ≥ 96% |
+| `test_this_server_accepts_the_mathematics_sagemath_documents` | the headline acceptance ratio, ≥ 97.5% |
 | `test_every_refusal_is_a_rule_we_meant_to_write` | no refusal may come from a rule that is not named and capped in the file |
-| `test_the_known_over_blocks_have_not_spread` | the recorded debt cannot grow — and cannot silently disappear either |
+| `test_the_shadowing_rules_stay_emptied` | the three rules item 46 emptied of the shadowing class stay empty of it |
 | `test_the_blocked_interfaces_do_not_block_the_mathematics` | every scrubbed CAS interface's computation is still reachable in-process |
 
 `scripts/analyse_doctest_refusals.py` categorises the refusals by whether the
@@ -63,19 +63,27 @@ by reading the report a failing assertion prints.
 
 ```
 3,168 files, 60,094 docstrings, 432,878 examples
-accepted 366,210   refused 8,218   out of scope 58,268
-acceptance among in-scope examples: 97.81%
+accepted 368,401   refused 6,027   out of scope 58,268
+acceptance among in-scope examples: 98.39%
 ```
+
+The first measurement was 97.81%, with 8,218 refusals. Categorising those
+(below) found four that had no security justification; fixing them removed
+2,191 refusals and added two names to the allowlist.
 
 Out of scope means the example uses a capability this server does not offer:
 imports (19,149), examples tagged `# optional`/`# needs` (30,219), persistence,
 file paths, external CAS interfaces, `%` magics, network, and dunder protocol
 calls. Those are classified and counted, never asserted over.
 
-Of the 8,218 refusals: 35.8% have a strong security justification, 29.4% are not
-this server's doing (names the doctest created at run time), and **a third have
-no strong justification** — see REVIEW_ACTIONS.md items 45 and 46, which itemise
-them and propose the remedies.
+Of the original 8,218 refusals: 35.8% had a strong security justification, 29.4%
+were not this server's doing (names the doctest created at run time), and **a
+third had no strong justification**. Those four — `latex`, the
+forbidden-global-shadows-a-local class, `operator.le`, and the REPL's `_` — were
+fixed under REVIEW_ACTIONS.md items 45 and 46. What remains in those buckets is
+deliberate: `vars`, `locals`, `input` and `eval` stay refused as identifiers
+because they are the Python evaluation primitives, at a measured cost of about
+30 examples in 432,878.
 
 The most important negative result: **no mathematical name is missing from the
 allowlist anywhere in the corpus.** Every name refused as "not offered" is an

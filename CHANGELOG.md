@@ -256,6 +256,29 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   form, Maxwell's equations on a plane wave, the Bohr radius and 1/α from CODATA,
   a decay fit by two independent methods, and the double pendulum's energy
   conservation and sensitivity. 17 tests, ~17s against SageMath 10.9.
+- **Four refusals that had no security justification are gone**, found by
+  categorising every refusal SageMath's doctest corpus provokes and fixed
+  test-first with every bypass payload still refused. Corpus acceptance went
+  from 97.81% to **98.39%** — 2,191 refusals removed — and the allowlist gained
+  exactly two names.
+  - **`latex(...)` works again** (1,387 refusals). It was scrubbed alongside
+    `show`/`view`/`html`, which write files; it builds a string. `latex.eval()`
+    runs the toolchain and is still refused, by the rule that forbids `eval` as
+    an attribute.
+  - **A forbidden global no longer shadows an ordinary local or method** (575).
+    `A.trace()` is the trace of a matrix, `l.remove(x)` is a list, and `db`,
+    `gap`, `maxima` and `sh` are what people call their variables. Those names
+    are absent from both the namespace and the allowlist, so an unbound read is
+    still refused and a caller's binding is their own value — now asserted, in
+    the unit suite and against the real namespace. `sage.misc.sh.sh('id')` and
+    `sage.misc.trace.trace(code)` are cut as attribute *paths* instead, which is
+    where they live.
+  - **`operator.le` and the other arithmetic and comparison functions** (206).
+    The module stays forbidden and a named subset is let through, so
+    `Poset((divisors(30), operator.le))` works while `operator.attrgetter`,
+    `operator.setitem` and `m = operator` do not.
+  - **`_` holds the previous result** (694), as in every REPL Sage ships. Caller
+    code only: a tool call in between cannot move it.
 - **SageMath's own doctests, run against the validator.**
   `tests/test_sage_doctest_corpus.py` harvests every `sage: ` example in the
   installed SageMath — 432,878 of them across 3,168 sources — and pushes each

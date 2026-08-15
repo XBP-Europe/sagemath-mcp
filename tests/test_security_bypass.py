@@ -170,12 +170,23 @@ def test_forbidden_modules_are_absent_from_the_worker_namespace() -> None:
     """Second layer: even if a spelling slips past, there is nothing to bind.
 
     `from sage.all import *` binds os, sys and friends as ordinary globals.
+
+    `operator` is the one exception and it is deliberate: it stays in the
+    namespace so that `operator.le` resolves, while remaining a forbidden parent
+    so that everything reached through it is refused *except* the arithmetic and
+    comparison functions the policy names one at a time. The property this test
+    protects is unchanged for it -- see
+    `test_operator_is_a_subset_and_not_a_module`, which asserts that the module
+    object cannot be bound and that an unlisted attribute is refused.
     """
     from sagemath_mcp._sage_worker import _build_namespace
 
     namespace = _build_namespace()
+    permitted = {module for module, _ in SECURITY_POLICY.allowed_module_attributes}
     present = [
-        name for name in SECURITY_POLICY.forbidden_attribute_parents if name in namespace
+        name
+        for name in SECURITY_POLICY.forbidden_attribute_parents
+        if name in namespace and name not in permitted
     ]
     assert not present, f"forbidden modules reachable in the worker namespace: {present}"
 
@@ -774,13 +785,19 @@ def test_string_based_attribute_traversal_is_refused(code: str) -> None:
         validate_module(ast.parse(code))
 
 
-@pytest.mark.parametrize("name", ["operator", "warnings", "pari", "oeis"])
+@pytest.mark.parametrize("name", ["warnings", "pari", "oeis"])
 def test_dangerous_modules_are_not_offered_to_callers(name: str) -> None:
-    """`pari` ran a shell; `oeis` reached the network; `operator` traversed.
+    """`pari` ran a shell; `oeis` reached the network.
 
     `pari('system("id > /tmp/x")')` wrote a file as the container user -- the
     PARI *library* interface was never covered by the external-interface scrub
     that took `gp` and `maxima`, because it comes from `sage.libs.pari`.
+
+    `operator` was in this list and has moved to the test below: it is now live
+    in the namespace and offered by the allowlist, with every attribute of it
+    refused except the arithmetic and comparison functions. The property that
+    matters is unchanged and asserted there -- nothing that traverses by string
+    is reachable through it.
     """
     from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
 
@@ -790,6 +807,32 @@ def test_dangerous_modules_are_not_offered_to_callers(name: str) -> None:
     )
     with pytest.raises(SecurityViolation):
         validate_module(ast.parse(f"{name}.anything"))
+
+
+def test_operator_is_a_subset_and_not_a_module() -> None:
+    """What `operator` may be used for, and what it may not.
+
+    It stays a forbidden attribute parent, so the default for anything reached
+    through it is *refused*; a named list of arithmetic and comparison functions
+    is let through one at a time. That keeps the shape of the original defence
+    -- a future Python adding a dangerous function to `operator` is denied until
+    someone reads it -- while `Poset((divisors(30), operator.le))` works, which
+    is how a poset is built and which SageMath's own doctests do 206 times.
+    """
+    for allowed in ("operator.le", "operator.add(1, 2)", "sorted([2, 1], key=operator.neg)"):
+        validate_module(ast.parse(allowed), code=allowed, policy=SECURITY_POLICY)
+
+    for refused in (
+        "operator.attrgetter",
+        "operator.methodcaller",
+        "operator.itemgetter",
+        "operator.setitem",       # not dangerous, and not on the list either
+        "operator.anything_new",  # the point: unlisted means refused
+        "m = operator",           # the module object itself is not a value
+        "operator",
+    ):
+        with pytest.raises(SecurityViolation):
+            validate_module(ast.parse(refused), code=refused, policy=SECURITY_POLICY)
 
 
 def test_no_module_object_exposes_a_getattr_primitive() -> None:
@@ -1228,3 +1271,80 @@ def test_trusted_code_overwriting_a_caller_name_takes_it_back() -> None:
         "trusted code overwrote a caller's name and the caller kept the claim"
     )
     _sage_worker._CALLER_BOUND_NAMES.clear()
+
+
+# --- What the item-46 relaxations must NOT have opened ---------------------------
+# Five names stopped being refused by the AST: `latex`, `operator` (in part), and
+# the shadowing class -- `trace`, `sh`, `db`, `gap` and the CAS interface
+# spellings as a caller's own identifier. Each was justified by something that
+# has to stay true, so each of those things is asserted here.
+
+
+@pytest.mark.parametrize(
+    "label,payload",
+    [
+        # `latex` is readable again; the reason it may be is that the one method
+        # of it that runs the toolchain is refused by an independent rule.
+        ("latex.eval runs LaTeX", "latex.eval('\\\\LaTeX')"),
+        # `operator` is live in the namespace now, so everything that made it
+        # dangerous has to be refused one name at a time.
+        ("attrgetter through operator", "operator.attrgetter('__class__')('')"),
+        ("itemgetter through operator", "operator.itemgetter(0)([1])"),
+        ("methodcaller through operator", "operator.methodcaller('mro')(int)"),
+        ("the module object itself", "m = operator\nm.attrgetter('real')"),
+        ("an unlisted operator function", "operator.setitem"),
+        # `trace` and `sh` are no longer forbidden names, and the paths that made
+        # them forbidden are cut where they actually live.
+        ("shell through sage.misc.sh", "sage.misc.sh.sh('id')"),
+        ("debugger through sage.misc.trace", "sage.misc.trace.trace('1+1')"),
+        # The exemption for a caller's own root must not be claimable for `sage`,
+        # which this server *does* offer -- item 37's trap, in a new place.
+        ("sage claimed by a dead binding",
+         "if False:\n    sage = 1\nsage.misc.sh.sh('id')"),
+        ("sage claimed after the fact", "sage.misc.trace.trace('1+1')\nsage = 1"),
+        # The CAS interfaces are gone from the namespace and off the allowlist,
+        # which is the only reason their names could be released.
+        ("gap unbound", "gap('2+2')"),
+        ("maxima unbound", "maxima('2+2')"),
+        ("db unbound", "db('x')"),
+        ("trace unbound", "trace('1+1')"),
+        ("sh unbound", "sh('id')"),
+    ],
+)
+def test_the_item_46_relaxations_opened_nothing(label, payload) -> None:
+    module = ast.parse(payload)
+    with pytest.raises(SecurityViolation):
+        validate_module(module, code=payload, policy=SECURITY_POLICY)
+
+
+def test_a_forbidden_name_is_only_released_while_it_is_unreachable() -> None:
+    """The argument the shadowing fix rests on, asserted rather than assumed.
+
+    `db`, `gap`, `sh`, `trace` and the CAS spellings were released from the AST
+    policy on one ground: the object is not there. The worker removes them by
+    provenance and the generated allowlist does not offer them, so an unbound
+    read is refused by deny-by-default and a caller's binding creates a fresh
+    name holding their own value.
+
+    If a Sage upgrade puts any of them back in the namespace before `make
+    allowlist` is rerun, that ground disappears -- so the integration suite
+    checks the namespace itself (test_the_released_names_are_absent_from_sage),
+    and this checks the half that needs no Sage: none of them is offered.
+    """
+    from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
+
+    released = {
+        "db", "sh", "trace", "edit", "detach",
+        "gp", "maxima", "gap", "singular", "octave", "magma",
+        "mathematica", "maple", "matlab", "macaulay2", "sage0",
+    }
+    offered = released & set(ALLOWED_CALLER_NAMES)
+    assert not offered, (
+        f"{sorted(offered)} is released from the AST policy AND offered by the "
+        "allowlist -- one of the two has to change"
+    )
+
+    # And an unbound read of each is still refused, by deny-by-default.
+    for name in sorted(released):
+        with pytest.raises(SecurityViolation):
+            validate_module(ast.parse(f"{name}(1)"), code=f"{name}(1)")

@@ -643,3 +643,104 @@ async def test_the_predefined_symbols_are_live_in_a_session() -> None:
             assert answer == "2", f"{symbol!r} is not a live symbolic variable: {answer!r}"
     finally:
         await session.shutdown()
+
+
+# --- Layer 7: the mathematics item 46 gave back ----------------------------------
+# Each of these was refused by a rule aimed at something else, and each was found
+# by running SageMath's own doctests through the validator rather than by anyone
+# noticing. The counts are how often the corpus uses the form.
+
+ITEM_46_FORMS: list[tuple[str, str]] = [
+    # `trace` was a forbidden name, for `sage.misc.trace.trace(code)`.
+    ("matrix trace", "matrix(QQ, [[1, 2], [3, 4]]).trace() == 5"),
+    ("number field trace", "K.<a> = NumberField(x^2 - 2)\na.trace() == 0"),
+    ("trace as a variable", "trace = 5\ntrace * 2 == 10"),
+    # `remove` was a forbidden attribute, for `os.remove`.
+    ("list remove", "l = [1, 2, 3]\nl.remove(2)\nl == [1, 3]"),
+    ("graph vertex removal", "G = graphs.PetersenGraph()\nG.delete_vertex(0)\nG.order() == 9"),
+    # Ordinary variables whose names collide with a scrubbed Sage global.
+    ("db as a variable", "db = digraphs.DeBruijn(2, 2)\ndb.order() == 4"),
+    ("gap as a variable", "gaps = [2, 4]\ngap = max(gaps)\ngap == 4"),
+    ("sh as a variable", "sh = 2\nsh + 1 == 3"),
+    ("maxima as a variable", "maxima = 3\nmaxima^2 == 9"),
+    # `latex` builds a string and writes nothing; 1,387 uses in the corpus.
+    ("latex of an expression", "str(latex(x^2 + 1)) == 'x^{2} + 1'"),
+    ("latex agrees with the method", "str(latex(x^2 + 1)) == (x^2 + 1)._latex_()"),
+    # `operator.le`, which is how a poset is built; 206 uses.
+    ("operator.le builds a poset", "Poset((divisors(30), operator.le)).cardinality() == 8"),
+    ("operator.add", "operator.add(2, 3) == 5"),
+]
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_the_mathematics_item_46_gave_back() -> None:
+    session = await _session("item-46")
+    failures: list[str] = []
+    try:
+        for label, code in ITEM_46_FORMS:
+            try:
+                *setup, final = code.rstrip().split("\n")
+                answer = await _value(session, "\n".join([*setup, f"bool({final})"]))
+                if answer != "True":
+                    failures.append(f"{label}: expected True, got {answer!r}  <- {code!r}")
+            except Exception as exc:
+                failures.append(f"{label}: {type(exc).__name__}: {str(exc)[:130]}")
+    finally:
+        await session.shutdown()
+
+    assert not failures, "mathematics that item 46 restored is refused again:\n  " + "\n  ".join(
+        failures
+    )
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_underscore_holds_the_previous_result() -> None:
+    """`_` is what a REPL binds, and this server is stateful enough to bind it.
+
+    SageMath's doctests read it 694 times -- `_.parent()`, `_.simplify()` -- and
+    it was refused for no security reason at all: the worker had simply never
+    set it. Only caller code moves it, so a helper tool called in between cannot
+    change what `_` means.
+    """
+    session = await _session("underscore")
+    try:
+        assert await _value(session, "2 + 2") == "4"
+        assert await _value(session, "_ + 1") == "5"
+        assert await _value(session, "_ * 10") == "50"
+
+        # It follows the last *value*, not the last call: a statement leaves it be.
+        await _value(session, "n = 7")
+        assert await _value(session, "_") == "50"
+
+        # And it works with the objects a session actually produces.
+        assert await _value(session, "matrix(QQ, [[1, 2], [3, 4]]).det()") == "-2"
+        assert await _value(session, "_ + 1") == "-1"
+    finally:
+        await session.shutdown()
+
+
+@requires_sage
+def test_the_released_names_are_absent_from_sage() -> None:
+    """The ground the shadowing fix stands on, checked against the real namespace.
+
+    `db`, `gap`, `sh`, `trace` and the CAS spellings are no longer refused by the
+    AST because the objects are gone -- scrubbed by provenance, absent from the
+    generated allowlist. That is a fact about *this* SageMath, so it is asserted
+    against this SageMath: if an upgrade puts one back before `make allowlist` is
+    rerun, a caller's binding would authorize reading the real one.
+    """
+    from sagemath_mcp import _sage_worker
+
+    namespace = _sage_worker._build_namespace()
+    released = [
+        "db", "sh", "trace", "edit", "detach",
+        "gp", "maxima", "gap", "singular", "octave", "magma",
+        "mathematica", "maple", "matlab", "macaulay2", "sage0",
+    ]
+    live = [name for name in released if name in namespace]
+    assert not live, (
+        f"{live} are live in the worker namespace and no longer refused by name -- "
+        "either scrub them again or put them back in forbidden_call_names"
+    )

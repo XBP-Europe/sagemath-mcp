@@ -382,24 +382,23 @@ def rewrite_permitted_imports(
     """Drop the imports that would change nothing, before anything is validated.
 
     Callers cannot import, and that rule is load-bearing: an import is how you
-    get back everything the namespace scrub removed. But a great deal of what
-    arrives is an import that would achieve *nothing* -- a reflex line at the top
-    of a snippet, or a name the namespace already holds -- and refusing those
-    costs the whole snippet for no gain. Gemini opens numerical work with
+    get back everything the namespace scrub removed (item 27). But a great deal
+    of what arrives would achieve *nothing* -- a reflex line at the top of a
+    snippet, or a name the namespace already holds -- and refusing those costs
+    the whole snippet for no gain. Gemini opens numerical work with
     `import numpy as np` and then never uses `np`; that line was worth ignoring,
     not erroring on.
 
-    Three shapes are dropped, and the safety of all three is the same argument:
+    Three shapes are dropped, and the safety of all three is one argument:
     **nothing is imported, so nothing new becomes reachable.**
 
-    1. `from X import a, b` where every name is already offered *and* live. The
-       source module is never touched, so it does not matter what it is: the
-       caller ends up with the object they could already read. An alias is
-       checked against the name being imported, not the alias, so
-       `from sage.all import os as m` is still refused -- that was a real bypass.
+    1. `from X import a, b` where every name is already offered. The source
+       module is never touched, so what it is does not matter: the caller ends
+       up with the object they could already read. An alias is checked against
+       the name being *imported*, not the alias, so `from sage.all import os as
+       m` is still refused -- that was a real bypass.
     2. `from sage.all import *`, which is what the namespace already is.
-    3. Any import whose bound names are never read in this snippet. Binding
-       nothing changes nothing, and the code that follows runs.
+    3. A plain `import X` whose bound name is never read in this snippet.
 
     Everything else is left in place for the validator to refuse, with a message
     that now names the alternative.
@@ -423,24 +422,23 @@ def rewrite_permitted_imports(
     def replacement(node: ast.Import | ast.ImportFrom) -> list[ast.stmt] | None:
         """The statements to put in place of *node*, or None to leave it alone."""
         bound_by = {(alias.asname or alias.name).split(".", 1)[0] for alias in node.names}
-        star = any(alias.name == "*" for alias in node.names)
 
-        if star:
+        if any(alias.name == "*" for alias in node.names):
             # Only from the namespace's own source, and only as a no-op.
             if isinstance(node, ast.ImportFrom) and node.module in ("sage.all", "sage"):
                 return []
-            return None if bound_by - read else []
+            return None
 
         if isinstance(node, ast.Import) and not bound_by & read:
-            # A plain `import numpy as np` that nothing reads is a reflex line at
-            # the top of a snippet, and dropping it cannot change the result.
+            # A plain `import numpy as np` that nothing reads is a reflex line,
+            # and dropping it cannot change the result.
             #
             # Deliberately NOT extended to `from X import Y`. That form names a
-            # specific object, and a caller who asks for one this server does not
-            # offer deserves to be told now rather than on the next call, when
-            # the failure has moved to a bare `Y` and says nothing about the
-            # import. Measured on SageMath's own doctests, dropping unused
-            # from-imports moved acceptance from 98.6% to 91.0% -- 32,000
+            # specific object, and a caller who asks for one this server does
+            # not offer deserves to be told now rather than on the next call,
+            # when the failure has moved to a bare `Y` and says nothing about
+            # the import. Measured against SageMath's own doctests, dropping
+            # unused from-imports moved acceptance from 98.6% to 91.0% -- 32,000
             # examples whose clear refusal became a confusing one.
             return []
 
@@ -449,13 +447,13 @@ def rewrite_permitted_imports(
             if all(name in offered for name in wanted):
                 # Bind the object the caller could already read. Only an alias
                 # needs a statement; without one the name is already correct.
-                aliased = [alias for alias in node.names if alias.asname]
                 return [
                     ast.Assign(
                         targets=[ast.Name(id=alias.asname, ctx=ast.Store())],
                         value=ast.Name(id=alias.name, ctx=ast.Load()),
                     )
-                    for alias in aliased
+                    for alias in node.names
+                    if alias.asname
                 ]
         # `import X` binds a module object, which is a capability even when the
         # name looks familiar: `import sage.misc.persist` is not a no-op.

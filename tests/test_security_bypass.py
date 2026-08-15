@@ -14,10 +14,12 @@ import ast
 
 import pytest
 
+from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
 from sagemath_mcp.security import (
     SECURITY_POLICY,
     SecurityViolation,
     _bound_names,
+    rewrite_permitted_imports,
     validate_module,
 )
 
@@ -1496,3 +1498,109 @@ def test_a_forbidden_attribute_cannot_be_reached_by_alias(code: str) -> None:
     """
     with pytest.raises(SecurityViolation):
         validate_module(ast.parse(code))
+
+
+# --- Imports that change nothing are dropped, not refused -----------------------
+# Callers cannot import, and that rule is load-bearing (item 27). But much of
+# what arrives would achieve nothing -- a reflex `import numpy as np` nothing
+# reads, a name the namespace already holds -- and refusing those costs the
+# whole snippet for no gain. The safety argument for every shape dropped below
+# is one: nothing is imported, so nothing new becomes reachable.
+
+
+@pytest.mark.parametrize(
+    "label,payload",
+    [
+        ("unused reflex import", "import numpy as np\nmatrix(QQ, [[1, 2], [3, 4]]).det()"),
+        ("unused plain import", "import os\n2 + 2"),
+        ("a name already offered",
+         "from sage.rings.integer import Integer\nInteger(6).divisors()"),
+        ("an offered name, aliased",
+         "from sage.functions.log import exp as e_pow\ne_pow(0)"),
+        ("several offered names", "from sage.all import matrix, vector\nmatrix(QQ, [[1]])"),
+        ("star import of the namespace", "from sage.all import *\n2 + 2"),
+        ("stdlib name Sage also offers",
+         "from itertools import product\nlen(list(product([1], [2])))"),
+    ],
+)
+def test_an_import_that_changes_nothing_is_dropped(label, payload) -> None:
+    """Each of these validates, because the import is removed before it is judged."""
+    module = rewrite_permitted_imports(
+        ast.parse(payload), offered=ALLOWED_CALLER_NAMES, policy=SECURITY_POLICY
+    )
+    assert not [
+        node for node in ast.walk(module)
+        if isinstance(node, (ast.Import, ast.ImportFrom))
+    ], f"{label}: the import survived the rewrite"
+    validate_module(module, code=payload, policy=SECURITY_POLICY)
+
+
+@pytest.mark.parametrize(
+    "label,payload",
+    [
+        ("cython compiler",
+         "from sage.misc.cython import compile_and_load\ncompile_and_load('x')"),
+        ("gp interface", "from sage.interfaces.gp import Gp\nGp()"),
+        ("unpickle_global",
+         "from sage.misc.persist import unpickle_global\nunpickle_global('os', 'system')"),
+        ("os under a fresh name", "from sage.all import os as m\nm.getuid()"),
+        ("os under an offered name", "from sage.all import os as Integer\nInteger.getuid()"),
+        ("a withheld name aliased", "from sage.misc.sh import sh as helper\nhelper('id')"),
+        ("plain import of a used module", "import sage.misc.persist\nsage.misc.persist"),
+        ("numpy, used", "import numpy as np\nnp.array([1, 2])"),
+        ("star import of a used module",
+         "from sage.misc.persist import *\nunpickle_global('os', 'system')"),
+        # An unused from-import is NOT dropped: it names a specific object, and a
+        # caller asking for one this server does not offer is told now rather
+        # than on the next call, when the failure has moved to a bare name.
+        ("unused from-import", "from sage.misc.persist import unpickle_global\n2 + 2"),
+        ("unused from-import of a Sage internal",
+         "from sage.algebras.askey_wilson import AlgebraMorphism\n2 + 2"),
+    ],
+)
+def test_an_import_that_would_change_something_is_still_refused(label, payload) -> None:
+    module = rewrite_permitted_imports(
+        ast.parse(payload), offered=ALLOWED_CALLER_NAMES, policy=SECURITY_POLICY
+    )
+    with pytest.raises(SecurityViolation):
+        validate_module(module, code=payload, policy=SECURITY_POLICY)
+
+
+def test_the_rewrite_binds_the_offered_object_and_not_the_module_path() -> None:
+    """What the caller ends up with is what they could already read.
+
+    `from sage.misc.persist import Integer as n` names a module nobody may touch
+    and asks for an object everybody may. The rewrite never imports the module,
+    so the value bound is the namespace's `Integer` -- and if the name asked for
+    were `unpickle_global`, no amount of aliasing would help.
+    """
+    payload = "from sage.misc.persist import Integer as n\nn(6)"
+    module = rewrite_permitted_imports(
+        ast.parse(payload), offered=ALLOWED_CALLER_NAMES, policy=SECURITY_POLICY
+    )
+    assignments = [node for node in module.body if isinstance(node, ast.Assign)]
+    assert len(assignments) == 1
+    assert assignments[0].targets[0].id == "n"
+    assert assignments[0].value.id == "Integer"
+    validate_module(module, code=payload, policy=SECURITY_POLICY)
+
+    smuggle = "from sage.misc.persist import unpickle_global as n\nn('os', 'system')"
+    rewritten = rewrite_permitted_imports(
+        ast.parse(smuggle), offered=ALLOWED_CALLER_NAMES, policy=SECURITY_POLICY
+    )
+    with pytest.raises(SecurityViolation):
+        validate_module(rewritten, code=smuggle, policy=SECURITY_POLICY)
+
+
+def test_a_refused_import_says_what_to_use_instead() -> None:
+    """The message is the fix when the import genuinely asks for something new."""
+    for payload, expected in (
+        ("import numpy as np\nnp.linalg.det([[1, 2]])", "matrix\\(RDF"),
+        ("import scipy\nscipy.integrate.quad(lambda t: t, 0, 1)", "numerical_integral"),
+        ("import sympy\nsympy.diff(1)", "superset"),
+    ):
+        module = rewrite_permitted_imports(
+            ast.parse(payload), offered=ALLOWED_CALLER_NAMES, policy=SECURITY_POLICY
+        )
+        with pytest.raises(SecurityViolation, match=expected):
+            validate_module(module, code=payload, policy=SECURITY_POLICY)

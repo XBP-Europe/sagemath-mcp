@@ -19,6 +19,7 @@ from sagemath_mcp.security import (
     SECURITY_POLICY,
     _bound_names,
     normalize_caller_code,
+    rewrite_permitted_imports,
     trusted_policy,
     validate_module,
 )
@@ -461,6 +462,15 @@ def _split_code(
     # runs once per request, keeping the execution fast while guarding against
     # disallowed imports/constructs early.
     policy = trusted_policy() if trusted else SECURITY_POLICY
+    if not trusted:
+        # Drop the imports that would change nothing -- an unused reflex line, a
+        # name the namespace already holds -- *before* validating, so that what
+        # is checked is still exactly what runs. The rewrite only removes
+        # imports and binds names already offered, so it can never widen what
+        # the validator then sees.
+        module = rewrite_permitted_imports(
+            module, offered=ALLOWED_CALLER_NAMES, policy=policy
+        )
     validate_module(
         module, code=code, policy=policy,
         extra_allowed_names=session_names, withheld_names=withheld,

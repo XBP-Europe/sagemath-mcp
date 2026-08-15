@@ -82,6 +82,20 @@ def _refuse_scrubbed_names(parsed: ast.Expression, source: str) -> None:
                     f"Rejected by the security policy: '{node.id}' is not a name "
                     f"this server offers"
                 )
+            # A backstop for the leaf-as-attribute shape this Name walk misses.
+            # `sage.all.unpickle_global` reaches a scrubbed name as a `.attr`,
+            # invisible above, and rode past the gate on the strength of the
+            # sage.all scrub alone. No tool parameter traverses the `sage`
+            # module -- callers write `matrix`, `integrate`, `codes.HammingCode`
+            # directly -- so refusing a `sage`-rooted chain closes the shape
+            # independently of what the scrub happens to contain. Rooted on
+            # `sage` rather than on the leaf name, because `load` and `save` are
+            # in the scrub set and are also ordinary method names.
+            if node.id == "sage":
+                raise ToolError(
+                    "Rejected by the security policy: reaching into the 'sage' "
+                    "module is not permitted here; name the function directly"
+                )
 
 
 @functools.cache

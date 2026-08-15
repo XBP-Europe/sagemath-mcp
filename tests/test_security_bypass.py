@@ -2045,3 +2045,64 @@ def test_the_scrub_covers_sage_eval_and_not_only_the_namespace() -> None:
         assert needed in sage.all.__dict__, (
             f"generated code imports {needed} from sage.all and it is gone"
         )
+
+
+@pytest.mark.parametrize(
+    "fragment",
+    [
+        "sage.all.unpickle_global('os', 'system')('id')",
+        "sage.misc.persist.unpickle_global('os', 'system')('id')",
+        "sage.misc.sh.sh('id')",
+        "sage.all.sage_eval('1')",
+        "sage",
+    ],
+    ids=["all-leaf", "misc-persist", "misc-sh", "all-sage-eval", "bare"],
+)
+def test_a_tool_parameter_cannot_walk_the_sage_module_tree(fragment: str) -> None:
+    """The backstop the fragment gate was missing for the `sage.all.X` shape.
+
+    The scrub-name check walks `ast.Name` nodes, so a dangerous name reached as
+    an *attribute* -- `sage.all.unpickle_global`, where `unpickle_global` is a
+    `.attr` and only `sage` is a Name -- rode straight past it. It was not
+    exploitable, because `sage_eval` resolves in `sage.all` and the sage.all
+    scrub had emptied that name. But the gate gave no independent backstop: it
+    accepted `sage.all.<anything>` and leaned entirely on the scrub being
+    complete. One missed name in the scrub list would have made the shape a
+    gate-passing RCE, with no second line of defence.
+
+    So the gate now refuses a fragment that traverses the bare `sage` module at
+    all. No tool parameter has a reason to: the point of `from sage.all import
+    *` is that `matrix`, `integrate`, `codes.HammingCode` are named directly.
+    Checking the *root* rather than the leaf avoids the collision a leaf check
+    would hit -- `load` and `save` are in the scrub set and are also ordinary
+    method names.
+    """
+    from fastmcp.exceptions import ToolError
+
+    from sagemath_mcp.codegen import _validated_expression
+
+    with pytest.raises(ToolError, match="Rejected by the security policy"):
+        _validated_expression(fragment)
+
+
+@pytest.mark.parametrize(
+    "fragment",
+    [
+        "codes.HammingCode(GF(2), 3).minimum_distance()",
+        "graphs.PetersenGraph().chromatic_number()",
+        "matrix([[1, 2], [3, 4]]).transpose()",  # ordinary attribute access
+        "EllipticCurve([0, 0, 1, -1, 0]).rank()",
+        "integrate(sin(x), x)",
+    ],
+)
+def test_the_sage_root_backstop_leaves_ordinary_parameters_alone(fragment: str) -> None:
+    """It refuses `sage.`, and nothing else.
+
+    A `codes.` or `graphs.` chain is rooted at a name the templates put in
+    scope, not at `sage`, and ordinary `.transpose()`/`.rank()` attribute access
+    is untouched -- the rule keys on the root name `sage`, which no legitimate
+    tool parameter uses.
+    """
+    from sagemath_mcp.codegen import _validated_expression
+
+    _validated_expression(fragment)

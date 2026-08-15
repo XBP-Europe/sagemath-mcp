@@ -1956,3 +1956,36 @@ def test_the_mathematics_tool_parameters_carry_still_passes(fragment: str) -> No
     from sagemath_mcp.codegen import _validated_expression
 
     _validated_expression(fragment)
+
+
+@pytest.mark.parametrize(
+    "fragment",
+    [
+        # Sage-only syntax the Python parser rejects, so the token screen runs
+        # instead of the AST path -- with a scrubbed name riding along.
+        "R.<xx> = QQ[]; unpickle_global('os', 'system')('id')",
+        "unpickle_global('os','system')('id') if R.<y> = QQ[] else 0",
+        "K.<a> = GF(9); cython('print(1)')",
+    ],
+    ids=["generator-prefix", "unparseable-tail", "field-generator"],
+)
+def test_the_token_screen_refuses_scrubbed_names_too(fragment: str) -> None:
+    """The unparseable path had a narrower screen than the parseable one.
+
+    A fragment the Python parser rejects -- Sage's `R.<x> = QQ[]` generator
+    syntax, say -- skips AST validation and gets a token screen instead. That
+    screen checked `forbidden_call_names` and `forbidden_attribute_parents` but
+    not the names the scrub removes, so wrapping `unpickle_global` in generator
+    syntax slipped it past the very check added for the parseable case. A name
+    is a name whatever surrounds it; both gates must consult the same set.
+
+    (`sage_eval` happens to reject generator syntax, so this specific payload
+    would not execute today -- but the screen is the boundary, and it should not
+    depend on a downstream accident.)
+    """
+    from fastmcp.exceptions import ToolError
+
+    from sagemath_mcp.codegen import _validated_expression
+
+    with pytest.raises(ToolError, match=r"is blocked|not a name this server offers"):
+        _validated_expression(fragment)

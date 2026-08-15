@@ -113,8 +113,15 @@ def _screen_unparseable_fragment(fragment: str) -> None:
     stream instead: a name is a name whatever surrounds it, and this is the last
     gate before the fragment is interpolated into trusted, sage_eval'd code.
     """
-    forbidden = set(_FRAGMENT_POLICY.forbidden_call_names) | set(
-        _FRAGMENT_POLICY.forbidden_attribute_parents
+    forbidden = (
+        set(_FRAGMENT_POLICY.forbidden_call_names)
+        | set(_FRAGMENT_POLICY.forbidden_attribute_parents)
+        # The names the worker's scrub removes, which the parseable path refuses
+        # via `_refuse_scrubbed_names`. Without them here, wrapping a scrubbed
+        # name in Sage-only syntax the Python parser rejects routed it through
+        # this screen instead and slipped past -- a narrower gate for exactly
+        # the inputs that avoid the wider one.
+        | _names_the_scrub_removes()
     )
     try:
         tokens = list(tokenize.generate_tokens(io.StringIO(fragment).readline))
@@ -122,8 +129,24 @@ def _screen_unparseable_fragment(fragment: str) -> None:
         raise ToolError(
             f"Could not read {fragment!r} as an expression: {exc}"
         ) from exc
+
+    # A name declared as a generator target -- `R.<a, b> = QQ[]`, the syntax
+    # that put us on this unparseable path in the first place -- is the caller
+    # binding their own, exactly as `_bound_names` treats an assignment in the
+    # AST path. So `R` is theirs to name even though the reals `R` is scrubbed,
+    # while `gp` and `unpickle_global`, which no one declares as a ring, stay
+    # refused. Detected as NAME `.` `<`.
+    bound: set[str] = set()
+    for first, dot, angle in zip(tokens, tokens[1:], tokens[2:], strict=False):
+        if (
+            first.type == tokenize.NAME
+            and dot.type == tokenize.OP and dot.string == "."
+            and angle.type == tokenize.OP and angle.string == "<"
+        ):
+            bound.add(first.string)
+
     for token in tokens:
-        if token.type != tokenize.NAME:
+        if token.type != tokenize.NAME or token.string in bound:
             continue
         if token.string in forbidden or (
             token.string.startswith("__") and token.string.endswith("__")

@@ -40,7 +40,7 @@ REAL_SERVER = ["docker", "exec", "-i", "sage-mcp", "sage", "-python", "-m", "sag
 class CaseResult:
     cli: str
     case_id: str
-    status: str  # PASS | WRONG_ANSWER | NO_TOOL_CALL | TOOL_ERROR | TIMEOUT | ERROR
+    status: str  # PASS | WRONG_ANSWER | DODGED | NO_TOOL_CALL | TOOL_ERROR | TIMEOUT | ERROR
     detail: str
     tools_called: list[str]
     elapsed: float
@@ -89,26 +89,73 @@ _CLIENT_FAULT_MARKERS = (
 )
 
 
+# The other kind of error that is not a server fault: the mathematics the model
+# asked for did not work. Sage says so, the model tries something else, and the
+# answer is right -- which is a *correct* integration, and the shape every real
+# session has. Watching Claude work the Bose-Einstein integral: it asked for the
+# symbolic form first, got back an unevaluated `limit(...)` that `N()` cannot
+# reduce, and switched to `numerical_integral` -- exactly what a person does.
+#
+# These stay narrow on purpose, and none of them can be produced by this
+# server's own policy: a refusal, a dead worker or a timeout is still fatal
+# below, whatever the model did afterwards.
+_MATHEMATICS_FAULT_MARKERS = (
+    "cannot evaluate symbolic expression numerically",
+    "unable to simplify to float approximation",
+    "appears to have no zero on the interval",
+    "brent's method failed",
+    "integral is divergent",
+    # Qualified, because Sage always qualifies it -- `rational division by
+    # zero`, `symbolic division by zero`, `power::eval(): division by zero`.
+    # The bare phrase quoted no subsystem, so it matched anything containing it,
+    # and it was the one entry here that could have covered a server defect.
+    "rational division by zero",
+    "symbolic division by zero",
+    "eval(): division by zero",
+    # Maxima asking for an assumption, which is a question rather than a failure.
+    "positive, negative or zero",
+)
+
+
 def _is_client_fault(preview: str) -> bool:
     lowered = preview.lower()
     return any(marker in lowered for marker in _CLIENT_FAULT_MARKERS)
 
 
-def read_wire_log(log_path: Path) -> tuple[list[str], set[int], list[str]]:
+def _is_mathematics_fault(preview: str) -> bool:
+    lowered = preview.lower()
+    return any(marker in lowered for marker in _MATHEMATICS_FAULT_MARKERS)
+
+
+def read_wire_log(
+    log_path: Path,
+) -> tuple[list[str], dict[int, str], list[str], list[str]]:
     """Return (tools called, ids the SERVER failed, tools that SUCCEEDED).
 
     Calls the model malformed are excluded from the failures: they say nothing
-    about the server. But excluding them is not enough on its own -- the tool
-    still appeared in the call list, so a case could pass on a malformed call
-    that failed plus a plausible-looking answer, with no successful tool call
-    anywhere. The third value is what the assertions actually need.
+    about the server. So are calls whose *mathematics* Sage rejected -- a
+    divergent integral, a bracket with no sign change -- because exploring and
+    retrying is what a session looks like, not a defect. What remains in the
+    second value is this server's own failures: a refusal, a dead worker, a
+    timeout, an internal error.
+
+    Excluding them is not enough on its own -- the tool still appeared in the
+    call list, so a case could pass on a malformed call that failed plus a
+    plausible-looking answer, with no successful tool call anywhere. The third
+    value is what the assertions actually need. The fourth carries the errors
+    that *were* tolerated, so a run that took four attempts to get there does not
+    read exactly like a clean one.
     """
     tools: list[str] = []
     succeeded: list[str] = []
-    errored: set[int] = set()
+    tolerated: list[str] = []
+    # id -> what the server said. Kept, not counted: "the server returned
+    # isError" names no cause, and every diagnosis then needs the run repeated
+    # with the log held on to.
+    errored: dict[int, str] = {}
     call_ids: dict[int, str] = {}
     if not log_path.exists():
-        return tools, errored, succeeded
+        return tools, errored, succeeded, tolerated
     for line in log_path.read_text(encoding="utf-8").splitlines():
         try:
             record = json.loads(line)
@@ -126,9 +173,17 @@ def read_wire_log(log_path: Path) -> tuple[list[str], set[int], list[str]]:
                 continue
             if not record.get("is_error"):
                 succeeded.append(name)
-            elif not _is_client_fault(str(record.get("preview", ""))):
-                errored.add(record["id"])
-    return tools, errored, succeeded
+            else:
+                preview = " ".join(
+                    str(record.get(field) or "") for field in ("preview", "error")
+                )
+                if _is_mathematics_fault(preview):
+                    # Not a server fault, and not nothing either: a PASS that
+                    # took four attempts should not read like a clean one.
+                    tolerated.append(preview.strip()[:80])
+                elif not _is_client_fault(preview):
+                    errored[record["id"]] = preview
+    return tools, errored, succeeded, tolerated
 
 
 def normalise(text: str) -> str:
@@ -138,7 +193,7 @@ def normalise(text: str) -> str:
 
 def evaluate(case: ToolForcingCase, output: str, log_path: Path, elapsed: float,
              cli: str) -> CaseResult:
-    tools, errored, succeeded = read_wire_log(log_path)
+    tools, errored, succeeded, tolerated = read_wire_log(log_path)
     relevant = [t for t in tools if t in case.accepted_tools]
     # An accepted tool that was CALLED proves nothing; one that answered does.
     relevant_ok = [t for t in succeeded if t in case.accepted_tools]
@@ -151,8 +206,9 @@ def evaluate(case: ToolForcingCase, output: str, log_path: Path, elapsed: float,
                           f"called {sorted(set(tools))}, none of {case.accepted_tools}",
                           tools, elapsed)
     if errored:
+        first = next(iter(errored.values())).replace("\\n", " ")[:240]
         return CaseResult(cli, case.id, "TOOL_ERROR",
-                          "the server returned isError for a tool call", tools, elapsed)
+                          f"the server returned isError: {first}", tools, elapsed)
     if not relevant_ok:
         return CaseResult(
             cli, case.id, "NO_TOOL_CALL",
@@ -162,9 +218,20 @@ def evaluate(case: ToolForcingCase, output: str, log_path: Path, elapsed: float,
     flat = normalise(output)
     for answer in case.expected_answers:
         if normalise(answer) in flat:
-            return CaseResult(cli, case.id, "PASS", f"matched {answer!r}", tools, elapsed)
+            detail = f"matched {answer!r}"
+            if tolerated:
+                detail += f" ({len(tolerated)} tolerated: {tolerated[0]!r})"
+            return CaseResult(cli, case.id, "PASS", detail, tools, elapsed)
 
     tail = output.strip()[-160:].replace("\n", " ")
+    # Same failure, different diagnosis: a model that refused is not a model that
+    # computed the wrong number, and the two want different fixes -- one is a
+    # prompt or a permission, the other is the server.
+    lowered = output.lower()
+    if any(marker.lower() in lowered for marker in case.forbidden):
+        return CaseResult(cli, case.id, "DODGED",
+                          f"answer declined rather than computed; tail: {tail!r}",
+                          tools, elapsed)
     return CaseResult(cli, case.id, "WRONG_ANSWER",
                       f"expected one of {case.expected_answers}; tail: {tail!r}",
                       tools, elapsed)

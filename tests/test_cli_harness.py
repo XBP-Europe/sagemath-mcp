@@ -89,6 +89,72 @@ def test_a_real_server_error_still_fails(tmp_path: Path) -> None:
     assert result.status == "TOOL_ERROR", result.detail
 
 
+def test_a_recovered_mathematics_error_still_passes(tmp_path: Path) -> None:
+    """Sage refusing the mathematics is not the server failing.
+
+    Watched against the real thing: asked for the Bose-Einstein integral, Claude
+    tried the symbolic form, got an unevaluated `limit(...)` that `N()` cannot
+    reduce, and switched to `numerical_integral`. That is a session working, and
+    it used to be reported as TOOL_ERROR -- so the harness failed the case with
+    the right answer on screen and nothing wrong with the server.
+    """
+    log = _log(tmp_path, [
+        _call(1),
+        _response(1, is_error=True,
+                  preview="TypeError: cannot evaluate symbolic expression numerically"),
+        _call(2),
+        _response(2, preview='{"result": "42"}'),
+    ])
+    result = evaluate(CASE, "the answer is 42", log, 1.0, "claude")
+    assert result.status == "PASS", result.detail
+
+
+def test_a_mathematics_error_with_no_recovery_still_fails(tmp_path: Path) -> None:
+    """Tolerating the error is not the same as tolerating the case.
+
+    Nothing answered, so there is no evidence the server works -- which is the
+    property the whole suite exists to check.
+    """
+    log = _log(tmp_path, [
+        _call(1),
+        _response(1, is_error=True, preview="RuntimeError: Brent's method failed"),
+    ])
+    result = evaluate(CASE, "the answer is 42", log, 1.0, "claude")
+    assert result.status == "NO_TOOL_CALL", result.detail
+    assert "no tool actually answered" in result.detail
+
+
+def test_a_refusal_is_never_excused_as_mathematics(tmp_path: Path) -> None:
+    """The over-block this suite is meant to catch must stay fatal.
+
+    A model that is refused, retries a different spelling and succeeds looks
+    exactly like a model recovering from a divergent integral. It is not: the
+    first is a defect in this server's policy, and it is precisely the kind that
+    a security suite full of refusal assertions cannot see.
+    """
+    for preview in (
+        "SecurityViolation: Access to dunder name '__tmp__' is blocked",
+        "SecurityViolation: 'foo' is not a name this server offers",
+        "Sage worker terminated unexpectedly.",
+        "Evaluation timed out after 30s",
+    ):
+        log = _log(tmp_path, [
+            _call(1),
+            _response(1, is_error=True, preview=preview),
+            _call(2),
+            _response(2, preview='{"result": "42"}'),
+        ])
+        result = evaluate(CASE, "the answer is 42", log, 1.0, "claude")
+        assert result.status == "TOOL_ERROR", f"{preview!r} was excused: {result.detail}"
+
+
+def test_a_declined_answer_is_reported_as_dodged(tmp_path: Path) -> None:
+    """Two failures that want different fixes should not share a name."""
+    log = _log(tmp_path, [_call(1), _response(1, preview='{"result": "?"}')])
+    result = evaluate(CASE, "I cannot compute that without more information", log, 1.0, "codex")
+    assert result.status == "DODGED", result.detail
+
+
 def test_the_wrong_answer_still_fails_even_with_a_successful_call(tmp_path: Path) -> None:
     log = _log(tmp_path, [_call(1), _response(1, preview='{"result": "41"}')])
     result = evaluate(CASE, "the answer is 41", log, 1.0, "codex")
@@ -118,7 +184,7 @@ def test_client_faults_are_told_apart_from_server_faults(
     tmp_path: Path, preview: str, is_client_fault: bool
 ) -> None:
     log = _log(tmp_path, [_call(1), _response(1, is_error=True, preview=preview)])
-    _tools, errored, succeeded = read_wire_log(log)
+    _tools, errored, succeeded, _tolerated = read_wire_log(log)
     assert (not errored) is is_client_fault
     assert not succeeded
 
@@ -132,7 +198,7 @@ def test_a_missing_wire_log_reports_no_tool_call(tmp_path: Path) -> None:
     decides whether a run passed.
     """
     missing = tmp_path / "never-written.jsonl"
-    assert read_wire_log(missing) == ([], set(), [])
+    assert read_wire_log(missing) == ([], {}, [], [])
 
     result = evaluate(CASE, "the answer is 42", missing, 1.0, "claude")
     assert result.status == "NO_TOOL_CALL", result.detail
@@ -214,3 +280,61 @@ def test_a_missing_compose_says_so_instead_of_a_filenotfound(monkeypatch) -> Non
     monkeypatch.setattr(cli_config, "compose_command", lambda: None)
     with pytest.raises(RuntimeError, match="no Docker Compose was found"):
         cli_config.ensure_docker_container()
+
+
+def test_a_bare_division_by_zero_is_not_excused(tmp_path: Path) -> None:
+    """The one marker that named no Sage subsystem.
+
+    Every other entry in the mathematics-fault list quotes a message only Sage
+    produces -- "brent's method failed", "integral is divergent". "division by
+    zero" quoted nothing: it is a phrase, and a phrase matches whatever contains
+    it. Sage's own spellings are all qualified (`rational division by zero`,
+    `symbolic division by zero`, `power::eval(): division by zero`), so the
+    marker can be too, and an unqualified one goes back to being a server fault.
+
+    This does not separate a server defect from mathematics the model asked for
+    -- both raise ZeroDivisionError and neither says whose fault it is. What
+    keeps the suppression honest is the rule below it: nothing passes without a
+    tool call that succeeded *and* the expected answer.
+    """
+    log = _log(tmp_path, [
+        _call(1),
+        _response(1, is_error=True, preview="ZeroDivisionError: division by zero"),
+        _call(2),
+        _response(2, preview='{"result": "42"}'),
+    ])
+    result = evaluate(CASE, "the answer is 42", log, 1.0, "claude")
+    assert result.status == "TOOL_ERROR", result.detail
+
+
+def test_a_qualified_division_by_zero_is_still_excused(tmp_path: Path) -> None:
+    """Sage's actual message, which is the case the marker is for."""
+    log = _log(tmp_path, [
+        _call(1),
+        _response(1, is_error=True, preview="ZeroDivisionError: rational division by zero"),
+        _call(2),
+        _response(2, preview='{"result": "42"}'),
+    ])
+    result = evaluate(CASE, "the answer is 42", log, 1.0, "claude")
+    assert result.status == "PASS", result.detail
+
+
+def test_tolerated_faults_are_reported_rather_than_swallowed(tmp_path: Path) -> None:
+    """A suppressed error nobody sees is how a masked regression survives.
+
+    Tolerating the model's failed attempts is right, and discarding them is not:
+    a run that says PASS with nothing else on screen looks identical whether the
+    session was clean or took four goes to get there. The count rides along in
+    the detail so a person reading the log can tell.
+    """
+    log = _log(tmp_path, [
+        _call(1),
+        _response(1, is_error=True, preview="RuntimeError: integral is divergent"),
+        _call(2),
+        _response(2, is_error=True, preview="ZeroDivisionError: rational division by zero"),
+        _call(3),
+        _response(3, preview='{"result": "42"}'),
+    ])
+    result = evaluate(CASE, "the answer is 42", log, 1.0, "claude")
+    assert result.status == "PASS", result.detail
+    assert "2 tolerated" in result.detail, result.detail

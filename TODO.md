@@ -30,23 +30,14 @@ From categorising all 5,266 refusals SageMath's own doctest corpus provokes
 (ROADMAP.md has the framing; REVIEW_ACTIONS.md items 45 and 46 have the security
 half). Each count is measured, each case reproduced against SageMath 10.9.
 
-- [ ] **`nonlocal`, and probably `global`.** 33 refusals.
-      `forbid_global_stmt` and `forbid_nonlocal_stmt` are bare policy flags with
-      no comment, no recorded rationale and no test named for either. `nonlocal`
-      is the clear one: it rebinds a name in an enclosing *function*, so it
-      cannot touch the namespace at all, and
-      `def outer(): ... def inner(): nonlocal total` is refused today. `global`
-      needs one round of thought — it binds at module scope — but a caller can
-      already assign there, and item 37's withheld-name rule governs what the
-      binding is allowed to name. Cheap, and it is ordinary Python that
-      mathematics uses for accumulators.
-
-- [ ] **Room for a pasted matrix.** `max_source_chars` is 8,000, and a 40×40
-      integer matrix written out is 17,706 — refused before anything looks at
-      it. Three corpus examples trip the limit and all three are literal data
-      tables, which is exactly the shape a physicist pastes. The limit exists to
-      bound parse cost, so the question is what number does that without
-      refusing a matrix; `max_ast_nodes` already bounds the real work.
+- [ ] **`global`.** Its sibling `nonlocal` is done: it rebinds inside an
+      enclosing function and provably cannot reach the namespace, so the flag
+      refusing it was costing every closure that counts something and nothing
+      was defending it. `global` is the half that needs thought, because it
+      binds at module scope where the caller's names sit alongside the ones this
+      server offers. `_bound_names` already records what it declares and item
+      37's withheld-name rule governs what that binding may name, so the work is
+      to decide whether those two are enough rather than to write new machinery.
 
 - [ ] **Names created at run time by `inject_variables()`.** 741 refusals of
       undeclared symbols, and this is the honest part: `R.<u, v> = QQ[]` works

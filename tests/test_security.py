@@ -34,20 +34,40 @@ def test_generated_code_may_import_what_its_templates_need():
     validate_module(ast.parse(code), code=code, policy=trusted_policy())
 
 
-def test_validate_code_blocks_global_and_nonlocal():
+def test_validate_code_blocks_global_but_not_nonlocal():
+    """The line between them is where the name lands.
+
+    `global` binds at module scope, alongside the names this server offers, and
+    stays refused. `nonlocal` rebinds inside an enclosing *function* and cannot
+    reach the namespace at all -- it was refused by a flag with no comment and
+    no rationale, and the cost was every closure that counts something.
+    """
     with pytest.raises(SecurityViolation):
         validate_code("global x\nx = 1")
 
-    code = """
+    closure = """
 def outer():
     value = 0
     def inner():
         nonlocal value
         value = 1
     inner()
+    return value
 """
-    with pytest.raises(SecurityViolation):
-        validate_code(code)
+    validate_code(closure)
+
+    # The accumulator a mathematician actually writes.
+    counting = """
+def collatz_lengths(limit):
+    longest = 0
+    def record(n):
+        nonlocal longest
+        longest = max(longest, n)
+    for start in range(1, limit):
+        record(start)
+    return longest
+"""
+    validate_code(counting)
 
 
 def test_validate_code_blocks_forbidden_attribute_call():
@@ -253,3 +273,49 @@ def test_validation_is_silent_when_violation_logging_is_off() -> None:
     quiet = replace(SECURITY_POLICY, log_violations=False)
     code = "2 + 2"
     assert validate_module(ast.parse(code), code=code, policy=quiet) is None
+
+
+def test_the_input_limits_admit_a_pasted_matrix():
+    """The limits bound parse cost; they should not refuse a matrix.
+
+    At 8,000 characters and 2,500 nodes they did: a 40x40 integer matrix written
+    out is 17,706 characters and 6,497 nodes, and that is the shape someone
+    pastes into a session. Both had to move -- raising the character limit alone
+    would have left the node limit refusing a 25x25.
+
+    Measured on SageMath 10.9, preparse + parse + validate costs about 1.1us per
+    character, linearly, so the limits chosen here cap one request at roughly
+    140ms of parsing. Execution is bounded separately by eval_timeout.
+    """
+    import ast as ast_module
+
+    from sagemath_mcp.security import SECURITY_POLICY
+
+    # Written the way the *preparser* leaves it, because that is what the
+    # validator sees and what the limits apply to. Sage wraps every integer
+    # literal as `Integer(0)`, which turns a 3,306-character matrix into 17,706
+    # and one node per entry into four -- the expansion is the whole reason the
+    # old limits refused a matrix that looked comfortably small when typed.
+    for size, chars, nodes in ((40, 17_706, 6_497), (100, 110_226, 40_217)):
+        rows = ",".join(
+            "[" + ",".join(f"Integer({(i * j) % 7})" for j in range(size)) + "]"
+            for i in range(size)
+        )
+        source = f"M = matrix(ZZ, [{rows}])\nM.rank()"
+        assert len(source) <= SECURITY_POLICY.max_source_chars, (
+            f"a {size}x{size} matrix is {len(source)} characters, over the limit"
+        )
+        module = ast_module.parse(source)
+        walked = sum(1 for _ in ast_module.walk(module))
+        assert walked <= SECURITY_POLICY.max_ast_nodes, (
+            f"a {size}x{size} matrix is {walked} nodes, over the limit"
+        )
+        # And it passes the policy end to end, not merely the size checks.
+        validate_code(source)
+        assert abs(len(source) - chars) < chars * 0.1
+        assert abs(walked - nodes) < nodes * 0.2
+
+    # The limits still exist: something an order of magnitude larger is refused.
+    huge = "x = [" + ",".join(str(i) for i in range(200_000)) + "]"
+    with pytest.raises(SecurityViolation):
+        validate_code(huge)

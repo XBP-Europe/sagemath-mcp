@@ -228,6 +228,25 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`nonlocal` is permitted, and the input limits admit a matrix.** Both came
+  out of reading the doctest corpus's refusals as a work queue rather than an
+  audit.
+  - `nonlocal` rebinds a name in an enclosing *function*, so it cannot reach the
+    worker namespace at all; it was refused by a policy flag with no comment, no
+    recorded rationale and no test named for it, and the cost was every closure
+    that accumulates something. `global` stays refused — it binds at module
+    scope, which is a different question and gets its own pass.
+  - `max_source_chars` rose from 8,000 to 131,072 and `max_ast_nodes` from 2,500
+    to 50,000. A 40×40 integer matrix is 17,706 characters and 6,497 nodes
+    *after preparsing* — Sage wraps every literal as `Integer(0)` — so a matrix
+    small enough to paste was refused before anything looked at it, and raising
+    only the character limit would have left the node limit refusing a 25×25.
+    The new limits admit a 100×100 matrix and cap one request at roughly 140ms
+    of parsing, measured: preparse, parse and validate cost about 1.1µs per
+    character on 10.9, linearly. Execution is bounded separately by
+    `eval_timeout`.
+
+
 - **`f(x) = x^2 + 1` was refused.** Sage's function-definition syntax — the
   first thing in its tutorial, and how a physicist writes `V(r) = -1/r` —
   expands to `__tmp__=var("x"); f = symbolic_expression(...).function(x)`, and

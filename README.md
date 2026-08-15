@@ -913,8 +913,8 @@ if you need it.
 
 | Limit | Default | Env var |
 |-------|---------|---------|
-| Max source code length | 8,000 chars | `SAGEMATH_MCP_SECURITY_MAX_SOURCE` |
-| Max AST node count | 2,500 | `SAGEMATH_MCP_SECURITY_MAX_AST_NODES` |
+| Max source code length | 131,072 chars | `SAGEMATH_MCP_SECURITY_MAX_SOURCE` |
+| Max AST node count | 50,000 | `SAGEMATH_MCP_SECURITY_MAX_AST_NODES` |
 | Max AST nesting depth | 75 | `SAGEMATH_MCP_SECURITY_MAX_AST_DEPTH` |
 
 **Error handling:** When code violates the security policy, the server returns a clear error message identifying the violation (e.g., "Call to forbidden function 'eval' is blocked") and logs a warning. The session remains alive --- subsequent calls can succeed.
@@ -1037,8 +1037,8 @@ All configuration is done via environment variables. No config files are needed.
 | Variable | Description | Default |
 | --- | --- | --- |
 | `SAGEMATH_MCP_SECURITY_ENABLED` | Enable/disable AST-based code validation. | `true` |
-| `SAGEMATH_MCP_SECURITY_MAX_SOURCE` | Maximum source length in characters. | `8000` |
-| `SAGEMATH_MCP_SECURITY_MAX_AST_NODES` | Maximum AST node count allowed. | `2500` |
+| `SAGEMATH_MCP_SECURITY_MAX_SOURCE` | Maximum source length in characters, measured after preparsing. | `131072` |
+| `SAGEMATH_MCP_SECURITY_MAX_AST_NODES` | Maximum AST node count allowed. | `50000` |
 | `SAGEMATH_MCP_SECURITY_MAX_AST_DEPTH` | Maximum AST depth allowed. | `75` |
 | `SAGEMATH_MCP_SECURITY_ALLOW_IMPORTS` | Permit `import` statements when set to `true`. | `false` |
 | `SAGEMATH_MCP_SECURITY_FORBID_GLOBAL` | Block `global` statements when `true`. | `true` |

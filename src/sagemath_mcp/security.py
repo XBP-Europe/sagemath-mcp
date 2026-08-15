@@ -53,12 +53,37 @@ class SecurityPolicy:
     """Declarative policy describing acceptable Sage user code."""
 
     enabled: bool = True
-    max_source_chars: int = 8_000
-    max_ast_nodes: int = 2_500
+    # Sized from a measurement rather than a guess. These bound how much parsing
+    # one request can cost, and at 8,000 chars / 2,500 nodes they refused a
+    # matrix: a 40x40 integer matrix written out is 17,706 characters and 6,497
+    # nodes, which is exactly the shape someone pastes. Preparse, parse and
+    # validate together cost about 1.1us per character on 10.9, linearly:
+    #
+    #     40x40      17,706 chars    6,497 nodes     18ms
+    #     100x100   110,226 chars   40,217 nodes    113ms
+    #     200x200   440,426 chars  160,417 nodes    478ms
+    #
+    # 128 KiB and 50,000 nodes admit a 100x100 matrix with headroom and cap the
+    # work at roughly 140ms, which is the point of the limits. Execution is
+    # bounded separately by eval_timeout. Depth is unchanged: it measures
+    # nesting, not size, and a list of lists is four deep however big it is.
+    max_source_chars: int = 131_072
+    max_ast_nodes: int = 50_000
     max_ast_depth: int = 75
     allow_imports: bool = False
     forbid_global_stmt: bool = True
-    forbid_nonlocal_stmt: bool = True
+    # `nonlocal` rebinds a name in an enclosing *function*. It cannot reach the
+    # module namespace, so there is nothing for it to reach that assignment in
+    # the same function does not already reach -- and refusing it cost
+    # `def outer(): ... def inner(): nonlocal total`, which is how a closure
+    # counts anything. It was refused by a flag with no comment, no recorded
+    # rationale and no test named for it.
+    #
+    # `global` stays refused, and the line between them is real: it binds at
+    # module scope, where the caller's names live alongside the ones this server
+    # offers. That deserves its own pass rather than being swept along with a
+    # statement that provably cannot get there.
+    forbid_nonlocal_stmt: bool = False
     forbidden_call_names: tuple[str, ...] = (
         # String-path attribute access. These defeat every attribute rule in
         # this file, because the attribute name is a runtime value the AST never

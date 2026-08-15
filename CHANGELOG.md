@@ -9,6 +9,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **`write_*` methods wrote caller-chosen files.**
+  `graphs.PetersenGraph().write_to_eps(path)` and
+  `Polyhedron().write_cdd_Hrepresentation(path)` each wrote to disk — the same
+  capability `save*`, `dump*` and `export*` were forbidden for, under a name
+  none of them covered. `write` is now the fourth forbidden attribute prefix;
+  plotting is unaffected, since the templates render through
+  `.savefig(BytesIO)` under the trusted policy, which clears these prefixes.
+  Found by auditing the factory guard rather than the code it guards: it had
+  been skipping every callable whose parameters are all optional, which hid 225
+  factories. The guard now covers anything callable with no arguments, matches
+  capability words against name segments rather than substrings, and accepts a
+  baseline of 37 mathematical collisions so anything new fails.
+
 - **A specialised tool call reopened the scrubbed namespace (remote code
   execution).** The generated prelude runs `from sage.all import *` in the same
   persistent namespace as caller code, restoring every name the startup scrub

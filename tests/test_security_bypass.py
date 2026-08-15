@@ -1604,3 +1604,30 @@ def test_a_refused_import_says_what_to_use_instead() -> None:
         )
         with pytest.raises(SecurityViolation, match=expected):
             validate_module(module, code=payload, policy=SECURITY_POLICY)
+
+
+def test_the_import_rewrite_is_inert_when_the_allowlist_is_off() -> None:
+    """The early return in `rewrite_permitted_imports`, which nothing reached.
+
+    The rewrite exists to drop imports that change nothing *given* an allowlist
+    to check them against. With `enforce_name_allowlist` off there is no such
+    list, so it hands the module back untouched and lets the ordinary rules
+    decide -- the configuration a deployment gets from
+    `SAGEMATH_MCP_SECURITY_ENABLED=false` and the one `trusted_policy()` uses
+    for generated code, which must keep its own imports.
+
+    Untested, this was the last line between the suite and its 100% gate.
+    """
+    from dataclasses import replace
+
+    from sagemath_mcp.security import rewrite_permitted_imports
+
+    module = ast.parse("import numpy as np\nnp.array([1, 2])")
+    relaxed = replace(SECURITY_POLICY, enforce_name_allowlist=False)
+
+    returned = rewrite_permitted_imports(module, offered=frozenset(), policy=relaxed)
+
+    assert returned is module, "the rewrite must hand back the same module untouched"
+    assert any(isinstance(node, ast.Import) for node in ast.walk(returned)), (
+        "the import must survive for the ordinary rules to judge"
+    )

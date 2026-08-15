@@ -59,10 +59,6 @@
 - Keep distribution guidance current (`INSTALLATION.md`, `DISTRIBUTION.md`) and maintain cross-platform notes (Windows/macOS).
 - Kick off the **Bump Version** workflow ahead of a release to increment the package version and push the matching `vX.Y.Z` tag.
 
-## Completed Focus Areas (from `TODO.md`)
-
-All items from the original TODO are complete. See `TODO.md` for the full checklist.
-
 ## Extra Tips
 - Use `interrupt_sage_session` to stop a long Sage computation: it keeps the session's variables, where `cancel_sage_session` restarts the worker and discards them.
 - Keep comments concise; explain non-obvious security or monitoring decisions inline.

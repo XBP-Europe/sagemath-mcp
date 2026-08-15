@@ -5,9 +5,26 @@
 Use the **Bump Version** workflow (GitHub Actions → *Bump Version*) before starting a release. The workflow:
 
 - increments the selected segment (patch by default) via `scripts/bump_version.py`,
-- updates `pyproject.toml` and `src/sagemath_mcp/__init__.py`,
-- commits the change to `main`, and
-- creates/pushes the matching `vX.Y.Z` tag that triggers the release pipeline.
+- updates all four places a version appears — `pyproject.toml`,
+  `src/sagemath_mcp/__init__.py`, `charts/sagemath-mcp/Chart.yaml` and
+  `server.json` (which carries it twice) — because a test fails when they
+  disagree,
+- pushes a branch and **opens a pull request**; `main` is protected by required
+  status checks, so nothing is committed to it directly, and
+- stops there. **You push the tag yourself once that pull request merges:**
+
+  ```bash
+  git tag vX.Y.Z && git push origin vX.Y.Z
+  ```
+
+  Pushing the tag is what triggers the release pipeline, and it is the point of
+  no return: a PyPI version number can never be reused. Record the changes in
+  `CHANGELOG.md` under `## [X.Y.Z]` **before** tagging — the release job reads
+  that section for its notes and falls back to generated ones with a warning if
+  it is missing.
+
+The full release procedure, including how to choose the segment, is in
+[CONTRIBUTING.md](CONTRIBUTING.md#releasing).
 
 ## Building Artifacts
 1. Install development extras:
@@ -49,8 +66,11 @@ The release workflow automatically builds and pushes Docker images to GHCR at
 `ghcr.io/xbp-europe/sagemath-mcp`. To pull locally:
 
 ```bash
-docker pull ghcr.io/xbp-europe/sagemath-mcp:latest
+docker pull ghcr.io/xbp-europe/sagemath-mcp:v0.5.0   # or :latest to track releases
 ```
+
+Prefer a version tag in anything you deploy. `latest` gives no way to say which
+build is running when something breaks, and no clean rollback.
 
 Images inherit the upstream `sagemath/sagemath` base and run as the non-root `sage`
 user (UID/GID 1001), with a read-only root filesystem and writable scratch supplied
@@ -85,7 +105,8 @@ verification proves the image was built by the repository’s GitHub Actions wor
 uv pip install sagemath-mcp
 uv run sagemath-mcp --help
 ```
-If SageMath is available, execute a quick smoke test:
+`--help` works without SageMath; nothing else does, since every evaluation needs
+a Sage runtime. With one available, run a quick smoke test:
 ```bash
 sage -python scripts/exercise_mcp.py
 ```

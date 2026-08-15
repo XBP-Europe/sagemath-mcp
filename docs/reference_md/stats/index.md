@@ -9,7 +9,7 @@
 * [Distributions used in implementing Hidden Markov Models](https://doc.sagemath.org/html/en/reference/stats/sage/stats/hmm/distributions.html)
 * [Hidden Markov Models – Utility functions](https://doc.sagemath.org/html/en/reference/stats/sage/stats/hmm/util.html)
 * [Discrete Gaussian Samplers over the Integers](https://doc.sagemath.org/html/en/reference/stats/sage/stats/distributions/discrete_gaussian_integer.html)
-* [Discrete Gaussian Samplers for \(\ZZ[x]\)](sage/stats/distributions/discrete_gaussian_polynomial.html)
+* [Discrete Gaussian Samplers for \(\ZZ[x]\)](https://doc.sagemath.org/html/en/reference/stats/sage/stats/distributions/discrete_gaussian_polynomial.html)
 * [Discrete Gaussian Samplers over Lattices](https://doc.sagemath.org/html/en/reference/stats/sage/stats/distributions/discrete_gaussian_lattice.html)
 * [T-test using R](https://doc.sagemath.org/html/en/reference/stats/sage/stats/r.html)
 

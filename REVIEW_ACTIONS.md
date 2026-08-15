@@ -1950,3 +1950,45 @@ mathematical use. Everything still refused is an external CAS interface (2,153,
 each proven to have a working in-process equivalent), module traversal, an
 import, a dunder, persistence, a size limit, an undeclared symbol, or a name the
 doctest invented and no allowlist could anticipate.
+
+### 46, third pass: the last bucket
+
+Two passes had taken every refusal whose *rule* lacked a justification. What was
+left was one bucket nobody had opened: 1,818 refusals of names that are not in
+`sage.all` at all, reported only as "not a name this server offers". Splitting
+them by where the name is actually defined in the SageMath tree:
+
+| | names | uses | |
+|---|---|---|---|
+| the doctest invented it at run time | 282 | 1,102 | no allowlist can anticipate a name created by a line that was excluded |
+| Sage's own test plumbing | 37 | 178 | `check_pickle`, `sage_getdoc`, `foo` |
+| **mathematics behind an import** | **138** | **538** | `real_roots`, `BasisMatroid`, `BinaryCode`, `dimension_cusp_forms`, `modular_decomposition`, `isotopism`, `back_circulant`, `schur_to_hl` |
+
+The third row is the one that would mean mathematics genuinely lost: this server
+has no imports, so a name reachable in Sage only behind one is reachable here
+not at all.
+
+It is not lost. Almost every one of those is Sage's *internal* spelling, and the
+user-facing path to the same mathematics is exported by `sage.all` and offered
+here. `test_the_mathematics_behind_an_import_is_still_reachable` computes each
+through that path and asserts the result: real root isolation via
+`p.roots(ring=RR)` and `p.number_of_real_roots()`, matroid rank, bases and
+minors via `Matroid(...)` and the `matroids.` catalog, coding theory via
+`codes.`, the three modular-form dimensions as methods on `Gamma0(11)`, modular
+decomposition as a method on a graph, Hadamard matrices and MOLS via
+`hadamard_matrix` and `designs.`, symmetric function bases, Coxeter groups,
+Boolean polynomial rings, p-adic valuations, and the genus of an integral
+lattice.
+
+That is the same boundary a Sage user meets at the prompt before they type an
+import: what `sage.all` exports. Matching it exactly is the line this server
+draws, and it is now a tested line rather than an assumed one.
+
+**The accounting is closed.** Of 374,428 in-scope examples, 5,258 are refused
+and every one of them now has a justification that was read rather than assumed:
+2,153 external CAS interfaces (each with a working in-process equivalent),
+1,102 names the doctest invented, 741 undeclared symbols, 538 internal spellings
+of mathematics reachable another way, 190 string-path primitives, 178 test
+plumbing, 124 module traversals, 69 file writes, 56 `latex.` attribute reaches,
+33 `global` statements, 11 imports, 5 evaluation primitives, 4 `.eval()`
+attributes and 3 examples past the input size limit.

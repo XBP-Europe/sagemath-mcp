@@ -653,3 +653,46 @@ def test_tall_layout_is_declined_when_an_element_says_no() -> None:
             return key == "ascii_art"
 
     assert _sage_worker._wants_tall_layout([Element(), AsciiArt()]) is True
+
+
+def test_the_scrub_reaches_sage_all_where_sage_eval_resolves(monkeypatch) -> None:
+    """`_strip_from_sage_all`, the fix that made the denylist real for tools.
+
+    A tool wraps caller input in `sage_eval(...)`, and `sage_eval` resolves "in
+    namespace of sage.all plus locals" -- not in the worker's namespace. So
+    scrubbing the worker namespace left `unpickle_global` reachable through any
+    generated template, which was remote code execution. This strips it from
+    `sage.all` itself.
+
+    Gated on `not PURE_PYTHON`, so the unit suite never enters it; exercised
+    here with a stand-in `sage.all`. Two things it must get right: remove the
+    dangerous names, and keep `sage_eval` and the other template imports, which
+    live in `sage.all` and every tool depends on.
+    """
+    import sys
+    import types
+
+    from sagemath_mcp import _sage_worker
+
+    # `import sage.all` needs the parent package registered too, or it fails
+    # before sys.modules is consulted -- Sage is not installed in this Python.
+    sage_pkg = types.ModuleType("sage")
+    fake = types.ModuleType("sage.all")
+    sage_pkg.all = fake
+    fake.unpickle_global = lambda *a: "danger"
+    fake.sage_eval = lambda *a: "needed"       # a trusted-template import
+    fake.factorial = lambda n: 1               # ordinary, not asked to remove
+    monkeypatch.setitem(sys.modules, "sage", sage_pkg)
+    monkeypatch.setitem(sys.modules, "sage.all", fake)
+
+    # Three shapes in one call: a dangerous name present (removed), a trusted
+    # template import (skipped by name), and a dangerous name already absent
+    # (nothing to delete -- the branch the earlier version left uncovered).
+    removed = _sage_worker._strip_from_sage_all(
+        ("unpickle_global", "sage_eval", "cython")
+    )
+
+    assert removed == 1, "only the dangerous name that was present goes"
+    assert "unpickle_global" not in fake.__dict__, "the shell primitive must be gone"
+    assert "sage_eval" in fake.__dict__, "the templates still need sage_eval"
+    assert "factorial" in fake.__dict__, "names not asked for are left alone"

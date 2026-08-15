@@ -366,6 +366,12 @@ def _strip_dangerous_sage_names(ns: dict[str, Any]) -> int:
         if name in ns:
             del ns[name]
             removed += 1
+    # And from `sage.all`, which is where sage_eval looks. See
+    # _strip_from_sage_all: without this the whole denylist is decorative on
+    # every path that goes through a generated template.
+    if not PURE_PYTHON:
+        with contextlib.suppress(Exception):
+            _strip_from_sage_all((*_DANGEROUS_SAGE_NAME_LIST, *_DANGEROUS_BARE_NAMES))
     return removed
 
 
@@ -399,6 +405,49 @@ def _reseal_namespace(ns: dict[str, Any], introduced: frozenset[str] = frozenset
     )
 
 
+def _strip_from_sage_all(names: Any) -> int:
+    """Remove names from `sage.all` itself, not only from the worker namespace.
+
+    The scrub protects caller code, which runs `exec` against the worker
+    namespace. It does *not* protect a tool's fragment, because every generated
+    template is built on `sage_eval` -- and `sage_eval` resolves against
+    `sage.all`'s own globals, never consulting the namespace it was handed. So
+    with the namespace scrubbed clean, this still returned the real function:
+
+        sage_eval('unpickle_global')   -> cython_function_or_method
+
+    and the same for `cython`, `sh`, `attrcall`, `os` and `maxima_calculus`.
+    Every name the denylist removes was reachable that way. Nothing was
+    *exploitable*: a caller string reaching a template must first pass
+    `_validated_expression`, which enforces the allowlist. But that made the
+    gate the only lock on that path rather than the second, and this file's
+    whole model is that the object should not be there either.
+
+    Process-local and deliberate: this worker exists to run untrusted
+    mathematics, so its own copy of `sage.all` has no business holding a shell.
+    """
+    import sage.all
+
+    removed = 0
+    for name in names:
+        if name in _TRUSTED_TEMPLATE_IMPORTS:
+            continue
+        if name in sage.all.__dict__:
+            del sage.all.__dict__[name]
+            removed += 1
+    return removed
+
+
+# What generated code imports from `sage.all` by name, and must keep finding
+# there. `sage_eval` is on the denylist -- it comes from `sage.misc.sage_eval`,
+# which the scrub removes wholesale -- and every template is built on it, so
+# stripping it from the module broke all 31 Sage-backed tools at once. The
+# templates import it explicitly under the trusted policy; callers cannot,
+# because `sage_eval` is a forbidden call name for them and no import of theirs
+# survives validation.
+_TRUSTED_TEMPLATE_IMPORTS = frozenset({"sage_eval", "preparse", "sage_input", "latex"})
+
+
 def _strip_forbidden_modules(ns: dict[str, Any]) -> None:
     """Drop module objects the policy forbids from the user namespace.
 
@@ -415,9 +464,15 @@ def _strip_forbidden_modules(ns: dict[str, Any]) -> None:
     else about it, including anything a future Python adds, refused by default.
     """
     permitted = {module for module, _ in SECURITY_POLICY.allowed_module_attributes}
-    for name in SECURITY_POLICY.forbidden_attribute_parents:
-        if name not in permitted:
-            ns.pop(name, None)
+    forbidden = [
+        name for name in SECURITY_POLICY.forbidden_attribute_parents
+        if name not in permitted
+    ]
+    for name in forbidden:
+        ns.pop(name, None)
+    if not PURE_PYTHON:
+        with contextlib.suppress(Exception):
+            _strip_from_sage_all(forbidden)
 
 
 # Builtins that are dangerous in this context and have no place in a maths

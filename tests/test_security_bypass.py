@@ -1989,3 +1989,59 @@ def test_the_token_screen_refuses_scrubbed_names_too(fragment: str) -> None:
 
     with pytest.raises(ToolError, match=r"is blocked|not a name this server offers"):
         _validated_expression(fragment)
+
+
+def test_the_scrub_covers_sage_eval_and_not_only_the_namespace() -> None:
+    """The denylist was decorative on every path through a generated template.
+
+    Caller code runs `exec` against the worker namespace, so scrubbing that
+    namespace protects it. A tool's fragment does not: every template is built
+    on `sage_eval`, and `sage_eval` resolves against `sage.all`'s own globals
+    without ever consulting the namespace it was handed. With the namespace
+    scrubbed clean, this returned the real function:
+
+        sage_eval('unpickle_global')   -> cython_function_or_method
+
+    and the same for `cython`, `sh`, `os`, `attrcall`, `get_remote_file` and
+    `maxima_calculus` -- every name the denylist removes.
+
+    Nothing was exploitable: a caller string reaching a template must pass
+    `_validated_expression` first, which enforces the allowlist, and a
+    structural test already refuses any template that interpolates without a
+    gate. What it meant was that the gate was the *only* lock on that path
+    rather than the second, while this file's whole model is that the object
+    should not be there either. Found by a review asking why
+    `maxima_calculus.system(...)` reached Maxima at all before dying on an ECL
+    internal.
+
+    The scrub now removes the names from `sage.all` as well. That is
+    process-local and deliberate: a worker whose job is untrusted mathematics
+    has no business keeping a shell in its copy of the module.
+    """
+    pytest.importorskip("sage.all")
+    import warnings
+
+    from sagemath_mcp import _sage_worker
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        _sage_worker._build_namespace()
+
+    from sage.misc.sage_eval import sage_eval
+
+    for name in (
+        "unpickle_global", "maxima_calculus", "cython", "sh", "gp", "maxima",
+        "os", "sys", "attrcall", "get_remote_file", "load", "fortran",
+    ):
+        with pytest.raises(NameError):
+            sage_eval(name)
+
+    # And what generated code imports by name is still there, or every tool
+    # breaks at once -- which is exactly what happened when `sage_eval` itself
+    # was stripped, since it comes from a module the denylist removes wholesale.
+    import sage.all
+
+    for needed in _sage_worker._TRUSTED_TEMPLATE_IMPORTS:
+        assert needed in sage.all.__dict__, (
+            f"generated code imports {needed} from sage.all and it is gone"
+        )

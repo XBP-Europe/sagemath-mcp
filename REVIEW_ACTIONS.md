@@ -2082,3 +2082,47 @@ seeing eleven objects it had been reading as unresolved LazyImports —
 `CombinatorialSpecies.algebraic_equation_system` among them. All are
 mathematics, all are now in the reviewed baseline, and the guard is stronger for
 seeing them: it had been under-testing by exactly that much.
+
+## 48. The denylist did not cover sage_eval — high — DONE
+
+Raised by the same review as item 47, asking why `maxima_calculus.system(...)`
+reached Maxima at all before dying on an ECL internal — refused, but at the
+fragment gate, "the second line of defence, not the first". Chasing that found
+there was no first line on that path at all.
+
+Caller code runs `exec` against the worker namespace, so scrubbing the namespace
+protects it. A tool's fragment does not. Every generated template is built on
+`sage_eval`, and **`sage_eval` resolves against `sage.all`'s own globals**,
+never consulting the namespace it is handed. With the namespace scrubbed clean:
+
+```
+sage_eval('unpickle_global')   -> cython_function_or_method
+sage_eval('cython')            -> LazyImport
+sage_eval('sh')                -> Sh
+sage_eval('os')                -> module
+sage_eval('attrcall')          -> function
+```
+
+Every name the denylist removes, reachable. 145 of them.
+
+**Nothing was exploitable, and that is the whole distinction worth drawing.** A
+caller string reaching a template must pass `_validated_expression` first, which
+enforces the allowlist, and a structural test refuses any template that
+interpolates without a gate. So the door was shut — by one lock. This file's
+model is that the object should not be there either, and on that path it was.
+
+The scrub now removes the names from `sage.all` as well as from the namespace.
+Process-local and deliberate: a worker whose job is running untrusted
+mathematics has no business keeping a shell in its copy of the module.
+
+**What it cost to get right.** The first attempt stripped `sage_eval` itself —
+it comes from `sage.misc.sage_eval`, which the denylist removes wholesale — and
+broke all 31 Sage-backed tools at once, 55 failures, because every template does
+`from sage.all import sage_eval`. The names generated code imports by name are
+now held back explicitly: `sage_eval`, `preparse`, `sage_input`, `latex`.
+Callers cannot reach any of them — the first three are forbidden call names and
+no import of theirs survives validation.
+
+`prelude-reseal.patch` is deleted rather than applied. Resealing the namespace
+before the caller's fragment runs could not have closed this: `sage_eval` was
+never reading the namespace.

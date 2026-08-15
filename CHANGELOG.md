@@ -18,7 +18,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   namespace is now **resealed after trusted execution** rather than only at
   startup — both scrubs re-applied and the withheld set re-taken — because a
   snapshot cannot cover names that appear later. Caller-created names are
-  preserved.
+  preserved. The reseal runs in a `finally`, so it covers a tool call that
+  raises or is interrupted as well as one that succeeds: the prelude runs first,
+  so a failing call has already repopulated the namespace by the time it fails,
+  and sealing only on success left every failing call holding the door open.
 
 
 - **A caller binding can no longer authorize a name that already exists.**

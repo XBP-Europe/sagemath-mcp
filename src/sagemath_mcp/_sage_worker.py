@@ -545,9 +545,6 @@ def _execute(
             if compiled.is_expr and compiled.tail is not None:
                 result_obj = eval(compile(compiled.tail, "<sagecell>", "eval"), namespace)
                 result_type = "expression"
-        if trusted:
-            # Generated code has just run `from sage.all import *` in here.
-            _reseal_namespace(namespace)
         stdout_value = stdout_buffer.getvalue() if stdout_buffer else ""
         result_repr = None if result_obj is None else repr(result_obj)
         latex_repr = _latex(result_obj) if result_obj is not None and want_latex else None
@@ -586,6 +583,17 @@ def _execute(
             },
         }
 
+
+    finally:
+        if trusted:
+            # The prelude runs `from sage.all import *` in this namespace and
+            # runs *first*, so a tool call that raises has already repopulated
+            # it by the time it fails. Sealing only on the success path left
+            # every failing call -- a singular matrix, a bad bound, an
+            # interrupted computation -- holding the door open, and that was
+            # remote code execution. KeyboardInterrupt is a BaseException, so
+            # this has to be `finally` rather than a cleanup in `except`.
+            _reseal_namespace(namespace)
 
 def _main() -> int:
     namespace = _build_namespace()

@@ -998,3 +998,56 @@ async def test_resealing_keeps_what_the_caller_built() -> None:
     assert namespace["total"] == 45
     assert "my_helper" in namespace
     assert "x" in namespace
+
+
+@pytest.mark.parametrize(
+    "generated,label",
+    [
+        ("dangerous_helper = 1\nraise ValueError('tool failed')", "raises"),
+        ("dangerous_helper = 1\nraise KeyboardInterrupt()", "interrupted"),
+        ("dangerous_helper = 1", "succeeds"),
+    ],
+)
+def test_the_namespace_is_resealed_however_the_tool_call_ends(
+    generated: str, label: str
+) -> None:
+    """Resealing on the success path only is resealing on the wrong path.
+
+    A tool's generated code runs its prelude *first* and the computation after,
+    so any tool call that fails has already repopulated the namespace by the
+    time it raises. Sealing after a successful return left every failing call --
+    a singular matrix, a bad bound, an interrupted computation -- holding the
+    door open. Confirmed as remote code execution against 10.9 with a tool whose
+    generated code divided by zero.
+
+    So the reseal belongs in a `finally`, and this checks all three exits: a
+    normal return, an exception, and a KeyboardInterrupt, which is a
+    BaseException and would slip past an `except Exception` cleanup.
+    """
+    from sagemath_mcp import _sage_worker
+
+    # A bare namespace, not _build_namespace(): without Sage the worker records
+    # a startup error and returns before executing anything, which would make
+    # this test pass while testing nothing.
+    namespace: dict = {"__builtins__": _sage_worker._restricted_builtins()}
+    # `dangerous_helper` stands in for a name `from sage.all import *` restores
+    # mid-call: the generated code below binds it, exactly as the prelude would.
+    original_list = _sage_worker._DANGEROUS_SAGE_NAME_LIST
+    original_error = _sage_worker._STARTUP_ERROR
+    _sage_worker._DANGEROUS_SAGE_NAME_LIST = frozenset({"dangerous_helper"})
+    _sage_worker._STARTUP_ERROR = None
+    try:
+        _sage_worker._execute(
+            generated, want_latex=False, capture_stdout=False,
+            namespace=namespace, trusted=True,
+        )
+    except BaseException:  # the worker returns rather than raises, but be safe
+        pass
+    finally:
+        _sage_worker._DANGEROUS_SAGE_NAME_LIST = original_list
+        _sage_worker._STARTUP_ERROR = original_error
+
+
+    assert "dangerous_helper" not in namespace, (
+        f"a tool call that {label} left a scrubbed name in the namespace"
+    )

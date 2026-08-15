@@ -1488,6 +1488,42 @@ irrelevant: the name in question was never smuggled in at startup, it was put
 back by the server's own prelude on a later call. Testing the boundary at one
 moment says nothing about a namespace that keeps changing.
 
+## 39. The reseal ran on the success path only — critical — DONE
+
+Item 38's fix, incomplete. Confirmed as remote code execution again, writing
+`uid=1001(sage)`:
+
+```
+1.  if False: unpickle_global = 1     # dead binding
+2.  a tool call whose generated code RAISES after its prelude
+3.  unpickle_global('os', 'system')(...)   # shell
+```
+
+A tool's generated code runs its prelude **first** and the computation after,
+so any tool call that fails has already repopulated the namespace by the time it
+raises. I put the reseal after a successful return, which left every failing
+call holding the door open — a singular matrix, an out-of-range bound, an
+interrupted computation. Step 2 needs no special input, only a tool call that
+does not succeed.
+
+Moved into `finally`, which is the only construct that covers all three exits.
+`KeyboardInterrupt` matters here specifically: it is a `BaseException`, so
+cleanup written into `except Exception` would have missed the interrupt path,
+which is exactly the path a caller controls by cancelling.
+
+**The lesson, and it is about how I fixed the last one rather than about Sage.**
+Item 38 identified the right mechanism and I placed the repair at the point
+where I had *observed* the problem — a successful tool call — instead of at
+every point the invariant could break. The regression test now parametrises all
+three exits (returns, raises, interrupted) rather than the one that was
+reported.
+
+Also worth recording: the first version of this test passed while testing
+nothing. Without Sage the worker records a startup error and returns before
+executing anything, so `_build_namespace()` plus a trusted call did not run the
+code at all. It builds a bare namespace and clears `_STARTUP_ERROR` instead, and
+was confirmed to fail before the fix.
+
 SSH authentication to GitHub broke during this session (`ssh -T git@github.com`
 returns `Permission denied (publickey)` with keys loaded). `gh` still works
 because it uses token auth. If it persists, `git remote set-url origin https://…`

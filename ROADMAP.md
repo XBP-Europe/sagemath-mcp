@@ -20,25 +20,18 @@ legitimate mathematics — which `tests/test_math_coverage.py` exists to catch.
 
 ---
 
-## Open review actions
+## Open work
 
-A review on 2026-08-13 found three release-blocking issues: the AST validator is
-bypassable, the public security claims overstate the controls, and FastMCP's
-default response cache breaks state and isolation across clients. It also found
-correctness gaps in named-workspace cancellation, exact large integers, streaming,
-persistence, workspace routing and version synchronization. All are tracked with
-evidence, a suggested fix and a verification step in
-[REVIEW_ACTIONS.md](REVIEW_ACTIONS.md).
+The live queue is [TODO.md](TODO.md); this section says only what shape it is in.
 
-**Status: fifteen of seventeen closed.** The validator took three rounds — direct
-spellings, then aliases of forbidden functions (`f = open`), then aliases of
-forbidden modules (`m = os`) — because each fix was checked only against the
-payloads that motivated it. Item 4 (splitting `server.py`) is now done: 2327 lines became 162, with the
-tools in a `tools/` package and the contract held byte-identical by a snapshot
-test. Item 18, found later by an external review, was a genuine remote-execution
-path through four unvalidated tool parameters and is closed. What remains is the
-account-side half of item 7 — the Smithery and Glama submissions, which need
-repository-owner access — and coverage on the newly isolated helpers.
+The 2026-08-13 review and the security rounds that followed are all recorded in
+[REVIEW_ACTIONS.md](REVIEW_ACTIONS.md) — 34 items, each with its reproduction,
+fix and regression test. Every one is closed except the account-side half of
+item 7: the Smithery and Glama submissions need repository-owner access.
+
+- [ ] Smithery: connect the repository at smithery.ai/new (reads the committed `smithery.yaml`) — needs owner access
+- [ ] Glama: claim the auto-indexed listing — needs owner access
+- [ ] Cut 0.5.1. Security fixes and a user-visible behaviour change are unreleased while 0.5.0 is the live version.
 
 ## Competitive position (surveyed 2026-08-13)
 
@@ -90,82 +83,6 @@ The adjacent market is roughly five times larger and is where attention actually
 
 ---
 
-## Planned — Tier 1: Distribution (done 2026-08-13)
-
-Cheap, and the gap was embarrassing: the repository had no topics, no homepage, and a
-typo in the one sentence GitHub indexes for search.
-
-- [x] Fix the repository description, add a homepage, add 14 discovery topics
-- [x] Add `server.json` and the `mcp-name` ownership marker for the official MCP registry
-- [x] Automate registry publication from the release workflow using OIDC
-  - **Listed since v0.5.0.** The job first executed on that tag and the registry
-    now returns `io.github.XBP-Europe/sagemath-mcp`. The README badge is back,
-    and its test queries the registry rather than the workflow -- checking that
-    release.yml mentions the job was what let the badge claim a listing that had
-    never happened.
-- [x] Glama: auto-indexed and returning `XBP-Europe/sagemath-mcp`; claiming the listing needs owner access
-- [ ] Smithery: connect the repository at smithery.ai/new (reads the committed `smithery.yaml`) — needs owner access
-
-At the time of the survey the only SageMath server in the official registry was
-`io.github.justice8096/sagemath-mcp-server`, a one-star project with 10 tools. Registry
-publication requires the ownership marker to be present in the *published* PyPI
-description, so it takes effect from the first release after this change.
-
-## Tier 2: Session ergonomics (shipped; corrective work open)
-
-The two capabilities where a one-star project was genuinely ahead. Neither needed an
-architectural change.
-
-- [x] **Interrupt without restart.** `interrupt_sage_session` signals the worker, which
-      turns the resulting KeyboardInterrupt into an `Interrupted` response and keeps its
-      namespace. `cancel_sage_session` remains the escape hatch for a wedged worker.
-- [x] **Named multi-sessions.** `start_sage_session`, `list_sage_sessions` and
-      `stop_sage_session`, with workspace selection on raw evaluation and session
-      controls. The default workspace keys on the bare scope.
-- [x] **Correct named-session routing.** Cancellation must target the selected
-      workspace, response ids must be verified, and specialized tools must expose
-      the same `session` selector (review items 11 and 16).
-
-Two details worth remembering. `interrupt` deliberately does not take the session lock:
-the evaluation being interrupted holds it, so waiting would deadlock until the
-computation everyone is trying to stop finishes on its own. And the worker's
-`except Exception` did not catch `KeyboardInterrupt`, which is a `BaseException` — without
-handling it explicitly the worker exited and took the namespace with it, defeating the
-purpose.
-
-## Tier 3: Jupyter kernel transport — prototyped, not adopted (2026-08-13)
-
-Prototyped under `prototypes/jupyter_transport/`; see its `FINDINGS.md`. **Recommendation
-is not to adopt now**, on evidence rather than taste.
-
-The motivating benefits were already banked by cheaper means. Interrupt with state
-preservation shipped in Tier 2 using plain SIGINT. The framing failure was fixed by
-sizing the stream limit to 8 MiB. Multi-line input already worked. Of the four advantages
-szeider/mcp-sage cites, only "ZMQ framing has no arbitrary ceiling" is still outstanding,
-against our large one.
-
-What the prototype established:
-
-- A Jupyter kernel listens on five local TCP ports. A second client holding only the
-  connection file executed `import os; os.getuid()` against a stock kernel — so
-  client-side validation would be **advisory only**.
-- **IPython's `ast_transformers` cannot serve as the gate.** A transformer that raises is
-  not a veto: IPython warns, runs the original code anyway, and unregisters the
-  transformer.
-- Keeping the sandbox therefore requires subclassing the kernel and validating in
-  `do_execute`. That works and closes the bypass, but means owning a kernel subclass and
-  tracking ipykernel internals indefinitely.
-- Startup goes from 463 ms to 1010 ms, on a path users wait for.
-- The threat model worsens: today a worker has no listening socket, so a same-user
-  process cannot reach another session. With kernels it can, even if only with validated
-  code.
-
-Revisit for **capability**, not robustness: kernels emit `display_data` with `image/png`
-and `text/latex` natively, which is exactly what the plot tools hand-roll today, and
-`plot3d_expression` had to sample a surface by hand because `Graphics3d` has no
-in-memory export. Notebook interoperability and multi-language kernels are the other
-reasons that would justify the move.
-
 ## Explicitly not planned
 
 **More tools.** At 37 the surface already exceeds every peer. The gaps that matter are
@@ -173,64 +90,48 @@ distribution and session ergonomics, not coverage.
 
 ---
 
-## Completed — Phase 1 (High-Value Helper Tools)
+## Design notes worth remembering
 
-- [x] **`symbolic_sum`** — symbolic summation and products with sum/product toggle
-- [x] **`combinatorics_operation`** — binomial, permutations, combinations, partitions, factorial, catalan, fibonacci, bell
-- [x] **`plot3d_expression`** — 3D surface plots as base64-encoded PNG
+Kept because each one cost a debugging session and none is obvious from the code.
 
-## Completed — Phase 2 (Medium-Value Helper Tools)
+- **`interrupt` deliberately does not take the session lock.** The evaluation
+  being interrupted holds it, so waiting would deadlock until the computation
+  everyone is trying to stop finishes on its own.
+- **The worker's `except Exception` did not catch `KeyboardInterrupt`**, which is
+  a `BaseException`. Without handling it explicitly the worker exited and took
+  the namespace with it — defeating the point of interrupting rather than
+  cancelling.
+- **FastMCP's `mount`/`import_server` prefix tool names.** Composing the `tools/`
+  package that way would rename every tool a client has configured, which is why
+  the modules decorate against a shared `mcp` object instead.
+- **Jupyter kernel transport was prototyped and rejected** (2026-08-13): stock
+  ipykernel executes code the AST policy blocks, so it would need a permanent
+  custom kernel, and startup cost 1010 ms against 463 ms. The measurements and
+  the debugger finding are in
+  [`prototypes/jupyter_transport/FINDINGS.md`](prototypes/jupyter_transport/FINDINGS.md).
 
-- [x] **`distribution_operation`** — probability distributions (normal, exponential, poisson, chi_squared, student_t, uniform, beta, gamma) with pdf/cdf/quantile/mean/variance/sample operations
-- [x] **`find_root`** — numeric root-finding in an interval (complements symbolic `solve_equation`)
-- [x] **`plot_multi_expression`** — overlay multiple functions in a single 2D plot
-- [x] **`vector_calculus_operation`** — gradient, divergence, curl, laplacian
+## Niche domains — no further dedicated tools planned
 
-## Completed — Phase 3 (Enrichment)
-
-- [x] **Enriched `evaluate_sage` description** — 14 domain examples (was 8): added symbolic sums, Laplace/inverse Laplace transforms, modular arithmetic, vector calculus, numeric root finding, recurrence relations
-- [x] **HTTP `/health` endpoint** — returns `{"status": "ok", "version": "...", "active_sessions": N}` for Kubernetes liveness/readiness probes (Starlette route on HTTP transports)
-- [x] **`evaluate_sage_streaming`** — shipped first as a facade that replayed captured stdout after completion; now streams each line as it is produced (see the entry below).
-- [x] **True incremental streaming** — the worker emits a stdout event per completed line while execution is running, and the session dispatches them as they arrive (review item 13).
-- [x] **Disk-backed session persistence foundation** — code journals are saved on explicit stop/server shutdown and replayed on restore. Controlled by `SAGEMATH_MCP_PERSIST_SESSIONS` and `SAGEMATH_MCP_PERSIST_DIR`.
-- [x] **Complete persistence lifecycle and isolation** — journals are saved during idle culling, filenames carry a digest of the full session id in a versioned namespace, writes are atomic, and journals from the previous naming schemes are still restored (review items 14 and 15).
-
-## Phase 4 — Niche Domains (Not Planned)
-
-These domains are fully accessible via `evaluate_sage` and documented in its tool description. Dedicated tools are not planned because the domains require specialized knowledge to use effectively, and the `evaluate_sage` escape hatch with domain-specific examples already covers them.
+These are reachable through `evaluate_sage`, which documents them in its own
+description. Dedicated tools are not planned: the problems are too varied for a
+single interface, or Sage is not the right instrument.
 
 | Domain | Access via `evaluate_sage` | Why no dedicated tool |
 |--------|---------------------------|----------------------|
-| Graph theory | `graphs.PetersenGraph(); G.chromatic_number()` | Problems are too varied for a single tool interface |
-| Group theory | `SymmetricGroup(5).order()` | Requires domain expertise |
-| Elliptic curves | `EllipticCurve([0,0,1,-1,0]).rank()` | Highly specialized |
-| Coding theory | `codes.HammingCode(GF(2), 3).minimum_distance()` | Niche |
 | Tensor operations | Sage tensor module with index notation | Very specialized |
-| Boolean algebra | `BooleanPolynomialRing` | Sage is not strong here |
 | Category theory | Limited Sage support | Out of Sage's scope |
 | Unit conversion | External `units` package | Domain-specific |
 | Curve fitting | Limited in Sage (scipy is better) | Wrong tool for the job |
 
----
+Five domains that were once on this list — graph theory, group theory, elliptic
+curves, coding theory and boolean algebra — did get dedicated tools
+(`graph_operation`, `group_operation`, `elliptic_curve_operation`,
+`coding_theory_operation`, `boolean_algebra_operation`).
 
-## Completed (v0.2.0)
+## Completed work
 
-All items from the initial evaluation and TODO have been implemented:
-
-- [x] 18 MCP math tools (calculus, algebra, linear algebra, ODEs, number theory, statistics, plotting)
-- [x] CLI integration test suite (43 cases, Claude + Gemini)
-- [x] 267 pure-Python tests and 342 tests against SageMath 10.9
-- [x] FastMCP 3.x upgrade with full API migration
-- [x] CI modernization (6 parallel jobs, matrix testing, uv caching, pip-audit, coverage)
-- [x] Docker image pinned to SageMath 10.9
-- [x] Helm chart health probes (liveness, readiness, startup)
-- [x] Python 3.12+ minimum
-- [x] All GitHub Actions on Node.js 24
-- [x] Worker startup error propagation
-- [x] MCP resource serialization fix
-- [x] Security policy: base64/io imports for plot support
-- [x] Comprehensive documentation across all markdown files
-- [x] Project metadata, classifiers, URLs
-- [x] MIT LICENSE file (was Apache 2.0)
-- [x] Version synchronization across pyproject.toml, __init__.py, Helm chart
-- [x] Include both `server.json` version fields in automated version synchronization — `scripts/bump_version.py` writes the manifest version and every package version, and `test_all_declared_versions_agree` asserts both alongside pyproject, `__init__` and the chart
+Not listed here. Every shipped change is in [CHANGELOG.md](CHANGELOG.md) with
+its release, and the reasoning behind the security work is in
+[REVIEW_ACTIONS.md](REVIEW_ACTIONS.md). This file previously carried four
+sections of ticked boxes that duplicated both and went stale — one of them still
+listed five domains as having no dedicated tool when all five had shipped.

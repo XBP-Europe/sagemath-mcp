@@ -60,7 +60,21 @@ packages = ["src/sagemath_mcp"]
 "src/sagemath_mcp/py.typed" = "sagemath_mcp/py.typed"
 
 [tool.hatch.build.targets.sdist]
+# The build backend is hatchling, which does not read MANIFEST.in -- that is a
+# setuptools file. One lived here for a long time listing these same documents,
+# and shipped none of them: every sdist contained README.md alone while
+# DISTRIBUTION.md and build_release.py both said "documentation included".
 include = ["src/sagemath_mcp/py.typed"]
+
+[tool.hatch.build.targets.sdist.force-include]
+"USAGE.md" = "USAGE.md"
+"TESTING.md" = "TESTING.md"
+"AGENTS.md" = "AGENTS.md"
+"INSTALLATION.md" = "INSTALLATION.md"
+"SECURITY.md" = "SECURITY.md"
+"CONTRIBUTING.md" = "CONTRIBUTING.md"
+"CHANGELOG.md" = "CHANGELOG.md"
+"docs" = "docs"
 
 [tool.ruff]
 line-length = 100

@@ -1,3 +1,0 @@
-include README.md USAGE.md TESTING.md AGENTS.md INSTALLATION.md
-recursive-include docs *.md
-recursive-include scripts *.py *.sh *.ps1

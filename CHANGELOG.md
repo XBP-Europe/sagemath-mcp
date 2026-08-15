@@ -113,8 +113,7 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `interrupt_sage_session`, which the same page recommends in prose, and the
   three that make up named workspaces; `INSTALLATION.md` called the SageMath
   runtime "optional" when without it every evaluation fails with `Unable to
-  locate Sage executable`; `EVALUATION.md` listed seven "remaining
-  opportunities" that had all shipped; the README architecture diagram
+  locate Sage executable`; the README architecture diagram
   advertised response caching that was deliberately turned off as an isolation
   bug. Test counts, the predefined symbols and the security framing were stale
   in several places.
@@ -123,6 +122,26 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Security documentation gained the design principle behind the `operator`
   finding: every attribute rule is enforced on the source text, so any primitive
   that fetches an attribute by a runtime string defeats all of them at once.
+
+### Fixed
+
+- **The sdist shipped one file of documentation, not eight.** `MANIFEST.in`
+  listed `USAGE.md`, `TESTING.md`, `AGENTS.md`, `INSTALLATION.md` and everything
+  under `docs/`, and had no effect: the build backend is hatchling, which does
+  not read `MANIFEST.in`. Every sdist contained `README.md` alone while
+  `DISTRIBUTION.md` and `build_release.py` both said documentation was included.
+  The file list moved to `[tool.hatch.build.targets.sdist]`, where it works, and
+  `MANIFEST.in` is deleted rather than left looking authoritative.
+
+### Removed
+
+- **`docs/reference_md/` and `EVALUATION.md`.** The reference directory was
+  orphaned: no code read it, and the `resource://sagemath/docs/{scope}` resource
+  serves links into the upstream manual directly, so the local copy was 200-odd
+  links pointing at the same URLs, and already accruing maintenance (one page
+  recommended `search_src`, which callers may no longer use). `scripts/convert_html_to_md.py`, which only regenerated it, goes too.
+  `EVALUATION.md` was an April snapshot whose verdict was superseded, whose
+  security assessment had become wrong, and whose entire backlog had shipped.
 
 ### Added
 

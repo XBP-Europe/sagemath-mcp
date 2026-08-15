@@ -1231,7 +1231,7 @@ sagemath-mcp/
 │       └── test_gemini.py          # Pytest wrapper for Gemini
 ├── charts/sagemath-mcp/            # Helm chart for Kubernetes
 ├── scripts/                        # Build, release, CI scripts
-├── docs/reference_md/              # SageMath reference docs (Markdown)
+├── docs/mcp_quickstart.md          # Client quickstart and prompt cookbook
 └── .github/workflows/
     ├── ci.yml                      # 6 parallel jobs: lint, test (3.12+3.13), security
     │                               #   (pip-audit), helm, integration, smoke

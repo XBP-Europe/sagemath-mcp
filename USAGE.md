@@ -96,8 +96,8 @@ All math tools use **SageMath** as the computation backend.
 | `resource://sagemath/docs/{scope}` | Server | Retrieve SageMath documentation links (`scope=all`, `reference`, `tutorial`). |
 | `/health` | Server | HTTP health check endpoint returning server status (for Kubernetes probes). |
 
-The repo ships a curated subset of the Sage reference manual (index, search, plotting/plot3d,
-calculus, rings, statistics) in `docs/reference_md/`, suitable for in-context prompting.
+The `resource://sagemath/docs/{scope}` resource returns links into the upstream
+SageMath manual, which is the authoritative copy and always current.
 
 Refer to [MONITORING.md](MONITORING.md) for details on exporting metrics to Prometheus or other dashboards.
 For container deployments, scrape metrics from whichever service (compose or Helm) exposes

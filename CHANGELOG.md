@@ -9,6 +9,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **A caller could reserve a name for a tool to fill.** Binding a template's
+  internal in dead code (`if False: _fig = 1`) marked it as the caller's own, so
+  the object a later tool call built arrived under a name already exempt from
+  being withheld — a live `matplotlib` Figure, the BytesIO holding the plot PNG,
+  and the prelude's symbol table. No capability was reachable through them, but
+  holding trusted code's objects is the wrong side of the invariant. Whatever
+  trusted execution introduces is now withheld regardless of what the caller
+  claimed first.
+
 - **`write_*` methods wrote caller-chosen files.**
   `graphs.PetersenGraph().write_to_eps(path)` and
   `Polyhedron().write_cdd_Hrepresentation(path)` each wrote to disk — the same

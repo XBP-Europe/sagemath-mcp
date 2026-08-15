@@ -1149,3 +1149,44 @@ def test_the_namespace_is_resealed_however_the_tool_call_ends(
     assert "dangerous_helper" not in namespace, (
         f"a tool call that {label} left a scrubbed name in the namespace"
     )
+
+
+def test_pre_binding_a_name_does_not_hand_over_what_a_tool_later_builds() -> None:
+    """A caller may not reserve a name for trusted code to fill.
+
+    The reseal exempts caller-bound names from being withheld, so that a
+    stateful session keeps working. A caller can exploit that ordering: bind the
+    template's internals in dead code *first*, then call a tool, and the objects
+    it builds arrive under names already marked as the caller's own.
+
+    Demonstrated against 10.9 -- after `if False: _fig = 1` and a plot call,
+    `_fig` was a live `matplotlib` Figure and `_buf` the BytesIO holding the
+    PNG. No file write came of it (`print_png` is absent on the base canvas and
+    `savefig` matches a forbidden prefix), so this is the invariant being wrong
+    rather than a capability being reachable. It is still the wrong side of the
+    invariant: a rich object from trusted code is not the caller's to hold.
+
+    The rule: whatever trusted execution *introduces* is withheld, whether or
+    not the caller had claimed the name. Diffing the namespace is safe used this
+    way -- to distrust what appeared, not to trust it.
+    """
+    from sagemath_mcp import _sage_worker
+
+    namespace = {"__builtins__": _sage_worker._restricted_builtins()}
+    _sage_worker._CALLER_BOUND_NAMES.clear()
+    _sage_worker._CALLER_BOUND_NAMES.add("_fig")   # claimed in dead code
+    original = _sage_worker._STARTUP_ERROR
+    _sage_worker._STARTUP_ERROR = None
+    try:
+        _sage_worker._execute(
+            "_fig = 'a rich object the template built'",
+            want_latex=False, capture_stdout=False, namespace=namespace, trusted=True,
+        )
+    finally:
+        _sage_worker._STARTUP_ERROR = original
+
+    assert "_fig" in _sage_worker._WITHHELD_NAMES, (
+        "a name introduced by trusted code stayed readable because the caller "
+        "had bound it first"
+    )
+    _sage_worker._CALLER_BOUND_NAMES.clear()

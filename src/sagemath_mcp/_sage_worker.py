@@ -281,7 +281,7 @@ def _strip_dangerous_sage_names(ns: dict[str, Any]) -> int:
     return removed
 
 
-def _reseal_namespace(ns: dict[str, Any]) -> None:
+def _reseal_namespace(ns: dict[str, Any], introduced: frozenset[str] = frozenset()) -> None:
     """Re-apply the startup scrub, and re-take the withheld snapshot.
 
     The generated prelude runs `from sage.all import *` in this same persistent
@@ -298,6 +298,12 @@ def _reseal_namespace(ns: dict[str, Any]) -> None:
     """
     _strip_forbidden_modules(ns)
     _strip_dangerous_sage_names(ns)
+    # A name trusted code introduced is not the caller's, whatever they bound
+    # earlier. Without this a caller can reserve the templates' internals in
+    # dead code -- `if False: _fig = 1` -- and collect the objects a later tool
+    # call builds under them. Diffing the namespace is sound used this way: to
+    # distrust what appeared, never to trust it.
+    _CALLER_BOUND_NAMES.difference_update(introduced)
     global _WITHHELD_NAMES
     _WITHHELD_NAMES = frozenset(
         name for name in ns
@@ -535,6 +541,7 @@ def _execute(
             },
         }
 
+    before_trusted = frozenset(namespace) if trusted else frozenset()
     try:
         with contextlib.redirect_stdout(stdout_buffer or io.StringIO()):
             exec(compile(compiled.prefix, "<sagecell>", "exec"), namespace)
@@ -593,7 +600,7 @@ def _execute(
             # interrupted computation -- holding the door open, and that was
             # remote code execution. KeyboardInterrupt is a BaseException, so
             # this has to be `finally` rather than a cleanup in `except`.
-            _reseal_namespace(namespace)
+            _reseal_namespace(namespace, frozenset(namespace) - before_trusted)
 
 def _main() -> int:
     namespace = _build_namespace()

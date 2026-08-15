@@ -1524,6 +1524,37 @@ executing anything, so `_build_namespace()` plus a trusted call did not run the
 code at all. It builds a bare namespace and clears `_STARTUP_ERROR` instead, and
 was confirmed to fail before the fix.
 
+## 41. A caller could reserve a name for a tool to fill — low — DONE
+
+Found by following where the review was looking rather than from a stated
+finding. The reseal exempts caller-bound names from being withheld, so a
+stateful session keeps working — and a caller can use that ordering:
+
+```
+if False: _fig = 1        # claim the template's internal, in dead code
+plot_expression(...)      # the tool builds a matplotlib Figure under that name
+_fig                      # <Figure size 640x480 with 1 Axes>
+_buf.getvalue()[:4]       # b'\x89PNG'
+_locals                   # {'x': x, 'y': y, 'z': z, 't': t}
+```
+
+**No capability came of it**, which is why this is low rather than critical.
+`savefig` matches a forbidden prefix, `print_png` is absent on the base canvas,
+and the PNG in `_buf` is the same image the tool returns anyway. But a
+`matplotlib` Figure is a rich object and its being reachable is luck, not
+design: the caller is holding something trusted code built.
+
+The rule now: **whatever trusted execution introduces is withheld, whether or
+not the caller claimed the name first.** The reseal takes the set of names that
+appeared during trusted execution and drops them from the caller-bound set.
+Diffing the namespace is sound used this way — to distrust what appeared, never
+to trust it, which is what the original namespace-diff design got backwards and
+what the comment at the top of the worker still warns about.
+
+Checked in the same probe, and clean: `sage_eval` is refused by name even though
+the prelude imports it on every tool call, and a second tool call still works
+after the reseal has removed it, because the prelude re-imports it each time.
+
 SSH authentication to GitHub broke during this session (`ssh -T git@github.com`
 returns `Permission denied (publickey)` with keys loaded). `gh` still works
 because it uses token auth. If it persists, `git remote set-url origin https://…`

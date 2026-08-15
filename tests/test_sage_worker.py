@@ -593,10 +593,24 @@ def test_a_list_result_is_formatted_the_way_sage_prints_it(monkeypatch) -> None:
     monkeypatch.setattr(_sage_worker, "PURE_PYTHON", False)
 
     formatter = types.ModuleType("sage.repl.display.util")
-    formatter.format_list = lambda value: f"[{', '.join(str(v) for v in value)}]"
+    formatter.format_list = lambda value: "<tall>"
     monkeypatch.setitem(sys.modules, "sage.repl.display.util", formatter)
-    assert _sage_worker._format_result([1, 2, 3]) == "[1, 2, 3]"
-    assert _sage_worker._format_result((1, 2)) == "[1, 2]"
+
+    class AsciiArt:
+        """An element that opts into the layout, as a matrix does."""
+
+        def _repr_option(self, key):
+            return key == "ascii_art"
+
+    # Sage only lays a sequence out in columns when an element asks for it, so
+    # ordinary values are untouched however multi-line they are...
+    assert _sage_worker._format_result([1, 2, 3]) == repr([1, 2, 3])
+    assert _sage_worker._format_result((1, 2)) == repr((1, 2))
+    assert _sage_worker._format_result([]) == "[]"
+
+    # ...and one that asks goes through Sage's formatter.
+    assert _sage_worker._format_result([AsciiArt()]) == "<tall>"
+    assert _sage_worker._format_result((AsciiArt(), AsciiArt())) == "<tall>"
 
     # A non-sequence never goes near it.
     assert _sage_worker._format_result(42) == "42"
@@ -604,4 +618,4 @@ def test_a_list_result_is_formatted_the_way_sage_prints_it(monkeypatch) -> None:
     # And when the import fails, the value still comes back.
     broken = types.ModuleType("sage.repl.display.util")
     monkeypatch.setitem(sys.modules, "sage.repl.display.util", broken)
-    assert _sage_worker._format_result([1, 2]) == repr([1, 2])
+    assert _sage_worker._format_result([AsciiArt()]).startswith("[<")

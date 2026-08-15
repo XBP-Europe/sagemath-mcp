@@ -49,8 +49,9 @@ pasted matrix, refusal messages that name the spelling which works, run-time
 names from `inject_variables()`, and executing the corpus rather than only
 validating it. That last one measured **100% agreement** with the output
 SageMath's doctests document, over 1,259 comparable examples in a 400-docstring
-sample, and surfaced one new item for [TODO.md](TODO.md): Sage's REPL lays a
-sequence of matrices out in columns and this server stacks them.
+sample. It surfaced one more thing on the way, now also fixed: Sage's REPL lays
+a sequence of matrices out in columns where this server stacked them, so a basis
+of eight 3x3 matrices arrived as 32 lines instead of 4. That queue is empty.
 
 Deliberately *not* among them: the external CAS interfaces (2,153 refusals),
 whose mathematics is reachable in-process and tested to be; the 538 uses of

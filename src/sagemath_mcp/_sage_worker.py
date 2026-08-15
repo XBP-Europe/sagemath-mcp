@@ -462,6 +462,69 @@ def _restricted_builtins() -> dict[str, Any]:
     return {name: value for name, value in source.items() if name not in _DENIED_BUILTINS}
 
 
+def _format_result(value: Any) -> str:
+    """Render a result the way the Sage REPL renders it.
+
+    `repr` stacks a sequence of matrices one after another; Sage lays them out
+    side by side, in columns, and that is what its own doctests record:
+
+        (
+        [1 0]  [0 1]  [0 0]  [0 0]
+        [0 0], [0 0], [1 0], [0 1]
+        )
+
+    The difference is not cosmetic for a server whose entire output is text --
+    a basis of eight 3x3 matrices is 32 lines one way and 4 the other. It was
+    found by executing SageMath's doctests rather than by reading them, and it
+    was the only class of disagreement left in that suite.
+
+    Sage's own `format_list` does it, so nothing here reimplements the layout:
+    it returns the tall form when the entries are tall and plain `repr`
+    otherwise, so `[1, 2, 3]` is untouched. The formatter lives in
+    `sage.repl.display`, which callers do not get -- this is the worker
+    importing it internally, as it already does for `latex` when a tool asks
+    for LaTeX.
+    """
+    if not PURE_PYTHON and isinstance(value, (list, tuple)) and value:
+        try:
+            if _wants_tall_layout(value):
+                from sage.repl.display.util import format_list
+
+                return format_list(value)
+        except Exception:
+            pass
+    return repr(value)
+
+
+def _wants_tall_layout(sequence: Any) -> bool:
+    """Sage's own condition for laying a sequence out in columns.
+
+    Not every multi-line repr gets the treatment, and guessing which do was
+    wrong twice: a list of morphisms has a multi-line repr and Sage prints it
+    stacked, while a list of matrices gets columns. The rule is in
+    `sage.repl.display.fancy_repr.TallListRepr` and it is an opt-in -- an
+    element, or the parent it comes from, has to say it is ascii art:
+
+        o._repr_option('ascii_art')            # the element says so
+        o.parent()._repr_option('element_ascii_art')   # its parent does
+
+    MatrixSpace sets the second; morphisms set neither. Reading that rather
+    than approximating it is the difference between matching SageMath's
+    doctests and inventing a third layout.
+    """
+    for element in sequence:
+        for probe in (
+            lambda o: o._repr_option("ascii_art"),
+            lambda o: o.parent()._repr_option("element_ascii_art"),
+        ):
+            try:
+                if probe(element):
+                    return True
+            except (AttributeError, TypeError):
+                continue
+    return False
+
+
 def _latex(result: Any) -> str | None:
     if result is None:
         return None
@@ -709,7 +772,7 @@ def _execute(
             # model happened to call in between.
             namespace["_"] = result_obj
             _CALLER_BOUND_NAMES.add("_")
-        result_repr = None if result_obj is None else repr(result_obj)
+        result_repr = None if result_obj is None else _format_result(result_obj)
         latex_repr = _latex(result_obj) if result_obj is not None and want_latex else None
         elapsed_ms = (time.perf_counter() - start) * 1000.0
         return {

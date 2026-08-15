@@ -110,7 +110,7 @@ make doctest-execution                    # 60 docstrings, ~40s
 BLOCKS=400 STRIDE=7 make doctest-execution   # a nightly's worth, ~7 minutes
 ```
 
-Measured against SageMath 10.9: 400 docstrings, 2,163 examples, 1,259
+Measured against SageMath 10.9: 400 docstrings, 2,163 examples, 1,279
 comparable, **100% agreement, no mismatches and no unexpected errors**.
 
 Comparison is SageMath's own `SageOutputChecker`, which implements the `...`
@@ -127,7 +127,9 @@ Five things a harness needs, each of which caused a false failure before it was
 handled: expected exceptions (a `Traceback` block is an assertion), block
 dependencies (exclusion means *do not compare*, never *do not execute*),
 warnings, `# todo: not implemented` tags that mark a deliberately wrong answer,
-and Sage's REPL matrix layout.
+and Sage's REPL matrix layout — which turned out to be a defect in this server
+rather than a property of doctests, and was fixed: results now go through Sage's
+own `format_list`, so those nine comparisons are made instead of skipped.
 
 ## What is not built yet
 

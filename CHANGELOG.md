@@ -310,6 +310,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A sequence of matrices is laid out the way Sage lays it out.** `repr`
+  stacks a basis one matrix after another; Sage prints them side by side, in
+  columns, and for eight 3×3 matrices that is 4 lines against 32. It matters for
+  a server whose entire output is text, and it was invisible until the doctests
+  were *executed* rather than validated — it was the only class of disagreement
+  left in that suite. The layout is Sage's own `format_list` under Sage's own
+  condition: an element has to opt in through `_repr_option('ascii_art')` or its
+  parent's `element_ascii_art`. Matrices do, morphisms do not, and SageMath's
+  doctests record both — approximating that rule instead of reading it was wrong
+  twice before the gate was right.
 - **SageMath's doctests are executed now, not only validated.**
   `tests/test_sage_doctest_execution.py` runs a deterministic sample of the
   corpus through a real session and compares what comes back against the output

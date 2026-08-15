@@ -57,6 +57,7 @@ that would be inventing a second dialect of somebody else's format.
 
 from __future__ import annotations
 
+import contextlib
 import doctest
 import os
 import re
@@ -112,7 +113,7 @@ _UNRUNNABLE = re.compile(
 # Runnable, but its output is not worth comparing: it is random, it is a memory
 # address, it is timing, or it warns.
 _DO_NOT_COMPARE = re.compile(
-    r"#\s*(random|long time|abs tol|rel tol)"
+    r"#\s*(random|abs tol|rel tol)"
     r"|\b(random|randint|shuffle|sample)\s*\("
     r"|0x[0-9a-f]{6,}"
     # Any doctest-emitted warning, not just the one spelled `doctest:warning`:
@@ -120,18 +121,12 @@ _DO_NOT_COMPARE = re.compile(
     # either way.
     r"|doctest:"
 )
-# Sage's REPL lays a sequence of matrices out side by side, in columns:
-#
-#     (
-#     [1 0]  [0 1]  [0 0]
-#     [0 0], [0 0], [1 0]
-#     )
-#
-# That formatting comes from `sage.repl.display`, which this server does not
-# have -- results come back as `repr`, which stacks them. The mathematics is
-# identical and the layout is not, so these are not compared. It is a real
-# difference in what a caller sees, and it is recorded in TODO.md rather than
-# hidden here.
+# Sage's REPL lays a sequence of matrices out side by side, in columns, and for
+# a while this server stacked them and these comparisons were skipped. They are
+# not skipped any more: `_format_result` renders a sequence through Sage's own
+# `format_list`, so the layout is the one the doctests record. The pattern is
+# kept as an assertion instead -- the suite should now be *comparing* these, and
+# a run where none appears means the harness has stopped reaching them.
 _MATRIX_COLUMNS = re.compile(r"\]\s\s+\[")
 
 
@@ -144,12 +139,14 @@ class Example:
 @dataclass
 class Outcome:
     blocks: int = 0
+    dead_workers: int = 0
     examples: int = 0
     matched: int = 0
     mismatched: int = 0
     errors: int = 0
     expected_errors: int = 0
     not_compared: int = 0
+    tall_layouts: int = 0
     failures: list[str] = field(default_factory=list)
 
     @property
@@ -165,7 +162,8 @@ class Outcome:
             f"{self.blocks} docstrings, {self.examples} examples: "
             f"{self.matched} matched, {self.mismatched} mismatched, "
             f"{self.errors} unexpected errors, {self.expected_errors} expected errors, "
-            f"{self.not_compared} not compared",
+            f"{self.not_compared} not compared, {self.tall_layouts} tall layouts, "
+            f"{self.dead_workers} dead workers",
             f"output agreement {self.agreement:.2%}",
         ]
         lines.extend(f"  {failure}" for failure in self.failures[:limit])
@@ -257,11 +255,12 @@ async def run_block(session: SageSession, block: str, checker, flags: int,
         if (
             not example.expected
             or _DO_NOT_COMPARE.search(example.source + "\n" + example.expected)
-            or _MATRIX_COLUMNS.search(example.expected)
         ):
             outcome.not_compared += 1
             continue
 
+        if _MATRIX_COLUMNS.search(example.expected):
+            outcome.tall_layouts += 1
         got = ((result.stdout or "") + (result.result or "")).strip()
         if checker.check_output(example.expected + "\n", got + "\n", flags):
             outcome.matched += 1
@@ -313,8 +312,12 @@ async def test_sagemath_computes_what_its_doctests_say() -> None:
             )
             try:
                 await run_block(session, block, checker, flags, outcome)
+            except Exception as exc:  # a doctest that kills the worker
+                outcome.dead_workers += 1
+                outcome.failures.append(f"block aborted: {type(exc).__name__}: {exc}")
             finally:
-                await session.shutdown()
+                with contextlib.suppress(Exception):
+                    await session.shutdown()
 
     assert outcome.blocks >= 20, f"sampled too little to mean anything:\n{outcome.report()}"
     assert outcome.compared >= 100, f"almost nothing was comparable:\n{outcome.report()}"
@@ -325,3 +328,8 @@ async def test_sagemath_computes_what_its_doctests_say() -> None:
     # An unexpected exception is the more interesting failure: it is code Sage
     # documents as working that this server could not run.
     assert outcome.errors <= outcome.examples * 0.05, outcome.report(20)
+    # And the layout comparisons are actually being reached. They were skipped
+    # while this server stacked a sequence of matrices that Sage lays out in
+    # columns; they pass now, and a run where none appears means the harness has
+    # stopped getting to them rather than that the formatting is fine.
+    assert outcome.tall_layouts >= 1, outcome.report()

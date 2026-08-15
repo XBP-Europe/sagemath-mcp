@@ -903,3 +903,39 @@ async def test_the_preparser_cannot_blow_past_the_length_limit_silently() -> Non
         assert await _value(session, "2 + 2") == "4"
     finally:
         await session.shutdown()
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_a_sequence_of_matrices_is_laid_out_the_way_sage_lays_it_out() -> None:
+    """What a caller sees, for a server whose entire output is text.
+
+    `repr` stacks a basis of matrices one after another; Sage lays them side by
+    side. For eight 3x3 matrices that is 32 lines against 4, and the difference
+    was invisible until the doctests were *executed* rather than validated --
+    it was the only class of disagreement left in that suite.
+
+    The layout is Sage's own `format_list`, under Sage's own condition: an
+    element has to opt in through `_repr_option('ascii_art')` or its parent's
+    `element_ascii_art`. Matrices do; morphisms do not, and a list of those
+    stays stacked, which is what SageMath's doctests record for both.
+    """
+    session = await _session("tall-layout")
+    try:
+        basis = await _value(session, "tuple(MatrixSpace(QQ, 2, 2).basis())")
+        assert basis == (
+            "(\n"
+            "[1 0]  [0 1]  [0 0]  [0 0]\n"
+            "[0 0], [0 0], [1 0], [0 1]\n"
+            ")"
+        ), basis
+
+        # A list of plain values is untouched, however long.
+        assert await _value(session, "[1, 2, 3]") == "[1, 2, 3]"
+        assert await _value(session, "(1, 2)") == "(1, 2)"
+        assert await _value(session, "prime_range(10)") == "[2, 3, 5, 7]"
+
+        # A single matrix is not a sequence and keeps its own repr.
+        assert await _value(session, "matrix(QQ, [[1, 2], [3, 4]])") == "[1 2]\n[3 4]"
+    finally:
+        await session.shutdown()

@@ -343,6 +343,12 @@ DELIBERATE_RULES: dict[str, float] = {
     "refused:Sage code exceeds maximum length": 0.001,
     "refused:Sage code is too deeply nested": 0.001,
     "refused:Sage code has too many AST nodes": 0.001,
+    # `latex` may be called and not reached into: `latex(obj)` builds a string,
+    # while `latex.has_file(name)` runs `call("kpsewhich %s" % name, shell=True)`
+    # and executed a command as the container user on 10.9. The corpus reaches
+    # for `latex.extra_preamble` and `latex.has_file` in about 56 examples, all
+    # of them typesetting rather than mathematics.
+    "refused:'X' may be called but not reached into": 0.001,
     # These three were the shadowing class, and item 46 emptied them: 575
     # refusals became 5 in 432,878 examples. What is left is `open`, `exec`,
     # `compile`, `globals` and `getattr` -- primitives with no mathematical use,
@@ -498,5 +504,88 @@ async def test_the_blocked_interfaces_do_not_block_the_mathematics() -> None:
         # rather than a settled one. See REVIEW_ACTIONS.md item 45.
         assert await value("(x^2 + 1)._latex_()") == "'x^{2} + 1'"
         assert "begin{array}" in await value("matrix(QQ, [[1,2],[3,4]])._latex_()")
+    finally:
+        await session.shutdown()
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_the_mathematics_behind_an_import_is_still_reachable() -> None:
+    """The last bucket, and the last chance for mathematics to be left behind.
+
+    1,818 of the corpus's refusals are names that are not in `sage.all` at all.
+    They divide three ways: names the doctest invented at run time, Sage's own
+    test plumbing, and -- the part that matters -- 138 names, 538 uses, of real
+    mathematics that lives in a submodule and is reachable in Sage only behind
+    an import. This server has no imports, so if that mathematics were reachable
+    no other way it would be genuinely lost.
+
+    It is not. Almost all of those names are Sage's *internal* spelling, and the
+    user-facing path to the same mathematics is exported by `sage.all` and
+    offered here: `real_roots` is `p.roots(ring=RR)`, `BasisMatroid` is
+    `Matroid(...)`, `BinaryCode` is `codes.*`, `dimension_cusp_forms` is a method
+    on `Gamma0(N)`, `modular_decomposition` is a method on a graph. That is the
+    same boundary a Sage user meets at the prompt before they type an import.
+
+    Each line below is a name from that bucket, computed the way it is reachable.
+    A failure here means a door closed that this argument assumed was open.
+    """
+    session = SageSession("corpus-imports", SageSettings(force_python_worker=False,
+                                                         eval_timeout=180.0))
+
+    async def value(code: str) -> str:
+        result = await session.evaluate(code, want_latex=False, capture_stdout=False)
+        return (result.result or "").strip()
+
+    try:
+        # real_roots, mk_ibpi, root_bounds -- sage.rings.polynomial.real_roots
+        await value("R.<u> = PolynomialRing(ZZ)\np = u^5 - 3*u + 1")
+        assert await value("p.number_of_real_roots()") == "3"
+        roots = await value("p.roots(ring=RR, multiplicities=False)")
+        assert len(roots.split(",")) == 3, roots
+
+        # BasisMatroid, LinearMatroid, MinorMatroid, RankMatroid -- sage.matroids
+        await value("M = Matroid(matrix(GF(2), [[1,0,0,1,1],[0,1,0,1,0],[0,0,1,0,1]]))")
+        assert await value("M.rank()") == "3"
+        assert await value("M.bases_count()") == "8"
+        assert await value("M.minor(contractions=[0]).rank()") == "2"
+        assert await value("matroids.Uniform(2, 4).is_connected()") == "True"
+
+        # BinaryCode, PartitionStack -- sage.coding
+        assert await value(
+            "C = codes.HammingCode(GF(2), 3)\n"
+            "(C.length(), C.dimension(), C.minimum_distance())"
+        ) == "(7, 4, 3)"
+
+        # dimension_cusp_forms, dimension_eis, dimension_modular_forms
+        assert await value("Gamma0(11).dimension_cusp_forms(2)") == "1"
+        assert await value("Gamma0(11).dimension_modular_forms(2)") == "2"
+        assert await value("Gamma0(11).dimension_eis(2)") == "1"
+
+        # modular_decomposition, print_md_tree -- sage.graphs.graph_decompositions
+        assert "PRIME" in await value("graphs.PetersenGraph().modular_decomposition()[0]")
+
+        # back_circulant, isotopism, bitrade -- sage.combinat.matrices
+        assert await value("hadamard_matrix(8).nrows()") == "8"
+        assert await value("bool(hadamard_matrix(8).det().abs() == 8^4)") == "True"
+        assert await value(
+            "len(designs.mutually_orthogonal_latin_squares(3, 4))"
+        ) == "3"
+
+        # schur_to_hl, riggings, compat -- sage.combinat.sf.kfpoly
+        assert await value(
+            "Sym = SymmetricFunctions(QQ)\nSym.schur()(Sym.homogeneous()[2,1])"
+        ) == "s[2, 1] + s[3]"
+
+        # CoxGroup -- sage.combinat.root_system
+        assert await value("CoxeterGroup(['A', 3]).order()") == "24"
+
+        # declare_ring -- sage.rings.polynomial.pbori
+        assert await value("B.<a0, a1> = BooleanPolynomialRing()\n(a0*a1 + a0).degree()") == "2"
+
+        # padic_relaxed_errors, genus, Sphere
+        assert await value("Qp(5, 10)(25).valuation()") == "2"
+        assert "Signature:  (2, 0)" in await value("IntegralLattice('A2').genus()")
+        assert await value("bool(surfaces.Sphere() is not None)") == "True"
     finally:
         await session.shutdown()

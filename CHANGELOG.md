@@ -9,6 +9,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **Re-offering `latex` handed over a shell (remote code execution).**
+  `Latex.has_file(name)` runs `call("kpsewhich %s" % name, shell=True)`, so
+  `latex.has_file('x; id > /tmp/x')` executed a command as the container user;
+  `check_file` and `add_package_to_preamble_if_available` reach it too. The name
+  had been re-offered on the reasoning that `latex(...)` builds a string — true
+  of the call, and not of the object, since allowlisting a name hands over every
+  method on it. The three methods are refused by name, `latex(obj)` and its
+  string-building methods still work, and the first, broader fix was rejected
+  because it refused 56 examples from SageMath's own doctests.
+
 - **A caller could reserve a name for a tool to fill.** Binding a template's
   internal in dead code (`if False: _fig = 1`) marked it as the caller's own, so
   the object a later tool call built arrived under a name already exempt from

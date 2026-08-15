@@ -1400,3 +1400,59 @@ def test_the_released_identifiers_reach_nothing() -> None:
         "getattr left the builtins -- if that is deliberate it can leave "
         "forbidden_call_names too, and this test should say so"
     )
+
+
+SHELL_INJECTION_PAYLOADS = [
+    ("has-file", "latex.has_file('x; id > /tmp/pwned')"),
+    ("check-file", "latex.check_file('y; whoami > /tmp/pwned')"),
+    ("add-package", "latex.add_package_to_preamble_if_available('z; touch /tmp/pwned')"),
+    # Reached through any object, not only `latex`: the capability is the method.
+    ("via-another-object", "SR.has_file('x; id > /tmp/pwned')"),
+]
+
+
+@pytest.mark.parametrize(
+    "code", [c for _, c in SHELL_INJECTION_PAYLOADS],
+    ids=[i for i, _ in SHELL_INJECTION_PAYLOADS],
+)
+def test_the_methods_that_shell_out_are_refused(code: str) -> None:
+    """`latex(obj)` is a string builder; `latex` is an object with a shell in it.
+
+    Confirmed as remote code execution against SageMath 10.9, writing
+    `uid=1001(sage)` to disk:
+
+        latex.has_file('x; id > /tmp/pwned')
+
+    because `Latex.has_file` runs `call("kpsewhich %s" % file_name, shell=True)`
+    -- caller string, interpolated, `shell=True`. `check_file` reaches it too,
+    and `add_package_to_preamble_if_available` calls `has_file` in turn.
+
+    The name was re-offered on the reasoning that `latex(...)` builds a string
+    and never wrote anything, which is true of the *call* and not of the object:
+    allowlisting a name hands over every method hanging off it. That is the same
+    shape as the factory guard -- the allowlist governs names, and an object's
+    methods escape it.
+
+    Refusing every attribute on `latex` was the first fix and was too broad: it
+    also refused 56 examples from SageMath's own doctests --
+    `latex.extra_preamble(...)`, `latex.matrix_delimiters(...)` -- which build
+    strings and set state. The corpus test caught that, which is what it is for.
+
+    So the three methods are named instead. That is name-chasing, and the reason
+    it is defensible here rather than in the `attrcall` rounds: the capability is
+    the method, not the object, and the method reaches a shell whatever holds it.
+    """
+    with pytest.raises(SecurityViolation):
+        validate_module(ast.parse(code))
+
+
+def test_latex_the_function_and_its_harmless_methods_still_work() -> None:
+    """The 1,387 refusals that relaxation was for stay fixed."""
+    for code in (
+        "latex(x^2 + 1)",
+        "str(latex(matrix([[1, 2], [3, 4]])))",
+        "latex(pi)",
+        "latex.extra_preamble()",        # builds a string
+        "latex.matrix_delimiters('[', ']')",  # sets state
+    ):
+        validate_module(ast.parse(code))

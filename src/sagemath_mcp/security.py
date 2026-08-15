@@ -247,6 +247,15 @@ class SecurityPolicy:
     # `IntegratedCurve.system()` -- the system of ODEs of a geodesic -- 79
     # refusals in SageMath's own doctests, none of them touching a file.
     forbidden_attribute_names: tuple[str, ...] = (
+        # `Latex.has_file(name)` runs `call("kpsewhich %s" % name, shell=True)`
+        # and executed `id > /tmp/...` as the container user on 10.9;
+        # `check_file` and `add_package_to_preamble_if_available` both call it.
+        # By name rather than by refusing every attribute on `latex`, which also
+        # refused 56 examples from SageMath's own doctests --
+        # `latex.extra_preamble(...)` and friends build strings and set state.
+        "has_file",
+        "check_file",
+        "add_package_to_preamble_if_available",
         "popen",
         "popen2",
         "popen3",
@@ -693,6 +702,9 @@ def validate_module(
         # os.listdir, os.environ and os.chmod were not -- and the README claimed
         # subprocess.*, pathlib.* and socket.* were blocked when none of them were.
         if isinstance(node, ast.Attribute):
+            root_of = node
+            while isinstance(root_of, ast.Attribute):
+                root_of = root_of.value
             segments = _attribute_segments(node)
             # Any segment, not just the root: sage.misc.temporary_file.os.getuid()
             # is rooted at the permitted `sage` and reaches os in the middle.

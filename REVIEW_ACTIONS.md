@@ -1586,6 +1586,44 @@ objects is a capability. What keeps being wrong is the ownership rule, and this
 is the second time I have fixed it with the wrong instrument — first a snapshot
 that could not see later arrivals, then a diff that could not see replacements.
 
+## 47. Re-offering `latex` handed over a shell — critical — DONE
+
+Remote code execution, live on `main` between 3fa5aa0 and this fix. It wrote
+`uid=1001(sage)`:
+
+```
+latex.has_file('x; id > /tmp/KPSE_PROOF')     ->  uid=1001(sage)
+latex.check_file('y; whoami > /tmp/...')      ->  sage
+```
+
+`Latex.has_file` runs `call("kpsewhich %s" % file_name, shell=True)` — the
+caller's string, interpolated, `shell=True`. `check_file` and
+`add_package_to_preamble_if_available` both call it.
+
+`latex` had been scrubbed alongside `show`/`view`/`html` and was re-offered on
+the reasoning that it builds a string and never wrote anything, with
+`(x^2+1)._latex_()` allowed all along as proof the capability was not being
+withheld. **That reasoning is right about the call and wrong about the object.**
+`latex(obj)` does build a string; `latex` is a `Latex` instance, and allowlisting
+a name hands over every method hanging off it. Same shape as items 36 and 40:
+the allowlist governs names, and an object's methods escape it.
+
+Two attempts, and the first was too broad. Refusing every attribute on `latex`
+closed the shell and also refused **56 examples from SageMath's own doctests** —
+`latex.extra_preamble(...)`, `latex.matrix_delimiters(...)`, which build strings
+and set state. The corpus test caught it, which is exactly what it is for, and
+is the first time an over-block of mine was caught by a test rather than by
+someone trying to write a session.
+
+The rule is the three methods by name, added to the existing
+`forbidden_attribute_names`. That is name-chasing, which I have argued against
+in these notes repeatedly, and the reason it is right here: **the capability is
+the method, not the object.** `has_file` reaches a shell whoever holds it, so a
+test asserts it is refused through an unrelated object too.
+
+Kept working, and tested: `latex(x^2 + 1)`, `str(latex(matrix(...)))`,
+`latex.extra_preamble()`, `latex.matrix_delimiters('[', ']')`.
+
 SSH authentication to GitHub broke during this session (`ssh -T git@github.com`
 returns `Permission denied (publickey)` with keys loaded). `gh` still works
 because it uses token auth. If it persists, `git remote set-url origin https://…`
@@ -1846,9 +1884,19 @@ the model happened to call in between.
 refused as identifiers even though they are equally absent from the namespace.
 They are the Python evaluation primitives, and this policy is the last thing
 between a namespace regression and arbitrary execution; the corpus says the cost
-is about 30 examples in 432,878. `latex.check_file` and `latex.has_file` read
-whether a `.sty` exists and are allowed — an existence check against the
-installation, judged not worth a rule.
+is about 30 examples in 432,878.
+
+**Correction, and it was a live hole.** This entry originally said
+`latex.check_file` and `latex.has_file` "read whether a `.sty` exists" and were
+"judged not worth a rule". That was wrong. `latex.has_file(name)` runs
+`call("kpsewhich %s" % name, shell=True)`, and on 10.9 it executed
+`id > /tmp/...` as the container user. Allowlisting `latex` had handed over
+every method hanging off the object, which is what allowlisting a *name* always
+does when the name is bound to an object rather than a function. The fix is
+`SecurityPolicy.call_only_names`: `latex(obj)` is permitted and `latex.anything`
+is refused with a message naming the alternative. The lesson generalises beyond
+`latex` — before releasing a name, read what the object carries, not what the
+call returns.
 
 ### 46, second pass: the rest of it
 

@@ -1631,3 +1631,66 @@ def test_the_import_rewrite_is_inert_when_the_allowlist_is_off() -> None:
     assert any(isinstance(node, ast.Import) for node in ast.walk(returned)), (
         "the import must survive for the ordinary rules to judge"
     )
+
+
+def test_a_global_declaration_reaches_nothing() -> None:
+    """`global` was held back a round longer than `nonlocal`. This is the round.
+
+    Declaring a name global records it as the caller's own, so the question is
+    whether that claim can reach an object they could not otherwise have. Two
+    rules upstream say no, and each is asserted here: a name that is live but
+    not offered is refused whatever authorizes it (item 37), and a name whose
+    object the worker scrubbed has nothing left to reach.
+
+    Confirmed against SageMath 10.9 for all three shapes:
+
+        global unpickle_global; unpickle_global = 1   -> reads back 1
+        global unpickle_global (no assignment)        -> NameError, the object is gone
+        global cython / global attrcall               -> refused by name
+    """
+    # Still refused by name, declaration or not: these are live, allowlisted, or
+    # evaluation primitives.
+    for name in ("cython", "attrcall", "sage_input", "preparse", "getattr", "exec"):
+        payload = f"def f():\n    global {name}\n    {name} = 1\nf()\n{name}"
+        with pytest.raises(SecurityViolation):
+            validate_module(ast.parse(payload), code=payload, policy=SECURITY_POLICY)
+
+    # Permitted, and harmless: the object was scrubbed, so the caller can only
+    # ever read back their own value.
+    for name in ("unpickle_global", "db", "gap", "maxima"):
+        payload = f"def f():\n    global {name}\n    {name} = 1\nf()\n{name}"
+        validate_module(ast.parse(payload), code=payload, policy=SECURITY_POLICY)
+
+    # And the declaration buys nothing an assignment does not: both spellings of
+    # overwriting an offered name are permitted, which is the point.
+    validate_module(ast.parse("SR = 5"), code="SR = 5", policy=SECURITY_POLICY)
+    overwrite = "def k():\n    global SR\n    SR = 5"
+    validate_module(ast.parse(overwrite), code=overwrite, policy=SECURITY_POLICY)
+
+
+def test_oversized_code_is_refused_by_length_not_by_the_parser() -> None:
+    """The length limit exists; the parser was reaching the input first.
+
+    `max_source_chars` is 131072 and this is 140003, so the policy has an answer
+    ready -- "Sage code exceeds maximum length" -- but the worker parsed before
+    it validated, and CPython's parser gave up first:
+
+        RecursionError: maximum recursion depth exceeded during ast construction
+
+    Nothing escaped and the worker survived; the cost is a caller told their
+    mathematics broke the interpreter when the truth is that it is too long. The
+    limit was also decorative for this shape, which is worse than not having one.
+
+    Deep-but-short code was never the problem: `len(len(len(...)))` at 185 levels
+    is caught by the AST-depth rule with its own clear message, and that stays.
+    """
+    from sagemath_mcp.security import check_source_length
+
+    oversized = "x=" + "1+" * 70000 + "1"
+    assert len(oversized) > SECURITY_POLICY.max_source_chars
+
+    with pytest.raises(SecurityViolation, match="exceeds maximum length"):
+        check_source_length(oversized, SECURITY_POLICY)
+
+    # Ordinary code passes through untouched.
+    check_source_length("integrate(x^2, x)", SECURITY_POLICY)

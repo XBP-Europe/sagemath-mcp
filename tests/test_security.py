@@ -34,16 +34,20 @@ def test_generated_code_may_import_what_its_templates_need():
     validate_module(ast.parse(code), code=code, policy=trusted_policy())
 
 
-def test_validate_code_blocks_global_but_not_nonlocal():
-    """The line between them is where the name lands.
+def test_global_and_nonlocal_are_both_permitted():
+    """Neither reaches anything an ordinary assignment does not.
 
-    `global` binds at module scope, alongside the names this server offers, and
-    stays refused. `nonlocal` rebinds inside an enclosing *function* and cannot
-    reach the namespace at all -- it was refused by a flag with no comment and
-    no rationale, and the cost was every closure that counts something.
+    `nonlocal` rebinds inside an enclosing *function*, so it never touches the
+    namespace. `global` does bind at module scope, which is why it was held back
+    a round -- and the round found that `SR = 5` is permitted at the top level
+    anyway, so the declaration cannot be what makes it dangerous. What the two
+    rules upstream of it guarantee is asserted in
+    `test_a_global_declaration_reaches_nothing` next door.
+
+    Both were refused by policy flags with no comment, no recorded rationale and
+    no test named for either, and the cost was the accumulator.
     """
-    with pytest.raises(SecurityViolation):
-        validate_code("global x\nx = 1")
+    validate_code("total = 0\ndef add(n):\n    global total\n    total += n")
 
     closure = """
 def outer():

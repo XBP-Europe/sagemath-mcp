@@ -228,14 +228,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- **`nonlocal` is permitted, and the input limits admit a matrix.** Both came
-  out of reading the doctest corpus's refusals as a work queue rather than an
-  audit.
+- **`nonlocal` and `global` are permitted, the input limits admit a matrix, and
+  a withheld name says which spelling works.** All three came out of reading the
+  doctest corpus's refusals as a work queue rather than an audit.
   - `nonlocal` rebinds a name in an enclosing *function*, so it cannot reach the
     worker namespace at all; it was refused by a policy flag with no comment, no
     recorded rationale and no test named for it, and the cost was every closure
-    that accumulates something. `global` stays refused — it binds at module
-    scope, which is a different question and gets its own pass.
+    that accumulates something. `global` followed a round later, once its own
+    question was answered: it binds at module scope, but `SR = 5` is permitted
+    at the top level anyway, so the declaration cannot be what makes it
+    dangerous. Verified against 10.9 — `global unpickle_global` claims a name
+    whose object was scrubbed and reads back a `NameError`, while `cython`,
+    `attrcall` and `sage_input` stay refused by name.
   - `max_source_chars` rose from 8,000 to 131,072 and `max_ast_nodes` from 2,500
     to 50,000. A 40×40 integer matrix is 17,706 characters and 6,497 nodes
     *after preparsing* — Sage wraps every literal as `Integer(0)` — so a matrix
@@ -245,6 +249,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     of parsing, measured: preparse, parse and validate cost about 1.1µs per
     character on 10.9, linearly. Execution is bounded separately by
     `eval_timeout`.
+  - A name withheld because it spawns an external program now names the
+    in-process equivalent: `gap(...)` points at `SymmetricGroup(5)` and
+    `libgap`, `singular(...)` at `ideal(...).groebner_basis()`,
+    `attrcall('bruhat_le')` at the lambda it stands for. ~2,300 of the corpus's
+    refusals are these names, and
+    `test_the_blocked_interfaces_do_not_block_the_mathematics` already proved
+    each equivalent works — this writes down what that test knows. A lone `r`
+    keeps the undeclared-symbol message, which is right: it is a radius far more
+    often than the R interface.
 
 
 - **`f(x) = x^2 + 1` was refused.** Sage's function-definition syntax — the

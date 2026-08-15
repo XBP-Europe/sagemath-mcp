@@ -71,18 +71,31 @@ class SecurityPolicy:
     max_ast_nodes: int = 50_000
     max_ast_depth: int = 75
     allow_imports: bool = False
-    forbid_global_stmt: bool = True
+    # `global` binds at module scope, which is the reason it was held back a
+    # round longer than `nonlocal`. What the round found: it reaches nothing a
+    # plain module-level assignment does not already reach. `SR = 5` is
+    # permitted at the top level, so `def k(): global SR; SR = 5` cannot be the
+    # thing that makes it dangerous.
+    #
+    # The two rules that matter are both upstream of the declaration.
+    # `_bound_names` records what `global` declares, and item 37 refuses any
+    # name that is live but not offered *whatever* authorizes it -- so
+    # `global unpickle_global` claims a name whose object was scrubbed, and
+    # reading it back yields the caller's own value or a NameError. Item 41
+    # covers the other direction: whatever trusted code introduces is withheld
+    # regardless of what the caller claimed first.
+    #
+    # What it cost was the accumulator, which is how a sweep records a record.
+    forbid_global_stmt: bool = False
     # `nonlocal` rebinds a name in an enclosing *function*. It cannot reach the
     # module namespace, so there is nothing for it to reach that assignment in
     # the same function does not already reach -- and refusing it cost
     # `def outer(): ... def inner(): nonlocal total`, which is how a closure
     # counts anything. It was refused by a flag with no comment, no recorded
     # rationale and no test named for it.
-    #
-    # `global` stays refused, and the line between them is real: it binds at
-    # module scope, where the caller's names live alongside the ones this server
-    # offers. That deserves its own pass rather than being swept along with a
-    # statement that provably cannot get there.
+    # It was refused a round before `global` was, on the grounds that `global`
+    # binds at module scope and deserved its own reasoning. It got it: see
+    # above.
     forbid_nonlocal_stmt: bool = False
     forbidden_call_names: tuple[str, ...] = (
         # String-path attribute access. These defeat every attribute rule in
@@ -390,6 +403,61 @@ _IMPORT_ALTERNATIVES: tuple[tuple[str, str], ...] = (
 )
 
 
+# The mathematics behind a name this server does not offer. Every entry is a
+# spelling that works, and `test_the_blocked_interfaces_do_not_block_the_
+# mathematics` computes each one -- this is writing down what that test knows.
+#
+# It matters because of who is reading. A refusal that says only "not offered"
+# leaves a model to guess, and the guess is usually another spelling of the same
+# refused thing; naming the equivalent ends the exchange. ~2,300 of the refusals
+# SageMath's own doctests provoke are these names.
+_NATIVE_EQUIVALENTS: dict[str, str] = {
+    # The external CAS interfaces. Each spawns the real program and hands it a
+    # string; Sage computes all of it in-process as well.
+    "gap": "SymmetricGroup(5), PermutationGroup([...]) and the group methods, "
+           "or libgap(...) for GAP itself",
+    "gap3": "the native group methods, or libgap(...)",
+    "libgap": "libgap is available; the group methods usually answer directly",
+    "singular": "ideal(...).groebner_basis(), .primary_decomposition() and the "
+                "polynomial ring methods",
+    "maxima": "integrate(), limit(), desolve(), factor() and solve() -- all of "
+              "which use Maxima in process",
+    "gp": "the number theory functions directly: factor(), is_prime(), "
+          "qfbclassno via QuadraticField(...).class_number()",
+    "pari": "the number theory functions directly, or the .pari() method on a "
+            "Sage object",
+    "magma": "Sage's own algebra: PolynomialRing, NumberField, EllipticCurve",
+    "mathematica": "Sage's own symbolics: var(), integrate(), solve(), simplify()",
+    "maple": "Sage's own symbolics: var(), integrate(), solve(), simplify()",
+    "matlab": "matrix(RDF, ...) and the numerical linear algebra methods",
+    "octave": "matrix(RDF, ...) and the numerical linear algebra methods",
+    "macaulay2": "ideal(...).groebner_basis() and the polynomial ring methods",
+    "r": "RealDistribution, mean(), variance(), find_fit() and statistics_summary",
+    "fricas": "Sage's own symbolics: var(), integrate(), solve()",
+    "giac": "Sage's own symbolics: var(), integrate(), solve()",
+    "sage0": "the mathematics directly; there is no second Sage to talk to",
+    # String-path attribute access, which is refused as a class.
+    "attrcall": "a lambda: attrcall('bruhat_le') is lambda a, b: a.bruhat_le(b)",
+    "attrgetter": "a lambda, or the attribute directly",
+    "methodcaller": "a lambda: methodcaller('trace') is lambda m: m.trace()",
+    "itemgetter": "a lambda: itemgetter(0) is lambda s: s[0]",
+    # Session and display plumbing.
+    "show": "the value itself -- results come back as text, and the plot tools "
+            "return an image",
+    "view": "the value itself, or plot() for a picture",
+    "pretty_print": "the value itself",
+    "html": "the value itself",
+    "reset": "the reset_sage_session tool, which restarts the worker cleanly",
+    "set_verbose": "nothing -- progress is reported by the streaming tool",
+    "load": "the value directly; this server keeps state between calls instead",
+    "save": "the value directly; this server keeps state between calls instead",
+}
+
+
+def _native_equivalent(name: str) -> str | None:
+    return _NATIVE_EQUIVALENTS.get(name)
+
+
 def _import_alternative(module: str) -> str | None:
     root = (module or "").split(".", 1)[0]
     for name, advice in _IMPORT_ALTERNATIVES:
@@ -672,6 +740,39 @@ def _looks_like_an_undeclared_symbol(name: str) -> bool:
     return bool(_SYMBOL_SHAPE.match(name)) or name in _GREEK_NAMES
 
 
+def check_source_length(
+    code: str | None,
+    policy: SecurityPolicy | None = None,
+    *,
+    after_preparse: bool = False,
+) -> None:
+    """Refuse code that is too long, before anything tries to parse it.
+
+    Separate from `validate_module` because it has to run *earlier*. The worker
+    parses first and validates second, so a 140 KB snippet reached CPython's
+    parser before this limit was consulted and came back as
+    `RecursionError: maximum recursion depth exceeded during ast construction`
+    -- a caller told their mathematics broke the interpreter, when the truth was
+    that it exceeded a documented limit by 9 KB.
+    """
+    policy = policy or SECURITY_POLICY
+    if not policy.enabled:
+        return
+    source_length = len(code or "")
+    if source_length > policy.max_source_chars:
+        # Which length, said plainly: Sage's preparser rewrites `1+1` as
+        # `Integer(1)+Integer(1)`, so 140 KB of arithmetic becomes 770 KB before
+        # anything parses it. A caller told "770012 > 131072" about code they
+        # measured at 140 KB would reasonably think the number was wrong.
+        where = " after Sage's preparser expanded it" if after_preparse else ""
+        _raise_violation(
+            f"Sage code exceeds maximum length{where} "
+            f"({source_length} > {policy.max_source_chars})",
+            code=code,
+            policy=policy,
+        )
+
+
 def validate_module(
     module: ast.Module,
     *,
@@ -695,12 +796,7 @@ def validate_module(
         return
 
     source_length = len(code or "")
-    if source_length > policy.max_source_chars:
-        _raise_violation(
-            f"Sage code exceeds maximum length ({source_length} > {policy.max_source_chars})",
-            code=code,
-            policy=policy,
-        )
+    check_source_length(code, policy)
 
     node_count = sum(1 for _ in ast.walk(module))
     if node_count > policy.max_ast_nodes:
@@ -854,6 +950,18 @@ def validate_module(
                     code=code,
                     policy=policy,
                 )
+            equivalent = _native_equivalent(node.id)
+            if equivalent:
+                # The name is withheld on purpose and the mathematics is not.
+                # Saying which spelling works ends the exchange; saying only
+                # "not offered" invites another spelling of the same thing.
+                _raise_violation(
+                    f"'{node.id}' is not offered: it spawns an external program, "
+                    f"and this server does the same mathematics in process. "
+                    f"Use {equivalent}.",
+                    code=code,
+                    policy=policy,
+                )
             _raise_violation(
                 f"'{node.id}' is not a name this server offers. If it is a typo, "
                 "check the spelling; if it is a SageMath function that should be "
@@ -932,8 +1040,10 @@ def validate_module(
         # inspect, so the module name has to be unreadable in the first place.
         if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
             if node.id in policy.forbidden_call_names:
+                equivalent = _native_equivalent(node.id)
                 _raise_violation(
-                    f"Reference to forbidden name '{node.id}' is blocked",
+                    f"Reference to forbidden name '{node.id}' is blocked"
+                    + (f". Use {equivalent}." if equivalent else ""),
                     code=code,
                     policy=policy,
                 )
@@ -988,8 +1098,10 @@ def validate_module(
         if isinstance(node, ast.Call):
             func = node.func
             if isinstance(func, ast.Name) and func.id in policy.forbidden_call_names:
+                equivalent = _native_equivalent(func.id)
                 _raise_violation(
-                    f"Call to forbidden function '{func.id}' is blocked",
+                    f"Call to forbidden function '{func.id}' is blocked"
+                    + (f". Use {equivalent}." if equivalent else ""),
                     code=code,
                     policy=policy,
                 )

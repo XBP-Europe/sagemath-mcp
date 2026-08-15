@@ -790,3 +790,52 @@ async def test_the_attribute_forms_that_are_mathematics() -> None:
         )) == "True"
     finally:
         await session.shutdown()
+
+
+def test_a_withheld_name_names_the_spelling_that_works() -> None:
+    """A refusal that ends the exchange, rather than inviting another guess.
+
+    ~2,300 of the refusals SageMath's own doctests provoke are the external CAS
+    interfaces and the string-path primitives. The mathematics behind every one
+    of them is reachable -- `test_the_blocked_interfaces_do_not_block_the_
+    mathematics` computes each -- so the refusal may as well say which spelling
+    works. Clients here are models that retry on what they are told, and a
+    message saying only "not offered" gets another spelling of the same thing.
+    """
+    import ast
+
+    from sagemath_mcp.security import SecurityViolation, validate_module
+
+    expected = [
+        ("gap('SymmetricGroup(5)')", "SymmetricGroup"),
+        ("singular('2+2')", "groebner_basis"),
+        ("maxima('integrate(x^2, x)')", "integrate"),
+        ("gp('factor(2^64+1)')", "factor"),
+        ("magma('1+1')", "PolynomialRing"),
+        ("attrcall('bruhat_le')", "lambda"),
+        ("methodcaller('trace')", "lambda"),
+        ("show(x^2)", "results come back as text"),
+        ("set_verbose(0)", "streaming tool"),
+    ]
+    for code, wanted in expected:
+        try:
+            validate_module(ast.parse(code), code=code)
+        except SecurityViolation as exc:
+            assert wanted in str(exc), f"{code}: message does not mention {wanted!r}: {exc}"
+        else:  # pragma: no cover - a refusal is the point
+            raise AssertionError(f"{code} was not refused at all")
+
+    # `r` is deliberately not in that list even though it is in the map: a lone
+    # `r` is a radius far more often than it is the R interface, and the
+    # undeclared-symbol message -- which names the fix the caller can perform --
+    # wins for single letters. That ordering is the right way round.
+    try:
+        validate_module(ast.parse("r('mean(c(1,2,3))')"), code="r('mean(c(1,2,3))')")
+    except SecurityViolation as exc:
+        assert "var('r')" in str(exc)
+
+    # A name with no known equivalent still gets the honest generic message.
+    try:
+        validate_module(ast.parse("no_such_helper(1)"), code="no_such_helper(1)")
+    except SecurityViolation as exc:
+        assert "not a name this server offers" in str(exc)

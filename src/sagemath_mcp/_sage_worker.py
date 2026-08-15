@@ -18,6 +18,7 @@ from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
 from sagemath_mcp.security import (
     SECURITY_POLICY,
     _bound_names,
+    check_source_length,
     normalize_caller_code,
     rewrite_permitted_imports,
     trusted_policy,
@@ -455,8 +456,18 @@ def _split_code(
     """
 
     if not trusted:
+        # The caller's own length first, so the number in the message is the one
+        # they can measure.
+        check_source_length(code)
         code = _preparse(code)
     # Validate what will actually run: the preparsed source, not what was typed.
+    # Before parsing, not after: the parser gives up on a long enough snippet
+    # and reports a RecursionError, which tells the caller nothing they can act
+    # on and leaves the length limit decorative.
+    # And again on what will actually be parsed: the preparser can expand a
+    # snippet under the limit into one far over it, and the parser gives up with
+    # a RecursionError that tells the caller nothing.
+    check_source_length(code, after_preparse=not trusted)
     module = ast.parse(code, mode="exec", type_comments=True)
     # NOTE: validate_module enforces our safety policy before compiling. This
     # runs once per request, keeping the execution fast while guarding against

@@ -331,7 +331,12 @@ def test_this_server_accepts_the_mathematics_sagemath_documents(corpus: Harvest)
 # server does not offer. Item 46 emptied the three that used to be recorded as
 # debt -- see the note beside them, and REVIEW_ACTIONS.md items 45 and 46.
 DELIBERATE_RULES: dict[str, float] = {
-    "refused:'X' is not a name this server offers": 0.013,
+    "refused:'X' is not a name this server offers": 0.010,
+    # The same refusal, for a name whose mathematics is reachable another way:
+    # the external CAS interfaces and the string-path primitives, which get a
+    # message naming the spelling that works. 1,711 examples, and the ones above
+    # fell by the same number.
+    "refused:'X' is not offered: it spawns an external program": 0.006,
     "refused:'X' is not defined": 0.003,
     "refused:Call to forbidden function 'X' is blocked": 0.001,
     "refused:Access through 'X' is blocked ('X' is not permitted in Sage executions)": 0.001,

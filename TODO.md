@@ -30,15 +30,6 @@ From categorising all 5,266 refusals SageMath's own doctest corpus provokes
 (ROADMAP.md has the framing; REVIEW_ACTIONS.md items 45 and 46 have the security
 half). Each count is measured, each case reproduced against SageMath 10.9.
 
-- [ ] **`global`.** Its sibling `nonlocal` is done: it rebinds inside an
-      enclosing function and provably cannot reach the namespace, so the flag
-      refusing it was costing every closure that counts something and nothing
-      was defending it. `global` is the half that needs thought, because it
-      binds at module scope where the caller's names sit alongside the ones this
-      server offers. `_bound_names` already records what it declares and item
-      37's withheld-name rule governs what that binding may name, so the work is
-      to decide whether those two are enough rather than to write new machinery.
-
 - [ ] **Names created at run time by `inject_variables()`.** 741 refusals of
       undeclared symbols, and this is the honest part: `R.<u, v> = QQ[]` works
       because the preparser binds `u` and `v` statically, but
@@ -48,15 +39,6 @@ half). Each count is measured, each case reproduced against SageMath 10.9.
       is why `_CALLER_BOUND_NAMES` is built from the AST. The narrow version is
       to recognise the call itself and learn the names from the object's own
       `variable_names()`, which is delicate enough to deserve its own pass.
-
-- [ ] **Refusal messages that name the native equivalent.** ~2,300 refusals.
-      `gap('SymmetricGroup(5)')` is told only that `gap` is not offered, when
-      the answer is `SymmetricGroup(5)` itself or `libgap`; `singular('...')` is
-      `I.groebner_basis()`; `attrcall('bruhat_le')` is
-      `lambda a, b: a.bruhat_le(b)`. The pattern already exists for imports —
-      numpy is pointed at `matrix(RDF, ...)` — and
-      `test_the_blocked_interfaces_do_not_block_the_mathematics` already proves
-      each equivalent works, so this is writing down what that test knows.
 
 - [ ] **Execute the corpus rather than only validating it.** The sweep proves
       this server would *accept* Sage's mathematics; it does not prove Sage

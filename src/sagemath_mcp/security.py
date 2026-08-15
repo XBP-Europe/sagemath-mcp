@@ -10,6 +10,7 @@ import textwrap
 from dataclasses import dataclass, replace
 
 from .allowlist import ALLOWED_CALLER_NAMES
+from .symbols import PREDEFINED_SYMBOLS
 
 LOGGER = logging.getLogger(__name__)
 
@@ -377,6 +378,9 @@ def _bound_names(module: ast.Module) -> set[str]:
     return {name for name in bound if not name.startswith("__")}
 
 
+_PREDEFINED_LIST = ", ".join(PREDEFINED_SYMBOLS)
+
+
 def _looks_like_an_undeclared_symbol(name: str) -> bool:
     """Does this read like a mathematical variable rather than a missing helper?
 
@@ -512,15 +516,16 @@ def validate_module(
             #
             # The message matters as much as the refusal. Clients are models that
             # retry on what they are told, and the common case by far is not an
-            # attack or a typo -- it is an undeclared symbol. SageMath predefines
-            # `x` and nothing else, so `diff(x^2*y^3, x, y)` is ordinary
-            # mathematics that needs `var('y')` first. Sending that caller to the
+            # attack or a typo -- it is an undeclared symbol. Only four symbols
+            # exist without being declared, so `diff(x^2*w^3, x, w)` is ordinary
+            # mathematics that needs `var('w')` first. Sending that caller to the
             # allowlist points them at a fix they cannot perform and costs an
             # exchange; naming the fix they can perform usually costs none.
             if _looks_like_an_undeclared_symbol(node.id):
                 _raise_violation(
-                    f"'{node.id}' is not defined. SageMath predefines only 'x', so "
-                    f"declare it first with var('{node.id}') -- or assign it a value.",
+                    f"'{node.id}' is not defined. This server predefines the symbols "
+                    f"{_PREDEFINED_LIST}, so declare it first with "
+                    f"var('{node.id}') -- or assign it a value.",
                     code=code,
                     policy=policy,
                 )

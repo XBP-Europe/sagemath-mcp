@@ -113,6 +113,17 @@ def _non_code_strings(tree: ast.Module) -> set[str]:
             doc = ast.get_docstring(node, clean=False)
             if doc:
                 excluded.add(doc)
+
+    # The scan concatenates every module into one tree, which costs each file
+    # after the first its module docstring: `ast.get_docstring` only recognises
+    # the *first* statement of a body, so the rest arrive as bare string
+    # statements floating at top level. A bare string statement is a docstring
+    # or a no-op -- either way it is never executed as generated code, and
+    # excluding it is what the docstring rule above already intends.
+    for statement in tree.body:
+        if isinstance(statement, ast.Expr) and isinstance(statement.value, ast.Constant):
+            if isinstance(statement.value.value, str):
+                excluded.add(statement.value.value)
     return excluded
 
 

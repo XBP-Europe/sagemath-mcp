@@ -90,6 +90,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **`x`, `y`, `z` and `t` are now predefined for caller code.** Sage's REPL
+  predefines `x` alone, but the specialised tools have always declared four in
+  their prelude, so `differentiate_expression("x^2*y^3")` worked while the same
+  mathematics through `evaluate_sage` failed. Both paths now read one constant
+  (`symbols.PREDEFINED_SYMBOLS`), with a test asserting they agree. Four and no
+  more: `y`, `z` and `t` are unbound in a fresh Sage namespace, whereas `n` and
+  `i` are numerical approximation and the Gaussian imaginary unit. A mistyped
+  `y` now becomes a symbolic variable rather than an error, which is already
+  true of `x` in Sage.
+
 - **`evaluate_sage` now runs SageMath, not Python.** Caller code goes through
   Sage's preparser, as the Sage REPL does, so `2^3` is 8 rather than 1, integer
   literals are Sage `Integer`s, generator syntax like `K.<a> = NumberField(...)`

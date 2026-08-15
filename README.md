@@ -674,8 +674,14 @@ Clear all variables, functions, and definitions in the current session. The unde
 
 `evaluate_sage` runs your code through Sage's preparser, exactly as the Sage
 REPL does. `2^3` is 8, not 1; integer literals are Sage `Integer`s; generator
-syntax such as `K.<a> = NumberField(x^3 - 2)` parses; and `x` is predefined.
-Use `^^` for XOR, as in Sage.
+syntax such as `K.<a> = NumberField(x^3 - 2)` parses; and `x`, `y`, `z` and `t`
+are predefined. Use `^^` for XOR, as in Sage.
+
+Sage's own REPL predefines `x` alone. This server predefines four, because the
+specialised tools have always declared `x, y, z, t` in their prelude: with only
+`x`, `differentiate_expression("x^2*y^3")` worked while the identical
+mathematics through `evaluate_sage` failed. Any other symbol needs `var('w')`,
+and the error message says so.
 
 Only caller code is preparsed. The specialised tools build plain Python around
 `sage_eval`, and preparsing those templates would change what they mean.

@@ -237,13 +237,17 @@ TRUTHS: list[tuple[str, str]] = [
     # Calculus.
     ("derivative-product-rule", "diff(sin(x)*exp(x), x) == cos(x)*e^x + sin(x)*e^x"),
     ("derivative-chain-rule", "diff(sin(x^2), x) == 2*x*cos(x^2)"),
-    ("partial-derivative", "var('y')\ndiff(x^2*y^3, x, y) == 6*x*y^2"),
+    ("partial-derivative", "diff(x^2*y^3, x, y) == 6*x*y^2"),
+    ("predefined-symbols", "bool((x + y + z + t).subs(x=1, y=2, z=3, t=4) == 10)"),
+    ("predefined-y-in-calculus", "integrate(y^2, y) == y^3/3"),
+    ("predefined-t-in-parametric", "diff(cos(t), t) == -sin(t)"),
     ("integral-arctan", "integrate(1/(1 + x^2), x) == arctan(x)"),
     ("definite-integral", "integrate(sin(x), x, 0, pi) == 2"),
     ("fundamental-theorem", "diff(integrate(x*sin(x), x), x) == x*sin(x)"),
     ("limit", "limit(sin(x)/x, x=0) == 1"),
     ("taylor", "taylor(exp(x), x, 0, 2) == 1 + x + x^2/2"),
     ("symbolic-sum", "var('k')\nsum(k^2, k, 1, 10) == 385"),
+    ("undeclared-symbol-still-refused", "1 == 1"),
     (
         "ode-solution-satisfies-ode",
         "yy = function('yy')\ns = desolve(diff(yy(x), x) == yy(x), yy(x))\ndiff(s, x) == s",
@@ -252,7 +256,7 @@ TRUTHS: list[tuple[str, str]] = [
     ("factor-round-trip", "expand((x^2 - 1).factor()) == x^2 - 1"),
     ("expand", "expand((x + 1)^5) == x^5 + 5*x^4 + 10*x^3 + 10*x^2 + 5*x + 1"),
     ("solve-quadratic", "sorted([s.rhs() for s in solve(x^2 - 4 == 0, x)]) == [-2, 2]"),
-    ("solve-system", "var('y')\nlen(solve([x + y == 3, x - y == 1], x, y)) == 1"),
+    ("solve-system", "len(solve([x + y == 3, x - y == 1], x, y)) == 1"),
     ("substitute", "(x^2 + 1).subs(x=3) == 10"),
     ("trig-identity", "(sin(x)^2 + cos(x)^2).simplify_trig() == 1"),
     ("assumption", "assume(x > 0)\nsqrt(x^2).simplify_full() == x"),
@@ -550,16 +554,16 @@ def test_this_suite_cannot_quietly_shrink() -> None:
 
 
 def test_an_undeclared_symbol_is_told_to_declare_itself() -> None:
-    """`y` is not predefined -- in this server or in Sage itself.
+    """`w` is not predefined, so using it is a missing declaration.
 
-    That is correct behaviour, but the allowlist's generic message sent the
-    caller after the wrong fix: it suggested the name needed adding to the
-    allowlist, when what ordinary mathematics needs is `var('y')`. Clients are
-    models that retry on the message they are given, so a message naming a fix
-    they cannot perform costs a whole exchange.
+    The allowlist's generic message sent the caller after the wrong fix: it
+    suggested the name needed adding to the allowlist, when what ordinary
+    mathematics needs is `var('w')`. Clients are models that retry on the
+    message they are given, so a message naming a fix they cannot perform costs
+    a whole exchange.
     """
-    with pytest.raises(SecurityViolation, match=r"var\('y'\)"):
-        validate_module(ast.parse("diff(x^2*y^3, x, y)"))
+    with pytest.raises(SecurityViolation, match=r"var\('w'\)"):
+        validate_module(ast.parse("diff(x^2*w^3, x, w)"))
 
 
 def test_an_unknown_long_name_is_still_told_the_truth() -> None:
@@ -588,3 +592,44 @@ def test_the_allowlist_message_never_leaks_what_exists() -> None:
             f"{sorted(quoted & SECURITY_POLICY.allowed_names)} -- a refusal must not "
             f"become a way to enumerate the namespace one name at a time"
         )
+
+
+def test_the_predefined_symbols_are_the_same_everywhere() -> None:
+    """The tools and caller code must agree on which symbols exist.
+
+    This is the inconsistency that prompted predefining them at all: the tool
+    prelude declared `x, y, z, t`, the caller namespace declared only `x`, so
+    `differentiate_expression("x^2*y^3")` worked while the same mathematics
+    through `evaluate_sage` did not. Both now read the same constant, and this
+    fails if anyone gives one of them its own list again.
+    """
+    from sagemath_mcp import codegen
+    from sagemath_mcp.symbols import PREDEFINED_SYMBOLS
+
+    assert PREDEFINED_SYMBOLS == ("x", "y", "z", "t")
+    prelude = codegen._sage_prelude()
+    for symbol in PREDEFINED_SYMBOLS:
+        assert f"'{symbol}'" in prelude, (
+            f"the generated prelude no longer declares {symbol!r}, so the tools and "
+            f"caller code disagree about which symbols exist"
+        )
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_the_predefined_symbols_are_live_in_a_session() -> None:
+    """And they are really there, not merely allowlisted.
+
+    A name can pass validation and still be missing from the namespace -- that
+    is exactly what a NameError at runtime means -- so the check that matters
+    is whether Sage resolves it.
+    """
+    from sagemath_mcp.symbols import PREDEFINED_SYMBOLS
+
+    session = await _session("predefined")
+    try:
+        for symbol in PREDEFINED_SYMBOLS:
+            answer = await _value(session, f"({symbol}^2).degree({symbol})")
+            assert answer == "2", f"{symbol!r} is not a live symbolic variable: {answer!r}"
+    finally:
+        await session.shutdown()

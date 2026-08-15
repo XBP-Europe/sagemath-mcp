@@ -21,6 +21,7 @@ from sagemath_mcp.security import (
     trusted_policy,
     validate_module,
 )
+from sagemath_mcp.symbols import PREDEFINED_SYMBOLS
 
 PURE_PYTHON = os.getenv("SAGEMATH_MCP_PURE_PYTHON") == "1"
 STARTUP_CODE = os.getenv("SAGEMATH_MCP_STARTUP", "from sage.all import *")
@@ -64,12 +65,15 @@ def _build_namespace() -> dict[str, Any]:
     ns["__builtins__"] = _restricted_builtins()
     _strip_forbidden_modules(ns)
     _strip_dangerous_sage_names(ns)
-    if not PURE_PYTHON and "x" not in ns:
-        # Sage's REPL predefines x and callers expect it; importing
-        # sage.all does not provide it. Only x -- Sage declares no others,
-        # and inventing more would shadow real objects.
-        with contextlib.suppress(Exception):
-            ns["x"] = ns["SR"].var("x")
+    if not PURE_PYTHON:
+        # Sage's REPL predefines x and importing sage.all does not even provide
+        # that. The other three are this server's own convention, matching the
+        # prelude the specialised tools have always used -- see symbols.py for
+        # why exactly these four and no more.
+        for symbol in PREDEFINED_SYMBOLS:
+            if symbol not in ns:
+                with contextlib.suppress(Exception):
+                    ns[symbol] = ns["SR"].var(symbol)
     _CALLER_BOUND_NAMES.clear()      # a fresh namespace has no caller names in it
     return ns
 

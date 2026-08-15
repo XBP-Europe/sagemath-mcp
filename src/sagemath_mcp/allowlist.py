@@ -439,7 +439,7 @@ ALLOWED_CALLER_NAMES: frozenset[str] = frozenset({
     "stirling_number2", "str", "streamline_plot", "strip_encoding", "struve_H",
     "struve_L", "subfactorial", "subsets", "sudoku", "sum", "sum_of_k_squares",
     "sumprod", "super", "supersingular_D", "supersingular_j", "surfaces", "sxrange",
-    "symbolic_expression", "symmetrica", "sympow", "table", "tan", "tanh", "tau",
+    "symbolic_expression", "symmetrica", "sympow", "t", "table", "tan", "tanh", "tau",
     "taylor", "tensor", "tensor_signed", "tetrahedron", "text", "text3d", "theta2_qexp",
     "theta_qexp", "three_squares", "timeit", "toric_plotter", "toric_varieties",
     "transducers", "transpose", "trial_division", "triangle_sandpile",
@@ -450,7 +450,7 @@ ALLOWED_CALLER_NAMES: frozenset[str] = frozenset({
     "variance", "vector", "version", "victor_miller_basis", "view", "vonmisesvariate",
     "walltime", "walsh_matrix", "warnings", "weibullvariate", "wigner_3j", "wigner_6j",
     "wigner_9j", "wilmes_algorithm", "word_problem", "words", "wronskian", "x", "xgcd",
-    "xinterval", "xkcd", "xlcm", "xmrange", "xmrange_iter", "xsrange", "zero_matrix",
-    "zero_vector", "zeta", "zeta__exact", "zeta_symmetric", "zeta_zeros", "zetaderiv",
-    "zip", "Γ", "ζ", "π", "σ", "ψ"
+    "xinterval", "xkcd", "xlcm", "xmrange", "xmrange_iter", "xsrange", "y", "z",
+    "zero_matrix", "zero_vector", "zeta", "zeta__exact", "zeta_symmetric", "zeta_zeros",
+    "zetaderiv", "zip", "Γ", "ζ", "π", "σ", "ψ"
 })

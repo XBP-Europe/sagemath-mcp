@@ -105,7 +105,7 @@ does, so it is Sage that you are writing and not Python:
 | `2^3` | `8` | `^` is exponentiation. `^^` is XOR |
 | `type(2)` | `sage.rings.integer.Integer` | not a machine `int` |
 | `K.<a> = NumberField(x^3 - 2)` | works | preparser-only syntax |
-| `x` | `x` | predefined, as in the REPL. Other symbols need `var('t')` |
+| `x`, `y`, `z`, `t` | symbolic | predefined. The REPL gives you only `x`; the tools have always declared four, so caller code does too |
 
 Integers at or above 2^53 travel as **decimal strings** in both directions,
 because a JSON number that large has already been rounded by a JavaScript-based
@@ -164,6 +164,7 @@ For HTTP transports, point the client at `http://HOST:PORT/mcp` and enable strea
 - **`'n' is larger than 2^53`**: pass that argument as a decimal string. A JSON
   number that large is not exact, so the server refuses it rather than computing
   from a rounded value.
-- **`name 't' is not defined`**: Sage predefines only `x`. Declare others with
-  `var('t s')`, exactly as in the Sage REPL.
+- **`'w' is not defined`**: `x`, `y`, `z` and `t` exist without being declared;
+  anything else needs `var('w')` first, exactly as in the Sage REPL. The error
+  says so and names the declaration to write.
 - **Permission denied on volume mounts**: the checkout is mounted read-only on purpose, so a write failure there is usually the application trying to write where it should not. If the path really is meant to be writable (a persistence volume), give that single path to UID/GID 1001 — not the whole tree.

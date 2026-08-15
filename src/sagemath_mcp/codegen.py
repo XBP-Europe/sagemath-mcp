@@ -26,6 +26,7 @@ from dataclasses import replace
 from fastmcp.exceptions import ToolError
 
 from .security import SECURITY_POLICY, SecurityViolation, validate_module
+from .symbols import PREDEFINED_SYMBOLS
 
 
 def _normalize_source(value):
@@ -440,7 +441,7 @@ def _validated_identifier(name: str, parameter: str) -> str:
 
 
 def _sage_prelude(extra_locals: Iterable[str] | None = None) -> str:
-    names = ["x", "y", "z", "t"]
+    names = list(PREDEFINED_SYMBOLS)
     if extra_locals:
         # Every name lands inside a quoted string in the generated prelude, so
         # validate here rather than at each of the 33 call sites.

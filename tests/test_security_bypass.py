@@ -1837,3 +1837,56 @@ def test_no_offered_object_answers_to_a_shell_or_filesystem_name() -> None:
         "a new offered object has a .remove that nobody has reviewed: "
         f"{sorted(removers - _COMBINATORIAL_REMOVE)}"
     )
+
+
+def test_the_length_check_is_silent_when_the_policy_is_off() -> None:
+    """`SAGEMATH_MCP_SECURITY_ENABLED=false` disables the policy, this included.
+
+    The limit is part of the policy, not a separate sanity rail, so turning the
+    policy off turns it off too. Worth stating rather than assuming: a limit
+    that survived the switch would be the only rule that did.
+    """
+    from dataclasses import replace
+
+    from sagemath_mcp.security import check_source_length
+
+    oversized = "x=" + "1+" * 70000 + "1"
+    disabled = replace(SECURITY_POLICY, enabled=False)
+
+    check_source_length(oversized, disabled)   # must not raise
+
+    with pytest.raises(SecurityViolation, match="exceeds maximum length"):
+        check_source_length(oversized, SECURITY_POLICY)
+
+
+@pytest.mark.parametrize(
+    "statement,flag,word",
+    [
+        ("def f():\n    global g\n    g = 1", "forbid_global_stmt", "Global"),
+        (
+            "def f():\n    def h():\n        nonlocal n\n        n = 1",
+            "forbid_nonlocal_stmt",
+            "Nonlocal",
+        ),
+    ],
+    ids=["global", "nonlocal"],
+)
+def test_the_scope_statements_are_still_refusable(statement: str, flag: str, word: str) -> None:
+    """Both default to permitted now; the rules behind them still work.
+
+    `global` and `nonlocal` were opened once it was shown they reach nothing a
+    module-level assignment does not -- an accumulator inside a function is
+    ordinary code, and the names they declare are governed by the withheld rule
+    like any other. The refusals stayed in the policy as switches a deployment
+    can turn back on, and a switch nothing exercises is a switch nobody knows is
+    broken.
+    """
+    from dataclasses import replace
+
+    strict = replace(SECURITY_POLICY, **{flag: True})
+
+    with pytest.raises(SecurityViolation, match=f"{word} statements are not permitted"):
+        validate_module(ast.parse(statement), policy=strict)
+
+    # And with the shipped default, the same code is ordinary mathematics.
+    validate_module(ast.parse(statement), policy=SECURITY_POLICY)

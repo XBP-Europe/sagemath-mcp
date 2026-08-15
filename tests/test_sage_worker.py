@@ -469,3 +469,107 @@ def test_a_predefined_symbol_that_already_exists_is_left_alone(monkeypatch) -> N
     # The other three have nothing to make them from here, and the suppressed
     # failure is the point: a missing SR must not stop the namespace being built.
     assert "y" not in namespace
+
+
+def test_the_denylist_derivation_resolves_lazy_imports(monkeypatch) -> None:
+    """The scan that `maxima_calculus` slipped through.
+
+    A `LazyImport` reports `sage.misc.lazy_import` as its type's module, so a
+    provenance check that reads `__module__` sees the wrapper and never the
+    thing wrapped. `maxima_calculus` is a `MaximaLib` behind one, which is how
+    an external-CAS interface stayed reachable while every other one was
+    scrubbed. The derivation now resolves them.
+
+    Exercised here without Sage by standing in a fake `sage.all`: the real loop
+    only runs when that import succeeds, so it was covered by the integration
+    suite alone and by nothing in the fast one.
+    """
+    import importlib
+    import types
+
+    from sagemath_mcp import _sage_worker
+
+    hidden = types.FunctionType(
+        (lambda: None).__code__, {}, "unpickle_global", None, None
+    )
+    hidden.__module__ = "sage.misc.persist"
+
+    class LazyImport:  # the name is what the derivation matches on
+        def __init__(self, target=hidden, explodes=False):
+            self._target, self._explodes = target, explodes
+
+        def _get_object(self):
+            if self._explodes:
+                # SageMath 10.9 does this for `is_ProductProjectiveSpaces`:
+                # resolving a lazy import can raise, and a scan that dies on one
+                # broken entry stops protecting everything after it.
+                raise AttributeError("module has no attribute 'is_Something'")
+            return self._target
+
+    plain = types.FunctionType((lambda: None).__code__, {}, "sh", None, None)
+    plain.__module__ = "sage.misc.sh"
+    innocent = types.FunctionType((lambda: None).__code__, {}, "factorial", None, None)
+    innocent.__module__ = "sage.functions.other"
+
+    fake_sage_all = types.ModuleType("sage.all")
+    fake_sage_all.wrapped_danger = LazyImport()
+    fake_sage_all.unresolvable = LazyImport(explodes=True)
+    fake_sage_all.plain_danger = plain
+    fake_sage_all.factorial = innocent
+
+    real_import = importlib.import_module
+
+    def only_sage_all(name, *args, **kwargs):
+        if name == "sage.all":
+            return fake_sage_all
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(_sage_worker.importlib, "import_module", only_sage_all)
+
+    derived = _sage_worker._dangerous_sage_names()
+
+    assert "wrapped_danger" in derived, "a LazyImport hid its provenance again"
+    assert "plain_danger" in derived
+    assert "factorial" not in derived, "ordinary mathematics must survive the scan"
+    assert "unresolvable" not in derived, (
+        "an entry that cannot be resolved must be skipped, not fatal"
+    )
+
+
+def test_an_injecting_call_hands_its_new_names_to_the_caller() -> None:
+    """`R.<x> = QQ[]` is not the only way names arrive.
+
+    `R.inject_variables()` puts the generators into the namespace, and nothing
+    in the snippet's AST names them -- so without this the caller could not read
+    what they had just asked for. The diff is gated on the caller having written
+    an injecting call, which is what stops it trusting names that merely
+    appeared.
+    """
+    from sagemath_mcp import _sage_worker
+
+    class Ring:
+        def __init__(self, namespace):
+            self._namespace = namespace
+
+        def inject_variables(self):
+            self._namespace["injected_gen"] = 42
+
+    namespace: dict = {"__builtins__": _sage_worker._restricted_builtins()}
+    namespace["R"] = Ring(namespace)
+
+    original = _sage_worker._STARTUP_ERROR
+    _sage_worker._STARTUP_ERROR = None
+    _sage_worker._CALLER_BOUND_NAMES.clear()
+    try:
+        response = _sage_worker._execute(
+            "R.inject_variables()", want_latex=False, capture_stdout=False,
+            namespace=namespace, trusted=False,
+        )
+    finally:
+        _sage_worker._STARTUP_ERROR = original
+
+    assert response["ok"] is True, response
+    assert "injected_gen" in _sage_worker._CALLER_BOUND_NAMES, (
+        "a name the caller asked to have injected must be readable afterwards"
+    )
+    _sage_worker._CALLER_BOUND_NAMES.clear()

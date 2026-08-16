@@ -14,9 +14,14 @@ test:
 sage-deps:
 	docker exec $(SAGEMATH_MCP_DOCKER_CONTAINER) bash -lc "cd /workspace && sage -python -m pip install --quiet -e '.[dev]'"
 
+# The corpus sweep in tests/test_sage_doctest_corpus.py is the most important
+# functional test of the security guardrails; it writes its statistics inside
+# the container (where /workspace is read-only) and they are copied out here.
 integration-test: sage-deps
-	set -o pipefail; docker exec $(SAGEMATH_MCP_DOCKER_CONTAINER) bash -lc "cd /workspace && sage -python -m pytest" | tee integration.log
-	tar -czf integration-artifacts.tar.gz integration.log || true
+	set -o pipefail; docker exec -e SAGEMATH_MCP_DOCTEST_STATS_FILE=/tmp/doctest-corpus-stats.md \
+		$(SAGEMATH_MCP_DOCKER_CONTAINER) bash -lc "cd /workspace && sage -python -m pytest" | tee integration.log
+	docker exec $(SAGEMATH_MCP_DOCKER_CONTAINER) cat /tmp/doctest-corpus-stats.md > doctest-corpus-stats.md
+	tar -czf integration-artifacts.tar.gz integration.log doctest-corpus-stats.md || true
 
 lint:
 	uv run ruff check

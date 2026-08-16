@@ -40,9 +40,12 @@ from __future__ import annotations
 
 import ast
 import collections
+import os
 import re
 import shutil
+import tempfile
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -129,6 +132,94 @@ class Harvest:
             for sample in self.samples.get(reason, [])[:2]:
                 lines.append(f"          e.g. {sample}")
         return "\n".join(lines)
+
+
+# Where the statistics of every sweep land, as markdown. The default is the
+# container's temp directory because /workspace is read-only for the container
+# user; `make integration-test` copies it out to `doctest-corpus-stats.md` on
+# the host. Counts only, never snippets -- the corpus is GPL and this file may
+# end up committed or shipped as a CI artifact (see the provenance note above).
+STATS_PATH_ENV = "SAGEMATH_MCP_DOCTEST_STATS_FILE"
+
+
+def stats_markdown(result: Harvest, library: Path) -> str:
+    try:
+        from sage.version import version as sage_version
+    except ImportError:  # pragma: no cover - integration only
+        sage_version = "unknown"
+    stamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+    lines = [
+        "# Doctest corpus validation statistics",
+        "",
+        "The most important functional test of the security guardrails: every",
+        "`sage:` example in the installed SageMath library, pushed through",
+        "`preparse` + `validate_module`, asking whether this server would refuse",
+        "the mathematics Sage itself documents. Generated on every run of",
+        "`tests/test_sage_doctest_corpus.py`; counts only, never corpus text.",
+        "",
+        f"- Generated: {stamp}",
+        f"- SageMath: {sage_version} (`{library}`)",
+        "",
+        "| Metric | Value |",
+        "| --- | ---: |",
+        f"| Source files | {result.files:,} |",
+        f"| Docstrings | {result.blocks:,} |",
+        f"| Examples | {result.examples:,} |",
+        f"| Accepted | {result.accepted:,} |",
+        f"| Refused | {result.refused:,} |",
+        f"| Excluded (out of scope by design) | {result.excluded:,} |",
+        f"| Unparsed | {result.unparsed:,} |",
+        f"| **Acceptance (in-scope)** | **{result.acceptance:.4%}** |",
+        f"| Required acceptance | {MINIMUM_ACCEPTANCE:.2%} |",
+        f"| Required accepted examples | {MINIMUM_EXAMPLES:,} |",
+        "",
+        "## Refused, by rule",
+        "",
+        "In-scope mathematics a guardrail turned away, categorized by the rule",
+        "that fired. Every rule here must appear in `DELIBERATE_RULES` with a",
+        "ceiling, or `test_every_refusal_is_a_rule_we_meant_to_write` fails.",
+        "",
+        "| Count | Share of in-scope | Rule |",
+        "| ---: | ---: | --- |",
+    ]
+    in_scope = result.in_scope or 1
+    refused = [
+        (reason, count)
+        for reason, count in result.reasons.most_common()
+        if reason.startswith("refused:")
+    ]
+    for reason, count in refused:
+        lines.append(f"| {count:,} | {count / in_scope:.4%} | `{reason[len('refused:'):]}` |")
+    lines += [
+        "",
+        "## Excluded, by capability",
+        "",
+        "Out of scope by design: doctests using capabilities this server does",
+        "not offer (imports, persistence, filesystem, external interfaces, ...).",
+        "Counted, not asserted over, and not part of the acceptance rate.",
+        "",
+        "| Count | Share of examples | Capability |",
+        "| ---: | ---: | --- |",
+    ]
+    examples = result.examples or 1
+    excluded = [
+        (reason, count)
+        for reason, count in result.reasons.most_common()
+        if reason.startswith("excluded:")
+    ]
+    for reason, count in excluded:
+        lines.append(f"| {count:,} | {count / examples:.4%} | `{reason[len('excluded:'):]}` |")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def write_stats(result: Harvest, library: Path) -> Path:
+    target = Path(
+        os.environ.get(STATS_PATH_ENV)
+        or Path(tempfile.gettempdir()) / "doctest-corpus-stats.md"
+    )
+    target.write_text(stats_markdown(result, library), encoding="utf-8")
+    return target
 
 
 def sage_library() -> Path | None:
@@ -264,7 +355,9 @@ def corpus() -> Harvest:
     sources = sorted(library.rglob("*.py")) + sorted(library.rglob("*.pyx"))
     if len(sources) < 500:  # pragma: no cover - integration only
         pytest.skip(f"only {len(sources)} Sage sources found; not a full installation")
-    return harvest(sources)
+    result = harvest(sources)
+    write_stats(result, library)
+    return result
 
 
 # --- the assertions -----------------------------------------------------------

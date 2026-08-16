@@ -44,6 +44,22 @@ Five assertions:
 security justification holds. It is a script rather than a test because its
 output is a judgement to read, not a property to assert.
 
+## The statistics file (`doctest-corpus-stats.md`)
+
+Every sweep writes its statistics as markdown: the headline counts and
+acceptance rate against the required floor, refusals categorised by the rule
+that fired, and exclusions categorised by capability. Counts only, never
+corpus text — the corpus is GPL and this file travels (see the provenance
+note in the test module).
+
+The fixture writes to `$SAGEMATH_MCP_DOCTEST_STATS_FILE` (defaulting to the
+temp directory, because `/workspace` is read-only for the container user);
+`make integration-test` sets it, copies the file out to
+`doctest-corpus-stats.md` in the repository root, bundles it into
+`integration-artifacts.tar.gz`, and CI uploads it with the integration
+artifacts. It is gitignored: a run artifact, not a committed baseline — the
+committed baselines stay in the test module, where a drop fails the build.
+
 ## Licensing and provenance
 
 SageMath is Copyright (C) The Sage Development Team, licensed

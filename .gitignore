@@ -211,6 +211,7 @@ __marimo__/
 # Integration artifacts
 integration.log
 integration-artifacts.tar.gz
+doctest-corpus-stats.md
 
 # Prototype spikes are runnable but not part of the package build.
 prototypes/**/__pycache__/

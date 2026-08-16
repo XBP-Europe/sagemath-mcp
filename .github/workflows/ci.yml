@@ -112,6 +112,7 @@ jobs:
           path: |
             integration.log
             integration-artifacts.tar.gz
+            doctest-corpus-stats.md
           if-no-files-found: ignore
 
   smoke:

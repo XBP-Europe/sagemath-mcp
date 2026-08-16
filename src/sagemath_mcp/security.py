@@ -1227,20 +1227,32 @@ def validate_module(
                     if segment not in policy.forbidden_attribute_parents:
                         continue
                     if index == last:
-                        # A module path is a dotted chain from an offered NAME:
-                        # `sage.env.os`, `desolvers.os`. A single-segment chain
-                        # is `<expr>.method` -- `(x+y).operator()` -- where the
-                        # root was a Call or BinOp, not a Name, so `segments[0]`
-                        # is the method, not a module. `operator` and `pari` are
-                        # offered names AND forbidden parents, so len>=2 is what
-                        # tells the module `operator` from the `.operator()`
-                        # method.
-                        module_path = len(segments) >= 2 and root in policy.allowed_names
-                        object_method = (
-                            len(segments) == 2 and segment in _TERMINAL_METHOD_NAMES
-                        )
-                        if not module_path or object_method:
-                            continue
+                        # Only five forbidden parents are ALSO ordinary methods
+                        # on a mathematical object -- trace, sh, operator, pari,
+                        # oeis (`A.trace()`, `(x+y).operator()`, `E.pari()`).
+                        # Every other one -- os, sys, subprocess, socket, shutil,
+                        # pathlib, persist, cython, warnings, builtins, ... -- has
+                        # no method meaning at all, so a terminal one is a module
+                        # reference WHATEVER the root is. The old rule waved it
+                        # through whenever the root was not offered, on the theory
+                        # that a non-allowlisted root meant `<expr>.method`. That
+                        # is false when the root is a bound *module object*:
+                        # `dirichlet.free_module_element.sage.env.os` reached the
+                        # real os module with `os` as the terminal, past this very
+                        # branch, and `alias.system('id')` then ran a shell (item
+                        # 61). The star-export screen no longer lets a module bind
+                        # to a caller name, but the validator refuses the pivot
+                        # too now -- the object should not be reachable either.
+                        if segment in _TERMINAL_METHOD_NAMES:
+                            # A plain object.method -- one or two segments -- or a
+                            # longer method-on-method chain not rooted at an
+                            # offered module name. The genuine module path
+                            # `sage.misc.trace` / `sage.misc.sh` (rooted at the
+                            # offered `sage`, three-plus segments) still falls
+                            # through to the refusal below.
+                            module_path = len(segments) >= 2 and root in policy.allowed_names
+                            if len(segments) <= 2 or not module_path:
+                                continue
                     elif index == 0 and caller_owned:
                         # The caller rebound a name that happens to be a
                         # forbidden parent. Only the ROOT is theirs -- a

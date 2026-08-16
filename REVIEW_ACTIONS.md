@@ -3275,3 +3275,45 @@ Fixed in the working tree. Host suite green (`SAGEMATH_MCP_PURE_PYTHON=1`):
 886 passed, lint clean. Full container suite against real SageMath 10.9:
 427 passed across the security/integration/coverage files, escape reproducer
 refused and no file written.
+
+## 62. Terminal module names pass the validator under a caller-bound root — defence in depth for item 61 — DONE
+
+The follow-up item 61 flagged. Item 61 closed the module-object pivot at the
+star-export screen; this closes the second half at the validator, so the object
+is refused even if some future path binds a module to a caller name again.
+
+The terminal-segment rule in `validate_module` (`security.py`) waved a forbidden
+parent through whenever it was the *terminal* segment of a chain whose root was
+not on the allowlist -- on the theory that a non-offered root means
+`<expr>.method`. That is false when the root is a bound module object:
+`dirichlet.free_module_element.sage.env.os` reached the real `os` module with
+`os` as the terminal, and `alias.system('id')` then ran a shell (item 61's
+escape).
+
+### Fix
+
+Only five forbidden parents are also real methods on a mathematical object --
+`trace`, `sh`, `operator`, `pari`, `oeis` (`A.trace()`, `(x+y).operator()`,
+`E.pari()`), the `_TERMINAL_METHOD_NAMES` set. Every other one -- `os`, `sys`,
+`subprocess`, `socket`, `shutil`, `pathlib`, `persist`, `cython`, `warnings`,
+`builtins`, ... -- has no method meaning, so a terminal occurrence is a module
+reference whatever the root is, and is now refused unconditionally. The five
+dual-use names keep their `object.method` exemption (one- or two-segment chains,
+and longer method-on-method chains not rooted at an offered module name); the
+genuine module paths `sage.misc.trace` / `sage.misc.sh` still fall through to the
+refusal. No mathematics is lost -- there is no `A.os()`.
+
+### How to verify
+
+`test_a_terminal_module_name_is_refused_under_any_root` (six pivots:
+`m.os`, `v.sys`, `g.env.subprocess`, `p.misc.persist`, `s.env.socket`,
+`d.a.b.sage.env.os`) and `test_dual_use_methods_still_pass` (`.trace()`,
+`.operator()`, `pi.operator`) in `tests/test_security_bypass.py`. All six pivots
+fail against the pre-fix validator, which is the point.
+
+### Status
+
+Fixed in the working tree. Host suite green (`SAGEMATH_MCP_PURE_PYTHON=1`):
+897 passed, lint clean. Full container suite against real SageMath 10.9:
+437 passed across the security/math-coverage/integration files, no accepted
+mathematics refused.

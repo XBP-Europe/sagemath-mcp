@@ -2323,3 +2323,47 @@ def test_an_untokenizable_fragment_is_still_rejected(case_id=None):
 
     with pytest.raises(ToolError):
         _validated_expression("matrix([1, 2")
+
+
+def test_the_guarded_attrcall_delegates_only_after_the_screen() -> None:
+    """In real Sage the wrapper hands back Sage's own AttrCallObject for a
+    screened name -- full REPL semantics, sort keys included -- and refuses the
+    file-writing and evaluation names at run time even though the validator
+    already refuses the spellings that could carry them. Defense in depth: a
+    future validator gap buys a ValueError, not a file."""
+    pytest.importorskip("sage.all")
+    from sagemath_mcp import _sage_worker
+
+    key = _sage_worker._guarded_attrcall("degree")
+    from sage.all import QQ, PolynomialRing
+
+    ring = PolynomialRing(QQ, "T")
+    generator = ring.gen()
+    assert key(generator**5 + generator) == 5
+
+    for forbidden in ("save", "eval", "gp", "__class__", "dump"):
+        with pytest.raises(ValueError):
+            _sage_worker._guarded_attrcall(forbidden)
+
+
+@pytest.mark.asyncio
+async def test_an_injection_does_not_unlock_withheld_names() -> None:
+    """A session that ran `inject_variables` has the *injected* names recorded,
+    not a blanket pass: the interfaces stay refused afterwards, by the same
+    withheld rule as before."""
+    pytest.importorskip("sage.all")
+    from sagemath_mcp.session import SageEvaluationError, SageSession
+
+    session = SageSession("inject-withheld", None)
+    try:
+        await session.evaluate(
+            "R = PolynomialRing(QQ, 'u,v')\nR.inject_variables()",
+            want_latex=False, capture_stdout=True,
+        )
+        with pytest.raises(SageEvaluationError) as caught:
+            await session.evaluate(
+                "gp('factor(2^64+1)')", want_latex=False, capture_stdout=True
+            )
+        assert "gp" in str(caught.value)
+    finally:
+        await session.shutdown()

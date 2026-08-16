@@ -696,3 +696,111 @@ def test_the_scrub_reaches_sage_all_where_sage_eval_resolves(monkeypatch) -> Non
     assert "unpickle_global" not in fake.__dict__, "the shell primitive must be gone"
     assert "sage_eval" in fake.__dict__, "the templates still need sage_eval"
     assert "factorial" in fake.__dict__, "names not asked for are left alone"
+
+
+def test_the_namespace_declares_itself_main(monkeypatch):
+    """Sage's `inject_variable` writes to `get_main_globals()`, which walks the
+    stack for the frame whose `__name__` is `__main__`. In the REPL the user's
+    namespace *is* `__main__`; in this worker the walk used to end in the worker
+    script's own globals, so `S.inject_shorthands()` printed its "Defining s"
+    lines and landed where no session could read them. Declaring the namespace
+    to be `__main__` is Sage's own fix -- the doctest runner stamps its test
+    namespace the same way (`sage/doctest/forker.py`)."""
+    from sagemath_mcp import _sage_worker
+
+    monkeypatch.setattr(_sage_worker, "PURE_PYTHON", True)
+    ns = _sage_worker._build_namespace()
+    assert ns["__name__"] == "__main__"
+
+
+def test_guarded_attrcall_screens_the_attribute_name(monkeypatch):
+    """The namespace scrub removes Sage's `attrcall` because a runtime string
+    defeats every attribute rule. What comes back in its place screens the
+    string at call time against the same rules, so even a validator bypass
+    would buy nothing."""
+    from sagemath_mcp import _sage_worker
+
+    monkeypatch.setattr(_sage_worker, "PURE_PYTHON", True)
+    key = _sage_worker._guarded_attrcall("upper")
+    assert key("abc") == "ABC"
+    with_arguments = _sage_worker._guarded_attrcall("replace", "a", "o")
+    assert with_arguments("abc") == "obc"
+
+    for forbidden in ("save", "save_image", "eval", "gp", "__class__", "a.b", 123):
+        with pytest.raises(ValueError):
+            _sage_worker._guarded_attrcall(forbidden)
+
+
+def test_guarded_attrcall_delegates_to_sage_when_available(monkeypatch):
+    import sys
+    import types
+
+    from sagemath_mcp import _sage_worker
+
+    real = types.SimpleNamespace(
+        attrcall=lambda name, *args, **kwds: ("sage-attrcall", name, args, kwds)
+    )
+    monkeypatch.setitem(sys.modules, "sage", types.SimpleNamespace(misc=None))
+    monkeypatch.setitem(sys.modules, "sage.misc", types.SimpleNamespace(call=real))
+    monkeypatch.setitem(sys.modules, "sage.misc.call", real)
+    monkeypatch.setattr(_sage_worker, "PURE_PYTHON", False)
+    assert _sage_worker._guarded_attrcall("degree", 2) == (
+        "sage-attrcall", "degree", (2,), {},
+    )
+
+
+def test_attrcall_is_usable_end_to_end_in_a_session(monkeypatch):
+    """Validation exempts the screened call, the namespace holds the guarded
+    wrapper, and the result is the caller's to bind and reuse -- the whole
+    interplay, in one flow."""
+    from sagemath_mcp import _sage_worker
+
+    monkeypatch.setattr(_sage_worker, "PURE_PYTHON", True)
+    namespace = _sage_worker._build_namespace()
+
+    original = _sage_worker._STARTUP_ERROR
+    _sage_worker._STARTUP_ERROR = None
+    try:
+        response = _sage_worker._execute(
+            "key = attrcall('upper')\nkey('abc')",
+            want_latex=False, capture_stdout=False,
+            namespace=namespace, trusted=False,
+        )
+    finally:
+        _sage_worker._STARTUP_ERROR = original
+
+    assert response["ok"] is True, response
+    assert response["result"] == "'ABC'"
+
+
+def test_an_inject_shorthands_call_hands_its_new_names_to_the_caller() -> None:
+    """The sibling of `test_an_injecting_call_hands_its_new_names_to_the_caller`:
+    `S.inject_shorthands()` earns the same namespace diff, now that the names
+    actually land (see `test_the_namespace_declares_itself_main`)."""
+    from sagemath_mcp import _sage_worker
+
+    class Symmetric:
+        def __init__(self, namespace):
+            self._namespace = namespace
+
+        def inject_shorthands(self):
+            self._namespace["s_basis"] = 42
+
+    namespace: dict = {"__builtins__": _sage_worker._restricted_builtins()}
+    namespace["S"] = Symmetric(namespace)
+
+    original = _sage_worker._STARTUP_ERROR
+    _sage_worker._STARTUP_ERROR = None
+    _sage_worker._CALLER_BOUND_NAMES.clear()
+    try:
+        response = _sage_worker._execute(
+            "S.inject_shorthands()", want_latex=False, capture_stdout=False,
+            namespace=namespace, trusted=False,
+        )
+    finally:
+        _sage_worker._STARTUP_ERROR = original
+
+    assert response["ok"] is True, response
+    assert "s_basis" in _sage_worker._CALLER_BOUND_NAMES, (
+        "a name the caller asked to have injected must be readable afterwards"
+    )

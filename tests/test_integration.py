@@ -643,13 +643,22 @@ async def test_the_caller_allowlist_matches_this_sage():
     namespace = _build_namespace()
     live_including_dunders = set(namespace) | set(_restricted_builtins())
 
+    # `attrcall` is deliberately live and deliberately off the allowlist: the
+    # namespace holds the worker's *guarded* wrapper (item 59), the validator
+    # permits exactly one spelling of it -- the call whose literal passes the
+    # attribute screen -- and every other read is refused by the forbidden-name
+    # rule itself, which consults neither the allowlist nor the caller's
+    # bindings. It is the one name whose protection does not depend on the gap
+    # below being empty, so it is excluded rather than allowlisted.
+    guarded = frozenset({"attrcall"})
+
     # What is live but not allowlisted must be dunders and nothing else. A
     # caller binding is trusted without consulting the allowlist, so anything
     # sitting in this gap is reachable by binding the name in a branch that
     # never runs. Dunders are safe there only because reading one is blocked
     # outright and `_bound_names` refuses to record them; a non-dunder arriving
     # here in a future Sage would have neither protection.
-    gap = sorted(n for n in live_including_dunders - ALLOWED_CALLER_NAMES
+    gap = sorted(n for n in live_including_dunders - ALLOWED_CALLER_NAMES - guarded
                  if not n.startswith("__"))
     assert not gap, (
         f"these names are live in the worker namespace but not on the allowlist, "
@@ -664,7 +673,7 @@ async def test_the_caller_allowlist_matches_this_sage():
     # the comparison has to include those or every one of them reads as drift.
     live |= {name for name in vars(math) if not name.startswith("_")}
 
-    additions = sorted(live - ALLOWED_CALLER_NAMES)
+    additions = sorted(live - ALLOWED_CALLER_NAMES - guarded)
     removals = sorted(ALLOWED_CALLER_NAMES - live)
 
     assert not additions, (

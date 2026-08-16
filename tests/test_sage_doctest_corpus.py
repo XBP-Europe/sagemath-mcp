@@ -55,6 +55,7 @@ from sagemath_mcp.config import SageSettings
 from sagemath_mcp.security import (
     SecurityViolation,
     _bound_names,
+    injects_session_names,
     rewrite_permitted_imports,
     validate_module,
 )
@@ -309,6 +310,13 @@ def harvest(paths: list[Path]) -> Harvest:
             # those bindings made ordinary code look refused.
             bound: set[str] = set()
             evaluated = False
+            # Did an earlier example run `inject_variables` or its siblings? A
+            # session records the names such a call actually created; a static
+            # walk cannot run anything, so it asks the validator for the same
+            # suspension the injecting snippet itself gets. Set even by an
+            # excluded example: the injection was written, and the block's
+            # later reads are of the names it makes.
+            session_injected = False
             for source in _examples(block):
                 result.examples += 1
                 try:
@@ -318,6 +326,7 @@ def harvest(paths: list[Path]) -> Harvest:
                     result.unparsed += 1
                     continue
                 bound |= _bound_names(module)
+                session_injected = session_injected or injects_session_names(module)
                 if evaluated:
                     # The worker binds `_` to the previous result, as the Sage
                     # REPL does, so every example after the first in a block can
@@ -332,7 +341,8 @@ def harvest(paths: list[Path]) -> Harvest:
                     continue
                 try:
                     validate_module(
-                        module, code=prepared, extra_allowed_names=frozenset(bound)
+                        module, code=prepared, extra_allowed_names=frozenset(bound),
+                        session_injects_names=session_injected,
                     )
                     result.accepted += 1
                 except SecurityViolation as exc:
@@ -362,19 +372,22 @@ def corpus() -> Harvest:
 
 # --- the assertions -----------------------------------------------------------
 #
-# Baselines measured against SageMath 10.9 (2026-08-15): 3,168 sources, 60,094
-# docstrings, 432,878 examples, of which 369,197 accepted, 5,231 refused and
-# 58,268 out of scope -- 98.60% acceptance among in-scope examples, in 48s.
+# Baselines measured against SageMath 10.9 (2026-08-16): 3,168 sources, 60,094
+# docstrings, 432,878 examples, of which 369,534 accepted, 4,894 refused and
+# 58,268 out of scope -- 98.69% acceptance among in-scope examples, in about a
+# minute. The 2026-08-15 measurement read 98.60%; the hardening of items 49-58
+# then cost ~365 examples (libgap and the Pari family, priced deliberately),
+# and modelling session injection plus screening `attrcall` literals won back
+# 702 -- see REVIEW_ACTIONS.md for both sides of that ledger.
 #
-# Two changes are understated here by construction, both for the same reason:
-# the sweep judges one example at a time. An import that is now dropped never
-# enters scope at all (see the test at the end of this file for the number that
-# did move), and `A.inject_variables()` usually sits in one example while the
-# names it creates are read in the next -- which works in a session, because the
-# worker records them, and cannot be seen by a per-example walk.
-# They carry margin because a Sage upgrade moves them, and a *drop* is the
-# signal. To refresh after an upgrade, call harvest() over the library and read
-# report(); a failing assertion prints it too.
+# One change is still understated by construction: an import the rewrite now
+# drops never enters scope at all (see the test at the end of this file for the
+# number that did move). Injection is no longer understated -- the sweep passes
+# `session_injects_names` once a block ran `inject_variables` or its siblings,
+# which is how a real session behaves, because the worker records the injected
+# names. Baselines carry margin because a Sage upgrade moves them, and a *drop*
+# is the signal. To refresh after an upgrade, call harvest() over the library
+# and read report(); a failing assertion prints it too.
 #
 # The first measurement was 97.81%, with 8,218 refusals. Item 46 removed 2,958
 # of them -- 36% -- by releasing everything the policy blocked without a security

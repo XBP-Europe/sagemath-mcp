@@ -444,7 +444,9 @@ _NATIVE_EQUIVALENTS: dict[str, str] = {
     "giac": "Sage's own symbolics: var(), integrate(), solve()",
     "sage0": "the mathematics directly; there is no second Sage to talk to",
     # String-path attribute access, which is refused as a class.
-    "attrcall": "a lambda: attrcall('bruhat_le') is lambda a, b: a.bruhat_le(b)",
+    # Only the dynamic form still reaches this advice: a screened literal --
+    # attrcall('bruhat_le') -- is accepted outright.
+    "attrcall": "a literal attribute name, or a lambda: lambda a, b: a.bruhat_le(b)",
     "attrgetter": "a lambda, or the attribute directly",
     "methodcaller": "a lambda: methodcaller('trace') is lambda m: m.trace()",
     "itemgetter": "a lambda: itemgetter(0) is lambda s: s[0]",
@@ -466,14 +468,86 @@ _NATIVE_EQUIVALENTS: dict[str, str] = {
 # is that object's generators, and none of it is knowable before the call runs.
 _NAME_INJECTING_METHODS: frozenset[str] = frozenset({
     "inject_variables",
+    # `inject_shorthands` was deliberately excluded for a release: Sage routes
+    # it through `get_main_globals()`, whose stack walk looks for the frame
+    # named `__main__` -- the worker script's own globals, so nothing landed in
+    # the session and gating on it bought a bare NameError. The worker now
+    # stamps its namespace `__name__ = '__main__'`, exactly as Sage's doctest
+    # runner stamps its test namespace (`sage/doctest/forker.py`), so the
+    # shorthands land where the session reads and the gate means what it says.
+    "inject_shorthands",
 })
-# `inject_shorthands` is deliberately not here. It looks like a sibling and is
-# not: Sage sends it through `sage.repl.user_globals`, so it writes into the
-# REPL's namespace and nothing lands in the worker's. Gating on it would suspend
-# the allowlist for a snippet where nothing is injected, and trade a message
-# that names the fix -- "declare it first with var('s')" -- for a bare
-# NameError. Confirmed against 10.9: after `S.inject_shorthands()`, `s` is
-# undefined here.
+
+
+def injects_session_names(module: ast.Module) -> bool:
+    """Does this code ask a Sage object to put names into the namespace?
+
+    One question, three askers: the validator suspends the allowlist half of
+    the name rule for the snippet, the worker diffs the namespace around the
+    execution so the *next* call can read what arrived, and the doctest sweep
+    marks the block as injected so its later examples are judged the way a
+    session would judge them.
+    """
+    return any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr in _NAME_INJECTING_METHODS
+        for node in ast.walk(module)
+    )
+
+
+def attrcall_attribute_violation(
+    name: object, policy: SecurityPolicy | None = None
+) -> str | None:
+    """Why this attribute name may not ride through `attrcall`, or None.
+
+    `attrcall('save', path)(M)` wrote a real file: the string is attribute
+    access the AST rules never see. But when the string is a *literal* it is
+    right there to screen, and SageMath's own doctests use `attrcall` 155
+    times, every one with a harmless literal. So the name is judged against
+    every rule the dotted spelling would face -- called and accessed positions
+    both, which is stricter than either alone -- and the dynamic form stays
+    refused. Shared with the worker's runtime guard so the two screens cannot
+    drift apart, which is how the fragment gate's token screen went stale.
+    """
+    policy = policy or SECURITY_POLICY
+    if not isinstance(name, str) or not name.isidentifier():
+        return "attrcall requires a plain identifier as the attribute name"
+    if _is_dunder(name):
+        return f"Access to dunder attribute '{name}' is blocked"
+    if name in policy.forbidden_call_names or name in policy.forbidden_attribute_only_names:
+        return f"Access to forbidden function '{name}' is blocked"
+    if name in policy.forbidden_attribute_names:
+        return f"Call to forbidden attribute '{name}' is blocked"
+    if any(name.startswith(prefix) for prefix in policy.forbidden_attribute_prefixes):
+        return (
+            f"Access to '{name}' is blocked: writing files is not "
+            "available to caller code"
+        )
+    return None
+
+
+def _screened_attrcall(node: ast.AST, policy: SecurityPolicy) -> bool:
+    """Is *node* an `attrcall('name', ...)` whose literal passes the screen?
+
+    The shape is judged as strictly as the name: the first positional argument
+    must be the literal, nothing may arrive as `name=` or `**kwds` (a runtime
+    dict is a runtime string), and further arguments are ordinary values the
+    validator sees on their own. Anything else falls through to the standing
+    refusal of `attrcall`, message unchanged.
+    """
+    if not (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "attrcall"
+    ):
+        return False
+    if not node.args or any(keyword.arg in (None, "name") for keyword in node.keywords):
+        return False
+    first = node.args[0]
+    if not (isinstance(first, ast.Constant) and isinstance(first.value, str)):
+        return False
+    return attrcall_attribute_violation(first.value, policy) is None
 
 
 def _native_equivalent(name: str) -> str | None:
@@ -811,6 +885,7 @@ def validate_module(
     policy: SecurityPolicy | None = None,
     extra_allowed_names: frozenset[str] | set[str] = frozenset(),
     withheld_names: frozenset[str] | set[str] = frozenset(),
+    session_injects_names: bool = False,
 ) -> None:
     """Validate *module* against the configured security policy.
 
@@ -821,6 +896,14 @@ def validate_module(
     statically -- `leaked = smuggled(); smuggled = None` binds `smuggled` for
     the whole module -- so without this rule the read at the start is
     authorized while the name still holds the preloaded object.
+
+    ``session_injects_names`` says an *earlier* snippet in this session ran a
+    name-injecting call. The worker never passes it -- it records the names the
+    injection actually created and hands them in as ``extra_allowed_names`` --
+    but a static observer judging one snippet at a time (the doctest sweep)
+    cannot run anything, so it asks for the same suspension the injecting
+    snippet itself gets. Only the allowlist half is suspended; the withheld
+    rule holds regardless.
     """
     policy = policy or SECURITY_POLICY
     if not policy.enabled:
@@ -865,6 +948,15 @@ def validate_module(
         and isinstance(node.value, ast.Name)
         and (node.value.id, node.attr) in policy.allowed_module_attributes
     }
+    # The `attrcall` in `attrcall('degree')` earns the same treatment when its
+    # literal passes the attribute screen: that one call is permitted, and the
+    # bare name -- `f = attrcall`, the aliasing that defeats name rules -- stays
+    # refused because only the screened call's own Name node is exempted.
+    exempt_module_names |= {
+        id(node.func)
+        for node in ast.walk(module)
+        if _screened_attrcall(node, policy)
+    }
 
     # Names in call position, so a refusal can tell `r("'abc'")` apart from a
     # radius called `r`.
@@ -874,13 +966,9 @@ def validate_module(
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
     }
 
-    # Does this snippet ask a Sage object to put names into the namespace?
-    injects_names = any(
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and node.func.attr in _NAME_INJECTING_METHODS
-        for node in ast.walk(module)
-    )
+    # Does this snippet -- or, for a static observer, an earlier snippet in the
+    # same session -- ask a Sage object to put names into the namespace?
+    injects_names = session_injects_names or injects_session_names(module)
 
     for node in ast.walk(module):
         if isinstance(node, (ast.Import, ast.ImportFrom)) and not policy.allow_imports:
@@ -1147,7 +1235,9 @@ def validate_module(
         # object is bound to an unremarkable name there is no chain left to
         # inspect, so the module name has to be unreadable in the first place.
         if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
-            if node.id in policy.forbidden_call_names:
+            # A screened `attrcall('degree')` exempts its own func node here,
+            # the way `operator` is exempted inside `operator.le`.
+            if node.id in policy.forbidden_call_names and id(node) not in exempt_module_names:
                 equivalent = _native_equivalent(node.id)
                 _raise_violation(
                     f"Reference to forbidden name '{node.id}' is blocked"
@@ -1205,7 +1295,11 @@ def validate_module(
             )
         if isinstance(node, ast.Call):
             func = node.func
-            if isinstance(func, ast.Name) and func.id in policy.forbidden_call_names:
+            if (
+                isinstance(func, ast.Name)
+                and func.id in policy.forbidden_call_names
+                and id(func) not in exempt_module_names
+            ):
                 equivalent = _native_equivalent(func.id)
                 _raise_violation(
                     f"Call to forbidden function '{func.id}' is blocked"

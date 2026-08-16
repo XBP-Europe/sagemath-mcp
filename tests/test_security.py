@@ -323,3 +323,123 @@ def test_the_input_limits_admit_a_pasted_matrix():
     huge = "x = [" + ",".join(str(i) for i in range(200_000)) + "]"
     with pytest.raises(SecurityViolation):
         validate_code(huge)
+
+
+# --- session-level name injection (the sweep's model of a running session) -----
+
+
+def test_the_session_injection_flag_suspends_only_the_allowlist_half():
+    """A session where an earlier call ran `R.inject_variables()` holds names
+    no static analysis of the *current* snippet can know. The worker records
+    the real ones by diffing the namespace around the injecting call; a static
+    observer (the doctest sweep) cannot, so it passes ``session_injects_names``
+    and gets the same suspension the injecting snippet itself gets: names that
+    are not live at all are either the injected ones or a NameError."""
+    import ast
+
+    from sagemath_mcp.security import validate_module
+
+    module = ast.parse("mystery_name + 1")
+    with pytest.raises(SecurityViolation):
+        validate_module(module, code="mystery_name + 1")
+    validate_module(module, code="mystery_name + 1", session_injects_names=True)
+
+
+def test_the_session_injection_flag_does_not_unlock_withheld_names():
+    """The withheld half is the half with the security content: a name that is
+    live in the namespace and deliberately not offered stays refused whatever
+    a session has injected."""
+    import ast
+
+    from sagemath_mcp.security import validate_module
+
+    module = ast.parse("smuggled")
+    with pytest.raises(SecurityViolation):
+        validate_module(
+            module,
+            code="smuggled",
+            withheld_names=frozenset({"smuggled"}),
+            session_injects_names=True,
+        )
+
+
+def test_inject_shorthands_counts_as_a_name_injection():
+    """`S.inject_shorthands()` injects the basis shorthands the way
+    `R.inject_variables()` injects generators. It used to be excluded because
+    nothing landed in the worker's namespace -- Sage routes it through
+    `get_main_globals()` -- and the worker now declares its namespace to be
+    `__main__`, which is where that routing ends up."""
+    import ast
+
+    from sagemath_mcp.security import validate_module
+
+    code = "S.inject_shorthands()\nzz + 1"
+    module = ast.parse(code)
+    validate_module(module, code=code, extra_allowed_names=frozenset({"S"}))
+
+    # The sibling without the injection stays refused: the suspension is earned
+    # by the call, not by the spelling of any method.
+    plain = "S.shorthands()\nzz + 1"
+    with pytest.raises(SecurityViolation):
+        validate_module(
+            ast.parse(plain), code=plain, extra_allowed_names=frozenset({"S"})
+        )
+
+
+# --- attrcall with a screened literal ------------------------------------------
+
+
+def test_attrcall_with_a_screened_literal_is_accepted():
+    """`attrcall('partial_sums')` is idiomatic Sage -- 155 uses in SageMath's
+    own doctests, every one with a harmless literal. The string is right there
+    in the AST, so it is screened against the same attribute rules the dotted
+    spelling would face; what stays refused is the dynamic form, which is the
+    form that defeats attribute rules."""
+    import ast
+
+    from sagemath_mcp.security import validate_module
+
+    for code in (
+        "attrcall('partial_sums')",
+        "key = attrcall('degree')",
+        "sorted(P, key=attrcall('length'))",
+        "attrcall('conjugate')",
+    ):
+        validate_module(
+            ast.parse(code), code=code, extra_allowed_names=frozenset({"P"})
+        )
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        # The literal fails the attribute screen.
+        "attrcall('save')",
+        "attrcall('save_image')",
+        "attrcall('eval')",
+        "attrcall('gp')",
+        "attrcall('__class__')",
+        "attrcall('a.b')",
+        # No literal to screen.
+        "name = 'degree'\nattrcall(name)",
+        "attrcall()",
+        "parts = ['degree']\nattrcall(*parts)",
+        "attrcall(name='degree')",
+        "attrcall(**{'name': 'degree'})",
+        # The primitive itself stays unreadable outside the screened call.
+        "f = attrcall",
+        "x = 1\nx.attrcall('degree')",
+    ],
+    ids=[
+        "save", "save-image", "eval", "gp", "dunder", "dotted-path",
+        "variable", "no-args", "starred", "keyword", "double-star",
+        "alias", "attribute-spelling",
+    ],
+)
+def test_attrcall_stays_refused_outside_the_screen(code: str):
+    import ast
+
+    from sagemath_mcp.security import validate_module
+
+    with pytest.raises(SecurityViolation):
+        validate_module(ast.parse(code), code=code)

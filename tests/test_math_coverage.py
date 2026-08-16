@@ -813,8 +813,12 @@ def test_a_withheld_name_names_the_spelling_that_works() -> None:
         ("maxima('integrate(x^2, x)')", "integrate"),
         ("gp('factor(2^64+1)')", "factor"),
         ("magma('1+1')", "PolynomialRing"),
-        ("attrcall('bruhat_le')", "lambda"),
+        # `attrcall('bruhat_le')` used to sit here with the lambda advice; a
+        # screened literal is now simply accepted (see
+        # `test_attrcall_with_a_screened_literal_is_accepted`), and only the
+        # dynamic form still earns the refusal.
         ("methodcaller('trace')", "lambda"),
+        ("name = 'trace'\nattrcall(name)", "lambda"),
         ("show(x^2)", "results come back as text"),
         ("set_verbose(0)", "streaming tool"),
     ]
@@ -1036,3 +1040,43 @@ async def test_the_tools_declare_a_symbol_the_way_SR_does() -> None:
     finally:
         await manager.shutdown()
         runtime.SESSION_MANAGER = original
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_inject_shorthands_names_survive_to_the_next_call() -> None:
+    """`S.inject_shorthands()` is `inject_variables` for basis shorthands, and
+    it used to land nowhere: Sage routes it through `get_main_globals()`, whose
+    stack walk ended in the worker script instead of the session namespace --
+    317 `libgap`-sized holes smaller, this was the largest injection class the
+    doctest sweep found refused. The worker now declares its namespace to be
+    `__main__`, exactly as Sage's own doctest runner does."""
+    session = await _session("shorthands")
+    try:
+        await _value(session, (
+            "S = SymmetricFunctions(QQ)\nS.inject_shorthands(verbose=False)"
+        ))
+        # A separate call, reading names the previous one created at run time.
+        assert await _value(session, "s([2,1]).degree()") == "3"
+        assert await _value(session, "(e[2] * h[1]).degree()") == "3"
+    finally:
+        await session.shutdown()
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_attrcall_with_a_screened_literal_computes() -> None:
+    """`attrcall('partial_sums')` appears 155 times in SageMath's own doctests.
+    The literal is screened against the attribute rules at validation and again
+    at run time, and the mathematics comes back."""
+    session = await _session("attrcall")
+    try:
+        assert await _value(session, "attrcall('is_prime')(ZZ(7))") == "True"
+        assert await _value(
+            session, "sorted(Compositions(3).map(attrcall('partial_sums')))[0]"
+        ) == "[1, 2, 3]"
+        # Bound on one call, used on the next: the result is an ordinary value.
+        await _value(session, "key = attrcall('degree')")
+        assert await _value(session, "key(QQ['T']('T^5 + T'))") == "5"
+    finally:
+        await session.shutdown()

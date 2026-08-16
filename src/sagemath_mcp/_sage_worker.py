@@ -16,10 +16,11 @@ from typing import Any
 
 from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
 from sagemath_mcp.security import (
-    _NAME_INJECTING_METHODS,
     SECURITY_POLICY,
     _bound_names,
+    attrcall_attribute_violation,
     check_source_length,
+    injects_session_names,
     normalize_caller_code,
     rewrite_permitted_imports,
     trusted_policy,
@@ -47,6 +48,28 @@ _CALLER_BOUND_NAMES: set[str] = set()
 _WITHHELD_NAMES: frozenset[str] = frozenset()
 
 
+def _guarded_attrcall(name: object, *args: Any, **kwds: Any) -> Any:
+    """Sage's `attrcall`, behind the attribute screen.
+
+    The screen is the same function the validator applies to the literal
+    (`attrcall_attribute_violation`), so the static and runtime judgements
+    cannot drift apart. For a permitted name the real `attrcall` answers, with
+    its full REPL semantics -- sort keys, mapping over families, equality; the
+    pure-Python harness gets a closure that does the one thing tests need.
+    """
+    reason = attrcall_attribute_violation(name)
+    if reason is not None:
+        raise ValueError(f"Blocked attrcall: {reason}")
+    if PURE_PYTHON:
+        def _call(obj: Any) -> Any:
+            return getattr(obj, name)(*args, **kwds)
+
+        return _call
+    from sage.misc.call import attrcall as _sage_attrcall
+
+    return _sage_attrcall(name, *args, **kwds)
+
+
 def _build_namespace() -> dict[str, Any]:
     # NOTE: Each worker keeps its own global namespace. We allow a single
     # preload statement so sessions can bootstrap Sage or the lightweight math
@@ -54,6 +77,15 @@ def _build_namespace() -> dict[str, Any]:
     # inheriting ambient globals from the worker process.
     global _STARTUP_ERROR
     ns: dict[str, Any] = {"__builtins__": __builtins__}
+    # Sage's `inject_variable` -- and through it `inject_shorthands` and every
+    # other route into "the main global namespace" -- writes to
+    # `get_main_globals()`, which walks the stack for the frame whose
+    # `__name__` is `__main__`. In the REPL the user's namespace is `__main__`;
+    # here the walk used to end in this script's own globals, so injections
+    # printed their "Defining s" lines and landed where no session could read
+    # them. Stamping the namespace is Sage's own fix: the doctest runner does
+    # exactly this to its test namespace (`sage/doctest/forker.py`).
+    ns["__name__"] = "__main__"
     preload = "from math import *" if PURE_PYTHON else STARTUP_CODE
     if preload:
         try:
@@ -71,6 +103,13 @@ def _build_namespace() -> dict[str, Any]:
     ns["__builtins__"] = _restricted_builtins()
     _strip_forbidden_modules(ns)
     _strip_dangerous_sage_names(ns)
+    # The scrub removed Sage's `attrcall` with the rest of `sage.misc.call`,
+    # because a runtime string defeats every attribute rule. What returns under
+    # the name screens its string against those same rules first -- so the
+    # validator can permit the literal spelling SageMath's own doctests use 155
+    # times, and even code that somehow reached the object with a computed
+    # string gets a ValueError, not a file.
+    ns["attrcall"] = _guarded_attrcall
     if not PURE_PYTHON:
         # Sage's REPL predefines x and importing sage.all does not even provide
         # that. The other three are this server's own convention, matching the
@@ -713,12 +752,7 @@ def _split_code(
     # lets the snippet read them; this tells _execute to find out what they were,
     # so the *next* call can read them too -- which is what makes a session a
     # session rather than a sequence of snippets.
-    injects = any(
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and node.func.attr in _NAME_INJECTING_METHODS
-        for node in ast.walk(module)
-    )
+    injects = injects_session_names(module)
     ast.fix_missing_locations(module)
     # `bound_here` rides along so _execute can hand it to the reseal.
     if module.body and isinstance(module.body[-1], ast.Expr):

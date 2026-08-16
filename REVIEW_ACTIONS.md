@@ -3066,3 +3066,83 @@ are absent from the resource but present on the internal record.
 Fixed in the working tree. Host suite green (`SAGEMATH_MCP_PURE_PYTHON=1`):
 848 passed, coverage 100% (statements and branches), lint clean. Not yet
 verified against real Sage in the container or committed.
+
+## 59. Two Sage behaviours the server did not simulate — enhancement — DONE
+
+Not a vulnerability: the opposite direction. After items 49-58 the doctest
+corpus sweep measured 98.5055% acceptance against its 98.50% floor (~20
+examples of headroom). Classifying every refusal by cause found two Sage
+behaviours the server refused instead of simulating, worth 702 in-scope
+examples, none with security content.
+
+### What was not simulated
+
+**Name injection across calls (548 examples).** Sage objects put generator
+names into the user's namespace at runtime: `AW.inject_variables()` defines
+`A,B,C,a,b,g`. The worker already recorded those names by diffing the
+namespace around the injecting call — but `inject_shorthands` never landed at
+all: Sage routes it through `get_main_globals()`, whose stack walk looks for
+the frame named `__main__`, and that was the worker script's own globals, not
+the session namespace. Verified against real 10.9: after
+`S.inject_shorthands()`, `s` was undefined in the session while "Defining s"
+printed. And the doctest sweep, judging one example at a time, could not see
+what a real session records, so it counted inject_variables-following reads as
+refusals the server does not actually make.
+
+**`attrcall` with a literal (155 examples, every corpus use).**
+`attrcall('save', path)(M)` writes a file — the string is attribute access the
+AST rules never see, which is why it was refused outright (item on the
+string-path primitives). But a *literal* string is right there to screen.
+
+### Fix
+
+`_sage_worker.py`: the namespace declares itself `__name__ = '__main__'`,
+exactly as Sage's own doctest runner stamps its test namespace
+(`sage/doctest/forker.py`), so everything Sage routes to "the main global
+namespace" lands in the session. `inject_shorthands` joins
+`_NAME_INJECTING_METHODS`, earning the same one-snippet allowlist suspension
+and post-execution namespace diff as `inject_variables`. The withheld rule is
+untouched: an injection cannot resurrect a scrubbed name.
+
+`security.py`: `attrcall_attribute_violation()` screens an attribute name
+against every rule the dotted spelling would face (called and accessed
+positions both — dunders, forbidden calls, attribute-only names, the
+save/dump/export/write prefixes), and `validate_module` exempts only the
+`attrcall` Name node of a call whose first positional argument is a literal
+that passes — the `operator.le` pattern. Aliasing (`f = attrcall`), the
+attribute spelling, `name=`/`**kwds` smuggling and every dynamic form keep the
+standing refusal. The worker reintroduces `attrcall` as a guarded wrapper that
+applies the *same shared screen* at run time before delegating to Sage's
+`attrcall` — defense in depth: a future validator gap buys a ValueError, not a
+file. `validate_module` also gains `session_injects_names` so a static
+observer (the corpus sweep) can model what the worker records at run time.
+
+### How to verify
+
+Test-first, all against real SageMath 10.9 in the container.
+`test_inject_shorthands_names_survive_to_the_next_call`,
+`test_attrcall_with_a_screened_literal_computes` (`tests/test_math_coverage.py`);
+`test_the_guarded_attrcall_delegates_only_after_the_screen`,
+`test_an_injection_does_not_unlock_withheld_names`
+(`tests/test_security_bypass.py`); the validator and worker unit rounds in
+`tests/test_security.py` and `tests/test_sage_worker.py`. The existing
+string-path payload round (`attrcall('save', ...)` and friends) passes
+unchanged.
+
+### Measured
+
+Corpus sweep: acceptance 98.5055% -> 98.6929%, refusals 5,596 -> 4,894 (-702),
+all seven corpus assertions green. The `'X' is not defined` rule fell from 683
+to a residue of genuinely undefined names; `Call to forbidden function` lost
+its attrcall share. Headroom over the 98.50% floor went from ~20 examples to
+~720.
+
+### Status
+
+Fixed in the working tree. Host suite green (`SAGEMATH_MCP_PURE_PYTHON=1`):
+873 passed, coverage 100% (statements and branches), lint clean. Full
+container suite against real SageMath 10.9: 1,019 passed, 1 skipped (the
+opt-in execution sampler). One invariant needed a scoped exception:
+`test_the_caller_allowlist_matches_this_sage` flagged the guarded `attrcall`
+as live-but-not-allowlisted, which is exactly its design -- the exception is
+documented in the test with the rule that actually protects the name.

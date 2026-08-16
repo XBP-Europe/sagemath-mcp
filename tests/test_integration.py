@@ -637,20 +637,28 @@ async def test_the_caller_allowlist_matches_this_sage():
     """
     import math
 
-    from sagemath_mcp._sage_worker import _build_namespace, _restricted_builtins
+    from sagemath_mcp._sage_worker import (
+        _CALLER_SHIMS,
+        _build_namespace,
+        _restricted_builtins,
+    )
     from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
 
     namespace = _build_namespace()
     live_including_dunders = set(namespace) | set(_restricted_builtins())
 
-    # `attrcall` is deliberately live and deliberately off the allowlist: the
-    # namespace holds the worker's *guarded* wrapper (item 59), the validator
-    # permits exactly one spelling of it -- the call whose literal passes the
-    # attribute screen -- and every other read is refused by the forbidden-name
-    # rule itself, which consults neither the allowlist nor the caller's
-    # bindings. It is the one name whose protection does not depend on the gap
-    # below being empty, so it is excluded rather than allowlisted.
-    guarded = frozenset({"attrcall"})
+    # The caller shims are deliberately live and deliberately off the allowlist,
+    # because they replace a scrubbed Sage global with a safe stand-in rather
+    # than an allowlisted object (item 64):
+    #   `attrcall`     -- the worker's *guarded* wrapper (item 59). The validator
+    #                     permits exactly one spelling, the screened literal call;
+    #                     every other read is refused by the forbidden-name rule,
+    #                     which consults neither the allowlist nor the bindings.
+    #   `set_verbose`  -- a no-op, offered outright (harmless) via
+    #                     `_OFFERED_SHIM_NAMES`, not through the generated list.
+    # Their protection does not depend on the gap below being empty, so they are
+    # excluded rather than allowlisted.
+    guarded = frozenset(_CALLER_SHIMS)
 
     # What is live but not allowlisted must be dunders and nothing else. A
     # caller binding is trusted without consulting the allowlist, so anything

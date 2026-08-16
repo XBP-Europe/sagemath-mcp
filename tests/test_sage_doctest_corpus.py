@@ -50,6 +50,7 @@ from pathlib import Path
 
 import pytest
 
+from sagemath_mcp._sage_worker import _OFFERED_SHIM_NAMES, _auto_declarable_symbols
 from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
 from sagemath_mcp.config import SageSettings
 from sagemath_mcp.security import (
@@ -348,9 +349,18 @@ def harvest(paths: list[Path]) -> Harvest:
                     result.excluded += 1
                     result.reasons[f"excluded:{label}"] += 1
                     continue
+                # Model the two evaluate_sage niceties the worker adds and this
+                # static walk otherwise misses (items 64/65), so the sweep counts
+                # what the server really accepts: `set_verbose` and the other
+                # offered shims, and symbol-shaped free names auto-declared as
+                # var() rather than refused.
+                offered = frozenset(bound) | _OFFERED_SHIM_NAMES
+                offered |= _auto_declarable_symbols(
+                    module, offered | ALLOWED_CALLER_NAMES, frozenset()
+                )
                 try:
                     validate_module(
-                        module, code=prepared, extra_allowed_names=frozenset(bound),
+                        module, code=prepared, extra_allowed_names=offered,
                         session_injects_names=session_injected,
                     )
                     result.accepted += 1

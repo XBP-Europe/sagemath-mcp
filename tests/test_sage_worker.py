@@ -731,6 +731,130 @@ def test_guarded_attrcall_screens_the_attribute_name(monkeypatch):
             _sage_worker._guarded_attrcall(forbidden)
 
 
+def test_set_verbose_is_offered_as_a_noop(monkeypatch):
+    """`set_verbose(2)` opens many doctests as setup noise. It only sets a global
+    chattiness level with no surface over MCP, so it is offered as a no-op rather
+    than refused -- the validator accepts it and the namespace runs it (item 64).
+    """
+    from sagemath_mcp import _sage_worker
+
+    monkeypatch.setattr(_sage_worker, "PURE_PYTHON", True)
+    ns = _sage_worker._build_namespace()
+    result = _sage_worker._execute(
+        "set_verbose(2)", want_latex=False, capture_stdout=False,
+        namespace=ns, trusted=False,
+    )
+    assert result["ok"] is True
+    assert result.get("result") is None  # a no-op returns nothing
+
+
+def test_caller_shims_survive_a_reseal(monkeypatch):
+    """Before item 64 the scrub removed `attrcall` and nothing put it back, so it
+    worked at startup and vanished after the first specialised-tool call (which
+    reseals). The shims are reinstalled after every scrub; `set_verbose` stays
+    offered, `attrcall` stays withheld (screened-call-only)."""
+    from sagemath_mcp import _sage_worker
+
+    monkeypatch.setattr(_sage_worker, "PURE_PYTHON", True)
+    ns = _sage_worker._build_namespace()
+    assert "attrcall" in ns and "set_verbose" in ns
+
+    _sage_worker._reseal_namespace(ns)
+    assert "attrcall" in ns and "set_verbose" in ns
+    assert "set_verbose" not in _sage_worker._WITHHELD_NAMES
+    assert "attrcall" in _sage_worker._WITHHELD_NAMES
+
+
+def test_symbol_shaped_free_names_pass_validation(monkeypatch):
+    """evaluate_sage declares a symbol-shaped free name instead of refusing it,
+    so validation accepts `w` and reports it as auto-declared (item 65)."""
+    from sagemath_mcp import _sage_worker
+
+    monkeypatch.setattr(_sage_worker, "PURE_PYTHON", True)
+    compiled = _sage_worker._split_code("w + 1")
+    assert "w" in compiled.auto_symbols
+    # A multi-letter name is not symbol-shaped: a typo stays an error.
+    with pytest.raises(SecurityViolation):
+        _sage_worker._split_code("sinn(x)")
+
+
+def test_symbol_auto_declaration_does_not_shadow_a_session_variable(monkeypatch):
+    """A name the caller already assigned is offered as their value, not turned
+    into a fresh symbol -- so `w` stays whatever the session set it to."""
+    from sagemath_mcp import _sage_worker
+
+    monkeypatch.setattr(_sage_worker, "PURE_PYTHON", True)
+    monkeypatch.setattr(_sage_worker, "_CALLER_BOUND_NAMES", {"w"})
+    compiled = _sage_worker._split_code(
+        "w + 1", session_names=_sage_worker._CALLER_BOUND_NAMES
+    )
+    assert "w" not in compiled.auto_symbols
+
+
+def test_auto_declarable_symbols_keeps_a_called_interface_redirect():
+    """`r` is a radius as a bare symbol but the R interface as `r(...)`. The
+    called form has a native equivalent, so it is not auto-declared and keeps its
+    redirect; the bare form is declared."""
+    from sagemath_mcp import _sage_worker
+
+    called = _sage_worker._auto_declarable_symbols(
+        ast.parse("r('mean(1, 2)')"), frozenset(), frozenset()
+    )
+    assert "r" not in called
+    bare = _sage_worker._auto_declarable_symbols(
+        ast.parse("pi * r"), frozenset(), frozenset()
+    )
+    assert "r" in bare
+
+
+def test_declare_symbols_binds_through_the_namespace_var():
+    """Each name is bound via the namespace's own `var`, unless already present;
+    a namespace with no `var` (the pure-Python harness) is left untouched."""
+    from sagemath_mcp import _sage_worker
+
+    ns = {"var": lambda name: ("symbol", name), "x": 5}
+    _sage_worker._declare_symbols(ns, frozenset({"w", "x"}))
+    assert ns["w"] == ("symbol", "w")   # declared
+    assert ns["x"] == 5                  # session value not overwritten
+
+    def _boom(_name):
+        raise ValueError("no such symbol")
+
+    swallowed = {"var": _boom}
+    _sage_worker._declare_symbols(swallowed, frozenset({"q"}))  # error suppressed
+    assert "q" not in swallowed
+
+    empty: dict[str, object] = {}
+    _sage_worker._declare_symbols(empty, frozenset({"w"}))  # no var -> no-op
+    assert "w" not in empty
+
+
+def test_symbol_auto_declaration_computes_and_respects_session():
+    """End to end on real Sage: an undeclared `w` becomes a symbol and computes;
+    a `w` the session already set to a number stays that number (item 65)."""
+    pytest.importorskip("sage.all")
+    from sagemath_mcp import _sage_worker
+
+    ns = _sage_worker._build_namespace()
+    ok = _sage_worker._execute(
+        "expand((w + 1)^2)", want_latex=False, capture_stdout=False,
+        namespace=ns, trusted=False,
+    )
+    assert ok["ok"] is True and ok["result"] == "w^2 + 2*w + 1"
+
+    # Now the caller pins w to a number; the next read must keep it, not resymbol.
+    _sage_worker._execute("w = 5", want_latex=False, capture_stdout=False,
+                          namespace=ns, trusted=False)
+    pinned = _sage_worker._execute("w + 1", want_latex=False, capture_stdout=False,
+                                   namespace=ns, trusted=False)
+    assert pinned["ok"] is True and pinned["result"] == "6"
+
+    # A multi-letter typo is still refused, not silently turned into a symbol.
+    typo = _sage_worker._execute("sinn(x)", want_latex=False, capture_stdout=False,
+                                 namespace=_sage_worker._build_namespace(), trusted=False)
+    assert typo["ok"] is False
+
+
 def test_guarded_attrcall_delegates_to_sage_when_available(monkeypatch):
     import sys
     import types
@@ -864,15 +988,19 @@ def test_star_export_screen_rejects_a_re_exported_dangerous_object(monkeypatch):
     assert _sage_worker._star_export_screen("fake.reexport") is None
 
 
-def test_star_export_screen_rejects_a_re_exported_module_object(monkeypatch):
-    """A module object handed back by a star import is a pivot, not a leaf.
+def test_star_export_screen_drops_a_re_exported_module_object(monkeypatch):
+    """A module object handed back by a star import is a pivot, and is DROPPED
+    from the screened names rather than failing the whole module.
 
     `sage.modular.dims` re-exported the `sage.modular.dirichlet` module, which
-    reaches `sage.env.os`, and the validator's terminal-segment rule then let a
-    caller bind the real `os` and call `.system()`. Provenance cannot catch it:
-    a module has `__name__`, not `__module__`, so the home check reads "" and
-    passes. The screen must reject a module-object export by type. See
-    REVIEW_ACTIONS item 61.
+    reaches `sage.env.os`; binding it let a caller pivot to the real `os` (the
+    item 61 escape). Item 61 failed the whole module for it, which cost the
+    mathematics in `real_roots`/`dims`/`pbori` for a single module object. Item
+    63 drops the module-object name instead: the expansion binds only the
+    screened names, so a dropped name is never imported, and item 62 refuses the
+    pivot at the validator even if one were. The math names survive; the module
+    does not. A re-export whose NAME is a forbidden parent (`operator`, `sage`)
+    is dropped too, which is why the type check runs before the name screens.
     """
     import sys
     import types
@@ -880,15 +1008,39 @@ def test_star_export_screen_rejects_a_re_exported_module_object(monkeypatch):
     from sagemath_mcp import _sage_worker
 
     pivot = types.ModuleType("fake.pivot")
-    pivot.__all__ = ["Widget", "submodule"]
+    # `operator` is both a module object AND a forbidden-parent name: it must be
+    # dropped by the type check before the name screen can fail the module.
+    pivot.__all__ = ["Widget", "submodule", "operator"]
     pivot.Widget = type("Widget", (), {})
     pivot.Widget.__module__ = "fake.pivot"
-    # A perfectly ordinary-looking re-export -- but it is a module, and a bound
-    # module object is a pivot into whatever it re-exports.
     pivot.submodule = types.ModuleType("some.other.module")
+    pivot.operator = types.ModuleType("operator")
     monkeypatch.setitem(sys.modules, "fake.pivot", pivot)
 
-    assert _sage_worker._star_export_screen("fake.pivot") is None
+    screened = _sage_worker._star_export_screen("fake.pivot")
+    assert screened == frozenset({"Widget"})
+    assert "submodule" not in screened
+    assert "operator" not in screened
+
+
+def test_star_export_screen_still_fails_whole_for_a_non_module_danger(monkeypatch):
+    """Only module objects are dropped; every other danger still fails the module
+    whole, so clean-as-a-whole holds for everything a bound value can reach."""
+    import sys
+    import types
+
+    from sagemath_mcp import _sage_worker
+
+    dirty = types.ModuleType("fake.stilldirty")
+    dirty.__all__ = ["Widget", "submodule", "save_thing"]  # save* is a write prefix
+    dirty.Widget = type("Widget", (), {})
+    dirty.Widget.__module__ = "fake.stilldirty"
+    dirty.submodule = types.ModuleType("some.other.module")  # dropped
+    dirty.save_thing = lambda: None                          # fails the module
+    dirty.save_thing.__module__ = "fake.stilldirty"
+    monkeypatch.setitem(sys.modules, "fake.stilldirty", dirty)
+
+    assert _sage_worker._star_export_screen("fake.stilldirty") is None
 
 
 def test_star_export_screen_returns_none_for_an_unimportable_module():

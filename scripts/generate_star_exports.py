@@ -49,6 +49,15 @@ CANDIDATE_MODULES: tuple[str, ...] = (
     "sage.modules.fp_graded.module",                          # 14
     "sage.combinat.dlx",                                      # 13
     "sage.rings.fraction_field_FpT",                          # 15
+    # Re-admitted under item 63's drop-module-objects screen: each was dirty for
+    # a re-exported module object alone (`real_roots`/`dims` were item-60 modules
+    # item 61 dropped whole; `pbori` re-exports `operator`/`sage`). The module
+    # objects are dropped, the mathematics is kept. Corpus star-import weight in
+    # the comment. `sage.libs.ecl` stays out despite screening clean -- EclObject
+    # evaluates Lisp, which no screen can see; curation, not the screen, keeps it
+    # excluded.
+    "sage.rings.polynomial.pbori.pbori",                      # 38
+    "sage.rings.polynomial.pbori",                            # 11
 )
 
 HEADER = '''"""The `from <module> import *` statements caller code is allowed to keep.

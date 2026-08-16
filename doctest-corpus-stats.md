@@ -6,7 +6,7 @@ The most important functional test of the security guardrails: every
 the mathematics Sage itself documents. Generated on every run of
 `tests/test_sage_doctest_corpus.py`; counts only, never corpus text.
 
-- Generated: 2026-08-16 20:03:16 UTC
+- Generated: 2026-08-16 20:45:58 UTC
 - SageMath: 10.9 (`/home/sage/sage/local/var/lib/sage/venv-python3.12/lib/python3.12/site-packages/sage`)
 
 | Metric | Value |
@@ -14,11 +14,11 @@ the mathematics Sage itself documents. Generated on every run of
 | Source files | 3,168 |
 | Docstrings | 60,094 |
 | Examples | 432,878 |
-| Accepted | 369,935 |
-| Refused | 4,493 |
+| Accepted | 370,492 |
+| Refused | 3,936 |
 | Excluded (out of scope by design) | 58,268 |
 | Unparsed | 182 |
-| **Acceptance (in-scope)** | **98.8000%** |
+| **Acceptance (in-scope)** | **98.9488%** |
 | Required acceptance | 98.50% |
 | Required accepted examples | 250,000 |
 
@@ -30,9 +30,8 @@ ceiling, or `test_every_refusal_is_a_rule_we_meant_to_write` fails.
 
 | Count | Share of in-scope | Rule |
 | ---: | ---: | --- |
-| 2,083 | 0.5563% | `'X' is not offered: it spawns an external program, and this server does the same mathema` |
-| 1,929 | 0.5152% | `'X' is not a name this server offers` |
-| 213 | 0.0569% | `'X' is not defined` |
+| 2,026 | 0.5411% | `'X' is not offered: it spawns an external program, and this server does the same mathema` |
+| 1,642 | 0.4385% | `'X' is not a name this server offers` |
 | 130 | 0.0347% | `Access through 'X' is blocked ('X' is not permitted in Sage executions)` |
 | 69 | 0.0184% | `Access to 'X' is blocked: writing files is not available to caller code` |
 | 38 | 0.0101% | `Call to forbidden function 'X' is blocked` |

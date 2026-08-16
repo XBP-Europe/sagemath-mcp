@@ -852,9 +852,10 @@ def test_no_module_object_exposes_a_getattr_primitive() -> None:
 
 
 def test_a_star_import_cannot_hand_a_caller_a_module_object() -> None:
-    """Item 61. The curated `import *` feature (item 60) admitted two modules
-    that re-export a module object -- `sage.modular.dims` exports `dirichlet`
-    (the `sage.modular.dirichlet` module) and `real_roots` exports `time`.
+    """Items 61 and 63. The curated `import *` feature (item 60) admitted two
+    modules that re-export a module object -- `sage.modular.dims` exports
+    `dirichlet` (the `sage.modular.dirichlet` module) and `real_roots` exports
+    `time`.
 
     A bound module object is a pivot: `dirichlet.free_module_element.sage.env.os`
     reached the real `os` module, the validator's terminal-segment rule treated
@@ -863,8 +864,11 @@ def test_a_star_import_cannot_hand_a_caller_a_module_object() -> None:
     Confirmed to escape before the fix -- the snippet returned ok and os.system
     wrote a file owned by uid 1001.
 
-    The screen now rejects any module-object export by type, so no curated
-    module can hand a caller a module, and the two offending modules drop out.
+    Item 63 keeps the guarantee while restoring the mathematics: the module
+    object is DROPPED from the screened names rather than failing the module, so
+    `dims` is star-exportable again but `dirichlet` is not among the names it
+    binds. The invariant asserted here is unchanged -- no caller ever binds a
+    module object -- only the mechanism is.
     """
     pytest.importorskip("sage.all")
     import types
@@ -882,12 +886,15 @@ def test_a_star_import_cannot_hand_a_caller_a_module_object() -> None:
                 f"can pivot through it to os/sys/subprocess"
             )
 
-    # The concrete module that caused the escape no longer screens clean, so it
-    # is not in the list and its star import is refused like any other.
-    assert _sage_worker._star_export_screen("sage.modular.dims") is None
-    assert "sage.modular.dims" not in STAR_EXPORTS
+    # `dims` is admitted again, but the module object `dirichlet` was dropped
+    # from what it binds -- present in the module, absent from the star.
+    screened = _sage_worker._star_export_screen("sage.modular.dims")
+    assert screened is not None and "dirichlet" not in screened
+    assert "sage.modular.dims" in STAR_EXPORTS
+    assert "dirichlet" not in STAR_EXPORTS["sage.modular.dims"]
 
-    # End to end: the exact reproducer is refused rather than reaching `os`.
+    # End to end: the reproducer is still refused, because the star import does
+    # not bind `dirichlet` and the validator refuses the unoffered name.
     namespace = _sage_worker._build_namespace()
     reproducer = (
         "from sage.modular.dims import *\n"
@@ -899,6 +906,28 @@ def test_a_star_import_cannot_hand_a_caller_a_module_object() -> None:
         namespace=namespace, trusted=False,
     )
     assert result["ok"] is False
+
+
+def test_a_module_dropped_star_import_still_computes() -> None:
+    """Item 63's point: dropping the module object keeps the mathematics. The
+    star import binds the real functions and runs, while the dropped module
+    object stays unreachable."""
+    pytest.importorskip("sage.all")
+    from sagemath_mcp import _sage_worker
+
+    namespace = _sage_worker._build_namespace()
+    ok = _sage_worker._execute(
+        "from sage.modular.dims import *\ndimension_cusp_forms(Gamma0(11), 2)",
+        want_latex=False, capture_stdout=False, namespace=namespace, trusted=False,
+    )
+    assert ok["ok"] is True and ok["result"] == "1"
+
+    # The dropped module object is not bound by the star import.
+    refused = _sage_worker._execute(
+        "from sage.modular.dims import *\ndirichlet",
+        want_latex=False, capture_stdout=False, namespace=namespace, trusted=False,
+    )
+    assert refused["ok"] is False
 
 
 # A terminal pure-module name (os, sys, ...) reached through a caller-bound root

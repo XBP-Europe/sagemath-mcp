@@ -791,6 +791,44 @@ def test_symbol_auto_declaration_does_not_shadow_a_session_variable(monkeypatch)
     assert "w" not in compiled.auto_symbols
 
 
+def test_auto_declarable_symbols_keeps_a_called_interface_redirect():
+    """`r` is a radius as a bare symbol but the R interface as `r(...)`. The
+    called form has a native equivalent, so it is not auto-declared and keeps its
+    redirect; the bare form is declared."""
+    from sagemath_mcp import _sage_worker
+
+    called = _sage_worker._auto_declarable_symbols(
+        ast.parse("r('mean(1, 2)')"), frozenset(), frozenset()
+    )
+    assert "r" not in called
+    bare = _sage_worker._auto_declarable_symbols(
+        ast.parse("pi * r"), frozenset(), frozenset()
+    )
+    assert "r" in bare
+
+
+def test_declare_symbols_binds_through_the_namespace_var():
+    """Each name is bound via the namespace's own `var`, unless already present;
+    a namespace with no `var` (the pure-Python harness) is left untouched."""
+    from sagemath_mcp import _sage_worker
+
+    ns = {"var": lambda name: ("symbol", name), "x": 5}
+    _sage_worker._declare_symbols(ns, frozenset({"w", "x"}))
+    assert ns["w"] == ("symbol", "w")   # declared
+    assert ns["x"] == 5                  # session value not overwritten
+
+    def _boom(_name):
+        raise ValueError("no such symbol")
+
+    swallowed = {"var": _boom}
+    _sage_worker._declare_symbols(swallowed, frozenset({"q"}))  # error suppressed
+    assert "q" not in swallowed
+
+    empty: dict[str, object] = {}
+    _sage_worker._declare_symbols(empty, frozenset({"w"}))  # no var -> no-op
+    assert "w" not in empty
+
+
 def test_symbol_auto_declaration_computes_and_respects_session():
     """End to end on real Sage: an undeclared `w` becomes a symbol and computes;
     a `w` the session already set to a number stays that number (item 65)."""

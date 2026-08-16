@@ -3204,3 +3204,74 @@ Fixed in the working tree. Host suite green (`SAGEMATH_MCP_PURE_PYTHON=1`):
 886 passed, coverage 100% (statements and branches), lint clean. Full container
 suite against real SageMath 10.9: 1,035 passed, 1 skipped (the opt-in
 execution sampler).
+
+## 61. Star-import module objects pivot past the validator to `os.system` — critical — DONE
+
+A regression introduced by item 60. The curated `import *` screen
+(`_star_export_screen`) admitted two modules that re-export a **module object**:
+`sage.modular.dims` exports `dirichlet` (the `sage.modular.dirichlet` module)
+and `sage.rings.polynomial.real_roots` exports `time` (the stdlib module). The
+screen decides provenance with `getattr(value, "__module__", "")`, but a module
+has `__name__`, not `__module__`, so the check read `""` and passed every module
+object silently.
+
+A bound Sage module object is a pivot into the whole `sage.*` tree.
+`sage.modular.dirichlet` re-exports `sage.modules.free_module_element`, which
+reaches `sage` -> `sage.env` -> `os`. The second half of the chain is the
+terminal-segment rule in `validate_module` (`security.py`): for `X.os` whose
+root `X` is caller-bound and not on the allowlist, the validator treats the
+terminal `os` as a benign *method name*, not the `os` module -- correct for
+`A.trace()`, false when the root is a module. The chain
+`dirichlet.free_module_element.sage.env.os` has no forbidden *parent* before the
+terminal `os`, so nothing fires; the caller binds `os` to a fresh name and calls
+`.system()` (removed from `forbidden_attribute_names` earlier on the argument
+that `os` was unreachable -- which this feature invalidated).
+
+Confirmed against real SageMath 10.9 through the untrusted worker path, as a
+single `evaluate_sage` snippet:
+
+    from sage.modular.dims import *
+    _m = dirichlet.free_module_element.sage.env.os
+    _m.system('id > /tmp/PWNED 2>&1')
+
+returned `ok`; `/tmp/PWNED` held `uid=1001(sage)`. `_m.environ` and `_m.getcwd()`
+also returned live values -- every environment variable (compose-injected
+secrets among them) and an outbound-socket capability. In the default **stdio**
+deployment, which runs with no container, this is arbitrary code execution on
+the host; in the hardened container it is env/secret disclosure plus egress.
+
+### Fix
+
+`_star_export_screen` (`_sage_worker.py`) rejects any export whose value is a
+`types.ModuleType`, before the provenance check. A module vetted "clean as a
+whole" has no business handing back a module, so the whole candidate module
+fails the screen -- `clean-modules-only`, the same trade as the rest of the
+screen. `star_exports.py` was regenerated from the installed Sage: 13 -> 11
+modules, with `sage.modular.dims` and `sage.rings.polynomial.real_roots`
+dropped. The drift test `test_the_star_exports_match_this_sage` re-screens with
+the new rule and matches the regenerated file.
+
+Defence in depth left as a follow-up, not required to close this: the
+terminal-segment rule could refuse a forbidden parent as terminal whenever the
+chain root is a caller-bound *import alias*, so a future module-object leak on
+any path is caught by the validator too.
+
+### How to verify
+
+Test-first, both layers. Unit (host, no Sage):
+`test_star_export_screen_rejects_a_re_exported_module_object`
+(`tests/test_sage_worker.py`) screens a synthetic module that re-exports a
+module object and asserts `None`. Integration, real SageMath 10.9:
+`test_a_star_import_cannot_hand_a_caller_a_module_object`
+(`tests/test_security_bypass.py`) asserts no curated module exports a
+`types.ModuleType`, that `sage.modular.dims` no longer screens clean and is
+absent from the list, and that the exact reproducer above is refused end-to-end
+through `_execute` (`ok is False`). `test_the_star_exports_match_this_sage`
+(`tests/test_integration.py`) guards the regenerated list against drift.
+
+### Status
+
+Fixed in the working tree. Host suite green (`SAGEMATH_MCP_PURE_PYTHON=1`):
+886 passed, lint clean. Full container suite against real SageMath 10.9:
+427 passed across the security/integration/coverage files, escape reproducer
+refused and no file written.

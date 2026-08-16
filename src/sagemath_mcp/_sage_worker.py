@@ -11,7 +11,7 @@ import os
 import sys
 import time
 import traceback
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from typing import Any
 
 from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
@@ -459,6 +459,15 @@ def _star_export_screen(
         if any(name.startswith(prefix) for prefix in policy.forbidden_attribute_prefixes):
             return None
         value = vars(module).get(name)
+        # A re-exported module object is a pivot, not a leaf: `dirichlet` re-exports
+        # `sage.modules.free_module_element`, which reaches `sage.env.os`, and the
+        # validator's terminal-segment rule then treats `<caller_alias>.os` as a
+        # benign method and lets the caller bind the real `os` module. Provenance
+        # cannot catch this -- a module has `__name__`, not `__module__`, so the
+        # home check below reads `""` and passes -- so reject the value by type. A
+        # module vetted "clean as a whole" has no business handing back a module.
+        if isinstance(value, ModuleType):
+            return None
         home = getattr(value, "__module__", "") or ""
         if isinstance(home, str) and any(
             home == bad or home.startswith(bad + ".") for bad in _DANGEROUS_SAGE_MODULES

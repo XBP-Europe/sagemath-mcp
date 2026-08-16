@@ -851,6 +851,56 @@ def test_no_module_object_exposes_a_getattr_primitive() -> None:
             validate_module(ast.parse(f"{primitive}(1)"))
 
 
+def test_a_star_import_cannot_hand_a_caller_a_module_object() -> None:
+    """Item 61. The curated `import *` feature (item 60) admitted two modules
+    that re-export a module object -- `sage.modular.dims` exports `dirichlet`
+    (the `sage.modular.dirichlet` module) and `real_roots` exports `time`.
+
+    A bound module object is a pivot: `dirichlet.free_module_element.sage.env.os`
+    reached the real `os` module, the validator's terminal-segment rule treated
+    the terminal `os` under a caller-bound, non-allowlisted root as a benign
+    method, and `alias.system('id')` ran a shell as the container user.
+    Confirmed to escape before the fix -- the snippet returned ok and os.system
+    wrote a file owned by uid 1001.
+
+    The screen now rejects any module-object export by type, so no curated
+    module can hand a caller a module, and the two offending modules drop out.
+    """
+    pytest.importorskip("sage.all")
+    import types
+
+    from sagemath_mcp import _sage_worker
+    from sagemath_mcp.star_exports import STAR_EXPORTS
+
+    # No curated module hands a caller a module object -- the whole bug class.
+    for module_name, names in STAR_EXPORTS.items():
+        module = __import__(module_name, fromlist=["*"])
+        for name in names:
+            value = getattr(module, name, None)
+            assert not isinstance(value, types.ModuleType), (
+                f"{module_name} exports the module object {name!r}: a caller "
+                f"can pivot through it to os/sys/subprocess"
+            )
+
+    # The concrete module that caused the escape no longer screens clean, so it
+    # is not in the list and its star import is refused like any other.
+    assert _sage_worker._star_export_screen("sage.modular.dims") is None
+    assert "sage.modular.dims" not in STAR_EXPORTS
+
+    # End to end: the exact reproducer is refused rather than reaching `os`.
+    namespace = _sage_worker._build_namespace()
+    reproducer = (
+        "from sage.modular.dims import *\n"
+        "_m = dirichlet.free_module_element.sage.env.os\n"
+        "_m.system('id')"
+    )
+    result = _sage_worker._execute(
+        reproducer, want_latex=False, capture_stdout=True,
+        namespace=namespace, trusted=False,
+    )
+    assert result["ok"] is False
+
+
 # --- Sage's own string-path primitives -----------------------------------------
 # The `operator` round blocked Python's attrgetter/methodcaller and left Sage's
 # equivalents in place, which is fixing the instance instead of the class. All

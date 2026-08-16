@@ -864,6 +864,33 @@ def test_star_export_screen_rejects_a_re_exported_dangerous_object(monkeypatch):
     assert _sage_worker._star_export_screen("fake.reexport") is None
 
 
+def test_star_export_screen_rejects_a_re_exported_module_object(monkeypatch):
+    """A module object handed back by a star import is a pivot, not a leaf.
+
+    `sage.modular.dims` re-exported the `sage.modular.dirichlet` module, which
+    reaches `sage.env.os`, and the validator's terminal-segment rule then let a
+    caller bind the real `os` and call `.system()`. Provenance cannot catch it:
+    a module has `__name__`, not `__module__`, so the home check reads "" and
+    passes. The screen must reject a module-object export by type. See
+    REVIEW_ACTIONS item 61.
+    """
+    import sys
+    import types
+
+    from sagemath_mcp import _sage_worker
+
+    pivot = types.ModuleType("fake.pivot")
+    pivot.__all__ = ["Widget", "submodule"]
+    pivot.Widget = type("Widget", (), {})
+    pivot.Widget.__module__ = "fake.pivot"
+    # A perfectly ordinary-looking re-export -- but it is a module, and a bound
+    # module object is a pivot into whatever it re-exports.
+    pivot.submodule = types.ModuleType("some.other.module")
+    monkeypatch.setitem(sys.modules, "fake.pivot", pivot)
+
+    assert _sage_worker._star_export_screen("fake.pivot") is None
+
+
 def test_star_export_screen_returns_none_for_an_unimportable_module():
     from sagemath_mcp import _sage_worker
 

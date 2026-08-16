@@ -26,30 +26,6 @@ from __future__ import annotations
 
 STAR_EXPORTS: dict[str, frozenset[str]] = {
 
-    "sage.rings.polynomial.real_roots": frozenset({
-        "AA", "FreeModule", "MatrixSpace", "PolynomialRing", "PrecisionError", "QQ",
-        "RDF", "RIF", "RR", "RealField", "RealIntervalField", "ZZ",
-        "bernstein_down", "bernstein_expand", "bernstein_polynomial_factory",
-        "bernstein_polynomial_factory_ar", "bernstein_polynomial_factory_intlist",
-        "bernstein_polynomial_factory_ratlist", "bernstein_up", "binomial",
-        "bitsize_doctest", "cl_maximum_root", "cl_maximum_root_first_lambda",
-        "cl_maximum_root_local_max", "context", "copy", "de_casteljau_doublevec",
-        "de_casteljau_intvec", "degree_reduction_next_size", "denominator",
-        "dprod_imatrow_vec", "dr_cache", "factorial", "get_realfield_rndu",
-        "have_same_parent", "infinity", "interval_bernstein_polynomial",
-        "interval_bernstein_polynomial_float",
-        "interval_bernstein_polynomial_integer", "intvec_to_doublevec", "island",
-        "linear_map", "lmap", "max_abs_doublevec", "max_bitsize_intvec_doctest",
-        "maximum_root_first_lambda", "maximum_root_local_max",
-        "min_max_delta_intvec", "min_max_diff_doublevec", "min_max_diff_intvec",
-        "mk_context", "mk_ibpf", "mk_ibpi", "numerator", "ocean", "parent",
-        "precompute_degree_reduction_cache", "prod", "pseudoinverse", "randstate",
-        "rational_root_bounds", "real_roots", "realfield_rndu_cache",
-        "relative_bounds", "reverse_intvec", "root_bounds", "rr_gap",
-        "scale_intvec_var", "split_for_targets", "subsample_vec_doctest",
-        "taylor_shift1_intvec", "time", "to_bernstein", "to_bernstein_warp",
-        "vector", "warp_map", "wordsize_rational"
-    }),
     "sage.matroids.lean_matrix": frozenset({
         "BinaryMatrix", "GF", "GenericMatrix", "LeanMatrix", "PlusMinusOneMatrix",
         "QQ", "QuaternaryMatrix", "RationalMatrix", "TernaryMatrix", "ZZ",
@@ -78,13 +54,6 @@ STAR_EXPORTS: dict[str, frozenset[str]] = {
         "KostkaFoulkesPolynomial", "SemistandardSkewTableaux", "SkewPartitions",
         "ZS1_iterator", "ZZ", "compat", "dom", "kfpoly", "kfpoly_skew", "polygen",
         "riggings", "schur_to_hl", "weight"
-    }),
-    "sage.modular.dims": frozenset({
-        "ArithmeticSubgroup", "CO_delta", "CO_nu", "CohenOesterle", "Gamma0",
-        "Gamma1", "GammaH_class", "Integer", "IntegerModRing", "Mod",
-        "dimension_cusp_forms", "dimension_eis", "dimension_modular_forms",
-        "dimension_new_cusp_forms", "dirichlet", "eisen", "factor", "frac",
-        "is_prime", "prod", "sturm_bound", "valuation"
     }),
     "sage.schemes.elliptic_curves.weierstrass_morphism": frozenset({
         "EllipticCurve", "EllipticCurveHom", "Integer", "PolynomialRing",

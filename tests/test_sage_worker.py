@@ -864,15 +864,19 @@ def test_star_export_screen_rejects_a_re_exported_dangerous_object(monkeypatch):
     assert _sage_worker._star_export_screen("fake.reexport") is None
 
 
-def test_star_export_screen_rejects_a_re_exported_module_object(monkeypatch):
-    """A module object handed back by a star import is a pivot, not a leaf.
+def test_star_export_screen_drops_a_re_exported_module_object(monkeypatch):
+    """A module object handed back by a star import is a pivot, and is DROPPED
+    from the screened names rather than failing the whole module.
 
     `sage.modular.dims` re-exported the `sage.modular.dirichlet` module, which
-    reaches `sage.env.os`, and the validator's terminal-segment rule then let a
-    caller bind the real `os` and call `.system()`. Provenance cannot catch it:
-    a module has `__name__`, not `__module__`, so the home check reads "" and
-    passes. The screen must reject a module-object export by type. See
-    REVIEW_ACTIONS item 61.
+    reaches `sage.env.os`; binding it let a caller pivot to the real `os` (the
+    item 61 escape). Item 61 failed the whole module for it, which cost the
+    mathematics in `real_roots`/`dims`/`pbori` for a single module object. Item
+    63 drops the module-object name instead: the expansion binds only the
+    screened names, so a dropped name is never imported, and item 62 refuses the
+    pivot at the validator even if one were. The math names survive; the module
+    does not. A re-export whose NAME is a forbidden parent (`operator`, `sage`)
+    is dropped too, which is why the type check runs before the name screens.
     """
     import sys
     import types
@@ -880,15 +884,39 @@ def test_star_export_screen_rejects_a_re_exported_module_object(monkeypatch):
     from sagemath_mcp import _sage_worker
 
     pivot = types.ModuleType("fake.pivot")
-    pivot.__all__ = ["Widget", "submodule"]
+    # `operator` is both a module object AND a forbidden-parent name: it must be
+    # dropped by the type check before the name screen can fail the module.
+    pivot.__all__ = ["Widget", "submodule", "operator"]
     pivot.Widget = type("Widget", (), {})
     pivot.Widget.__module__ = "fake.pivot"
-    # A perfectly ordinary-looking re-export -- but it is a module, and a bound
-    # module object is a pivot into whatever it re-exports.
     pivot.submodule = types.ModuleType("some.other.module")
+    pivot.operator = types.ModuleType("operator")
     monkeypatch.setitem(sys.modules, "fake.pivot", pivot)
 
-    assert _sage_worker._star_export_screen("fake.pivot") is None
+    screened = _sage_worker._star_export_screen("fake.pivot")
+    assert screened == frozenset({"Widget"})
+    assert "submodule" not in screened
+    assert "operator" not in screened
+
+
+def test_star_export_screen_still_fails_whole_for_a_non_module_danger(monkeypatch):
+    """Only module objects are dropped; every other danger still fails the module
+    whole, so clean-as-a-whole holds for everything a bound value can reach."""
+    import sys
+    import types
+
+    from sagemath_mcp import _sage_worker
+
+    dirty = types.ModuleType("fake.stilldirty")
+    dirty.__all__ = ["Widget", "submodule", "save_thing"]  # save* is a write prefix
+    dirty.Widget = type("Widget", (), {})
+    dirty.Widget.__module__ = "fake.stilldirty"
+    dirty.submodule = types.ModuleType("some.other.module")  # dropped
+    dirty.save_thing = lambda: None                          # fails the module
+    dirty.save_thing.__module__ = "fake.stilldirty"
+    monkeypatch.setitem(sys.modules, "fake.stilldirty", dirty)
+
+    assert _sage_worker._star_export_screen("fake.stilldirty") is None
 
 
 def test_star_export_screen_returns_none_for_an_unimportable_module():

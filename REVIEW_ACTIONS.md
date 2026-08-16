@@ -3317,3 +3317,58 @@ Fixed in the working tree. Host suite green (`SAGEMATH_MCP_PURE_PYTHON=1`):
 897 passed, lint clean. Full container suite against real SageMath 10.9:
 437 passed across the security/math-coverage/integration files, no accepted
 mathematics refused.
+
+## 63. Re-admit modules that were dirty only for a re-exported module object — usability — DONE
+
+Reduces refusals safely. Item 61 closed the module-object pivot by failing the
+*whole* star module when any export was a module object. That was correct but
+costly: `sage.rings.polynomial.real_roots`, `sage.modular.dims` and the `pbori`
+Boolean-polynomial modules are ordinary mathematics dirtied by a single
+re-exported module (`time`, `dirichlet`, `operator`, `sage`), and failing them
+whole cost the corpus 278 documented examples.
+
+### Design
+
+`_star_export_screen` now **drops** a module-object export from the screened
+names instead of failing the module, and does so *before* the name-based screens
+so a re-export named `operator` or `sage` (both forbidden parents) is dropped
+rather than treated as a failure. Everything else still fails the module whole,
+so clean-as-a-whole holds for every value a caller can actually bind.
+
+This is a deliberate, reviewed relaxation of the "clean as a whole, never a
+filtered subset" invariant to "clean as a whole *except* module-object names are
+dropped." It is safe on three independent grounds: (1) a module object is the
+only *pivot* category -- a bound class or function is bounded by the AST rules,
+a bound module is a walk into the whole tree; (2) the star expansion binds the
+explicit screened names, so a dropped name is never imported; (3) item 62
+refuses the pivot at the validator even if one were bound. The residual
+capability-blindness (a clean-screening value that does something the screen
+cannot see) is unchanged from the existing clean modules -- `sage.libs.ecl`
+still stays out by curation, not by the screen, because `EclObject` evaluates
+Lisp.
+
+Four modules re-admitted: `real_roots`, `dims`, `pbori.pbori`, `pbori`. The
+curated `CANDIDATE_MODULES` list is still the gate; the screen only decides
+whether a candidate qualifies.
+
+### How to verify
+
+Unit (host): `test_star_export_screen_drops_a_re_exported_module_object` and
+`test_star_export_screen_still_fails_whole_for_a_non_module_danger`
+(`tests/test_sage_worker.py`). Integration, real SageMath 10.9:
+`test_a_star_import_cannot_hand_a_caller_a_module_object` (unchanged guarantee --
+no caller binds a module, the item-61 pivot still refused) and
+`test_a_module_dropped_star_import_still_computes` (the re-admitted mathematics
+runs, the dropped module object stays unbound) in `tests/test_security_bypass.py`;
+`test_the_star_exports_match_this_sage` (`tests/test_integration.py`).
+
+### Measured
+
+Corpus sweep: refusals 4,493 -> 4,215 (-278), acceptance 98.8000% -> ~98.87%.
+Recovered names are Boolean-polynomial and real-root mathematics
+(`real_roots`, `mk_ibpi`, the `pbori` classes) that Sage documents and this
+server previously turned away for a sibling module object.
+
+### Status
+
+Fixed in the working tree; verified host + container. Builds on item 62.

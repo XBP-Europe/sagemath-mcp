@@ -26,6 +26,30 @@ from __future__ import annotations
 
 STAR_EXPORTS: dict[str, frozenset[str]] = {
 
+    "sage.rings.polynomial.real_roots": frozenset({
+        "AA", "FreeModule", "MatrixSpace", "PolynomialRing", "PrecisionError", "QQ",
+        "RDF", "RIF", "RR", "RealField", "RealIntervalField", "ZZ",
+        "bernstein_down", "bernstein_expand", "bernstein_polynomial_factory",
+        "bernstein_polynomial_factory_ar", "bernstein_polynomial_factory_intlist",
+        "bernstein_polynomial_factory_ratlist", "bernstein_up", "binomial",
+        "bitsize_doctest", "cl_maximum_root", "cl_maximum_root_first_lambda",
+        "cl_maximum_root_local_max", "context", "copy", "de_casteljau_doublevec",
+        "de_casteljau_intvec", "degree_reduction_next_size", "denominator",
+        "dprod_imatrow_vec", "dr_cache", "factorial", "get_realfield_rndu",
+        "have_same_parent", "infinity", "interval_bernstein_polynomial",
+        "interval_bernstein_polynomial_float",
+        "interval_bernstein_polynomial_integer", "intvec_to_doublevec", "island",
+        "linear_map", "lmap", "max_abs_doublevec", "max_bitsize_intvec_doctest",
+        "maximum_root_first_lambda", "maximum_root_local_max",
+        "min_max_delta_intvec", "min_max_diff_doublevec", "min_max_diff_intvec",
+        "mk_context", "mk_ibpf", "mk_ibpi", "numerator", "ocean", "parent",
+        "precompute_degree_reduction_cache", "prod", "pseudoinverse", "randstate",
+        "rational_root_bounds", "real_roots", "realfield_rndu_cache",
+        "relative_bounds", "reverse_intvec", "root_bounds", "rr_gap",
+        "scale_intvec_var", "split_for_targets", "subsample_vec_doctest",
+        "taylor_shift1_intvec", "to_bernstein", "to_bernstein_warp", "vector",
+        "warp_map", "wordsize_rational"
+    }),
     "sage.matroids.lean_matrix": frozenset({
         "BinaryMatrix", "GF", "GenericMatrix", "LeanMatrix", "PlusMinusOneMatrix",
         "QQ", "QuaternaryMatrix", "RationalMatrix", "TernaryMatrix", "ZZ",
@@ -54,6 +78,13 @@ STAR_EXPORTS: dict[str, frozenset[str]] = {
         "KostkaFoulkesPolynomial", "SemistandardSkewTableaux", "SkewPartitions",
         "ZS1_iterator", "ZZ", "compat", "dom", "kfpoly", "kfpoly_skew", "polygen",
         "riggings", "schur_to_hl", "weight"
+    }),
+    "sage.modular.dims": frozenset({
+        "ArithmeticSubgroup", "CO_delta", "CO_nu", "CohenOesterle", "Gamma0",
+        "Gamma1", "GammaH_class", "Integer", "IntegerModRing", "Mod",
+        "dimension_cusp_forms", "dimension_eis", "dimension_modular_forms",
+        "dimension_new_cusp_forms", "eisen", "factor", "frac", "is_prime", "prod",
+        "sturm_bound", "valuation"
     }),
     "sage.schemes.elliptic_curves.weierstrass_morphism": frozenset({
         "EllipticCurve", "EllipticCurveHom", "Integer", "PolynomialRing",
@@ -91,6 +122,39 @@ STAR_EXPORTS: dict[str, frozenset[str]] = {
         "Fp_FpT_coerce", "FractionField_1poly_field", "Polyring_FpT_coerce", "ZZ",
         "ZZ_FpT_coerce", "have_same_parent", "parent", "revop", "rich_to_bool",
         "rich_to_bool_sgn", "richcmp", "richcmp_not_equal", "unpickle_FpT_element"
+    }),
+    "sage.rings.polynomial.pbori.pbori": frozenset({
+        "BooleConstant", "BooleSet", "BooleSetIterator", "BooleanMonomial",
+        "BooleanMonomialIterator", "BooleanMonomialMonoid",
+        "BooleanMonomialVariableIterator", "BooleanMulAction", "BooleanPolynomial",
+        "BooleanPolynomialEntry", "BooleanPolynomialIdeal",
+        "BooleanPolynomialIterator", "BooleanPolynomialRing",
+        "BooleanPolynomialVector", "BooleanPolynomialVectorIterator",
+        "CCuddNavigator", "FGLMStrategy", "FieldIdeal", "GF", "GroebnerStrategy",
+        "Integer", "MPolynomialIdeal", "Monoid_class", "Monomial",
+        "MonomialConstruct", "MonomialFactory", "OrderCode", "Polynomial",
+        "PolynomialConstruct", "PolynomialFactory", "PolynomialRing",
+        "PolynomialRing_generic", "ReductionStrategy", "Sequence", "TermOrder",
+        "TermOrder_from_pb_order", "UniqueRepresentation", "Variable",
+        "VariableBlock", "VariableConstruct", "VariableFactory",
+        "add_up_polynomials", "block_dlex", "block_dp_asc", "bytes_to_str",
+        "coerce_binop", "contained_vars", "current_randstate", "dlex", "dp",
+        "dp_asc", "easy_linear_factors", "gauss_on_polys", "get_var_mapping",
+        "have_same_parent", "if_then_else", "interpolate",
+        "interpolate_smallest_lex", "inv_order_dict", "ll_red_nf_noredsb",
+        "ll_red_nf_noredsb_single_recursive_call", "ll_red_nf_redsb", "lp",
+        "map_every_x_to_x_plus_one", "mod_mon_set", "mod_var_set",
+        "mult_fact_sim_C", "nf3", "order_dict", "order_mapping", "parallel_reduce",
+        "parent", "random_set", "recursively_insert", "red_tail", "revop",
+        "rich_to_bool", "rich_to_bool_sgn", "richcmp", "richcmp_not_equal", "rings",
+        "set_random_seed", "str_to_bytes", "substitute_variables", "top_index",
+        "unpickle_BooleanPolynomial", "unpickle_BooleanPolynomial0",
+        "unpickle_BooleanPolynomialRing", "zeros"
+    }),
+    "sage.rings.polynomial.pbori": frozenset({
+        "AlternatingBlock", "Block", "HigherOrderBlock", "Monomial", "Polynomial",
+        "Ring", "Variable", "all_monomials_of_degree_d", "declare_ring",
+        "groebner_basis", "load_file", "normal_form", "power_set"
     }),
 }
 

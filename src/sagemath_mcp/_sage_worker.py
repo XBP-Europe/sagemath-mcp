@@ -454,19 +454,26 @@ def _star_export_screen(
     for name in exported:
         if not isinstance(name, str) or name.startswith("_") or not name.isidentifier():
             return None
+        value = vars(module).get(name)
+        # A re-exported module object is DROPPED, not a reason to fail the module.
+        # `dirichlet` re-exports `sage.modules.free_module_element`, which reaches
+        # `sage.env.os`, so binding it is a pivot into the whole tree -- but the
+        # star expansion binds the explicit screened names, so a dropped name is
+        # never imported, and item 62 refuses the pivot at the validator even if
+        # one were. That makes a module object the one danger category it is safe
+        # to filter out: item 61 failed the whole module for it (losing
+        # `real_roots`, `dims`, `pbori` for a single `time`/`operator`), and this
+        # keeps the mathematics while still never handing a caller a module. Every
+        # OTHER danger still fails the module whole (clean-as-a-whole), because a
+        # module is the ONLY pivot -- a bound class or function is bounded by the
+        # AST rules. Checked before the name-based screens so a re-export named
+        # `operator` or `sage` (both forbidden parents) is dropped, not a failure.
+        # See REVIEW_ACTIONS item 63.
+        if isinstance(value, ModuleType):
+            continue
         if name in dangerous or name in forbidden:
             return None
         if any(name.startswith(prefix) for prefix in policy.forbidden_attribute_prefixes):
-            return None
-        value = vars(module).get(name)
-        # A re-exported module object is a pivot, not a leaf: `dirichlet` re-exports
-        # `sage.modules.free_module_element`, which reaches `sage.env.os`, and the
-        # validator's terminal-segment rule then treats `<caller_alias>.os` as a
-        # benign method and lets the caller bind the real `os` module. Provenance
-        # cannot catch this -- a module has `__name__`, not `__module__`, so the
-        # home check below reads `""` and passes -- so reject the value by type. A
-        # module vetted "clean as a whole" has no business handing back a module.
-        if isinstance(value, ModuleType):
             return None
         home = getattr(value, "__module__", "") or ""
         if isinstance(home, str) and any(

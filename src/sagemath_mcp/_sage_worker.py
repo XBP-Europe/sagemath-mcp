@@ -18,6 +18,8 @@ from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
 from sagemath_mcp.security import (
     SECURITY_POLICY,
     _bound_names,
+    _looks_like_an_undeclared_symbol,
+    _native_equivalent,
     attrcall_attribute_violation,
     check_source_length,
     injects_session_names,
@@ -70,6 +72,97 @@ def _guarded_attrcall(name: object, *args: Any, **kwds: Any) -> Any:
     return _sage_attrcall(name, *args, **kwds)
 
 
+def _noop_set_verbose(*args: Any, **kwargs: Any) -> None:
+    """`set_verbose` offered to caller code as a harmless no-op.
+
+    The real one lives in `sage.misc.verbose`, scrubbed by provenance because a
+    sibling (`set_verbose_files`) writes to a caller-chosen path. `set_verbose`
+    itself only sets a global chattiness level, which has no surface over MCP --
+    results come back as strings and progress is the streaming tool's job. It is
+    offered as a no-op so a doctest that opens with `set_verbose(2)` runs instead
+    of being refused for setup noise. See REVIEW_ACTIONS item 64.
+    """
+    return None
+
+
+# Callables offered to caller code in place of a scrubbed Sage global. The scrub
+# removes them by name, so they are (re)installed AFTER it -- at startup and
+# after every reseal. Without the re-install `attrcall` silently stopped working
+# after the first specialised-tool call, which reseals the namespace.
+_CALLER_SHIMS: dict[str, Any] = {
+    "attrcall": _guarded_attrcall,
+    "set_verbose": _noop_set_verbose,
+}
+# Of those, the names a caller may READ freely, bare and in any position.
+# `attrcall` is deliberately NOT here: it is refused bare and permitted only as a
+# screened literal call (item 59), so it stays subject to deny-by-default.
+# `set_verbose` is harmless, so it is offered outright.
+_OFFERED_SHIM_NAMES: frozenset[str] = frozenset({"set_verbose"})
+
+
+def _install_caller_shims(ns: dict[str, Any]) -> None:
+    """Put the caller shims back after a scrub has removed them."""
+    for name, shim in _CALLER_SHIMS.items():
+        ns[name] = shim
+
+
+def _auto_declarable_symbols(
+    module: ast.Module, offered: frozenset[str] | set[str], withheld: frozenset[str] | set[str]
+) -> frozenset[str]:
+    """Symbol-shaped free names evaluate_sage should declare, not refuse.
+
+    SageMath's SR declares a symbol when it parses one out of a string --
+    `SR("a*b")` creates `a` and `b` -- and the specialised tools follow that
+    contract. `evaluate_sage` runs real Python, where `w + 1` is a NameError, and
+    so refused these with "declare it first with var('w')". This closes that gap
+    for the same narrow, typo-guarded shape the tools use: a letter with an
+    optional index, or a Greek name (`w`, `x_2`, `k1`, `alpha`). `sinn`, `foobar`
+    and every multi-letter name stay refused, so a typo is still an error, not a
+    silent empty symbol.
+
+    A name already offered -- allowlisted, a session variable, a shim, or bound
+    in this snippet -- is left alone, so a caller who set `w = 5` earlier keeps
+    it. A withheld name is never declared: it holds something real. And a name
+    that is *called* and has a native equivalent keeps its redirect -- `r` is a
+    radius as a bare symbol but the R interface as `r(...)`, exactly the
+    distinction the validator already draws.
+    """
+    called = {
+        id(node.func)
+        for node in ast.walk(module)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+    }
+    result: set[str] = set()
+    for node in ast.walk(module):
+        if not (isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)):
+            continue
+        name = node.id
+        if name in offered or name in withheld:
+            continue
+        if not _looks_like_an_undeclared_symbol(name):
+            continue
+        if id(node) in called and _native_equivalent(name) is not None:
+            continue
+        result.add(name)
+    return frozenset(result)
+
+
+def _declare_symbols(namespace: dict[str, Any], names: frozenset[str]) -> None:
+    """Bind each auto-declarable symbol as `var(name)`, unless already present.
+
+    Session state wins: a name the caller already assigned is not overwritten
+    with a symbol. Uses the namespace's own `var`, so the pure-Python harness
+    (which has none) simply skips -- the feature is Sage's.
+    """
+    var = namespace.get("var")
+    if var is None:
+        return
+    for name in names:
+        if name not in namespace:
+            with contextlib.suppress(Exception):
+                namespace[name] = var(name)
+
+
 def _build_namespace() -> dict[str, Any]:
     # NOTE: Each worker keeps its own global namespace. We allow a single
     # preload statement so sessions can bootstrap Sage or the lightweight math
@@ -108,8 +201,8 @@ def _build_namespace() -> dict[str, Any]:
     # the name screens its string against those same rules first -- so the
     # validator can permit the literal spelling SageMath's own doctests use 155
     # times, and even code that somehow reached the object with a computed
-    # string gets a ValueError, not a file.
-    ns["attrcall"] = _guarded_attrcall
+    # string gets a ValueError, not a file. Installed with the other shims.
+    _install_caller_shims(ns)
     if not PURE_PYTHON:
         # Sage's REPL predefines x and importing sage.all does not even provide
         # that. The other three are this server's own convention, matching the
@@ -521,6 +614,10 @@ def _reseal_namespace(ns: dict[str, Any], introduced: frozenset[str] = frozenset
     """
     _strip_forbidden_modules(ns)
     _strip_dangerous_sage_names(ns)
+    # The scrub removes the shims by name (`attrcall`, `set_verbose` are on the
+    # denylist), so put them back -- otherwise they work at startup and vanish
+    # after the first specialised-tool call, which reseals.
+    _install_caller_shims(ns)
     # A name trusted code introduced is not the caller's, whatever they bound
     # earlier. Without this a caller can reserve the templates' internals in
     # dead code -- `if False: _fig = 1` -- and collect the objects a later tool
@@ -530,7 +627,9 @@ def _reseal_namespace(ns: dict[str, Any], introduced: frozenset[str] = frozenset
     global _WITHHELD_NAMES
     _WITHHELD_NAMES = frozenset(
         name for name in ns
-        if name not in ALLOWED_CALLER_NAMES and name not in _CALLER_BOUND_NAMES
+        if name not in ALLOWED_CALLER_NAMES
+        and name not in _CALLER_BOUND_NAMES
+        and name not in _OFFERED_SHIM_NAMES
     )
 
 
@@ -761,7 +860,10 @@ def _withheld_names(ns: dict[str, Any]) -> frozenset[str]:
     up the caller's own variables: they live in this same namespace, so `total`
     would be withheld on the call after the one that created it.
     """
-    return frozenset(n for n in ns if n not in ALLOWED_CALLER_NAMES)
+    return frozenset(
+        n for n in ns
+        if n not in ALLOWED_CALLER_NAMES and n not in _OFFERED_SHIM_NAMES
+    )
 
 
 def _split_code(
@@ -802,9 +904,28 @@ def _split_code(
         module = rewrite_permitted_imports(
             module, offered=ALLOWED_CALLER_NAMES, policy=policy
         )
+    # Symbol-shaped free names evaluate_sage would otherwise refuse are declared
+    # as symbols instead (caller code only -- generated templates have the
+    # allowlist off and declare their own). Computed before validation and handed
+    # in as allowed, so the validator that used to refuse them now passes them,
+    # and _execute binds each as var(name) before running.
+    auto_symbols: frozenset[str] = frozenset()
+    if not trusted:
+        offered = (
+            set(session_names)
+            | set(_OFFERED_SHIM_NAMES)
+            | set(ALLOWED_CALLER_NAMES)
+            | _bound_names(module)
+        )
+        auto_symbols = _auto_declarable_symbols(module, offered, withheld)
+    # The offered shims (`set_verbose`) are readable like an allowlisted name;
+    # they live in the namespace as no-ops, not on the generated allowlist, so
+    # they are offered here instead. `attrcall` is not among them -- it stays a
+    # screened-call-only exemption.
     validate_module(
         module, code=code, policy=policy,
-        extra_allowed_names=session_names, withheld_names=withheld,
+        extra_allowed_names=frozenset(session_names) | _OFFERED_SHIM_NAMES | auto_symbols,
+        withheld_names=withheld,
     )
     bound_here: frozenset[str] = frozenset()
     if trusted:
@@ -815,8 +936,10 @@ def _split_code(
     else:
         # Approved, so what it binds is readable on later calls in this session
         # -- except a name that is already live and not offered, which the
-        # caller is shadowing rather than creating.
-        _CALLER_BOUND_NAMES.update(_bound_names(module) - withheld)
+        # caller is shadowing rather than creating. An auto-declared symbol is
+        # the caller's from now on too: the var() binding persists in the
+        # namespace, so the session should keep offering the name.
+        _CALLER_BOUND_NAMES.update((_bound_names(module) | auto_symbols) - withheld)
     # `A.inject_variables()` creates names while the snippet runs. The validator
     # lets the snippet read them; this tells _execute to find out what they were,
     # so the *next* call can read them too -- which is what makes a session a
@@ -833,9 +956,9 @@ def _split_code(
         ast.fix_missing_locations(prefix)
         ast.fix_missing_locations(tail)
         return SimpleNamespace(bound_here=bound_here, prefix=prefix, tail=tail,
-                               is_expr=True, injects=injects)
+                               is_expr=True, injects=injects, auto_symbols=auto_symbols)
     return SimpleNamespace(bound_here=bound_here, prefix=module, tail=None,
-                           is_expr=False, injects=injects)
+                           is_expr=False, injects=injects, auto_symbols=auto_symbols)
 
 
 
@@ -921,6 +1044,10 @@ def _execute(
 
     before_trusted = frozenset(namespace) if trusted else frozenset()
     before_execution = set(namespace) if compiled.injects and not trusted else set()
+    # Declare the symbol-shaped free names the validator approved, so `w + 1`
+    # runs instead of raising NameError. Session state is preserved: a name the
+    # caller already assigned is not overwritten.
+    _declare_symbols(namespace, getattr(compiled, "auto_symbols", frozenset()))
     try:
         with contextlib.redirect_stdout(stdout_buffer or io.StringIO()):
             exec(compile(compiled.prefix, "<sagecell>", "exec"), namespace)

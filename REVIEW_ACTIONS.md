@@ -3372,3 +3372,84 @@ server previously turned away for a sibling module object.
 ### Status
 
 Fixed in the working tree; verified host + container. Builds on item 62.
+
+## 64. Offer `set_verbose` as a no-op, and keep caller shims alive across reseals — usability — DONE
+
+`set_verbose(2)` opens many doctests as setup noise; it only sets a global
+chattiness level, which has no surface over MCP (results are strings, progress
+is the streaming tool's job), so refusing it broke the whole example for
+nothing. It is now offered as a no-op.
+
+### Design
+
+A small `_CALLER_SHIMS` map holds the callables offered to caller code in place
+of a scrubbed Sage global -- `attrcall` (the guarded wrapper, item 59) and
+`set_verbose` (a no-op). They are (re)installed by `_install_caller_shims` after
+*every* scrub: at startup and after every reseal. Fixing that also fixed a
+latent bug -- the scrub removes `attrcall` by name, and nothing put it back, so
+`attrcall` silently stopped working after the first specialised-tool call (which
+reseals the namespace).
+
+`set_verbose` is offered outright via `_OFFERED_SHIM_NAMES`: it is excluded from
+the withheld snapshot and unioned into the validator's allowed set on the caller
+path. `attrcall` is deliberately NOT offered -- it stays refused bare and
+permitted only as a screened literal call. The real `set_verbose` remains
+scrubbed by provenance (its sibling `set_verbose_files` writes to a path); only
+the harmless no-op is exposed.
+
+### How to verify
+
+`test_set_verbose_is_offered_as_a_noop` and `test_caller_shims_survive_a_reseal`
+(`tests/test_sage_worker.py`); `test_the_caller_allowlist_matches_this_sage`
+updated to exempt both shims (`tests/test_integration.py`).
+
+### Measured
+
+Corpus sweep (modelled the way the worker offers it): the `set_verbose`
+refusals, ~57 of the "spawns an external program" bucket, are gone.
+
+### Status
+
+Fixed in the working tree; verified host + container.
+
+## 65. Auto-declare symbol-shaped free names in evaluate_sage — usability — DONE
+
+SageMath's SR declares a symbol when it parses one out of a string; the
+specialised tools follow that contract, but `evaluate_sage` runs real Python
+where `w + 1` is a NameError, so it refused undeclared symbol-shaped names and
+told the caller to `var()` them. This brings the two paths together.
+
+### Design
+
+On the caller path only, `_split_code` computes the symbol-shaped free names the
+validator would otherwise refuse -- a letter with an optional index, or a Greek
+name (`w`, `x_2`, `k1`, `alpha`) -- hands them to the validator as allowed, and
+`_execute` binds each as `var(name)` before running. The shape is deliberately
+narrow, so a multi-letter typo (`sinn`, `foobar`) stays an error rather than a
+silent empty symbol. Three guards keep it honest: a name already offered
+(allowlisted, a session variable, a shim, or bound in the snippet) is left
+alone, so `w = 5` set earlier survives; a withheld name is never declared; and a
+name that is *called* and has a native equivalent keeps its redirect -- `r` is a
+radius bare but the R interface as `r(...)`, the same split the validator draws.
+
+Generated templates are untouched: they run under the trusted policy with the
+allowlist off and declare their own symbols through the prelude's `_SymbolLocals`.
+
+### How to verify
+
+`test_symbol_shaped_free_names_pass_validation`,
+`test_symbol_auto_declaration_does_not_shadow_a_session_variable`, and
+`test_symbol_auto_declaration_computes_and_respects_session` (real Sage) in
+`tests/test_sage_worker.py`. The corpus sweep now models the auto-declaration
+(as it already models `_`, star-exports and injection), so the stats reflect
+what evaluate_sage really accepts.
+
+### Measured
+
+Corpus sweep: the "is not defined" bucket (213 refusals -- `r`, `x0`, `f`, `s`)
+goes to zero. Combined with items 63 and 64, refusals 4,493 -> 3,936 (-557) and
+acceptance 98.80% -> 98.9488%.
+
+### Status
+
+Fixed in the working tree; verified host + container.

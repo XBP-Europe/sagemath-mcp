@@ -731,6 +731,92 @@ def test_guarded_attrcall_screens_the_attribute_name(monkeypatch):
             _sage_worker._guarded_attrcall(forbidden)
 
 
+def test_set_verbose_is_offered_as_a_noop(monkeypatch):
+    """`set_verbose(2)` opens many doctests as setup noise. It only sets a global
+    chattiness level with no surface over MCP, so it is offered as a no-op rather
+    than refused -- the validator accepts it and the namespace runs it (item 64).
+    """
+    from sagemath_mcp import _sage_worker
+
+    monkeypatch.setattr(_sage_worker, "PURE_PYTHON", True)
+    ns = _sage_worker._build_namespace()
+    result = _sage_worker._execute(
+        "set_verbose(2)", want_latex=False, capture_stdout=False,
+        namespace=ns, trusted=False,
+    )
+    assert result["ok"] is True
+    assert result.get("result") is None  # a no-op returns nothing
+
+
+def test_caller_shims_survive_a_reseal(monkeypatch):
+    """Before item 64 the scrub removed `attrcall` and nothing put it back, so it
+    worked at startup and vanished after the first specialised-tool call (which
+    reseals). The shims are reinstalled after every scrub; `set_verbose` stays
+    offered, `attrcall` stays withheld (screened-call-only)."""
+    from sagemath_mcp import _sage_worker
+
+    monkeypatch.setattr(_sage_worker, "PURE_PYTHON", True)
+    ns = _sage_worker._build_namespace()
+    assert "attrcall" in ns and "set_verbose" in ns
+
+    _sage_worker._reseal_namespace(ns)
+    assert "attrcall" in ns and "set_verbose" in ns
+    assert "set_verbose" not in _sage_worker._WITHHELD_NAMES
+    assert "attrcall" in _sage_worker._WITHHELD_NAMES
+
+
+def test_symbol_shaped_free_names_pass_validation(monkeypatch):
+    """evaluate_sage declares a symbol-shaped free name instead of refusing it,
+    so validation accepts `w` and reports it as auto-declared (item 65)."""
+    from sagemath_mcp import _sage_worker
+
+    monkeypatch.setattr(_sage_worker, "PURE_PYTHON", True)
+    compiled = _sage_worker._split_code("w + 1")
+    assert "w" in compiled.auto_symbols
+    # A multi-letter name is not symbol-shaped: a typo stays an error.
+    with pytest.raises(SecurityViolation):
+        _sage_worker._split_code("sinn(x)")
+
+
+def test_symbol_auto_declaration_does_not_shadow_a_session_variable(monkeypatch):
+    """A name the caller already assigned is offered as their value, not turned
+    into a fresh symbol -- so `w` stays whatever the session set it to."""
+    from sagemath_mcp import _sage_worker
+
+    monkeypatch.setattr(_sage_worker, "PURE_PYTHON", True)
+    monkeypatch.setattr(_sage_worker, "_CALLER_BOUND_NAMES", {"w"})
+    compiled = _sage_worker._split_code(
+        "w + 1", session_names=_sage_worker._CALLER_BOUND_NAMES
+    )
+    assert "w" not in compiled.auto_symbols
+
+
+def test_symbol_auto_declaration_computes_and_respects_session():
+    """End to end on real Sage: an undeclared `w` becomes a symbol and computes;
+    a `w` the session already set to a number stays that number (item 65)."""
+    pytest.importorskip("sage.all")
+    from sagemath_mcp import _sage_worker
+
+    ns = _sage_worker._build_namespace()
+    ok = _sage_worker._execute(
+        "expand((w + 1)^2)", want_latex=False, capture_stdout=False,
+        namespace=ns, trusted=False,
+    )
+    assert ok["ok"] is True and ok["result"] == "w^2 + 2*w + 1"
+
+    # Now the caller pins w to a number; the next read must keep it, not resymbol.
+    _sage_worker._execute("w = 5", want_latex=False, capture_stdout=False,
+                          namespace=ns, trusted=False)
+    pinned = _sage_worker._execute("w + 1", want_latex=False, capture_stdout=False,
+                                   namespace=ns, trusted=False)
+    assert pinned["ok"] is True and pinned["result"] == "6"
+
+    # A multi-letter typo is still refused, not silently turned into a symbol.
+    typo = _sage_worker._execute("sinn(x)", want_latex=False, capture_stdout=False,
+                                 namespace=_sage_worker._build_namespace(), trusted=False)
+    assert typo["ok"] is False
+
+
 def test_guarded_attrcall_delegates_to_sage_when_available(monkeypatch):
     import sys
     import types

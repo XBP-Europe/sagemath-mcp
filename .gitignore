@@ -211,7 +211,10 @@ __marimo__/
 # Integration artifacts
 integration.log
 integration-artifacts.tar.gz
-doctest-corpus-stats.md
+# doctest-corpus-stats.md is tracked deliberately: it is counts-only (never
+# corpus text), and reviewing how the acceptance rate and refusal mix move is
+# part of reviewing a guardrail change. It is expected to change when the
+# integration suite runs; `make integration-test` refreshes it.
 
 # Prototype spikes are runnable but not part of the package build.
 prototypes/**/__pycache__/

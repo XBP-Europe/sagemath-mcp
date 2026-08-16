@@ -692,3 +692,36 @@ async def test_the_caller_allowlist_matches_this_sage():
         f"the allowlist names {len(removals)} things this SageMath no longer has, "
         f"so it has drifted: {removals[:20]}"
     )
+
+
+@requires_sage
+def test_the_star_exports_match_this_sage():
+    """The vetted star-import lists are baked in; this keeps them honest.
+
+    Every module in `star_exports.py` is re-screened against the installed Sage
+    with the same function the generator used. A version that adds a name
+    reaching a shell, compiler, pickle or file to a listed module turns its
+    screen result to None -- clean-modules-only -- and this test fails, naming
+    the module, rather than the new name becoming reachable through the star.
+
+    Regenerate with the snippet in scripts/generate_star_exports.py and review
+    the diff.
+    """
+    from sagemath_mcp._sage_worker import _star_export_screen
+    from sagemath_mcp.star_exports import STAR_EXPORTS
+
+    drift = {}
+    for module_name, baked in STAR_EXPORTS.items():
+        screened = _star_export_screen(module_name)
+        if screened != baked:
+            drift[module_name] = (
+                "no longer screens clean" if screened is None
+                else {
+                    "added": sorted(screened - baked),
+                    "removed": sorted(baked - screened),
+                }
+            )
+    assert not drift, (
+        f"the baked star-export lists disagree with this SageMath: {drift}. "
+        "Regenerate with scripts/generate_star_exports.py and review the diff."
+    )

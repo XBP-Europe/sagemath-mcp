@@ -81,19 +81,22 @@ by reading the report a failing assertion prints.
 
 ```
 3,168 files, 60,094 docstrings, 432,878 examples
-accepted 369,534   refused 4,894   out of scope 58,268
-acceptance among in-scope examples: 98.69%
+accepted 370,151   refused 4,277   out of scope 58,268
+acceptance among in-scope examples: 98.86%
 ```
 
 The first measurement was 97.81%, with 8,218 refusals. Categorising those
 (below) found that a third had no security justification; fixing them removed
 2,960 refusals — 36% — and added two names to the allowlist. The 2026-08-15
 measurement read 98.60%; the sandbox hardening of review items 49–58 then cost
-~365 examples (libgap and the Pari family, priced deliberately), and item 59
-won back 702 by simulating two Sage behaviours instead of refusing them:
-runtime name injection (`inject_variables`/`inject_shorthands`, whose names a
-session records and a per-example sweep now models) and `attrcall` with a
-screened literal attribute name.
+~365 examples (libgap and the Pari family, priced deliberately). Item 59 won
+back 702 by simulating two Sage behaviours instead of refusing them: runtime
+name injection (`inject_variables`/`inject_shorthands`, whose names a session
+records and a per-example sweep now models) and `attrcall` with a screened
+literal attribute name. Item 60 won back a further 617 by permitting
+`from <vetted> import *` for the curated clean internal modules in
+`star_exports.py` — a reviewed exception to the import ban, expanded to its
+screened names before validation.
 
 The acceptance ratio is **blind to the import rewrite by construction**: any
 example containing an import is skipped before validation, so an import that is

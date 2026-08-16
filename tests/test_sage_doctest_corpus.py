@@ -60,6 +60,7 @@ from sagemath_mcp.security import (
     validate_module,
 )
 from sagemath_mcp.session import SageSession
+from sagemath_mcp.star_exports import STAR_EXPORTS
 
 requires_sage = pytest.mark.skipif(
     shutil.which("sage") is None, reason="Sage executable not available"
@@ -67,6 +68,11 @@ requires_sage = pytest.mark.skipif(
 
 # --- harvest ------------------------------------------------------------------
 
+# `from <vetted> import *` -- the shape the worker expands to the module's
+# screened names. The import line itself stays out of scope (it is an import);
+# what the sweep must model is that its names are bound for the block's later
+# examples, which is what the worker records after running the expansion.
+_STAR_IMPORT = re.compile(r"^\s*from\s+([\w.]+)\s+import\s+\*")
 _PROMPT = re.compile(r"^(\s*)sage:\s?(.*)$")
 _CONTINUATION = re.compile(r"^(\s*)\.\.\.\.:\s?(.*)$")
 # Cython sources cannot be parsed with `ast`, so their docstrings are found by
@@ -326,6 +332,9 @@ def harvest(paths: list[Path]) -> Harvest:
                     result.unparsed += 1
                     continue
                 bound |= _bound_names(module)
+                star = _STAR_IMPORT.match(source)
+                if star and star.group(1) in STAR_EXPORTS:
+                    bound |= STAR_EXPORTS[star.group(1)]
                 session_injected = session_injected or injects_session_names(module)
                 if evaluated:
                     # The worker binds `_` to the previous result, as the Sage
@@ -373,21 +382,22 @@ def corpus() -> Harvest:
 # --- the assertions -----------------------------------------------------------
 #
 # Baselines measured against SageMath 10.9 (2026-08-16): 3,168 sources, 60,094
-# docstrings, 432,878 examples, of which 369,534 accepted, 4,894 refused and
-# 58,268 out of scope -- 98.69% acceptance among in-scope examples, in about a
-# minute. The 2026-08-15 measurement read 98.60%; the hardening of items 49-58
-# then cost ~365 examples (libgap and the Pari family, priced deliberately),
-# and modelling session injection plus screening `attrcall` literals won back
-# 702 -- see REVIEW_ACTIONS.md for both sides of that ledger.
+# docstrings, 432,878 examples, of which 370,151 accepted, 4,277 refused and
+# 58,268 out of scope -- 98.86% acceptance among in-scope examples, in about a
+# minute. The ledger since 2026-08-15's 98.60%: the hardening of items 49-58
+# cost ~365 examples (libgap and the Pari family, priced deliberately); item 59
+# won back 702 by modelling session injection and screening `attrcall`
+# literals; item 60 won back 617 more by permitting `from <vetted> import *`
+# for the curated clean modules in star_exports.py. See REVIEW_ACTIONS.md.
 #
-# One change is still understated by construction: an import the rewrite now
-# drops never enters scope at all (see the test at the end of this file for the
-# number that did move). Injection is no longer understated -- the sweep passes
-# `session_injects_names` once a block ran `inject_variables` or its siblings,
-# which is how a real session behaves, because the worker records the injected
-# names. Baselines carry margin because a Sage upgrade moves them, and a *drop*
-# is the signal. To refresh after an upgrade, call harvest() over the library
-# and read report(); a failing assertion prints it too.
+# Two behaviours the sweep now models the way a real session does, because the
+# worker records what they bind: `session_injects_names` once a block ran
+# `inject_variables` or a sibling, and the screened names of a vetted star
+# import once a block ran one. The import *line* stays out of scope -- it is an
+# import -- but its downstream reads no longer look refused. Baselines carry
+# margin because a Sage upgrade moves them, and a *drop* is the signal. To
+# refresh after an upgrade, call harvest() over the library and read report();
+# a failing assertion prints it too.
 #
 # The first measurement was 97.81%, with 8,218 refusals. Item 46 removed 2,958
 # of them -- 36% -- by releasing everything the policy blocked without a security

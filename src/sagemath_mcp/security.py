@@ -7,9 +7,10 @@ import logging
 import os
 import re
 import textwrap
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 
 from .allowlist import ALLOWED_CALLER_NAMES
+from .star_exports import STAR_EXPORTS
 from .symbols import PREDEFINED_SYMBOLS
 
 LOGGER = logging.getLogger(__name__)
@@ -331,6 +332,16 @@ class SecurityPolicy:
     # enumerated. trusted_policy() turns it off -- generated templates are ours.
     enforce_name_allowlist: bool = True
     allowed_names: frozenset[str] = ALLOWED_CALLER_NAMES
+    # Modules whose `from <module> import *` is permitted, each mapping to the
+    # exact public names the import may bind -- reviewed, screened clean as a
+    # whole, and generated into star_exports.py. `rewrite_permitted_imports`
+    # expands the star into these names before validation, and the import block
+    # below permits an explicit `from <module> import a, b` when every name is
+    # on the module's list. Empty by default; the generated mapping is the
+    # default value, so a policy built without arguments carries it.
+    star_export_modules: dict[str, frozenset[str]] = field(
+        default_factory=lambda: STAR_EXPORTS
+    )
 
     @classmethod
     def from_env(cls) -> SecurityPolicy:
@@ -616,6 +627,18 @@ def rewrite_permitted_imports(
             # Only from the namespace's own source, and only as a no-op.
             if isinstance(node, ast.ImportFrom) and node.module in ("sage.all", "sage"):
                 return []
+            # A vetted module's star import is expanded to its screened names, so
+            # what runs is exactly what was reviewed. The validator then permits
+            # the explicit import and the names bind as the caller's own.
+            if isinstance(node, ast.ImportFrom) and node.module in policy.star_export_modules:
+                screened = sorted(policy.star_export_modules[node.module])
+                if screened:
+                    expanded = ast.ImportFrom(
+                        module=node.module,
+                        names=[ast.alias(name=name, asname=None) for name in screened],
+                        level=0,
+                    )
+                    return [ast.copy_location(expanded, node)]
             return None
 
         if isinstance(node, ast.Import) and not bound_by & read:
@@ -985,7 +1008,22 @@ def validate_module(
                     code=code,
                     policy=policy,
                 )
-            if not all(_is_allowed_import(mod, policy) for mod in modules):
+            # A `from <vetted> import a, b` is permitted when every name is on
+            # the module's screened list -- the star expansion above produces
+            # exactly this, and a caller may also write it out. A name the
+            # screen dropped is not on the list, so spelling out a dirty member
+            # of an otherwise-listed module does not smuggle it in.
+            star_permitted = (
+                isinstance(node, ast.ImportFrom)
+                and node.module in policy.star_export_modules
+                and all(
+                    alias.name in policy.star_export_modules[node.module]
+                    for alias in node.names
+                )
+            )
+            if not star_permitted and not all(
+                _is_allowed_import(mod, policy) for mod in modules
+            ):
                 # Say what to do instead. Gemini opens numerical work with
                 # `import numpy as np` or `from sage.all import *`, was told only
                 # that imports are disabled, and did not recover across three

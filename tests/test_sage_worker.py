@@ -804,3 +804,115 @@ def test_an_inject_shorthands_call_hands_its_new_names_to_the_caller() -> None:
     assert "s_basis" in _sage_worker._CALLER_BOUND_NAMES, (
         "a name the caller asked to have injected must be readable afterwards"
     )
+
+
+def test_star_export_screen_accepts_a_clean_module(monkeypatch):
+    """A module whose public names are all ordinary values is vetted whole."""
+    import sys
+    import types
+
+    from sagemath_mcp import _sage_worker
+
+    clean = types.ModuleType("fake.clean")
+    clean.__all__ = ["Widget", "gadget"]
+    clean.Widget = type("Widget", (), {})
+    clean.gadget = lambda: None
+    clean.Widget.__module__ = "fake.clean"
+    clean.gadget.__module__ = "fake.clean"
+    monkeypatch.setitem(sys.modules, "fake.clean", clean)
+
+    screened = _sage_worker._star_export_screen("fake.clean")
+    assert screened == frozenset({"Widget", "gadget"})
+
+
+def test_star_export_screen_rejects_a_module_with_any_dangerous_name(monkeypatch):
+    """Clean-modules-only: one bad export excludes the whole module, so a screen
+    that misses a category still cannot leak from a listed module."""
+    import sys
+    import types
+
+    from sagemath_mcp import _sage_worker
+
+    dirty = types.ModuleType("fake.dirty")
+    dirty.__all__ = ["Widget", "save_thing"]  # save* is a forbidden prefix
+    dirty.Widget = type("Widget", (), {})
+    dirty.Widget.__module__ = "fake.dirty"
+    dirty.save_thing = lambda: None
+    dirty.save_thing.__module__ = "fake.dirty"
+    monkeypatch.setitem(sys.modules, "fake.dirty", dirty)
+
+    assert _sage_worker._star_export_screen("fake.dirty") is None
+
+
+def test_star_export_screen_rejects_a_re_exported_dangerous_object(monkeypatch):
+    """`from sage.matroids.advanced import *` re-exports `lazy_import`, whose
+    home is a dangerous module even though the name is defined elsewhere."""
+    import sys
+    import types
+
+    from sagemath_mcp import _sage_worker
+
+    reexport = types.ModuleType("fake.reexport")
+    reexport.__all__ = ["Widget", "borrowed"]
+    reexport.Widget = type("Widget", (), {})
+    reexport.Widget.__module__ = "fake.reexport"
+    reexport.borrowed = lambda: None
+    # Home is one of the dangerous modules.
+    reexport.borrowed.__module__ = _sage_worker._DANGEROUS_SAGE_MODULES[0]
+    monkeypatch.setitem(sys.modules, "fake.reexport", reexport)
+
+    assert _sage_worker._star_export_screen("fake.reexport") is None
+
+
+def test_star_export_screen_returns_none_for_an_unimportable_module():
+    from sagemath_mcp import _sage_worker
+
+    assert _sage_worker._star_export_screen("nope.not.a.module") is None
+
+
+def test_star_export_screen_reads_dir_when_all_is_absent(monkeypatch):
+    """Without `__all__`, `import *` binds every non-underscore name, so the
+    screen enumerates the same way."""
+    import sys
+    import types
+
+    from sagemath_mcp import _sage_worker
+
+    mod = types.ModuleType("fake.noall")
+    mod.Public = type("Public", (), {})
+    mod.Public.__module__ = "fake.noall"
+    mod._private = 1
+    monkeypatch.setitem(sys.modules, "fake.noall", mod)
+
+    assert _sage_worker._star_export_screen("fake.noall") == frozenset({"Public"})
+
+
+def test_star_export_screen_rejects_a_forbidden_export_name(monkeypatch):
+    """A name on the policy's forbidden lists excludes the module even without a
+    write-prefix or a dangerous home."""
+    import sys
+    import types
+
+    from sagemath_mcp import _sage_worker
+
+    mod = types.ModuleType("fake.forbidden")
+    mod.__all__ = ["eval"]  # forbidden_attribute_only_names
+    mod.eval = lambda: None
+    mod.eval.__module__ = "fake.forbidden"
+    monkeypatch.setitem(sys.modules, "fake.forbidden", mod)
+
+    assert _sage_worker._star_export_screen("fake.forbidden") is None
+
+
+def test_star_export_screen_rejects_a_malformed_all_entry(monkeypatch):
+    """A module whose `__all__` lists something that is not a plain public
+    identifier is not one this screen will vouch for."""
+    import sys
+    import types
+
+    from sagemath_mcp import _sage_worker
+
+    mod = types.ModuleType("fake.malformed")
+    mod.__all__ = ["_private"]
+    monkeypatch.setitem(sys.modules, "fake.malformed", mod)
+    assert _sage_worker._star_export_screen("fake.malformed") is None

@@ -415,6 +415,59 @@ def _dangerous_sage_names() -> frozenset[str]:
     return frozenset(names)
 
 
+def _star_export_screen(
+    module_name: str, policy: Any = SECURITY_POLICY
+) -> frozenset[str] | None:
+    """The public names of *module_name* safe to expose via a star import, or
+    None if any of them is not.
+
+    Clean-modules-only, deliberately: a module is vetted whole or excluded
+    entirely, never filtered down to a safe subset. That is what makes a listed
+    module safe even if this screen misses a danger category -- there is nothing
+    left in it to miss. It is the exact opposite trade from a denylist, and the
+    same one the allowlist makes.
+
+    The danger basis is the namespace scrub's, name for name:
+    ``_dangerous_sage_names`` (what the dangerous modules and the CAS interfaces
+    define), ``_DANGEROUS_BARE_NAMES``, the policy's forbidden call/attribute
+    sets and write-prefixes, and -- the one a name-only check misses -- the home
+    module of the *value*, so a re-export like ``from sage.matroids.advanced
+    import *`` handing back ``lazy_import`` is caught by where lazy_import lives.
+    Runs offline, in the generator and the drift test, never at worker start.
+    """
+    try:
+        module = importlib.import_module(module_name)
+    except Exception:
+        return None
+    exported = getattr(module, "__all__", None)
+    if exported is None:
+        exported = [name for name in vars(module) if not name.startswith("_")]
+
+    dangerous = _dangerous_sage_names() | set(_DANGEROUS_BARE_NAMES)
+    forbidden = (
+        set(policy.forbidden_call_names)
+        | set(policy.forbidden_attribute_only_names)
+        | set(policy.forbidden_attribute_names)
+        | set(policy.forbidden_attribute_parents)
+    )
+    screened: set[str] = set()
+    for name in exported:
+        if not isinstance(name, str) or name.startswith("_") or not name.isidentifier():
+            return None
+        if name in dangerous or name in forbidden:
+            return None
+        if any(name.startswith(prefix) for prefix in policy.forbidden_attribute_prefixes):
+            return None
+        value = vars(module).get(name)
+        home = getattr(value, "__module__", "") or ""
+        if isinstance(home, str) and any(
+            home == bad or home.startswith(bad + ".") for bad in _DANGEROUS_SAGE_MODULES
+        ):
+            return None
+        screened.add(name)
+    return frozenset(screened) if screened else None
+
+
 def _strip_dangerous_sage_names(ns: dict[str, Any]) -> int:
     """Remove Sage helpers that execute, compile, fetch or write.
 

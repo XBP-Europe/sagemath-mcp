@@ -1080,3 +1080,45 @@ async def test_attrcall_with_a_screened_literal_computes() -> None:
         assert await _value(session, "key(QQ['T']('T^5 + T'))") == "5"
     finally:
         await session.shutdown()
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_a_vetted_star_import_computes_and_persists() -> None:
+    """`from sage.matroids.lean_matrix import *` is one of 1,546 star imports of
+    an internal module in SageMath's own doctests. Its names are ordinary
+    mathematics, unreachable otherwise; the vetted-star subsystem (item 60)
+    expands the screened list, runs the import, and the names persist into the
+    next call the way any binding does."""
+    session = await _session("starimport")
+    try:
+        await _value(session, "from sage.matroids.lean_matrix import *")
+        # Names the star brought in, used on a later call.
+        assert await _value(
+            session, "GenericMatrix(2, 2, ring=GF(3)).nrows()"
+        ) == "2"
+        assert await _value(
+            session, "isinstance(BinaryMatrix(2, 2), LeanMatrix)"
+        ) == "True"
+    finally:
+        await session.shutdown()
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_an_unvetted_star_import_stays_refused() -> None:
+    """The subsystem is a curated exception, not an opening of imports. A module
+    that is not on the list -- and a name a listed module does not export -- are
+    both still refused."""
+    from sagemath_mcp.session import SageEvaluationError
+
+    session = await _session("starimport-deny")
+    try:
+        for code in (
+            "from sage.misc.explain_pickle import *",
+            "from os import *",
+        ):
+            with pytest.raises(SageEvaluationError):
+                await _value(session, code)
+    finally:
+        await session.shutdown()

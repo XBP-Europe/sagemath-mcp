@@ -443,3 +443,117 @@ def test_attrcall_stays_refused_outside_the_screen(code: str):
 
     with pytest.raises(SecurityViolation):
         validate_module(ast.parse(code), code=code)
+
+
+# --- vetted star imports -------------------------------------------------------
+
+import dataclasses  # noqa: E402
+
+from sagemath_mcp.security import (  # noqa: E402
+    SECURITY_POLICY,
+    rewrite_permitted_imports,
+    validate_module,
+)
+
+
+def _policy_with_star(mapping):
+    return dataclasses.replace(SECURITY_POLICY, star_export_modules=mapping)
+
+
+_STAR = {"my.safe.module": frozenset({"SafeThing", "helper", "other"})}
+
+
+def test_a_vetted_star_import_is_expanded_to_its_screened_names():
+    """`from <vetted> import *` becomes the explicit screened list before
+    validation, so what runs is exactly what was reviewed and the names bind
+    the way any explicit import binds."""
+    import ast
+
+    policy = _policy_with_star(_STAR)
+    module = ast.parse("from my.safe.module import *\nSafeThing()")
+    rewritten = rewrite_permitted_imports(
+        module, offered=frozenset(), policy=policy
+    )
+    imports = [n for n in ast.walk(rewritten) if isinstance(n, ast.ImportFrom)]
+    assert imports, "the star import was dropped, not expanded"
+    names = sorted(alias.name for alias in imports[0].names)
+    assert names == ["SafeThing", "helper", "other"]
+    assert not any(alias.name == "*" for alias in imports[0].names)
+    # And the expanded module validates: the import is permitted and the name
+    # it brought in is readable.
+    validate_module(rewritten, code="from my.safe.module import *\nSafeThing()",
+                    policy=policy)
+
+
+def test_a_vetted_module_permits_only_its_screened_names_explicitly():
+    """A caller may also name the members directly. The screened ones pass; a
+    name the screen dropped -- or would drop -- does not, so a dirty member of
+    an otherwise-listed module cannot be smuggled in by spelling it out."""
+    import ast
+
+    policy = _policy_with_star(_STAR)
+    ok = "from my.safe.module import SafeThing, helper"
+    validate_module(ast.parse(ok), code=ok, policy=policy)
+
+    bad = "from my.safe.module import SafeThing, not_screened"
+    with pytest.raises(SecurityViolation):
+        validate_module(ast.parse(bad), code=bad, policy=policy)
+
+
+def test_an_unvetted_star_import_is_still_refused():
+    import ast
+
+    policy = _policy_with_star(_STAR)
+    for code in (
+        "from sage.misc.explain_pickle import *",
+        "from os import *",
+        "from my.other.module import *",
+    ):
+        module = rewrite_permitted_imports(
+            ast.parse(code), offered=frozenset(), policy=policy
+        )
+        with pytest.raises(SecurityViolation):
+            validate_module(module, code=code, policy=policy)
+
+
+def test_a_vetted_import_still_cannot_re_export_a_forbidden_root():
+    """The alias-root guard runs regardless: even inside a listed module, a
+    name that collides with a forbidden parent is refused. The screen keeps
+    such names off the list, and this is the second lock."""
+    import ast
+
+    policy = _policy_with_star({"my.safe.module": frozenset({"SafeThing", "os"})})
+    code = "from my.safe.module import os"
+    with pytest.raises(SecurityViolation):
+        validate_module(ast.parse(code), code=code, policy=policy)
+
+
+def test_the_generated_star_exports_are_structurally_sound():
+    """Whatever the installed Sage produced, the shape holds: dotted module
+    names mapping to frozensets of plain identifiers, none dunder, none a name
+    the base policy forbids outright."""
+    from sagemath_mcp.star_exports import STAR_EXPORTS
+
+    for module_name, names in STAR_EXPORTS.items():
+        assert isinstance(module_name, str) and "." in module_name
+        assert isinstance(names, frozenset) and names
+        for name in names:
+            assert name.isidentifier() and not name.startswith("_")
+            assert name not in SECURITY_POLICY.forbidden_call_names
+            assert name not in SECURITY_POLICY.forbidden_attribute_names
+
+
+def test_a_vetted_module_with_no_screened_names_is_not_expanded():
+    """An entry that mapped to nothing (which the generator never writes) leaves
+    the star import to be refused, rather than emitting an empty import."""
+    import ast
+
+    policy = _policy_with_star({"my.empty.module": frozenset()})
+    code = "from my.empty.module import *"
+    rewritten = rewrite_permitted_imports(
+        ast.parse(code), offered=frozenset(), policy=policy
+    )
+    assert not any(isinstance(n, ast.ImportFrom) and n.names[0].name != "*"
+                   for n in ast.walk(rewritten))
+    with pytest.raises(SecurityViolation):
+        validate_module(rewritten, code=code, policy=policy)

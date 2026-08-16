@@ -3146,3 +3146,61 @@ opt-in execution sampler). One invariant needed a scoped exception:
 `test_the_caller_allowlist_matches_this_sage` flagged the guarded `attrcall`
 as live-but-not-allowlisted, which is exactly its design -- the exception is
 documented in the test with the rule that actually protects the name.
+
+## 60. Vetted `import *` for clean internal modules — enhancement — DONE
+
+Continues item 59's direction. The largest remaining refusal class in the
+doctest corpus (~1,546 examples) was `from <internal module> import *` for
+modules `sage.all` does not re-export -- their names are ordinary mathematics,
+unreachable any other way. Unlike item 59 this genuinely widens what caller
+code can reach, so it is a curated, reviewed exception to the import ban (item
+27), never an opening of imports.
+
+### Design
+
+`star_exports.py` (generated, like `allowlist.py`) maps each vetted module to
+the exact public names its star import may bind. A module is included only if
+it screens **clean as a whole** -- every public name passed the same danger
+basis the namespace scrub uses (`_star_export_screen` in `_sage_worker.py`:
+`_dangerous_sage_names`, `_DANGEROUS_BARE_NAMES`, the policy's forbidden
+call/attribute sets and write-prefixes, and the *home module* of each value, so
+a re-export like `from sage.matroids.advanced import *` handing back
+`lazy_import` is caught). Clean-modules-only is the safety argument: a listed
+module has nothing dangerous in it to leak even if the screen misses a
+category. `sage.libs.ecl` is deliberately excluded despite screening clean --
+`EclObject` evaluates Lisp, which no name-based screen can see.
+
+`rewrite_permitted_imports` expands `from <vetted> import *` into the explicit
+screened list before validation, so what runs is exactly what was reviewed.
+`validate_module` permits an explicit `from <vetted> import a, b` only when
+every name is on the module's list, and the names bind as the caller's own --
+nothing is added to the allowlist and the allowlist is never suspended. The
+alias-root re-export guard still runs as a second lock.
+
+Thirteen modules vetted for this release (`real_roots`, `lean_matrix`,
+`modular_decomposition`, `binary_code`, and nine more), curated in
+`scripts/generate_star_exports.py`.
+
+### How to verify
+
+Test-first. Unit: the rewrite/validate logic against a synthetic policy and the
+screen against synthetic clean/dirty/re-export/malformed modules
+(`tests/test_security.py`, `tests/test_sage_worker.py`). Integration, real
+SageMath 10.9: `test_a_vetted_star_import_computes_and_persists` and
+`test_an_unvetted_star_import_stays_refused` (`tests/test_math_coverage.py`);
+`test_the_star_exports_match_this_sage` re-screens every listed module and
+fails if a Sage upgrade makes one dirty (`tests/test_integration.py`).
+
+### Measured
+
+Corpus sweep: acceptance 98.6929% -> 98.8577%, refusals 4,894 -> 4,277 (-617),
+all seven assertions green. The sweep models a vetted star the way the worker
+does -- the import line stays out of scope, its screened names bind for the
+block's later examples.
+
+### Status
+
+Fixed in the working tree. Host suite green (`SAGEMATH_MCP_PURE_PYTHON=1`):
+886 passed, coverage 100% (statements and branches), lint clean. Full container
+suite against real SageMath 10.9: 1,035 passed, 1 skipped (the opt-in
+execution sampler).

@@ -127,7 +127,12 @@ async def test_monitoring_metrics_on_timeout(monkeypatch):
         assert raw
         snapshot = json.loads(raw)
         assert snapshot["failures"] >= 1
-        assert snapshot["last_error"] is not None
+        # The resource no longer carries the free-text error (item 58); it is
+        # kept only on the internal record for server-side logs.
+        assert "last_error" not in snapshot
+        from sagemath_mcp import monitoring as _monitoring
+
+        assert _monitoring.snapshot()["last_error"] is not None
     finally:
         await manager.shutdown()
 

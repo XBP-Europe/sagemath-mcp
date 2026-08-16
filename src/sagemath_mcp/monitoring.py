@@ -82,6 +82,29 @@ def snapshot() -> dict:
         return _METRICS.snapshot()
 
 
+# The free-text fields carry the message, rejected code and (untruncated) stdout
+# of a *single* client's most recent failing evaluation. `_METRICS` is a
+# process-global singleton, so any client that reads it sees another client's
+# data. They are recorded for server-side logs but must never leave the process
+# through the monitoring resource, which is unscoped and, on the shipped HTTP
+# deployment, readable by any client. See REVIEW_ACTIONS item 58.
+_CLIENT_TEXT_FIELDS = ("last_error", "last_security_violation", "last_error_details")
+
+
+def public_snapshot() -> dict:
+    """Snapshot with the per-client free-text fields removed.
+
+    The aggregate counters and latencies are process-wide totals and disclose
+    nothing about any one client, so they stay. Everything a caller could mine
+    for another client's inputs or outputs is dropped here rather than at the
+    resource, so the redaction travels with the data.
+    """
+    data = snapshot()
+    for field in _CLIENT_TEXT_FIELDS:
+        data.pop(field, None)
+    return data
+
+
 def reset_metrics() -> None:
     with _LOCK:
         _METRICS.reset()

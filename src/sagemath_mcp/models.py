@@ -60,7 +60,14 @@ class SessionSnapshot(BaseModel):
 
 
 class MonitoringSnapshot(BaseModel):
-    """Aggregated performance and security metrics for Sage evaluations."""
+    """Aggregated performance and security metrics for Sage evaluations.
+
+    Deliberately carries no per-client free text (error message, rejected code,
+    stdout). Those fields exist on the internal `EvaluationMetrics` for
+    server-side logging, but `_METRICS` is process-global, so emitting them
+    through the unscoped monitoring resource would hand one client another
+    client's inputs and outputs. See REVIEW_ACTIONS item 58.
+    """
 
     attempts: int
     successes: int
@@ -69,9 +76,6 @@ class MonitoringSnapshot(BaseModel):
     avg_elapsed_ms: float
     max_elapsed_ms: float
     last_run_at: float | None = None
-    last_error: str | None = None
-    last_security_violation: str | None = None
-    last_error_details: str | None = None
 
 
 class DocumentationLink(BaseModel):

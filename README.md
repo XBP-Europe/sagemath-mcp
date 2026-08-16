@@ -795,7 +795,7 @@ state.
 | Resource URI | Scope values | Description |
 |-------------|-------------|-------------|
 | `resource://sagemath/session/{scope}` | `all`, or a specific session ID | Returns JSON with: `session_id`, `live` (bool), `started_at`, `last_used_at`, `idle_seconds`. |
-| `resource://sagemath/monitoring/{scope}` | `metrics`, `all` | Returns JSON with: `attempts`, `successes`, `failures`, `security_failures`, `avg_elapsed_ms`, `max_elapsed_ms`, `last_run_at`, `last_error`, `last_security_violation`, `last_error_details`. |
+| `resource://sagemath/monitoring/{scope}` | `metrics`, `all` | Returns JSON with the process-wide aggregates only: `attempts`, `successes`, `failures`, `security_failures`, `avg_elapsed_ms`, `max_elapsed_ms`, `last_run_at`. Per-failure error text and stdout are not exposed here (they are shared process-global state); see the server logs instead. |
 | `resource://sagemath/docs/{scope}` | `all`, `reference`, `tutorial` | Returns documentation link objects with URLs to SageMath documentation. |
 
 ---

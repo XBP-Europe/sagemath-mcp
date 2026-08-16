@@ -2885,6 +2885,13 @@ resource contract; and `monitoring.py` is untouched across this range. **Low,
 not medium.** Worth doing with item 57 — deleting the `del ctx` at
 `session.py:170` is the same fix — but not a finding on its own.
 
+**Reconsidered and carried as item 58 (below).** In a multi-client server one
+client's computation output is that client's data, so exposing it to another
+client is a cross-tenant break of the same class as item 57, not mere logging of
+sensitive-ish data — medium, and now fixed. The fix redacts the free-text fields
+rather than deleting `del ctx`, since the metrics are process-wide aggregates
+with no per-caller view to scope to.
+
 **Unpinned GitHub Actions in the release jobs** — `release.yml:126` and the
 `docker/*` actions. Every attack path starts with compromising PyPA-, Docker- or
 Sigstore-owned repositories. No actor can exploit it today; the jobs run only on
@@ -2997,3 +3004,65 @@ cross-tenant concern noted under "Reported and not carried"; it is a narrower
 is_scoped_to_the_caller`, `test_session_resource_filters_by_workspace_name`,
 `test_session_resource_cannot_read_another_clients_scope`, `test_session_
 resource_without_context_returns_nothing`.
+
+## 58. The monitoring resource publishes another client's error text and stdout — medium — DONE
+
+**The follow-up item 57 deferred, now carried.** Item 57 scoped
+`session_resource` but left its sibling `monitoring_resource`
+(`tools/session.py:187-194`) with the same `del ctx` shape, filed under
+"Reported and not carried" as LOW on the reasoning that the exposed data is
+"CAS output and exception text, not secrets or PII." That reasoning does not
+hold in a multi-client server: a client's computation output *is* that client's
+data, so exposing it to another client is a cross-tenant confidentiality break
+of the same class as item 57 -- narrower (one failing evaluation at a time, not
+full namespace takeover), hence **medium**, but real.
+
+**Mechanism.** `monitoring_resource` discarded `ctx` and returned the
+process-global `_METRICS` snapshot verbatim, including three free-text fields:
+`last_error`, `last_security_violation` and `last_error_details`. On the failure
+path (`tools/core.py:134-137`, and the streaming path `:390-393`),
+`record_failure` is called with `details=exc.traceback or exc.stdout`, where
+`exc.stdout` is the **untruncated** stdout of the failing computation
+(`_truncate_stdout` runs only on the success path, `core.py:164`); on an
+interrupt the worker returns `traceback == ""`, so `details` is the stdout
+outright. `last_error` and `last_security_violation` likewise carry the failing
+client's error message and rejected code. `_METRICS` is a single
+process-global singleton (`monitoring.py:52`), so any client reading
+`resource://sagemath/monitoring/metrics` (or `/all`) saw the most recent failing
+evaluation's text from *any* client.
+
+**Exposure.** The shipped HTTP deployment (`Dockerfile` CMD `--transport
+streamable-http --host 0.0.0.0 --port 8314`, `stateless_http=False`,
+unauthenticated) dispatches every client, and unlike item 57 no session-id
+guess is needed -- the resource is global. Attack: victim runs a computation
+that prints sensitive intermediate values and then fails (or is interrupted);
+attacker reads the monitoring resource and recovers the victim's stdout, error
+message and rejected code. This is the same confidentiality property response
+caching was disabled to protect (`app.py:106-114`).
+
+### Fix
+
+`monitoring.py` gains `public_snapshot()`, which drops the three free-text
+fields (`_CLIENT_TEXT_FIELDS`) from the snapshot; the fields remain on the
+internal `EvaluationMetrics`/`snapshot()` for server-side logging. The public
+`MonitoringSnapshot` model (`models.py`) no longer *declares* those fields, so
+the leak cannot reappear by re-widening a dict -- the type has nowhere to put
+the text. `monitoring_resource` now emits `MonitoringSnapshot(**public_
+snapshot())`; only non-identifying aggregate counters and latencies cross the
+wire, so the resource is safe unscoped and `ctx` genuinely is not needed.
+
+### How to verify
+
+Two real MCP clients: the victim triggers a failure whose error text carries a
+marker, the attacker reads the resource, and the marker must not appear in the
+payload (while the internal `snapshot()` still records it, proving the leak path
+was exercised). Regression: `test_monitoring_resource_does_not_leak_one_clients_
+error_to_another` (`tests/test_cache_isolation.py`); `test_monitoring_resource_
+tracks_metrics` (`tests/test_server.py`) updated to assert the free-text fields
+are absent from the resource but present on the internal record.
+
+### Status
+
+Fixed in the working tree. Host suite green (`SAGEMATH_MCP_PURE_PYTHON=1`):
+848 passed, coverage 100% (statements and branches), lint clean. Not yet
+verified against real Sage in the container or committed.

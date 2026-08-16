@@ -15,11 +15,16 @@ Metrics are served through the `resource://sagemath/monitoring/metrics` MCP reso
 | `avg_elapsed_ms` | Average execution time (milliseconds, success only). |
 | `max_elapsed_ms` | Maximum execution time observed (milliseconds). |
 | `last_run_at` | UNIX timestamp of the most recent evaluation. |
-| `last_error` | Message from the latest failure (if any). |
-| `last_security_violation` | Message from the latest security violation (if any). |
-| `last_error_details` | Traceback or captured stdout for the latest failure, when the worker supplied one. |
 
-These counters reset when the MCP server restarts. Set `SAGEMATH_MCP_SECURITY_LOG_VIOLATIONS=true` to ensure blocked code is logged alongside the counters.
+These counters reset when the MCP server restarts.
+
+The resource carries **only** these process-wide aggregates. The message,
+rejected code and captured stdout of the latest failure are deliberately **not**
+exposed here: the metrics are a single process-global record shared by every
+client, so a per-request error field would hand one client another client's
+inputs and outputs. Those details are available to operators in the server logs
+instead — set `SAGEMATH_MCP_SECURITY_LOG_VIOLATIONS=true` to log blocked code
+alongside the counters.
 
 ## Manual Inspection
 

@@ -73,6 +73,48 @@ async def test_repeated_state_transitions_are_not_cached(python_manager):
 
 
 @pytest.mark.asyncio
+async def test_monitoring_resource_does_not_leak_one_clients_error_to_another(python_manager):
+    """One client's failing evaluation must not surface in another's metrics read.
+
+    `_METRICS` is a process-global singleton, and the monitoring resource is
+    unscoped. It used to emit `last_error`/`last_security_violation`/
+    `last_error_details`, so any client could read another client's error
+    message, rejected code and untruncated stdout there -- the sibling of the
+    item 57 session-id leak (item 58). The free-text fields are now dropped
+    before the snapshot reaches the wire.
+    """
+    import json
+
+    from sagemath_mcp import monitoring
+
+    monitoring.reset_metrics()
+    marker = "leaky_marker_7f3a9"
+
+    async with Client(server.mcp) as victim, Client(server.mcp) as attacker:
+        # The victim runs code that fails with the marker in its error text.
+        failed = await victim.call_tool(
+            "evaluate_sage", {"code": marker}, raise_on_error=False
+        )
+        assert failed.is_error, "the probe was expected to fail with a NameError"
+
+        # The marker really did reach the internal record: without this, the
+        # test could pass by never exercising the leak path at all.
+        assert marker in json.dumps(monitoring.snapshot())
+
+        # The attacker reads the shared resource and must not see the marker.
+        payload = (
+            await attacker.read_resource("resource://sagemath/monitoring/metrics")
+        )[0].text
+        assert marker not in payload, "monitoring resource leaked another client's error text"
+        snapshot = json.loads(payload)
+        assert "last_error" not in snapshot
+        assert "last_security_violation" not in snapshot
+        assert "last_error_details" not in snapshot
+        # The safe aggregates are still there.
+        assert snapshot["failures"] >= 1
+
+
+@pytest.mark.asyncio
 async def test_monitoring_resource_is_not_stale(python_manager):
     """Metrics must reflect work done after the first read."""
     import json

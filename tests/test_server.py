@@ -375,8 +375,15 @@ async def test_monitoring_resource_tracks_metrics(monkeypatch):
     assert snapshot["successes"] == 1
     assert snapshot["failures"] == 1
     assert snapshot["security_failures"] == 1
-    assert snapshot["last_security_violation"]
-    assert snapshot["last_error_details"]
+    # The counters are safe aggregates; the free-text fields are not, and the
+    # resource must not expose them (item 58). They stay on the internal record.
+    assert "last_error" not in snapshot
+    assert "last_security_violation" not in snapshot
+    assert "last_error_details" not in snapshot
+    from sagemath_mcp import monitoring as _monitoring
+
+    assert _monitoring.snapshot()["last_security_violation"]
+    assert _monitoring.snapshot()["last_error_details"]
 
 
 @pytest.mark.asyncio

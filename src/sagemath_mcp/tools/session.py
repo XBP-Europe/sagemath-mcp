@@ -186,12 +186,21 @@ async def session_resource(scope: str, ctx: Context | None = None) -> str:
 
 @mcp.resource("resource://sagemath/monitoring/{scope}")
 async def monitoring_resource(scope: str, ctx: Context | None = None) -> str:
-    """Expose aggregated metrics for observability."""
+    """Expose aggregated metrics for observability.
+
+    Unscoped by design: the metrics are process-wide totals, so there is no
+    per-caller view to return and `ctx` is not needed. What made scoping matter
+    was the free-text error fields -- `last_error`, `last_security_violation`,
+    `last_error_details` -- which held one client's message, rejected code and
+    untruncated stdout in a process-global singleton, so any client reading this
+    resource saw another client's data (the sibling leak the item 57 fix left in
+    place; item 58). Those fields are dropped by `public_snapshot()` before they
+    reach the wire; only non-identifying aggregates remain.
+    """
     del ctx
     if scope not in {"metrics", "all"}:
         return "[]"
-    snapshot = monitoring.snapshot()
-    return MonitoringSnapshot(**snapshot).model_dump_json()
+    return MonitoringSnapshot(**monitoring.public_snapshot()).model_dump_json()
 
 
 @mcp.resource("resource://sagemath/docs/{scope}")

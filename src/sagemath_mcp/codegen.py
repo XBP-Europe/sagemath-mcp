@@ -155,16 +155,42 @@ def _screen_unparseable_fragment(fragment: str) -> None:
     stream instead: a name is a name whatever surrounds it, and this is the last
     gate before the fragment is interpolated into trusted, sage_eval'd code.
     """
-    forbidden = (
+    # This screen mirrors, token by token, the two kinds of check `validate_
+    # module` (security.py) makes on the parseable path -- and the split is
+    # load-bearing. The AST path refuses some names in *any* position (on both
+    # `ast.Name` and `ast.Attribute`) and others *only* as an attribute (on
+    # `node.attr`). A token screen has no tree, so it distinguishes the two by
+    # the one signal it does have: an attribute NAME is preceded by a `.`.
+    #
+    # All-position: call names (`sage_eval`, `open`, ...) and attribute parents
+    # (`os`, `pari`, ...) are dangerous read bare or dotted, so they are refused
+    # wherever they appear.
+    always_forbidden = (
         set(_FRAGMENT_POLICY.forbidden_call_names)
         | set(_FRAGMENT_POLICY.forbidden_attribute_parents)
-        # The names the worker's scrub removes, which the parseable path refuses
-        # via `_refuse_scrubbed_names`. Without them here, wrapping a scrubbed
-        # name in Sage-only syntax the Python parser rejects routed it through
-        # this screen instead and slipped past -- a narrower gate for exactly
-        # the inputs that avoid the wider one.
-        | _names_the_scrub_removes()
     )
+    # Attribute-position only: these guard *methods* -- `has_file`, `save_image`,
+    # `write_to_eps`, `.gp()`, `.eval()` -- reached through an object. The AST
+    # path fires them on `node.attr` alone; as a bare name each is either
+    # harmless (a `NameError` at runtime -- there is no global `has_file`) or
+    # already covered above (`save`/`dumps` are call names). Applying them to
+    # every NAME instead rejected ordinary variables a caller may hold in a
+    # Sage-only-syntax fragment -- `save_point`, `dump_total`, `export_matrix` --
+    # which the parseable path accepts, so the gate must match it here.
+    attribute_forbidden = (
+        set(_FRAGMENT_POLICY.forbidden_attribute_names)
+        | set(_FRAGMENT_POLICY.forbidden_attribute_only_names)
+    )
+    attribute_prefixes = _FRAGMENT_POLICY.forbidden_attribute_prefixes
+    # The names the worker's scrub removes, which the parseable path refuses via
+    # `_refuse_scrubbed_names`. Without them here, wrapping a scrubbed name in
+    # Sage-only syntax the Python parser rejects routed it through this screen
+    # instead and slipped past -- a narrower gate for exactly the inputs that
+    # avoid the wider one. A caller may reclaim one as their own generator target
+    # (`R.<a,b> = QQ[]`), so `bound` below overrides this set: a scrubbed name is
+    # unreachable at runtime (stripped from the namespace), so rescuing it is
+    # safe -- a live method like `has_file` is refused above and is never here.
+    scrubbed = _names_the_scrub_removes()
     try:
         tokens = list(tokenize.generate_tokens(io.StringIO(fragment).readline))
     except (tokenize.TokenError, IndentationError) as exc:
@@ -187,15 +213,30 @@ def _screen_unparseable_fragment(fragment: str) -> None:
         ):
             bound.add(first.string)
 
-    for token in tokens:
-        if token.type != tokenize.NAME or token.string in bound:
+    for index, token in enumerate(tokens):
+        if token.type != tokenize.NAME:
             continue
-        if token.string in forbidden or (
-            token.string.startswith("__") and token.string.endswith("__")
-        ):
+        name = token.string
+        # tokenize emits no whitespace tokens, so the previous token is the
+        # syntactic predecessor: a `.` before this NAME makes it an attribute.
+        preceded_by_dot = (
+            index > 0
+            and tokens[index - 1].type == tokenize.OP
+            and tokens[index - 1].string == "."
+        )
+        rejected = (
+            name in always_forbidden
+            or (name.startswith("__") and name.endswith("__"))
+            # A generator target rescues a scrubbed name, nothing else.
+            or (name in scrubbed and name not in bound)
+            or (
+                preceded_by_dot
+                and (name in attribute_forbidden or name.startswith(attribute_prefixes))
+            )
+        )
+        if rejected:
             raise ToolError(
-                f"Rejected by the security policy: reference to "
-                f"'{token.string}' is blocked"
+                f"Rejected by the security policy: reference to '{name}' is blocked"
             )
 
 

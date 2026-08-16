@@ -1465,6 +1465,48 @@ def test_the_methods_that_shell_out_are_refused(code: str) -> None:
         validate_module(ast.parse(code))
 
 
+TOKEN_SCREEN_SHELL_AND_WRITE_ESCAPES = [
+    ("has-file", "latex.has_file('x; id > /tmp/pwned') or [1..2]"),
+    ("check-file", "latex.check_file('y; whoami > /tmp/pwned') or [1..2]"),
+    ("via-another-object", "SR.has_file('x; id > /tmp/pwned') or [1..2]"),
+    ("gp-interpreter", "Dokchitser(1).gp() or [1..2]"),
+    ("save-image", "plot(sin(x), (x,0,1)).save_image('/tmp/pwn.png') or [1..2]"),
+    ("write-to-eps", "graphs.PetersenGraph().write_to_eps('/tmp/pwn') or [1..2]"),
+]
+
+
+@pytest.mark.parametrize(
+    "code",
+    [c for _, c in TOKEN_SCREEN_SHELL_AND_WRITE_ESCAPES],
+    ids=[i for i, _ in TOKEN_SCREEN_SHELL_AND_WRITE_ESCAPES],
+)
+def test_shell_out_methods_are_refused_on_the_unparseable_path_too(code: str) -> None:
+    """The AST path refuses `latex.has_file(...)`; the token fallback must as well.
+
+    `_validated_expression` runs full AST validation only when the fragment
+    parses as a Python expression. Wrapping the call in Sage-only syntax the
+    Python parser rejects -- the ellipsis range `[1..2]` -- makes `ast.parse`
+    fail, so the fragment falls to `_screen_unparseable_fragment`, a token-level
+    screen. It once built its denylist from the call-name and attribute-parent
+    tuples only, omitting `forbidden_attribute_names` and the
+    save/dump/export/write prefixes, so `has_file`, `save_image` and friends
+    sailed through and reached `sage_eval` under the trusted policy:
+
+        calculate_expression("latex.has_file('z; touch /tmp/pwned') or [1..2]")
+
+    ran `call("kpsewhich z; touch /tmp/pwned", shell=True)` -- remote code
+    execution -- and the `save_image`/`write_to_eps` variants wrote a
+    caller-chosen file. The screen now applies the attribute denylists to every
+    NAME token, closing the fallback the same way the AST path is closed above.
+    """
+    from fastmcp.exceptions import ToolError
+
+    from sagemath_mcp.codegen import _validated_expression
+
+    with pytest.raises(ToolError, match="security policy"):
+        _validated_expression(code)
+
+
 def test_latex_the_function_and_its_harmless_methods_still_work() -> None:
     """The 1,387 refusals that relaxation was for stay fixed."""
     for code in (

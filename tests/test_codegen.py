@@ -245,6 +245,112 @@ def test_validated_expression_allows_sage_generator_syntax_with_an_equals() -> N
     assert _validated_expression("R.<a,b> = QQ[]") == "R.<a,b> = QQ[]"
 
 
+# The token screen guards fragments that the parseable (AST) path never sees.
+# Sage-only syntax such as the ellipsis range `[1..2]` makes `ast.parse` fail,
+# routing the fragment here -- and here is the *only* gate before it is
+# interpolated into a trusted, sage_eval'd template. The AST path refuses these
+# method names via the attribute denylists (forbidden_attribute_names and the
+# save/dump/export/write prefixes); the token screen must refuse them too, or
+# wrapping the call in `[1..2]` reaches the `kpsewhich` shell-out and the
+# file-write sinks. `; id > /tmp/pwned` lives inside a string literal, so it is
+# not statement-smuggling -- the method call itself is the escape.
+TOKEN_SCREEN_ATTRIBUTE_ESCAPES = [
+    ("has-file-shell", "latex.has_file('z; id > /tmp/pwned') or [1..2]"),
+    ("check-file-shell", "latex.check_file('z; whoami') or [1..2]"),
+    ("gp-interpreter", "Dokchitser(1).gp() or [1..2]"),
+    ("save-image-write", "plot(sin(x), (x,0,1)).save_image('/tmp/pwn.png') or [1..2]"),
+    ("write-to-eps", "graphs.PetersenGraph().write_to_eps('/tmp/pwn') or [1..2]"),
+    ("export-jmol-write", "sphere().export_jmol('/tmp/pwn') or [1..2]"),
+    ("dump-prefix", "SR.dumps() or [1..2]"),
+    ("dunder", "().__class__ or [1..2]"),
+    # A scrubbed bare name on its own (not an attribute) is still refused.
+    ("scrubbed-bare-name", "unpickle_global or [1..2]"),
+    # Laundering: declaring `has_file` as a generator target must NOT exempt the
+    # `latex.has_file(...)` call elsewhere in the fragment. `bound` overrides
+    # only the scrubbed-name rule, never the attribute denylist.
+    ("bound-launders-attribute", "latex.has_file('z; id') or has_file.<w>"),
+    ("bound-launders-prefix", "plot(x).save_image('/tmp/p') or save_image.<w>"),
+]
+
+
+@pytest.mark.parametrize(
+    "code",
+    [c for _, c in TOKEN_SCREEN_ATTRIBUTE_ESCAPES],
+    ids=[i for i, _ in TOKEN_SCREEN_ATTRIBUTE_ESCAPES],
+)
+def test_screen_rejects_attribute_escapes_wrapped_in_sage_only_syntax(code: str) -> None:
+    with pytest.raises(ToolError, match="security policy"):
+        _validated_expression(code)
+
+
+def test_token_screen_rejects_every_dangerous_bare_name() -> None:
+    """Guard, all-position half: names dangerous read bare must be refused bare.
+
+    The token screen is denylist + scrub based and cannot enforce the AST path's
+    deny-by-default. Its soundness rests on the scrub set and the forbidden-name
+    tuples covering every dangerous name, so this asserts that coverage from the
+    live policy -- not a hand-list -- and thus cannot silently fall behind a list
+    edit or a Sage version bump that shifts the scrub derivation (items 49, 54).
+
+    Call names (`sage_eval`, `open`, ...) and attribute parents (`os`, `pari`)
+    are refused wherever they appear, so they are tested as bare tokens.
+    """
+    from sagemath_mcp.codegen import _FRAGMENT_POLICY, _names_the_scrub_removes
+
+    names = (
+        set(_FRAGMENT_POLICY.forbidden_call_names)
+        | set(_FRAGMENT_POLICY.forbidden_attribute_parents)
+        | _names_the_scrub_removes()
+    )
+    assert all(name.isidentifier() for name in names)
+    escaped: list[str] = []
+    for name in sorted(names):
+        try:
+            _screen_unparseable_fragment(name)
+        except ToolError:
+            continue
+        escaped.append(name)
+    assert not escaped, f"token screen accepted dangerous bare names: {escaped}"
+
+
+def test_token_screen_rejects_every_dangerous_attribute_name() -> None:
+    """Guard, attribute-position half: forbidden methods must be refused dotted.
+
+    Forbidden attribute names/only-names and the save/dump/export/write prefixes
+    guard *methods*, so the screen refuses them only in attribute position -- a
+    NAME reached through a `.`, exactly as the AST path fires them on `node.attr`.
+    """
+    from sagemath_mcp.codegen import _FRAGMENT_POLICY
+
+    attribute_names = (
+        set(_FRAGMENT_POLICY.forbidden_attribute_names)
+        | set(_FRAGMENT_POLICY.forbidden_attribute_only_names)
+    )
+    assert all(name.isidentifier() for name in attribute_names)
+    for name in sorted(attribute_names):
+        with pytest.raises(ToolError, match="security policy"):
+            _screen_unparseable_fragment(f"obj.{name}")
+    for prefix in _FRAGMENT_POLICY.forbidden_attribute_prefixes:
+        with pytest.raises(ToolError, match="security policy"):
+            _screen_unparseable_fragment(f"obj.{prefix}_probe_method")
+
+
+def test_token_screen_allows_ordinary_variables_with_a_persistence_prefix() -> None:
+    """Regression: the prefix rule is attribute-only, not bare-name.
+
+    A caller's own variable whose name starts with save/dump/export/write is
+    legitimate. Applying the prefix rule to every NAME rejected `save_point *
+    [0..2][1]` and friends once the Sage-only `[a..b]` routed them to the token
+    screen; the AST path accepts them, so the screen must too.
+    """
+    from sagemath_mcp.codegen import _FRAGMENT_POLICY
+
+    for prefix in _FRAGMENT_POLICY.forbidden_attribute_prefixes:
+        # Bare name, used in Sage-only syntax so it truly reaches the screen.
+        code = f"{prefix}_point + [0..2][0]"
+        assert _validated_expression(code) == code
+
+
 def test_encode_literal_passes_non_string_values_straight_to_json() -> None:
     """Numbers carry no code, so there is nothing to validate."""
     assert _encode_literal(5) == "5"

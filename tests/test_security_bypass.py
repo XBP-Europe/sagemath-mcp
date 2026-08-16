@@ -901,6 +901,50 @@ def test_a_star_import_cannot_hand_a_caller_a_module_object() -> None:
     assert result["ok"] is False
 
 
+# A terminal pure-module name (os, sys, ...) reached through a caller-bound root
+# was the second half of the item 61 escape: the validator treated it as a benign
+# `<object>.method` because the root was not on the allowlist. These never name a
+# method, so the validator now refuses them wherever the root came from -- the
+# defence-in-depth lock that does not depend on the star-export screen.
+TERMINAL_MODULE_PIVOTS = [
+    ("bound-root-os", "m = matrix([[1, 2], [3, 4]])\nm.os"),
+    ("bound-root-sys", "v = vector([1, 2])\nv.sys"),
+    ("bound-root-subprocess", "g = 1\ng.env.subprocess"),
+    ("bound-root-persist", "p = 2\np.misc.persist"),
+    ("bound-root-socket", "s = 3\ns.env.socket"),
+    ("deep-chain-os", "d = 1\nd.a.b.sage.env.os"),
+]
+
+
+@pytest.mark.parametrize(
+    ("case_id", "payload"), TERMINAL_MODULE_PIVOTS,
+    ids=[c for c, _ in TERMINAL_MODULE_PIVOTS],
+)
+def test_a_terminal_module_name_is_refused_under_any_root(case_id: str, payload: str) -> None:
+    """`<caller-bound>.os` is a module reference, not a method -- refuse it even
+    though the root is not on the allowlist (item 61 defence in depth)."""
+    with pytest.raises(SecurityViolation):
+        _validate(payload)
+
+
+# The five forbidden parents that ARE also real methods must keep working: the
+# fix must close the module pivot without refusing ordinary mathematics.
+DUAL_USE_METHODS_STILL_ALLOWED = [
+    ("matrix-trace", "matrix([[1, 2], [3, 4]]).trace()"),
+    ("expr-operator", "(x + y).operator()"),
+    ("bound-var-trace", "M = matrix([[1, 2], [3, 4]])\nM.trace()"),
+    ("allowlisted-root-operator", "pi.operator"),
+]
+
+
+@pytest.mark.parametrize(
+    ("case_id", "payload"), DUAL_USE_METHODS_STILL_ALLOWED,
+    ids=[c for c, _ in DUAL_USE_METHODS_STILL_ALLOWED],
+)
+def test_dual_use_methods_still_pass(case_id: str, payload: str) -> None:
+    _validate(payload)
+
+
 # --- Sage's own string-path primitives -----------------------------------------
 # The `operator` round blocked Python's attrgetter/methodcaller and left Sage's
 # equivalents in place, which is fixing the instance instead of the class. All

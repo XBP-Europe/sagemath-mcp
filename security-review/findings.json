@@ -1,0 +1,64 @@
+{
+  "repo": "sagemath-mcp",
+  "commit": "0176c7e9917a3d3bc6502be4303fef4e426eb1b9",
+  "reviewed_at": "2026-08-16",
+  "scope": "pending changes on branch fix/fragment-gate-and-monitoring-leak vs main (items 55-60 + monitoring leak fix)",
+  "findings": [
+    {
+      "id": "F-001",
+      "title": "Sandbox escape via curated star-import module objects (arbitrary command execution)",
+      "severity": "Critical",
+      "confidence": "Confirmed",
+      "cwe": "CWE-94",
+      "owasp": "A03:2021",
+      "file": "src/sagemath_mcp/_sage_worker.py",
+      "line": 462,
+      "entry_point": "evaluate_sage MCP tool (untrusted caller code path)",
+      "data_flow": [
+        "caller code -> SageSession.evaluate() -> worker _execute (untrusted) -> _split_code",
+        "rewrite_permitted_imports expands 'from sage.modular.dims import *' to explicit names incl. dirichlet (a module object)",
+        "_star_export_screen admitted dirichlet because module objects have no __module__, so the provenance check at line 462 returns '' and passes",
+        "validate_module approves 'alias = dirichlet.free_module_element.sage.env.os' because the terminal-segment rule (security.py:1238-1242) treats a forbidden parent 'os' under a non-allowlisted root as a benign method",
+        "alias is the real os module; alias.system('...') is unguarded (system removed from forbidden_attribute_names)"
+      ],
+      "impact": "Verified live on SageMath 10.9: os.system executed and wrote /tmp/PWNED2 with uid=1001(sage); os.environ and os.getcwd readable. RCE on host in the default stdio (no-container) deployment; env/secret disclosure + outbound sockets even in the hardened container deployment.",
+      "remediation": "In _star_export_screen reject any export whose value is a types.ModuleType (drops sage.modular.dims and sage.rings.polynomial.real_roots), regenerate star_exports.py, and add a regression test running the reproducer through the untrusted path. Defence-in-depth: in security.py:1238 do not treat a forbidden parent as a benign terminal method when the chain root is a caller-bound import alias.",
+      "compliance": [],
+      "effort": "Trivial",
+      "verdict": "CONFIRMED",
+      "regression_introduced_by_branch": true
+    }
+  ],
+  "rejected": [
+    {
+      "title": "attrcall literal screening bypass",
+      "reason": "Probed save/eval/dunder/write/bare-alias/non-literal forms; all refused. Benign literals pass and the runtime _guarded_attrcall re-screens with the same function."
+    },
+    {
+      "title": "Token-screen (item 55) scrubbed-name rescue via generator target",
+      "reason": "Rescued scrubbed names are removed from sage.all, so naming them yields NameError; always_forbidden (call names + attr parents) is not overridden by the rescue."
+    },
+    {
+      "title": "Monitoring resource cross-client leak (post-fix)",
+      "reason": "public_snapshot() pops the three free-text fields and MonitoringSnapshot no longer declares them; only process-wide aggregates reach the wire."
+    }
+  ],
+  "coverage": {
+    "reviewed": [
+      "full branch source diff",
+      "src/sagemath_mcp/security.py",
+      "src/sagemath_mcp/codegen.py",
+      "src/sagemath_mcp/_sage_worker.py",
+      "src/sagemath_mcp/star_exports.py",
+      "src/sagemath_mcp/monitoring.py",
+      "src/sagemath_mcp/models.py",
+      "src/sagemath_mcp/tools/session.py",
+      "scripts/generate_star_exports.py"
+    ],
+    "not_reviewed": [
+      "capability (not name/provenance) of every callable in the 13 curated star modules",
+      "the pre-existing validator beyond lines this branch touches"
+    ],
+    "limitations": "The star-export screen is capability-blind by design (see sage.libs.ecl / EclObject note in the generator). Sage-backed tests and reproducers executed in the running sage-mcp container on SageMath 10.9; no source modified during review."
+  }
+}

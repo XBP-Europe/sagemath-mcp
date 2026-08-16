@@ -7,6 +7,66 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-08-16
+
+A security patch on 0.6.0. It closes a critical sandbox escape introduced by the
+curated `import *` feature, hardens the validator against the same class, stops a
+cross-client information leak in the monitoring resource, and — safely — reduces
+how often the guardrails refuse legitimate SageMath mathematics (doctest-corpus
+acceptance 98.69% → 98.95%).
+
+### Security
+
+- **Curated `import *` allowed arbitrary command execution (critical).** The
+  screen that vets an internal module for `from <module> import *` decided
+  provenance from each value's `__module__`, but a module object has none, so a
+  re-exported module passed — `sage.modular.dims` exports `dirichlet`. A bound
+  module object is a pivot into the whole `sage.*` tree, and the validator's
+  terminal-attribute rule then treated `alias.os` under a caller-bound root as a
+  benign method, so
+  `from sage.modular.dims import *; dirichlet.free_module_element.sage.env.os.system('id')`
+  ran a shell as the container user. The screen now drops module-object exports
+  and the validator refuses a terminal module name under any root; both are
+  covered by regression tests that fail against the unpatched code. (review
+  items 61, 62, 63)
+- **The monitoring resource leaked another client's inputs and outputs.** The
+  `resource://sagemath/monitoring/{scope}` snapshot carried the last failing
+  evaluation's error message, rejected code and untruncated stdout, and
+  `_METRICS` is a process-global singleton, so any client could read another
+  client's data over the shipped HTTP deployment. Those free-text fields are
+  dropped before the snapshot leaves the process; only non-identifying aggregate
+  counters remain. (review item 58)
+
+### Added
+
+- Caller code may now `from <module> import *` for a curated set of internal
+  SageMath modules whose public names are all ordinary mathematics, screened
+  clean as a whole and generated into `star_exports.py`. Nothing is added to the
+  allowlist. (review items 60, 63)
+- `evaluate_sage` auto-declares symbol-shaped free names (`w`, `x_2`, `alpha`)
+  as symbols, matching SageMath's SR and the specialised tools, instead of
+  refusing them. Narrow and typo-guarded: multi-letter names stay errors, and a
+  session variable is never turned back into a symbol. (review item 65)
+
+### Changed
+
+- `set_verbose` is offered to caller code as a no-op — it only sets a global
+  verbosity level, which has no surface over MCP — rather than refused. (review
+  item 64)
+- `inject_shorthands` is simulated so the names it creates are readable in the
+  session, and a literal `attrcall('method')` is accepted once its name is
+  screened against the same rules the dotted spelling would face. (review item 59)
+- `doctest-corpus-stats.md` is tracked in the repository (counts only, never
+  corpus text) so a guardrail change's effect on the acceptance rate is visible
+  in review.
+
+### Fixed
+
+- The guarded `attrcall` wrapper was stripped by the namespace reseal and never
+  reinstalled, so `attrcall` silently stopped working after the first
+  specialised-tool call in a session. Caller shims are now reinstalled after
+  every reseal. (review item 64)
+
 ## [0.6.0] - 2026-08-15
 
 A security and correctness release, and a large one. `evaluate_sage` now

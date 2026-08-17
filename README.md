@@ -244,8 +244,8 @@ The primary tool. Executes arbitrary SageMath code inside a persistent worker pr
 - While code is running, the server emits **progress heartbeats** roughly every 1.5 seconds so clients can display activity indicators.
 - If the evaluation exceeds the timeout, the worker process is restarted and a `TimeoutError` is raised. All session state from prior calls is lost.
 - If the startup code (`from sage.all import *` by default) failed when the worker launched, every subsequent `evaluate_sage` call returns a clear `StartupError` instead of a confusing NameError.
-- **Caller code is checked against an allowlist**, so a name works only if SageMath preloads it for mathematics, it is a safe builtin, or your own code defined it — including earlier in the same session. Anything else is refused, and the message names the fix where there is one (an undeclared symbol is told to `var()` it). The AST validator runs on top of that (see [Security Sandbox](#security-sandbox)).
-- **`x`, `y`, `z` and `t` are predefined**; any other symbol needs `var('w')` first.
+- **Caller code is checked against an allowlist**, so a name works only if SageMath preloads it for mathematics, it is a safe builtin, or your own code defined it — including earlier in the same session. Anything else is refused, and the message names the fix where there is one. The AST validator runs on top of that (see [Security Sandbox](#security-sandbox)).
+- **`x`, `y`, `z` and `t` are predefined**, and `evaluate_sage` auto-declares any other symbol-shaped name (`w`, `x_2`, `alpha`) as a symbol the way SageMath's SR does — so `w^2 + 1` just works. The shape is narrow and typo-guarded: a multi-letter name like `sinn` stays an error, and a name you assigned earlier keeps its value.
 - Indentation shared by every line is stripped before parsing, so a snippet pasted out of a markdown block is accepted rather than failing as a syntax error.
 
 **Domain-specific examples** (these are included in the tool description LLMs see):
@@ -866,7 +866,7 @@ than it sounds: `sage` is an allowed import root, so
 | String-path attribute access | `attrgetter`, `methodcaller`, `itemgetter`, and the `operator` module that carries them. Every attribute rule here is enforced on the AST, and these take the path as a *runtime string* the AST never sees: `operator.attrgetter("misc.persist.unpickle_global")(sage)` returned the real function, which is arbitrary code execution. `getattr`, `setattr` and `vars` were already refused, which left `operator` as the only way in |
 | Forbidden modules | **Every** attribute of `os`, `sys`, `subprocess`, `shutil`, `socket`, `pathlib`, `builtins`, `operator`, `warnings`, `pari`, `oeis` --- at any depth, so `sage.misc.temporary_file.os` is caught too. `pari` is the PARI *library* interface, which the external-CAS scrub missed because it comes from `sage.libs.pari`; `pari('system("id")')` ran a shell command |
 | Sage sub-packages that execute | `cython`, `persist`, `remote_file`, `interfaces`, `inline_fortran`, `repl`, `package`, `temporary_file`, `attached_files`, `explain_pickle`, `edit_module`, `dev_tools`, `trace`, `sh` --- at any depth. Blocked as a *path*, so `sage.misc.trace.trace(...)` is refused and `A.trace()` is not |
-| Imports | **All of them.** Caller code cannot import anything: the namespace already has Sage loaded, and an import is how you get back a helper the worker removed |
+| Imports | **Refused by default.** An import is how you get back a helper the worker removed, and the namespace already has Sage loaded. Two narrow exceptions change nothing reachable: an import of names already offered, and `from <module> import *` for a curated set of internal SageMath modules whose public names are all ordinary mathematics --- screened clean as a whole and generated into `star_exports.py`, with any re-exported module object dropped so it cannot become a pivot. Nothing is added to the allowlist |
 | Scope manipulation | `global` and `nonlocal` statements (configurable) |
 | Namespace removal | The worker's `__builtins__` omits `open`, `eval`, `exec`, `compile`, `input`, `breakpoint`, `globals`, `locals`, `vars`, `memoryview`, `help`, `exit` and `quit` outright --- a backstop for spellings the AST pass misses. `__import__` deliberately stays, because Sage imports lazily during ordinary mathematics; it is unreachable from caller code, which cannot name any dunder. |
 
@@ -882,7 +882,9 @@ Everything Sage preloads --- which is the whole library. `factorial(5)`,
 import, because the worker starts with `from sage.all import *` already done.
 
 The import allowlist below applies **only to the snippets this server generates**.
-Caller code imports nothing:
+Caller code gets a much narrower door --- the imports that would change nothing
+(a name already offered, or `from <curated module> import *` expanded to its
+screened names), and nothing else --- see the Imports row above:
 
 | Import | Used by |
 |--------|---------|
@@ -1283,6 +1285,43 @@ sagemath-mcp/
 
 Every released version, newest first. [`CHANGELOG.md`](CHANGELOG.md) carries the
 full detail; this is the shape of each release.
+
+### v0.6.1 (2026-08-16)
+
+A security patch on 0.6.0.
+
+**Security**
+
+- **A critical sandbox escape in the curated `import *` feature.** The screen
+  vetted each export by its `__module__`, but a module object has none, so a
+  re-exported module (`sage.modular.dims` → `dirichlet`) passed and became a
+  pivot into the whole `sage.*` tree; `dirichlet.free_module_element.sage.env.os.system('id')`
+  ran a shell. The screen now drops module-object exports and the validator
+  refuses a terminal module name under any root.
+- **The monitoring resource leaked another client's inputs and outputs** — the
+  free-text error, rejected-code and stdout fields are dropped from the
+  process-global snapshot.
+
+**Added**
+
+- Caller code may `from <module> import *` for a curated set of clean internal
+  SageMath modules (generated into `star_exports.py`; nothing added to the
+  allowlist).
+- `evaluate_sage` **auto-declares symbol-shaped free names** (`w`, `x_2`,
+  `alpha`) the way SageMath's SR does, instead of refusing them — narrow and
+  typo-guarded, and a session variable is never turned back into a symbol.
+
+**Changed**
+
+- `set_verbose` is offered as a no-op (it only sets a global verbosity level,
+  which has no surface over MCP); `inject_shorthands` is simulated so its names
+  are readable; a literal `attrcall('method')` is accepted after its name is
+  screened. Doctest-corpus acceptance rose 98.69% → 98.95%.
+
+**Fixed**
+
+- The guarded `attrcall` wrapper is reinstalled after every namespace reseal; it
+  had silently stopped working after the first specialised-tool call in a session.
 
 ### v0.6.0 (2026-08-15)
 

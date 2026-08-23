@@ -999,6 +999,34 @@ class _StreamingStdout(io.StringIO):
         )
 
 
+# The JSON protocol's private stream, populated by _shield_protocol_stream()
+# when running as the actual worker process. None means "not shielded" -- the
+# in-process test harness -- and the protocol falls back to sys.stdout.
+_PROTOCOL: Any = None
+
+
+def _protocol_stream() -> Any:
+    return _PROTOCOL if _PROTOCOL is not None else sys.stdout
+
+
+def _shield_protocol_stream() -> None:
+    """Move the JSON protocol off descriptor 1.
+
+    The parent reads protocol responses from the worker's descriptor 1 with
+    readline(). redirect_stdout() rebinds only Python's sys.stdout -- a child
+    process a Sage internal forks, or a C library writing to the descriptor
+    directly, still lands mid-JSON-line and desyncs every request after it.
+    So the pipe is duplicated to a private descriptor for the protocol, and
+    descriptor 1 is pointed at stderr: raw writes surface as logged worker
+    noise instead of framing corruption. Called from the entrypoint only --
+    in-process tests must not have their own descriptors rewired.
+    """
+    global _PROTOCOL
+    sys.stdout.flush()
+    _PROTOCOL = os.fdopen(os.dup(1), "w", buffering=1, encoding="utf-8")
+    os.dup2(2, 1)
+
+
 def _execute(
     code: str,
     want_latex: bool,
@@ -1019,7 +1047,7 @@ def _execute(
         }
     # stream_id turns the buffer into one that also emits line events.
     if capture_stdout and stream_id is not None:
-        stdout_buffer: io.StringIO | None = _StreamingStdout(stream_id, sys.stdout)
+        stdout_buffer: io.StringIO | None = _StreamingStdout(stream_id, _protocol_stream())
     elif capture_stdout:
         stdout_buffer = io.StringIO()
     else:
@@ -1161,6 +1189,7 @@ def _main() -> int:
                         },
                     }
                 ),
+                file=_protocol_stream(),
                 flush=True,
             )
             continue
@@ -1177,12 +1206,12 @@ def _main() -> int:
                 stream_id=msg_id if message.get("stream") else None,
             )
             response["id"] = msg_id
-            print(json.dumps(response), flush=True)
+            print(json.dumps(response), file=_protocol_stream(), flush=True)
         elif msg_type == "reset":
             namespace = _build_namespace()
-            print(json.dumps({"ok": True, "id": msg_id}), flush=True)
+            print(json.dumps({"ok": True, "id": msg_id}), file=_protocol_stream(), flush=True)
         elif msg_type == "shutdown":
-            print(json.dumps({"ok": True, "id": msg_id}), flush=True)
+            print(json.dumps({"ok": True, "id": msg_id}), file=_protocol_stream(), flush=True)
             return 0
         else:
             print(
@@ -1196,10 +1225,12 @@ def _main() -> int:
                         },
                     }
                 ),
+                file=_protocol_stream(),
                 flush=True,
             )
     return 0
 
 
 if __name__ == "__main__":  # pragma: no cover - CLI entrypoint
+    _shield_protocol_stream()
     sys.exit(_main())

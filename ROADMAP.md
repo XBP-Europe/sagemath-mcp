@@ -2,7 +2,7 @@
 
 This document tracks planned improvements to the SageMath MCP server, organized by priority and effort. The goal is to strengthen the server's position as a universal mathematics MCP server that enables LLMs to perform any symbolic or discrete mathematical operation.
 
-**Current state (v0.5.0):** 37 MCP tools (31 Sage-backed, 6 infrastructure) covering calculus, algebra, linear algebra, ODEs, number theory, combinatorics, graph theory, group theory, elliptic curves, coding theory, boolean algebra, polynomial rings, geometry, probability, vector calculus, statistics, 2D/3D plotting, numeric root-finding, and incremental streaming. As of 2026-08-15 the suites pass 667 unit tests at 100% statement and branch coverage, 764 against a real SageMath 10.9 runtime, and 27/27 of the extended CLI cases across Claude, Gemini and Codex. Counts are a snapshot; the coverage floor is the part CI enforces.
+**Current state (v0.6.1):** 37 MCP tools (31 Sage-backed, 6 infrastructure) covering calculus, algebra, linear algebra, ODEs, number theory, combinatorics, graph theory, group theory, elliptic curves, coding theory, boolean algebra, polynomial rings, geometry, probability, vector calculus, statistics, 2D/3D plotting, numeric root-finding, and incremental streaming. As of 2026-08-15 the suites pass 667 unit tests at 100% statement and branch coverage, 764 against a real SageMath 10.9 runtime, and 27/27 of the extended CLI cases across Claude, Gemini and Codex. Counts are a snapshot; the coverage floor is the part CI enforces.
 
 Integration coverage now includes every tool exercised against the examples in its own
 documentation, and a syntax matrix over the input spellings each tool must accept. Both
@@ -29,9 +29,12 @@ The 2026-08-13 review and the security rounds that followed are all recorded in
 fix and regression test. Every one is closed except the account-side half of
 item 7: the Smithery and Glama submissions need repository-owner access.
 
-- [ ] Smithery: connect the repository at smithery.ai/new (reads the committed `smithery.yaml`) — needs owner access
-- [ ] Glama: claim the auto-indexed listing — needs owner access
-- [ ] Cut 0.5.1. Security fixes and a user-visible behaviour change are unreleased while 0.5.0 is the live version.
+- [ ] Smithery: their publish flow changed since this item was written — the current
+      docs describe hosted-URL and MCPB-bundle publishing only, and no longer document
+      the GitHub/`smithery.yaml` connect. Check smithery.ai/new for a legacy GitHub tab
+      before choosing between hosting an HTTP endpoint and wrapping an MCPB bundle.
+- [ ] Glama: `glama.json` naming the maintainers is merged (#50, the org-repo
+      claiming route); the browser-side Claim flow on the listing is the remaining step.
 
 ## Letting more legitimate mathematics through (measured 2026-08-15)
 
@@ -107,12 +110,79 @@ The adjacent market is roughly five times larger and is where attention actually
 5. **Academic anchor.** Their server is cited in a NeSy 2026 paper. This project has no
    equivalent reference.
 
+### Adopted from the field survey (2026-08-24)
+
+Glama's related-servers set was compared feature-by-feature on 2026-08-24
+(sympy-mcp, Axiom's Giac-in-WASM server, justice8096's Sage wrapper, math-mcp,
+math-logic-mcp). Most of what they have and this project lacks is either the
+point of their design (statelessness, small engines) or already decided against
+here. Three features survived the filter — each makes sense for this server and
+each has a mechanism, not just a wish — and a fourth resolved into
+documentation rather than surface:
+
+- [ ] **`verify_claim` tool.** Axiom ships a `verify` tool with confidence
+      scoring; nothing in the Sage field does. This is a checking primitive, not
+      a domain tool, and it matches the dominant failure mode of models doing
+      mathematics: confident wrong algebra. The model states a claim —
+      `integral(x^2/(e^x-1), x, 0, oo) == 2*zeta(3)` — and the server re-checks
+      it independently. Mechanism: the claim string passes the same preparse +
+      AST validation as `evaluate_sage` (no new security surface); the generated
+      check climbs a ladder — Sage's symbolic prover, exact difference
+      (`(lhs-rhs).simplify_full().is_zero()`), exact arithmetic over `QQbar`/`AA`
+      when the claim is constant, then high-precision numeric sampling over the
+      free variables — and answers `proved`, `refuted`, `supported` (with sample
+      count and precision), or `undecided`. Two rules keep it honest: the prover
+      returning `False` means *not proved*, never *false* — `refuted` requires an
+      exhibited counterexample evaluated exactly; and `supported` always carries
+      its evidence, never a bare confidence number. Costs on landing: tool
+      inventory snapshot, math-coverage cases, and bypass tests that the claim
+      string cannot reach anything the evaluate gate refuses.
+- [ ] **Outcome benchmarks.** Axiom publishes GSM8K / MATH accuracy deltas;
+      this project's doctest corpus sweep proves the guardrails do not refuse
+      mathematics, which is a different claim from "models get more answers
+      right with these tools". The machinery is already here:
+      `tests/cli_integration` drives Claude, Gemini and Codex against the live
+      server with per-case validation. Add a benchmark case set (a fixed-seed
+      subset of the MIT-licensed GSM8K and MATH datasets) and a no-tools control
+      mode in the runner, emit the with/without scores to a stats file the way
+      the corpus sweep writes `doctest-corpus-stats.md`, and publish the deltas
+      in the README. Runs where the CLI nightlies run — never CI-gated, because
+      the number measures the client model as much as the server.
+- [ ] **Passagemath runtime for install footprint.** "Where this project is
+      behind" item 4 above, now with a route: passagemath ships SageMath as
+      modularized pip distributions, so `pip install "sagemath-mcp[passagemath]"`
+      could stand up the 31 Sage-backed tools without the ~3 GB image or a local
+      Sage build. The three generated artifacts (allowlist, star exports, baked
+      denylist) are derived from *the installed Sage*, so the passagemath
+      namespace needs its own reviewed set: generate both variants with the
+      existing scripts, bake both, select by probing the runtime at worker start,
+      and extend the weekly drift job to cover both. The open design cost is
+      exactly that doubling — two artifact sets to review on every engine bump —
+      and it is priced in, not discovered later.
+- [ ] **Manifolds and GR: document, don't build.** sympy-mcp's tensor/GR tools
+      (Schwarzschild/Kerr metrics, Ricci/Einstein tensors) are its one breadth
+      advantage, and Sage has the stronger machinery underneath (SageManifolds,
+      including the metric catalog). The niche-domains decision below stands: no
+      dedicated tool. Instead, close the perceived gap at zero surface cost —
+      a worked GR example through `evaluate_sage` in the usage docs, and
+      math-coverage cases pinning that the policy accepts it (`Manifold` and
+      `manifolds` are already allowlisted; the corpus sweep exercises the module,
+      but no test currently asserts the curvature workflow end to end).
+
+Surveyed and *not* adopted: Axiom's stateless-HTTP scaling (statelessness is
+their design, session state is this project's point), its CLI one-shot mode (a
+different product), math-logic-mcp's Z3 layer (not Sage's instrument), and
+justice8096's per-call process model (rejected here for cold-start cost from
+the start).
+
 ---
 
 ## Explicitly not planned
 
-**More tools.** At 37 the surface already exceeds every peer. The gaps that matter are
-distribution and session ergonomics, not coverage.
+**More domain tools.** At 37 the surface already exceeds every peer. The gaps that
+matter are distribution and session ergonomics, not coverage. (`verify_claim` in the
+field-survey section is not an exception to this: it is a checking primitive over
+claims, not another slice of mathematical coverage.)
 
 ---
 

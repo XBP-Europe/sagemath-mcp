@@ -22,7 +22,7 @@
 
 A universal mathematics [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that gives LLM clients full access to [SageMath](https://www.sagemath.org/) --- one of the most comprehensive open-source mathematics systems available. Built on [FastMCP 3.x](https://gofastmcp.com/), the server maintains a dedicated SageMath process for each MCP session so variables, functions, and assumptions persist across tool calls.
 
-Whether the task is symbolic calculus, number theory, linear algebra, differential equations, plotting, combinatorics, graph theory, group theory, or basic arithmetic, the server provides **37 MCP tools** --- all math tools backed by the full SageMath engine, plus `evaluate_sage_streaming` (streaming wrapper) and an HTTP `/health` endpoint.
+Whether the task is symbolic calculus, number theory, linear algebra, differential equations, plotting, combinatorics, graph theory, group theory, or basic arithmetic, the server provides **39 MCP tools** --- all math tools backed by the full SageMath engine, plus `evaluate_sage_streaming` (streaming wrapper) and an HTTP `/health` endpoint.
 
 ---
 
@@ -82,6 +82,7 @@ Whether the task is symbolic calculus, number theory, linear algebra, differenti
 | **Vector calculus** | `vector_calculus_operation` | Sage | Gradient, divergence, curl, Laplacian on scalar/vector fields |
 | **Session control** | `reset_sage_session`, `interrupt_sage_session`, `cancel_sage_session` | Worker | Clear state, or stop a computation with or without keeping variables |
 | **Named workspaces** | `start_sage_session`, `list_sage_sessions`, `stop_sage_session` | Worker | Several independent variable namespaces per client |
+| **Diagnostics** | `check_sage_health`, `lookup_sage_doc` | Worker/Server | MCP-level readiness probe (evaluates `1+1`, reports latency); doc links for a Sage name plus whether this server offers it to caller code |
 | **Infrastructure** | `/health` endpoint, 3 MCP resources | Server | Health check, session snapshots, aggregated metrics, documentation links |
 
 ---
@@ -98,7 +99,7 @@ Whether the task is symbolic calculus, number theory, linear algebra, differenti
 │  app.py + tools/ --- FastMCP 3.x Application                    │
 │                                                                 │
 │  ┌─────────────┐  ┌──────────────┐  ┌────────────────────────┐  │
-│  │ 37 MCP Tools│  │ 3 Resources  │  │ Middleware             │  │
+│  │ 39 MCP Tools│  │ 3 Resources  │  │ Middleware             │  │
 │  │ (evaluate,  │  │ (session,    │  │ - Request logging      │  │
 │  │  solve,     │  │  monitoring, │  │ - Catalogue cache only │  │
 │  │  diff, ...) │  │  docs)       │  │ - Progress heartbeats  │  │
@@ -778,6 +779,24 @@ One client can hold several independent workspaces. Variables defined in one are
 > stop_sage_session(name="curves")
 ```
 
+#### `check_sage_health`
+
+The MCP-level readiness probe, for stdio clients that cannot reach the HTTP
+`/health` route. It exercises the real path -- worker spawn, protocol round
+trip, evaluation of `1+1` -- and reports failure in its result rather than
+erroring, so an agent can always call it before committing to a workflow.
+
+**Returns:** `{"ok": true, "backend": "sagemath", "elapsed_ms": 412.3, "session": "default"}`
+
+#### `lookup_sage_doc`
+
+Documentation links for one SageMath name, plus the half the upstream manual
+cannot answer: whether *this server* offers the name to `evaluate_sage` caller
+code. Caller code is deny-by-default, so a name Sage documents may still be
+withheld here; saying so up front saves the model a refused evaluation.
+
+**Returns:** `{"symbol": "EllipticCurve", "offered_to_caller_code": true, "links": {...}, "note": "..."}`
+
 Every tool that runs on a worker accepts the same optional `session` argument.
 Omitting it uses the `default` workspace, which is the behaviour of every earlier
 version.
@@ -1215,7 +1234,7 @@ sagemath-mcp/
 │   ├── runtime.py                  # Settings and the session manager
 │   ├── codegen.py                  # Prelude, literal encoding, validation gates, numeric guards
 │   ├── text.py                     # Client-facing strings shared by app and tools
-│   ├── tools/                      # The 37 tools and 3 resources, by domain
+│   ├── tools/                      # The 39 tools and 3 resources, by domain
 │   │   ├── session.py              #   6 session tools + the 3 resources
 │   │   ├── core.py                 #   evaluate_sage, streaming, calculate, simplify/expand/factor, find_root
 │   │   ├── calculus.py             #   differentiate, integrate, limit, series, ODEs, sums, vector calculus

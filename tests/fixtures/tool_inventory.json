@@ -72,6 +72,20 @@
         "type": "object"
       }
     },
+    "check_sage_health": {
+      "description": "Probe whether SageMath evaluation works right now: starts (or reuses) the workspace's worker, evaluates 1+1, and reports readiness and latency. Reports failure in the result instead of erroring, so it is always safe to call",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
     "coding_theory_operation": {
       "description": "Error-correcting codes: length, dimension, minimum distance, rate and generator matrix for Hamming and generalized Reed-Solomon codes. Prefer this over evaluate_sage for code parameters.",
       "input_schema": {
@@ -654,6 +668,22 @@
       "input_schema": {
         "additionalProperties": false,
         "properties": {},
+        "type": "object"
+      }
+    },
+    "lookup_sage_doc": {
+      "description": "Documentation links for a SageMath name, plus whether this server offers that name to evaluate_sage caller code",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "symbol": {
+            "description": "A SageMath name, e.g. 'EllipticCurve' or 'desolve'",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol"
+        ],
         "type": "object"
       }
     },

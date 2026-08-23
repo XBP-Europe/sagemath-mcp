@@ -27,6 +27,7 @@ from ..session import (
     SageSessionManager,
 )
 from ..text import SESSION_ARG_DESC as _SESSION_ARG_DESC
+from .hints import DISCARDS, INTERRUPTS, READS, STARTS
 
 DOC_LINKS: list[DocumentationLink] = [
     DocumentationLink(
@@ -44,7 +45,10 @@ DOC_LINKS: list[DocumentationLink] = [
 ]
 
 
-@mcp.tool(description="Reset the SageMath session state for the current MCP session")
+@mcp.tool(
+    annotations=DISCARDS,
+    description="Reset the SageMath session state for the current MCP session",
+)
 async def reset_sage_session(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
@@ -58,6 +62,7 @@ async def reset_sage_session(
 
 
 @mcp.tool(
+    annotations=INTERRUPTS,
     description="Interrupt a running Sage computation while keeping variables defined so far"
 )
 async def interrupt_sage_session(
@@ -83,7 +88,10 @@ async def interrupt_sage_session(
     return ResetResponse(message=f"Interrupted session '{session}'; state preserved")
 
 
-@mcp.tool(description="Cancel any running Sage computation and restart the worker")
+@mcp.tool(
+    annotations=DISCARDS,
+    description="Cancel any running Sage computation and restart the worker",
+)
 async def cancel_sage_session(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
@@ -100,7 +108,10 @@ async def cancel_sage_session(
     return ResetResponse(message="Session cancelled and restarted")
 
 
-@mcp.tool(description="Start a named Sage workspace with its own independent variables")
+@mcp.tool(
+    annotations=STARTS,
+    description="Start a named Sage workspace with its own independent variables",
+)
 async def start_sage_session(
     name: Annotated[str, Field(description="Workspace name, e.g. 'curves' or 'scratch'")],
     ctx: Context | None = None,
@@ -119,7 +130,7 @@ async def start_sage_session(
     return ResetResponse(message=f"Session '{name}' ready")
 
 
-@mcp.tool(description="List the named Sage workspaces belonging to this client")
+@mcp.tool(annotations=READS, description="List the named Sage workspaces belonging to this client")
 async def list_sage_sessions(ctx: Context | None = None) -> dict:
     """Report every workspace for this client, with liveness and statement counts."""
     if ctx is None or ctx.session_id is None:
@@ -128,7 +139,7 @@ async def list_sage_sessions(ctx: Context | None = None) -> dict:
     return {"sessions": sessions, "count": len(sessions)}
 
 
-@mcp.tool(description="Stop a named Sage workspace and release its worker")
+@mcp.tool(annotations=DISCARDS, description="Stop a named Sage workspace and release its worker")
 async def stop_sage_session(
     name: Annotated[str, Field(description="Workspace name to stop")],
     ctx: Context | None = None,

@@ -30,9 +30,10 @@ from ..session import (
     DEFAULT_SESSION_NAME,
 )
 from ..text import SESSION_ARG_DESC as _SESSION_ARG_DESC
+from .hints import COMPUTES
 
 
-@mcp.tool(description="Solve an equation or system of equations")
+@mcp.tool(annotations=COMPUTES, description="Solve an equation or system of equations")
 async def solve_equation(
     equation: Annotated[
         str | list[str],
@@ -86,7 +87,10 @@ _EXACT_SCALAR = (
 )
 
 
-@mcp.tool(description="Multiply two matrices and return the result as nested lists")
+@mcp.tool(
+    annotations=COMPUTES,
+    description="Multiply two matrices and return the result as nested lists",
+)
 async def matrix_multiply(
     matrix_a: Annotated[
         list[list[float | int | str]],
@@ -129,7 +133,7 @@ async def matrix_multiply(
     return {"product": product}
 
 
-@mcp.tool(description=(
+@mcp.tool(annotations=COMPUTES, description=(
         "Linear algebra on one matrix: determinant, inverse, eigenvalues, rank, "
         "reduced row echelon form, transpose. Prefer this over evaluate_sage."
     ))
@@ -183,6 +187,7 @@ async def matrix_operation(
 
 
 @mcp.tool(
+    annotations=COMPUTES,
     description=(
         "Boolean polynomials over GF(2): evaluate, list variables, degree, and "
         "zero/one tests. Prefer this over evaluate_sage for boolean algebra."
@@ -243,6 +248,7 @@ async def boolean_algebra_operation(
 
 
 @mcp.tool(
+    annotations=COMPUTES,
     description="Polynomial ring operations: construct rings "
     "and compute Groebner bases, ideals, quotients"
 )

@@ -29,9 +29,10 @@ from ..session import (
     DEFAULT_SESSION_NAME,
 )
 from ..text import SESSION_ARG_DESC as _SESSION_ARG_DESC
+from .hints import COMPUTES
 
 
-@mcp.tool(description=(
+@mcp.tool(annotations=COMPUTES, description=(
         "Descriptive statistics for a list of numbers: mean, median, population "
         "and sample variance and standard deviation, min and max. Prefer this "
         "over evaluate_sage for summary statistics."
@@ -77,6 +78,7 @@ async def statistics_summary(
 
 
 @mcp.tool(
+    annotations=COMPUTES,
     description="Probability distribution operations: PDF, CDF, quantile, mean, variance, sampling"
 )
 async def distribution_operation(

@@ -10,7 +10,7 @@
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-purple)](https://modelcontextprotocol.io/)
 [![FastMCP](https://img.shields.io/badge/FastMCP-3.4%2B-green.svg)](https://gofastmcp.com/)
-[![SageMath](https://img.shields.io/badge/SageMath-10.9-orange)](https://www.sagemath.org/)
+[![SageMath](https://img.shields.io/badge/SageMath-10.10.beta9-orange)](https://www.sagemath.org/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://docs.astral.sh/ruff/)
 [![Typed](https://img.shields.io/badge/type--checked-py.typed-blue)](https://peps.python.org/pep-0561/)
 [![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)](https://github.com/XBP-Europe/sagemath-mcp/actions/workflows/ci.yml)

@@ -1,4 +1,4 @@
-FROM sagemath/sagemath:10.9
+FROM sagemath/sagemath:10.10.beta9
 
 WORKDIR /workspace
 

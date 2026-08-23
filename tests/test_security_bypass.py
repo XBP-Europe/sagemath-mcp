@@ -1931,6 +1931,9 @@ def test_an_injection_suspends_the_allowlist_and_nothing_else() -> None:
 _COMBINATORIAL_REMOVE = frozenset({
     "Bitset", "IncreasingTableau", "LabelledOrderedTree", "LabelledRootedTree",
     "LittlewoodRichardsonTableau", "OrderedTree", "ParallelogramPolyomino",
+    # QuasiRibbonTableau arrived with SageMath 10.10; its `remove` is the
+    # inherited `ClonableList.remove`, same as the other tableaux here.
+    "QuasiRibbonTableau",
     "RibbonShapedTableau", "RibbonTableau", "RootedTree", "RowStandardTableau",
     "SemistandardSuperTableau", "SemistandardTableau", "SkewTableau",
     "StandardSuperTableau", "StandardTableau", "StrongTableau", "Tableau",

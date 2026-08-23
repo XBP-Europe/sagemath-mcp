@@ -28,9 +28,13 @@ from ..session import (
     DEFAULT_SESSION_NAME,
 )
 from ..text import SESSION_ARG_DESC as _SESSION_ARG_DESC
+from .hints import COMPUTES
 
 
-@mcp.tool(description="Differentiate an expression with respect to a variable")
+@mcp.tool(
+    annotations=COMPUTES,
+    description="Differentiate an expression with respect to a variable",
+)
 async def differentiate_expression(
     expression: Annotated[str, Field(description="Expression to differentiate")],
     variable: Annotated[str, Field(description="Variable for differentiation", default="x")] = "x",
@@ -58,7 +62,10 @@ async def differentiate_expression(
     return {"derivative": result, "order": order}
 
 
-@mcp.tool(description="Integrate an expression (indefinite or definite with bounds)")
+@mcp.tool(
+    annotations=COMPUTES,
+    description="Integrate an expression (indefinite or definite with bounds)",
+)
 async def integrate_expression(
     expression: Annotated[str, Field(description="Expression to integrate")],
     variable: Annotated[str, Field(description="Integration variable", default="x")] = "x",
@@ -108,7 +115,7 @@ async def integrate_expression(
     return {"integral": result, "definite": definite}
 
 
-@mcp.tool(description="Compute the limit of an expression")
+@mcp.tool(annotations=COMPUTES, description="Compute the limit of an expression")
 async def limit_expression(
     expression: Annotated[str, Field(description="Expression to take the limit of")],
     variable: Annotated[str, Field(description="Variable approaching the point")] = "x",
@@ -140,7 +147,7 @@ async def limit_expression(
     return {"limit": result}
 
 
-@mcp.tool(description="Compute a Taylor/Laurent series expansion")
+@mcp.tool(annotations=COMPUTES, description="Compute a Taylor/Laurent series expansion")
 async def series_expansion(
     expression: Annotated[str, Field(description="Expression to expand in series")],
     variable: Annotated[str, Field(description="Variable for expansion")] = "x",
@@ -168,7 +175,7 @@ async def series_expansion(
     return {"series": result, "point": point, "order": order}
 
 
-@mcp.tool(description=(
+@mcp.tool(annotations=COMPUTES, description=(
         "Solve an ordinary differential equation of any order, returning the "
         "general solution with arbitrary constants. Prefer this over evaluate_sage."
     ))
@@ -223,7 +230,7 @@ async def solve_ode(
     return {"solution": result}
 
 
-@mcp.tool(description=(
+@mcp.tool(annotations=COMPUTES, description=(
         "Closed form of a symbolic sum or product over an index variable, "
         "including infinite series. Prefer this over evaluate_sage for summations."
     ))
@@ -260,6 +267,7 @@ async def symbolic_sum(
 
 
 @mcp.tool(
+    annotations=COMPUTES,
     description="Vector calculus operations: gradient, divergence, curl, laplacian"
 )
 async def vector_calculus_operation(

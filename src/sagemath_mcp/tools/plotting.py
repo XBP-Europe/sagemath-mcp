@@ -26,12 +26,16 @@ from ..session import (
     DEFAULT_SESSION_NAME,
 )
 from ..text import SESSION_ARG_DESC as _SESSION_ARG_DESC
+from .hints import COMPUTES
 
 # Samples per axis for the 3D surface. 48x48 keeps the rendered surface smooth
 # while staying well inside the evaluation timeout.
 _PLOT3D_GRID = 48
 
-@mcp.tool(description="Plot a 3D surface of a two-variable expression as base64 PNG")
+@mcp.tool(
+    annotations=COMPUTES,
+    description="Plot a 3D surface of a two-variable expression as base64 PNG",
+)
 async def plot3d_expression(
     expression: Annotated[
         str, Field(description="Expression of two variables (e.g. 'sin(x)*cos(y)')")
@@ -109,7 +113,10 @@ async def plot3d_expression(
     return {"image_base64": result, "format": "png"}
 
 
-@mcp.tool(description="Plot multiple expressions overlaid on a single 2D graph")
+@mcp.tool(
+    annotations=COMPUTES,
+    description="Plot multiple expressions overlaid on a single 2D graph",
+)
 async def plot_multi_expression(
     expressions: Annotated[
         list[str], Field(description="List of expressions to plot (e.g. ['sin(x)', 'cos(x)'])")
@@ -146,7 +153,10 @@ async def plot_multi_expression(
     return {"image_base64": result, "format": "png"}
 
 
-@mcp.tool(description="Plot an expression and return a base64-encoded PNG image")
+@mcp.tool(
+    annotations=COMPUTES,
+    description="Plot an expression and return a base64-encoded PNG image",
+)
 async def plot_expression(
     expression: Annotated[str, Field(description="Expression to plot")],
     variable: Annotated[str, Field(description="Plot variable")] = "x",
@@ -182,6 +192,7 @@ async def plot_expression(
 
 
 @mcp.tool(
+    annotations=COMPUTES,
     description=(
         "Computational geometry on point sets: euclidean distance, polygon area, "
         "polytope volume, convex hull vertices and convexity tests. Prefer this "

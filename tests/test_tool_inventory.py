@@ -167,3 +167,40 @@ def test_matrix_entries_advertise_exact_integers(tool: str, parameter: str) -> N
     tools = asyncio.run(_collect())["tools"]
     entry = tools[tool]["input_schema"]["properties"][parameter]["items"]["items"]
     assert _accepts_string(entry), f"{tool}.{parameter} entries cannot carry an exact integer"
+
+
+async def test_every_tool_declares_its_annotations():
+    """Each tool says what kind it is; the risky memberships are pinned.
+
+    Annotations are advisory (clients may gate confirmation prompts on
+    destructiveHint or retries on idempotentHint), so the dangerous claims are
+    asserted exactly: nothing may become destructive, read-only or
+    non-idempotent -- or stop being it -- without this test changing too. See
+    src/sagemath_mcp/tools/hints.py for the groups.
+    """
+    from sagemath_mcp import server
+
+    tools = await server.mcp.list_tools()
+    hints = {tool.name: tool.annotations for tool in tools}
+
+    missing = sorted(name for name, a in hints.items() if a is None)
+    assert not missing, f"tools without annotations: {missing}"
+
+    destructive = {name for name, a in hints.items() if a.destructiveHint}
+    assert destructive == {
+        "cancel_sage_session",
+        "reset_sage_session",
+        "stop_sage_session",
+    }, "destructive means 'discards session state'; nothing else qualifies"
+
+    read_only = {name for name, a in hints.items() if a.readOnlyHint}
+    assert read_only == {"list_sage_sessions"}
+
+    non_idempotent = {name for name, a in hints.items() if not a.idempotentHint}
+    assert non_idempotent == {"evaluate_sage", "evaluate_sage_streaming"}, (
+        "open-ended code is the only surface where repeating is not the same "
+        "as doing it once"
+    )
+
+    open_world = {name for name, a in hints.items() if a.openWorldHint}
+    assert not open_world, "nothing here reaches beyond the local Sage worker"

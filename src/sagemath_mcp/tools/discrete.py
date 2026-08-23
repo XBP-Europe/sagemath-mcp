@@ -28,9 +28,10 @@ from ..session import (
     DEFAULT_SESSION_NAME,
 )
 from ..text import SESSION_ARG_DESC as _SESSION_ARG_DESC
+from .hints import COMPUTES
 
 
-@mcp.tool(description=(
+@mcp.tool(annotations=COMPUTES, description=(
         "Number theory: primality testing, integer factorisation, the next "
         "prime above n, gcd and lcm. Prefer this over evaluate_sage for any of these."
     ))
@@ -83,7 +84,7 @@ async def number_theory_operation(
     return {"operation": operation, "result": result}
 
 
-@mcp.tool(description=(
+@mcp.tool(annotations=COMPUTES, description=(
         "Combinatorics: binomial coefficients, permutations, combinations, "
         "integer partitions, factorial, Catalan, Fibonacci and Bell numbers. "
         "Prefer this over evaluate_sage for any of these."
@@ -153,6 +154,7 @@ async def combinatorics_operation(
 
 
 @mcp.tool(
+    annotations=COMPUTES,
     description="Graph theory: create named graphs and compute properties "
     "(chromatic_number, is_connected, diameter, etc.)"
 )
@@ -227,6 +229,7 @@ async def graph_operation(
 
 
 @mcp.tool(
+    annotations=COMPUTES,
     description="Group theory: construct groups and query properties "
     "(order, is_abelian, center, etc.)"
 )
@@ -274,6 +277,7 @@ async def group_operation(
 
 
 @mcp.tool(
+    annotations=COMPUTES,
     description=(
         "Elliptic curves over Q: rank, torsion order, discriminant, j-invariant, "
         "conductor and generators, from Weierstrass coefficients. Prefer this "
@@ -327,6 +331,7 @@ async def elliptic_curve_operation(
 
 
 @mcp.tool(
+    annotations=COMPUTES,
     description=(
         "Error-correcting codes: length, dimension, minimum distance, rate and "
         "generator matrix for Hamming and generalized Reed-Solomon codes. Prefer "

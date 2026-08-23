@@ -35,6 +35,7 @@ from ..session import (
     SageProcessError,
 )
 from ..text import SESSION_ARG_DESC as _SESSION_ARG_DESC
+from .hints import COMPUTES, EVALUATES
 
 LOGGER = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ LOGGER = logging.getLogger(__name__)
 # suite, Codex chose evaluate_sage for every single question. The examples below
 # are deliberately restricted to work no dedicated tool performs, so that what
 # this tool shows and what it says agree.
-@mcp.tool(description="""\
+@mcp.tool(annotations=EVALUATES, description="""\
 Run arbitrary SageMath code in a persistent session; variables persist across calls.
 
 LAST RESORT. A dedicated tool exists for most tasks and should be preferred: it \
@@ -193,7 +194,10 @@ def _truncate_stdout(stdout: str) -> str:
     return clipped + "\n… [output truncated]"
 
 
-@mcp.tool(description="Evaluate a SageMath expression and return numeric/string forms")
+@mcp.tool(
+    annotations=COMPUTES,
+    description="Evaluate a SageMath expression and return numeric/string forms",
+)
 async def calculate_expression(
     expression: Annotated[str, Field(description="SageMath expression to evaluate")],
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
@@ -230,7 +234,7 @@ async def calculate_expression(
     return payload
 
 
-@mcp.tool(description="Simplify a mathematical expression")
+@mcp.tool(annotations=COMPUTES, description="Simplify a mathematical expression")
 async def simplify_expression(
     expression: Annotated[str, Field(description="Expression to simplify")],
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
@@ -252,7 +256,7 @@ async def simplify_expression(
     return {"simplified": result}
 
 
-@mcp.tool(description="Expand a mathematical expression")
+@mcp.tool(annotations=COMPUTES, description="Expand a mathematical expression")
 async def expand_expression(
     expression: Annotated[str, Field(description="Expression to expand")],
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
@@ -274,7 +278,7 @@ async def expand_expression(
     return {"expanded": result}
 
 
-@mcp.tool(description="Factor a mathematical expression or integer")
+@mcp.tool(annotations=COMPUTES, description="Factor a mathematical expression or integer")
 async def factor_expression(
     expression: Annotated[str, Field(description="Expression to factor (e.g., 'x^2 - 1' or '60')")],
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
@@ -296,7 +300,10 @@ async def factor_expression(
     return {"factored": result}
 
 
-@mcp.tool(description="Find a numeric root of an expression or equation in a given interval")
+@mcp.tool(
+    annotations=COMPUTES,
+    description="Find a numeric root of an expression or equation in a given interval",
+)
 async def find_root(
     expression: Annotated[
         str,
@@ -344,6 +351,7 @@ async def find_root(
 
 
 @mcp.tool(
+    annotations=EVALUATES,
     description="Execute SageMath code and stream intermediate print() output "
     "line by line. Final result is returned as usual."
 )

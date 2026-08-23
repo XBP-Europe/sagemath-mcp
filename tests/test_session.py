@@ -1674,3 +1674,50 @@ def test_a_successful_save_retires_the_legacy_file(tmp_path):
 
     assert session._persist_path().exists()
     assert not legacy.exists(), "the superseded journal should be retired on success"
+
+
+@pytest.mark.asyncio
+async def test_worker_leads_its_own_process_group(python_settings):
+    """The worker's pid must be its process group id.
+
+    Sage forks helpers of its own (the pexpect interfaces fork GAP and
+    friends); a kill that reaches only the worker leaves those orphaned and
+    computing. start_new_session makes the worker a group leader so the
+    group kill in _kill_worker_group can reap the lot. POSIX only.
+    """
+    import os
+
+    session = SageSession("pgid-session", python_settings)
+    try:
+        await session.evaluate("1 + 1", want_latex=False, capture_stdout=False)
+        assert session._process is not None
+        pid = session._process.pid
+        assert os.getpgid(pid) == pid
+    finally:
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_terminate_kills_the_worker_process_group(monkeypatch, python_settings):
+    """Termination must target the group, not just the worker pid."""
+    import os
+    import signal as signal_module
+
+    killed: list[tuple[int, int]] = []
+    real_killpg = os.killpg
+
+    def recording_killpg(pgid: int, sig: int) -> None:
+        killed.append((pgid, sig))
+        real_killpg(pgid, sig)
+
+    session = SageSession("group-kill-session", python_settings)
+    try:
+        await session.evaluate("1 + 1", want_latex=False, capture_stdout=False)
+        assert session._process is not None
+        pid = session._process.pid
+        monkeypatch.setattr(os, "killpg", recording_killpg)
+        await session._terminate_worker()
+    finally:
+        await session.shutdown()
+
+    assert (pid, signal_module.SIGKILL) in killed

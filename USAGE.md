@@ -48,7 +48,7 @@ sage -python -m uv run sagemath-mcp --transport streamable-http --host 0.0.0.0 -
 > The bundled compose file publishes to `127.0.0.1` for the same reason.
 The server advertises its MCP endpoint at `http://HOST:PORT/mcp`.
 
-## Available Tools & Resources (37 tools, 3 resources)
+## Available Tools & Resources (39 tools, 3 resources)
 
 All math tools use **SageMath** as the computation backend.
 
@@ -91,6 +91,8 @@ All math tools use **SageMath** as the computation backend.
 | `start_sage_session` | Worker | Start a **named workspace** with its own independent variables. |
 | `list_sage_sessions` | Worker | List the named workspaces belonging to this client. |
 | `stop_sage_session` | Worker | Stop a named workspace and release its worker. |
+| `check_sage_health` | Worker | Probe readiness: spins up (or reuses) the workspace worker, evaluates `1+1`, reports `ok`/latency instead of erroring. |
+| `lookup_sage_doc` | Server | Documentation links for a SageMath name, plus whether this server offers it to caller code. |
 | `resource://sagemath/session/{scope}` | Server | Inspect active sessions (`scope=all` or specific session id). |
 | `resource://sagemath/monitoring/{scope}` | Server | Fetch evaluation metrics (`scope=metrics` or `all`). |
 | `resource://sagemath/docs/{scope}` | Server | Retrieve SageMath documentation links (`scope=all`, `reference`, `tutorial`). |

@@ -48,6 +48,10 @@ from .tools.core import (  # noqa: F401
     find_root,
     simplify_expression,
 )
+from .tools.diagnostics import (  # noqa: F401
+    check_sage_health,
+    lookup_sage_doc,
+)
 from .tools.discrete import (  # noqa: F401
     coding_theory_operation,
     combinatorics_operation,

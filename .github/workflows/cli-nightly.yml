@@ -89,7 +89,7 @@ jobs:
         if: steps.creds.outputs.present == 'true'
         run: uv pip install -e .[dev]
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         if: steps.creds.outputs.present == 'true'
         with:
           node-version: "22"

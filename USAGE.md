@@ -127,6 +127,29 @@ Interrupting is not cancelling. `interrupt_sage_session` abandons the running
 computation and keeps every variable; `cancel_sage_session` restarts the worker
 and discards them. Prefer the first.
 
+### Worked example: general relativity through `evaluate_sage`
+
+There is no dedicated tensor tool — deliberately, see ROADMAP.md — because the
+whole SageManifolds workflow passes the policy as ordinary `evaluate_sage`
+calls, including the preparser-only chart syntax. Curvature of the hyperbolic
+plane (the 2D Anti-de Sitter analogue), one call:
+
+```python
+H = Manifold(2, 'H', structure='Riemannian')
+X.<p,q> = H.chart('p q:(0,+oo)')
+g = H.metric('g')
+g[0,0] = 1/q^2
+g[1,1] = 1/q^2
+g.ricci_scalar().expr()   # -> -2, constant negative curvature
+```
+
+Lorentzian signatures (`structure='Lorentzian'`), the metric catalog
+(`manifolds.Sphere(2).induced_metric()`), Ricci and Riemann tensors and
+connections all work the same way; the session keeps the manifold alive across
+calls, so the metric can be defined once and interrogated repeatedly.
+`tests/test_use_cases.py::test_use_cases_cover_the_sympy_mcp_showcase` pins
+this workflow against a real Sage runtime.
+
 ## Verifying the Server
 ### Automated Tests & Lint
 ```bash

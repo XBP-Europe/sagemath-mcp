@@ -1095,3 +1095,45 @@ def test_star_export_screen_rejects_a_malformed_all_entry(monkeypatch):
     mod.__all__ = ["_private"]
     monkeypatch.setitem(sys.modules, "fake.malformed", mod)
     assert _sage_worker._star_export_screen("fake.malformed") is None
+
+
+def test_shield_moves_the_protocol_off_descriptor_one():
+    """A raw write to descriptor 1 must land in stderr, not the protocol.
+
+    The parent reads JSON responses from the worker's descriptor 1. A child a
+    Sage internal forks -- the pexpect interfaces most visibly -- inherits
+    that descriptor, and one stray line from it desyncs every request after
+    it (redirect_stdout only rebinds Python's sys.stdout, not the fd). The
+    shield dups the pipe to a private stream and points descriptor 1 at
+    stderr; this exercises it with real pipes standing in for both.
+    """
+    import os
+
+    from sagemath_mcp import _sage_worker
+
+    proto_r, proto_w = os.pipe()   # stands in for the protocol pipe on fd 1
+    noise_r, noise_w = os.pipe()   # stands in for stderr on fd 2
+    saved_out, saved_err = os.dup(1), os.dup(2)
+    try:
+        os.dup2(proto_w, 1)
+        os.dup2(noise_w, 2)
+        _sage_worker._shield_protocol_stream()
+        os.write(1, b"raw child noise\n")   # what an inherited descriptor does
+        print("protocol line", file=_sage_worker._protocol_stream(), flush=True)
+    finally:
+        os.dup2(saved_out, 1)
+        os.dup2(saved_err, 2)
+        os.close(saved_out)
+        os.close(saved_err)
+        shielded = _sage_worker._PROTOCOL
+        _sage_worker._PROTOCOL = None
+        shielded.close()
+        os.close(proto_w)
+        os.close(noise_w)
+
+    try:
+        assert os.read(proto_r, 1024) == b"protocol line\n"
+        assert os.read(noise_r, 1024) == b"raw child noise\n"
+    finally:
+        os.close(proto_r)
+        os.close(noise_r)

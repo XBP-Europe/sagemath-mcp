@@ -155,6 +155,11 @@ class SageSession:
             # also exceed it. Sized against max_stdout, which already bounds
             # how much a result may carry.
             limit=_STREAM_LIMIT,
+            # The worker leads its own process group. Sage spawns helpers of
+            # its own -- the pexpect interfaces fork GAP and friends -- and a
+            # kill that reaches only the worker leaves those orphaned and
+            # computing. Killing the group (see _kill_worker_group) reaps them.
+            start_new_session=True,
         )
         self._stderr_task = asyncio.create_task(self._consume_stderr())
         self.started_at = time.time()
@@ -621,7 +626,7 @@ class SageSession:
         try:
             await asyncio.wait_for(self._process.wait(), timeout=self.settings.shutdown_grace)
         except TimeoutError:
-            self._process.kill()
+            self._kill_worker_group()
         self._process.stdin.close()
         with contextlib.suppress(Exception):
             await self._process.stdin.wait_closed()
@@ -664,9 +669,29 @@ class SageSession:
                 with contextlib.suppress(Exception):
                     await self._process.stdin.wait_closed()
             if self._process.returncode is None:
-                self._process.kill()
+                self._kill_worker_group()
                 await self._process.wait()
         self._process = None
+
+    def _kill_worker_group(self) -> None:
+        """SIGKILL the worker and everything it spawned.
+
+        The worker was started with ``start_new_session=True``, so its pid is
+        its process group. Killing only the worker left the children Sage forks
+        for its pexpect interfaces (GAP most visibly) alive and computing after
+        a cancel or timeout. ``interrupt`` deliberately does NOT use this: a
+        SIGINT goes to the worker alone, which forwards it to its interfaces
+        the same way the Sage REPL does.
+        """
+        assert self._process is not None
+        # AttributeError: no killpg outside POSIX. OSError: the group is
+        # already gone, or the pid was reaped and reused by another user.
+        with contextlib.suppress(AttributeError, OSError):
+            os.killpg(self._process.pid, signal.SIGKILL)
+        # Reaching the worker directly is harmless after a successful group
+        # kill and is what remains of the old behaviour everywhere else.
+        with contextlib.suppress(OSError):
+            self._process.kill()
 
 
 class SageSessionManager:

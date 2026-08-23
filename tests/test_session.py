@@ -1674,3 +1674,30 @@ def test_a_successful_save_retires_the_legacy_file(tmp_path):
 
     assert session._persist_path().exists()
     assert not legacy.exists(), "the superseded journal should be retired on success"
+
+
+@pytest.mark.asyncio
+async def test_timeout_message_coaches_the_retry(python_settings):
+    """The timeout error must say what happened to the state and what to do.
+
+    Clients here are models that retry on what they are told. A bare "timed
+    out" invites resending the same call, which times out again and discards
+    a fresh namespace each round; the message names the per-call `timeout`,
+    the streaming tool, and the interrupt-keeps-variables distinction instead.
+    """
+    session = SageSession("coaching-timeout", python_settings)
+    try:
+        with pytest.raises(TimeoutError) as excinfo:
+            await session.evaluate(
+                "sum(range(80000000))",
+                want_latex=False,
+                capture_stdout=False,
+                timeout_seconds=0.3,
+            )
+        message = str(excinfo.value)
+        assert "variables were discarded" in message
+        assert "`timeout`" in message
+        assert "evaluate_sage_streaming" in message
+        assert "interrupt_sage_session" in message
+    finally:
+        await session.shutdown()

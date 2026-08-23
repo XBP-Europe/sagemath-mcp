@@ -377,8 +377,17 @@ class SageSession:
             # Deliberately no drain here. Waiting on the caller's callback held
             # the TimeoutError until the callback was released, so the caller
             # waited indefinitely for news of a computation already abandoned.
+            # The message coaches the model, not just the operator: it says
+            # what happened to the state and which tool fits the retry. A bare
+            # "timed out" reads as "try the same call again", which repeats the
+            # timeout and discards a fresh namespace each time.
             raise TimeoutError(
-                f"Sage evaluation timed out after {effective_timeout:.2f}s"
+                f"Sage evaluation timed out after {effective_timeout:.2f}s. "
+                "The worker was restarted and the session's variables were "
+                "discarded. Retry with a larger per-call `timeout`; for long "
+                "computations prefer evaluate_sage_streaming to watch "
+                "progress, and interrupt_sage_session to stop one while "
+                "keeping its variables."
             ) from exc
         except asyncio.CancelledError:
                 # The caller went away, but the worker is still computing: the

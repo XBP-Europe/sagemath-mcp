@@ -4,8 +4,7 @@ Both adopted from the 2026-08-24 peer survey. Stdio clients cannot reach the
 HTTP ``/health`` route, so agents had no way to check readiness before
 committing to a workflow; and models routinely want the Sage documentation
 for a name, where a static URL map answers without costing a worker round
-trip. The annotation dicts are spelled inline here; they match the groups in
-``tools/hints.py`` once that module lands.
+trip.
 """
 
 from __future__ import annotations
@@ -23,6 +22,7 @@ from ..allowlist import ALLOWED_CALLER_NAMES
 from ..app import mcp
 from ..session import DEFAULT_SESSION_NAME, SageEvaluationError, SageProcessError
 from ..text import SESSION_ARG_DESC as _SESSION_ARG_DESC
+from .hints import COMPUTES, READS
 
 # The probe never waits longer than this, whatever eval_timeout is set to: a
 # health check that can hang for minutes reports nothing anyone can act on.
@@ -39,12 +39,8 @@ _DOC_LINKS: tuple[tuple[str, str], ...] = (
 
 
 @mcp.tool(
-    annotations={
-        "readOnlyHint": False,   # the probe may start the workspace's worker
-        "destructiveHint": False,
-        "idempotentHint": True,
-        "openWorldHint": False,
-    },
+    # COMPUTES, not READS: the probe may start the workspace's worker.
+    annotations=COMPUTES,
     description="Probe whether SageMath evaluation works right now: starts (or reuses) "
     "the workspace's worker, evaluates 1+1, and reports readiness and latency. "
     "Reports failure in the result instead of erroring, so it is always safe to call",
@@ -90,12 +86,7 @@ async def check_sage_health(
 
 
 @mcp.tool(
-    annotations={
-        "readOnlyHint": True,
-        "destructiveHint": False,
-        "idempotentHint": True,
-        "openWorldHint": False,
-    },
+    annotations=READS,
     description="Documentation links for a SageMath name, plus whether this server "
     "offers that name to evaluate_sage caller code",
 )

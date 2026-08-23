@@ -194,7 +194,7 @@ async def test_every_tool_declares_its_annotations():
     }, "destructive means 'discards session state'; nothing else qualifies"
 
     read_only = {name for name, a in hints.items() if a.readOnlyHint}
-    assert read_only == {"list_sage_sessions"}
+    assert read_only == {"list_sage_sessions", "lookup_sage_doc"}
 
     non_idempotent = {name for name, a in hints.items() if not a.idempotentHint}
     assert non_idempotent == {"evaluate_sage", "evaluate_sage_streaming"}, (

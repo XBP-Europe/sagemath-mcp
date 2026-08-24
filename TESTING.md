@@ -21,7 +21,8 @@ that gap.
 | `test_sage_worker.py` | no | Worker protocol, the streaming stdout buffer, interrupt and startup-failure paths |
 | `test_security_bypass.py` | no | Every sandbox escape found so far, each one a regression test |
 | `test_cache_isolation.py` | no | Two clients must not share cached tool responses |
-| `test_tool_inventory.py` | no | The MCP contract: tool names, schemas and descriptions, against a committed snapshot |
+| `test_diagnostics.py` | no | The health probe (`check_sage_health`, reports unhealthy rather than erroring) and the doc lookup (`lookup_sage_doc`, links plus whether a name is offered to caller code) |
+| `test_tool_inventory.py` | no | The MCP contract: tool names, schemas and descriptions against a committed snapshot, and that every tool declares its MCP annotations with the destructive/read-only/non-idempotent memberships pinned |
 | `test_readme_badges.py` | no | README badge claims against the files that decide them |
 | `test_version_consistency.py` | no | Every declared version agrees, and the bump script updates them all |
 | `test_math_suite.py` | no | Mathematical results the pure-Python worker can check |
@@ -34,7 +35,7 @@ that gap.
 | `test_integration.py` | **yes** | Real Sage session lifecycle, monitoring, large payloads, and the drift checks that keep the allowlist and denylist honest against the installed Sage |
 | `test_math_examples.py` | **yes** | Every tool against the examples in its own documentation |
 | `test_syntax_variants.py` | **yes** | The input spellings each tool must accept or reject |
-| `test_use_cases.py` | **yes** | End-to-end workflows mirroring real LLM usage |
+| `test_use_cases.py` | **yes** | End-to-end workflows mirroring real LLM usage, including sympy-mcp's own showcase (calculus, linear algebra, ODEs, a coupled-tank system, general relativity via SageManifolds, units) and the peer field's lattice and GAP-structure workloads, all through `evaluate_sage` in one carried-over session |
 
 ## Requirements
 

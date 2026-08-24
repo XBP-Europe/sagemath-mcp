@@ -6,13 +6,11 @@ reproduction and regression test in [REVIEW_ACTIONS.md](REVIEW_ACTIONS.md). This
 file carried 31 ticked boxes duplicating both, several of them years of context
 out of date.
 
-- [ ] **Release blocker: cut 0.5.1.** Several security fixes are unreleased while
-      0.5.0 is the live version on PyPI and GHCR, and they are not minor ones —
-      `pari('system("id")')` executed a shell and `operator.attrgetter` reached
-      arbitrary Sage internals ([review items 30-34](REVIEW_ACTIONS.md)). The
-      behaviour change in the same window (`x, y, z, t` predefined; callers lost
-      imports, `show`, `latex` and the CAS interfaces) is user-visible and needs
-      the changelog entry it already has.
+- [ ] From the 2026-08-24 field survey, two features remain (roadmap has the
+      mechanisms): a `verify_claim` tool that re-checks a stated claim through a
+      proof ladder, and outcome benchmarks (GSM8K/MATH deltas) via the existing
+      CLI harness. A third, a passagemath runtime extra to cut install footprint,
+      is also open.
 - [ ] Consider making `scripts/generate_allowlist.py` classify rather than accept.
       Four separate findings had one root cause: the allowlist is generated as
       *whatever survives the namespace scrub*, so it inherits every gap in that
@@ -21,5 +19,13 @@ out of date.
       would turn each of those into a loud failure at generation time instead of
       a probe finding it later. Bigger than any of the individual fixes, and it
       needs its own round of testing against real Sage.
-- [ ] Smithery: connect the repository at https://smithery.ai/new with an account that owns it; `smithery.yaml` is already in place and read from the default branch.
-- [ ] Glama: already auto-indexed; claim the listing at https://glama.ai with a GitHub account that owns the repository ([review item 7](REVIEW_ACTIONS.md)) — needs repository-owner access.
+- [x] Glama: listed and claimed as XBP-Europe (via `glama.json`, #50). Done.
+- [x] Official MCP registry: listed as `io.github.XBP-Europe/sagemath-mcp`,
+      published by the release pipeline's `mcp-registry` job. Done.
+
+Smithery is **not pursued** (decided 2026-08-24). Since its Arcade.dev
+acquisition, `smithery.ai/new` publishes only a public HTTPS endpoint — the
+GitHub/`smithery.yaml` connect is gone. Listing would mean hosting a public,
+authenticated code-execution endpoint with a Sage runtime, which contradicts
+the local-only, no-auth posture in `SECURITY.md`. `smithery.yaml` was removed as
+dead config. Revisit only if a hosted deployment is built for its own reasons.

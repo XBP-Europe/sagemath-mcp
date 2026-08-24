@@ -22,7 +22,7 @@ section, under a "second round" heading, along with what closed it. Items 10,
 | 4 | Medium | `server.py` is 2147 lines and the least-covered module | **done** (split; coverage deferred) |
 | 5 | Medium | Two release paths cannot be exercised before a tag push | **done** |
 | 6 | Low | 104 dependencies, with pip-audit now blocking | **done** |
-| 7 | Low | Distribution: Smithery and Glama listings | **partly done** (Glama listed; Smithery needs owner sign-in) |
+| 7 | Low | Distribution: Smithery and Glama listings | **done** (Glama claimed + MCP registry listed; Smithery not pursued — see 2026-08-24 update) |
 | 8 | Low | Codex still routes two questions to `evaluate_sage` | **closed** (model choice, not a defect) |
 | 9 | Low | Jupyter kernel `debug_request` question left unresolved | **answered** (no bypass; caveats recorded) |
 | 10 | **Critical** | Response caching breaks state and isolation across MCP clients | **done** |
@@ -377,6 +377,23 @@ those, on a server whose whole purpose is evaluating code. It is gone from the
 listing; `SAGEMATH_MCP_SECURITY_ENABLED` still exists for anyone who means it.
 `persistSessions` and `persistDir` took its place, which is what a hosted user
 actually needs to configure.
+
+### Update 2026-08-24 — resolved
+
+- **Glama:** claimed and verified as XBP-Europe, via a `glama.json` at the repo
+  root naming the maintainers (#50) — the documented route for an org-owned
+  repository, since personal GitHub auth only claims personal repos.
+- **Official MCP registry:** listed as `io.github.XBP-Europe/sagemath-mcp`,
+  published by the release pipeline's `mcp-registry` job from `server.json`.
+- **Smithery: not pursued.** Since Smithery's Arcade.dev acquisition,
+  `smithery.ai/new` publishes only a public HTTPS endpoint — the
+  GitHub/`smithery.yaml` connect this item described no longer exists. Listing
+  would require hosting a public, authenticated code-execution endpoint with a
+  Sage runtime, which contradicts the local-only, no-authentication posture in
+  `SECURITY.md`. `smithery.yaml` was removed from the repo as dead config, so the
+  paragraphs above describe a file that no longer exists — kept as the record of
+  what was decided and why. Revisit only if a hosted deployment is built for its
+  own reasons.
 
 Original finding follows.
 
@@ -3453,3 +3470,86 @@ acceptance 98.80% -> 98.9488%.
 ### Status
 
 Fixed in the working tree; verified host + container.
+
+
+# Review actions — 2026-08-24
+
+Findings from the code-level read of the peer Sage MCP servers (szeider/mcp-sage,
+sanshanjianke/scicompute-mcp, GaloisHLee/mcp-server-sagemath,
+justice8096/sagemath-mcp-server). Reading how the peers fail surfaced two holes
+here, both in the worker's relationship to processes it does not directly
+manage, plus one latent regeneration bug. Verified against a real SageMath
+10.10.beta9 worker; shipped in PRs #51 and #55.
+
+| # | Severity | Item | Status |
+|---|----------|------|--------|
+| 66 | Low | The allowlist generator bakes the caller shims into the allowlist | **done** |
+| 67 | Medium | Worker kills miss Sage's own children, and the protocol descriptor is inheritable | **done** |
+
+## 66. The allowlist generator bakes the caller shims into the allowlist — usability/hygiene — DONE
+
+### What
+
+`scripts/generate_allowlist.py` emits every non-underscore name in
+`_build_namespace()`. The caller shims (`attrcall`, `set_verbose`) moved inside
+that function when they began surviving reseals, so a regeneration on any Sage
+version now baked both into `allowlist.py`. Both are meant to be absent:
+`attrcall` is refused bare and permitted only as a screened literal call, and
+`set_verbose` is offered per-evaluation through `_OFFERED_SHIM_NAMES` so its
+baked refusal can name the streaming tool. Found while regenerating against
+SageMath 10.10.beta9, but latent on 10.9 too.
+
+### Fix
+
+The generator subtracts `_CALLER_SHIMS`. No change to the committed allowlist —
+it already lacked both names; this makes a regeneration reproduce that.
+
+### How to verify
+
+`test_a_withheld_name_names_the_spelling_that_works` (math coverage),
+`test_caller_shims_survive_a_reseal` (worker), and
+`test_sage_string_path_primitives_are_not_offered[attrcall]` (bypass) all fail
+against the unpatched generator's output.
+
+### Status
+
+Fixed and shipped in PR #51.
+
+## 67. Worker kills miss Sage's own children, and the protocol descriptor is inheritable — robustness/hardening — DONE
+
+### What
+
+Two holes surfaced by reading how the peer servers fail:
+
+1. **Orphaned grandchildren.** Sage forks helpers of its own — the pexpect
+   interfaces fork GAP most visibly, and szeider/mcp-sage's changelog records a
+   GAP crash loop forking new processes faster than they could be stopped. Our
+   cancel and timeout paths killed only the worker pid, leaving those children
+   computing.
+2. **Protocol-framing corruption.** The JSON protocol lived on the worker's
+   descriptor 1, and `redirect_stdout()` rebinds only Python's `sys.stdout`. A
+   child a Sage internal forks, or a C library writing to the descriptor
+   directly, would land mid-JSON-line and desync every subsequent request —
+   scicompute-mcp hit exactly this when a Julia child inherited its transport
+   descriptors.
+
+### Fix
+
+The worker starts with `start_new_session=True` and every hard kill goes through
+`os.killpg` (`_kill_worker_group`), reaping the whole group; `interrupt`
+deliberately still signals only the worker, forwarding SIGINT to the interfaces
+the way the Sage REPL forwards Ctrl-C. At worker entry the protocol pipe is
+duplicated to a private stream and descriptor 1 is pointed at stderr, so raw
+writes surface as logged noise instead of corrupting a response.
+
+### How to verify
+
+`test_worker_leads_its_own_process_group` and
+`test_terminate_kills_the_worker_process_group` (session), and
+`test_shield_moves_the_protocol_off_descriptor_one` (worker), which drives real
+pipes and asserts a raw `os.write(1, …)` lands in stderr while the protocol
+stream stays clean.
+
+### Status
+
+Fixed and shipped in PR #55; verified host + container (SageMath 10.10.beta9).

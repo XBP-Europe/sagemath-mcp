@@ -51,6 +51,15 @@ here is a breaking change.
   meant to be absent, and three tests enforce it. The generator now subtracts the
   shims.
 
+### Removed
+
+- **`smithery.yaml`.** Smithery's post-Arcade.dev publish flow accepts only a
+  public HTTPS endpoint, so the GitHub/`smithery.yaml` connect the file existed
+  for no longer exists; listing there would require hosting a public,
+  authenticated code-execution endpoint against the local-only posture in
+  `SECURITY.md`. Distribution is covered by the official MCP registry
+  (`io.github.XBP-Europe/sagemath-mcp`) and Glama.
+
 ### Tests
 
 - Covered sympy-mcp's entire self-demonstration (calculus, linear algebra, the

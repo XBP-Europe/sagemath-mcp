@@ -19,9 +19,13 @@ out of date.
       would turn each of those into a loud failure at generation time instead of
       a probe finding it later. Bigger than any of the individual fixes, and it
       needs its own round of testing against real Sage.
-- [ ] Smithery: the publish flow changed since `smithery.yaml` was committed —
-      current docs describe hosted-URL and MCPB-bundle publishing, no longer the
-      GitHub/`smithery.yaml` connect. Check smithery.ai/new for a legacy GitHub tab
-      before choosing between hosting an endpoint and wrapping an MCPB bundle.
-- [ ] Glama: `glama.json` is merged (#50, the org-repo claiming route); the
-      browser-side Claim flow on the auto-indexed listing is the remaining step.
+- [x] Glama: listed and claimed as XBP-Europe (via `glama.json`, #50). Done.
+- [x] Official MCP registry: listed as `io.github.XBP-Europe/sagemath-mcp`,
+      published by the release pipeline's `mcp-registry` job. Done.
+
+Smithery is **not pursued** (decided 2026-08-24). Since its Arcade.dev
+acquisition, `smithery.ai/new` publishes only a public HTTPS endpoint — the
+GitHub/`smithery.yaml` connect is gone. Listing would mean hosting a public,
+authenticated code-execution endpoint with a Sage runtime, which contradicts
+the local-only, no-auth posture in `SECURITY.md`. `smithery.yaml` was removed as
+dead config. Revisit only if a hosted deployment is built for its own reasons.

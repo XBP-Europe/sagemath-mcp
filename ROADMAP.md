@@ -26,15 +26,16 @@ The live queue is [TODO.md](TODO.md); this section says only what shape it is in
 
 The 2026-08-13 review and the security rounds that followed are all recorded in
 [REVIEW_ACTIONS.md](REVIEW_ACTIONS.md) — 34 items, each with its reproduction,
-fix and regression test. Every one is closed except the account-side half of
-item 7: the Smithery and Glama submissions need repository-owner access.
+fix and regression test. All are closed; item 7's distribution half resolved on
+2026-08-24 (below).
 
-- [ ] Smithery: their publish flow changed since this item was written — the current
-      docs describe hosted-URL and MCPB-bundle publishing only, and no longer document
-      the GitHub/`smithery.yaml` connect. Check smithery.ai/new for a legacy GitHub tab
-      before choosing between hosting an HTTP endpoint and wrapping an MCPB bundle.
-- [ ] Glama: `glama.json` naming the maintainers is merged (#50, the org-repo
-      claiming route); the browser-side Claim flow on the listing is the remaining step.
+Distribution is settled: the server is listed on the **official MCP registry**
+(`io.github.XBP-Europe/sagemath-mcp`, published by the release pipeline) and on
+**Glama** (claimed as XBP-Europe via `glama.json`, #50). **Smithery is not
+pursued** — since its Arcade.dev acquisition, `smithery.ai/new` publishes only a
+public HTTPS endpoint, so listing would require hosting a public, authenticated
+code-execution endpoint with a Sage runtime, against the local-only, no-auth
+posture in `SECURITY.md`. `smithery.yaml` was removed as dead config.
 
 ## Letting more legitimate mathematics through (measured 2026-08-15)
 

@@ -22,7 +22,7 @@ section, under a "second round" heading, along with what closed it. Items 10,
 | 4 | Medium | `server.py` is 2147 lines and the least-covered module | **done** (split; coverage deferred) |
 | 5 | Medium | Two release paths cannot be exercised before a tag push | **done** |
 | 6 | Low | 104 dependencies, with pip-audit now blocking | **done** |
-| 7 | Low | Distribution: Smithery and Glama listings | **partly done** (Glama listed; Smithery needs owner sign-in) |
+| 7 | Low | Distribution: Smithery and Glama listings | **done** (Glama claimed + MCP registry listed; Smithery not pursued — see 2026-08-24 update) |
 | 8 | Low | Codex still routes two questions to `evaluate_sage` | **closed** (model choice, not a defect) |
 | 9 | Low | Jupyter kernel `debug_request` question left unresolved | **answered** (no bypass; caveats recorded) |
 | 10 | **Critical** | Response caching breaks state and isolation across MCP clients | **done** |
@@ -377,6 +377,23 @@ those, on a server whose whole purpose is evaluating code. It is gone from the
 listing; `SAGEMATH_MCP_SECURITY_ENABLED` still exists for anyone who means it.
 `persistSessions` and `persistDir` took its place, which is what a hosted user
 actually needs to configure.
+
+### Update 2026-08-24 — resolved
+
+- **Glama:** claimed and verified as XBP-Europe, via a `glama.json` at the repo
+  root naming the maintainers (#50) — the documented route for an org-owned
+  repository, since personal GitHub auth only claims personal repos.
+- **Official MCP registry:** listed as `io.github.XBP-Europe/sagemath-mcp`,
+  published by the release pipeline's `mcp-registry` job from `server.json`.
+- **Smithery: not pursued.** Since Smithery's Arcade.dev acquisition,
+  `smithery.ai/new` publishes only a public HTTPS endpoint — the
+  GitHub/`smithery.yaml` connect this item described no longer exists. Listing
+  would require hosting a public, authenticated code-execution endpoint with a
+  Sage runtime, which contradicts the local-only, no-authentication posture in
+  `SECURITY.md`. `smithery.yaml` was removed from the repo as dead config, so the
+  paragraphs above describe a file that no longer exists — kept as the record of
+  what was decided and why. Revisit only if a hosted deployment is built for its
+  own reasons.
 
 Original finding follows.
 

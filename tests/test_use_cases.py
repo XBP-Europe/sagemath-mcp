@@ -200,3 +200,56 @@ async def test_use_cases_cover_the_sympy_mcp_showcase(monkeypatch):
     finally:
         await manager.shutdown()
         runtime.SESSION_MANAGER = original_manager
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_use_cases_cover_the_peer_field_workloads(monkeypatch):
+    """The workloads the other Sage MCP servers demonstrate themselves with.
+
+    Harvested from the 2026-08-24 peer code read; sympy-mcp's showcase has its
+    own test above. Two peers carry mathematics ours never pinned:
+
+    GaloisHLee/mcp-server-sagemath ships a manual lattice workout (its only
+    substantial test client): an integer matrix through det, LLL reduction and
+    Hermite normal form -- lattice/crypto territory no test here exercised.
+
+    szeider/mcp-sage's one hard-won defence is a GAP crash-loop guard, added
+    after Graph.automorphism_group().structure_description() fork-bombed the
+    pexpect GAP interface during their NeSy-paper experiments. On this server
+    the call runs through libgap in-process (0.1s, no forking), and this test
+    pins exactly that: the policy admits the mathematics, and the answer comes
+    back through the worker rather than a runaway interface. If a Sage upgrade
+    ever routes it back through a forking interface, the process-group kill
+    from the same survey is the containment.
+    """
+    original_manager = runtime.SESSION_MANAGER
+    settings = SageSettings()
+    manager = SageSessionManager(settings)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
+
+    ctx = FakeContext("peer-field-workloads")
+
+    try:
+        # GaloisHLee's lattice workout, made deterministic.
+        det = await server.evaluate_sage(
+            "A = matrix(ZZ, [[10, -3, 2], [4, 7, -5], [1, 1, 9]])\nA.det()",
+            ctx=ctx,
+        )
+        assert det.result == "797"
+        lll = await server.evaluate_sage("A.LLL().rows()", ctx=ctx)
+        assert lll.result == "[(1, 1, 9), (4, 7, -5), (10, -3, 2)]"
+        hermite = await server.evaluate_sage("A.hermite_form().rows()", ctx=ctx)
+        assert hermite.result == "[(1, 0, 554), (0, 1, 252), (0, 0, 797)]"
+
+        # szeider's graph-automorphism experiment, structure description included.
+        order = await server.evaluate_sage(
+            "G = graphs.PetersenGraph().automorphism_group()\nG.order()",
+            ctx=ctx,
+        )
+        assert order.result == "120"
+        structure = await server.evaluate_sage("G.structure_description()", ctx=ctx)
+        assert structure.result == "'S5'"  # a Python str, so the repr keeps its quotes
+    finally:
+        await manager.shutdown()
+        runtime.SESSION_MANAGER = original_manager

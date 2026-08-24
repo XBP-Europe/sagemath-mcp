@@ -7,6 +7,58 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+A survey of the other SageMath MCP servers (a feature comparison and a
+code-level read of each peer's source, 2026-08-24) drove this window. Nothing
+here is a breaking change.
+
+### Added
+
+- **Two diagnostics tools (37 → 39).** `check_sage_health` is an MCP-level
+  readiness probe for stdio clients that cannot reach the HTTP `/health` route:
+  it spins up (or reuses) the workspace worker, evaluates `1+1`, and reports
+  `ok`/backend/latency, reporting failure in its result rather than erroring.
+  `lookup_sage_doc` returns upstream documentation links for a Sage name and —
+  the part the manual cannot answer — whether this server offers that name to
+  `evaluate_sage` caller code.
+- **MCP annotations on every tool.** Each tool now declares
+  `readOnlyHint`/`destructiveHint`/`idempotentHint`/`openWorldHint`, so a client
+  can tell which calls discard state (`cancel`/`reset`/`stop`) from those that
+  keep it (`interrupt`). An inventory test pins the memberships.
+
+### Changed
+
+- **The evaluation-timeout error now coaches the retry.** Instead of a bare
+  "timed out after Ns", it says the worker was restarted and variables were
+  discarded, and names the fix: a larger per-call `timeout`,
+  `evaluate_sage_streaming` to watch a long computation, or
+  `interrupt_sage_session` to stop one while keeping its variables.
+
+### Fixed
+
+- **Orphaned worker grandchildren.** The worker now leads its own process group
+  and every hard kill goes through `os.killpg`, so helper processes Sage forks
+  (the pexpect interfaces fork GAP among others) are reaped on cancel or timeout
+  instead of being left to run. `interrupt` still signals only the worker, the
+  way the Sage REPL forwards Ctrl-C.
+- **Protocol-framing corruption from inherited descriptors.** The JSON worker
+  protocol moved off descriptor 1: the pipe is duplicated to a private stream and
+  descriptor 1 is pointed at stderr, so a child a Sage internal forks — or a C
+  library writing to the descriptor directly — surfaces as logged noise rather
+  than a corrupted response line.
+- **The allowlist generator no longer bakes in the caller shims.** Regenerating
+  `allowlist.py` on any Sage version had begun emitting `attrcall` and
+  `set_verbose` (installed into the worker namespace after the scrub); both are
+  meant to be absent, and three tests enforce it. The generator now subtracts the
+  shims.
+
+### Tests
+
+- Covered sympy-mcp's entire self-demonstration (calculus, linear algebra, the
+  damped oscillator, a coupled two-tank ODE system checked against its algebraic
+  steady state, general relativity via SageManifolds, units) and the peer field's
+  lattice-reduction and GAP-structure workloads as end-to-end use cases — all
+  through `evaluate_sage` in one carried-over session.
+
 ## [0.6.1] - 2026-08-16
 
 A security patch on 0.6.0. It closes a critical sandbox escape introduced by the

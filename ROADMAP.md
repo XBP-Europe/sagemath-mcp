@@ -2,7 +2,7 @@
 
 This document tracks planned improvements to the SageMath MCP server, organized by priority and effort. The goal is to strengthen the server's position as a universal mathematics MCP server that enables LLMs to perform any symbolic or discrete mathematical operation.
 
-**Current state (v0.6.1):** 37 MCP tools (31 Sage-backed, 6 infrastructure) covering calculus, algebra, linear algebra, ODEs, number theory, combinatorics, graph theory, group theory, elliptic curves, coding theory, boolean algebra, polynomial rings, geometry, probability, vector calculus, statistics, 2D/3D plotting, numeric root-finding, and incremental streaming. As of 2026-08-15 the suites pass 667 unit tests at 100% statement and branch coverage, 764 against a real SageMath 10.9 runtime, and 27/27 of the extended CLI cases across Claude, Gemini and Codex. Counts are a snapshot; the coverage floor is the part CI enforces.
+**Current state (v0.6.1):** 39 MCP tools (32 Sage-backed, 7 infrastructure) covering calculus, algebra, linear algebra, ODEs, number theory, combinatorics, graph theory, group theory, elliptic curves, coding theory, boolean algebra, polynomial rings, geometry, probability, vector calculus, statistics, 2D/3D plotting, numeric root-finding, incremental streaming, an MCP-level health probe and a documentation lookup. As of 2026-08-24 the suites pass 916 unit tests at 100% statement and branch coverage, over 1,000 collected against a real SageMath 10.9 runtime, and the extended CLI cases across Claude, Gemini and Codex. Counts are a snapshot; the coverage floor is the part CI enforces. Every tool carries MCP annotations (`readOnlyHint`/`destructiveHint`/`idempotentHint`/`openWorldHint`), pinned by an inventory test.
 
 Integration coverage now includes every tool exercised against the examples in its own
 documentation, and a syntax matrix over the input spellings each tool must accept. Both
@@ -64,6 +64,11 @@ are boundaries, not gaps.
 
 ## Competitive position (surveyed 2026-08-13)
 
+> The numbers below are the 2026-08-13 snapshot (this project at 37 tools, 12
+> stars). The **2026-08-24 field survey and code read** above supersede it: the
+> tool surface is now 39, and the "behind" items were revisited against the
+> peers' actual source. Kept as the dated baseline it was measured as.
+
 ### The SageMath MCP field
 
 | Project | Stars | Language | Tools | Session model | Last push |
@@ -103,10 +108,18 @@ The adjacent market is roughly five times larger and is where attention actually
    clean separation of stdout / stderr / return values, native interrupt support, and
    robust multi-line input". Those are precisely the problems this project solved by
    hand, and a framing bug in that hand-rolled layer surfaced as recently as v0.4.0.
+   The 2026-08-24 code read (below) confirmed the trade-off is real but their side
+   is not free: that server has no preparser (`2^3` is XOR there), drops rich
+   output, and does not interrupt on timeout. The hand-rolled layer was hardened
+   the same week — the worker now leads its own process group and the JSON protocol
+   moved off descriptor 1, closing the descriptor-inheritance class the v0.4.0 bug
+   belonged to.
 2. ~~**Interrupt versus restart.**~~ Closed by `interrupt_sage_session`.
 3. ~~**One session per client.**~~ Closed by `start` / `list` / `stop_sage_session`.
 4. **Install friction.** `uvx mcp-sage` runs with no install via PEP 723 inline
-   dependencies. This project needs a local SageMath or a ~3 GB image.
+   dependencies. This project needs a local SageMath or a ~3 GB image. A route is
+   now on the roadmap (the passagemath runtime extra, below); the gap is real
+   until it ships.
 5. **Academic anchor.** Their server is cited in a NeSy 2026 paper. This project has no
    equivalent reference.
 
@@ -151,7 +164,7 @@ documentation rather than surface:
 - [ ] **Passagemath runtime for install footprint.** "Where this project is
       behind" item 4 above, now with a route: passagemath ships SageMath as
       modularized pip distributions, so `pip install "sagemath-mcp[passagemath]"`
-      could stand up the 31 Sage-backed tools without the ~3 GB image or a local
+      could stand up the 32 Sage-backed tools without the ~3 GB image or a local
       Sage build. The three generated artifacts (allowlist, star exports, baked
       denylist) are derived from *the installed Sage*, so the passagemath
       namespace needs its own reviewed set: generate both variants with the
@@ -159,21 +172,45 @@ documentation rather than surface:
       and extend the weekly drift job to cover both. The open design cost is
       exactly that doubling — two artifact sets to review on every engine bump —
       and it is priced in, not discovered later.
-- [ ] **Manifolds and GR: document, don't build.** sympy-mcp's tensor/GR tools
-      (Schwarzschild/Kerr metrics, Ricci/Einstein tensors) are its one breadth
-      advantage, and Sage has the stronger machinery underneath (SageManifolds,
-      including the metric catalog). The niche-domains decision below stands: no
-      dedicated tool. Instead, close the perceived gap at zero surface cost —
-      a worked GR example through `evaluate_sage` in the usage docs, and
-      math-coverage cases pinning that the policy accepts it (`Manifold` and
-      `manifolds` are already allowlisted; the corpus sweep exercises the module,
-      but no test currently asserts the curvature workflow end to end).
+- [x] **Manifolds and GR: document, don't build.** *Done, 2026-08-24.* sympy-mcp's
+      tensor/GR tools (Schwarzschild/Kerr metrics, Ricci/Einstein tensors) are its
+      one breadth advantage, and Sage has the stronger machinery underneath
+      (SageManifolds, including the metric catalog). The niche-domains decision
+      below stands: no dedicated tool. Instead the gap closed at zero surface
+      cost — a worked hyperbolic-plane GR example through `evaluate_sage` in
+      `USAGE.md`, and `test_use_cases.py::test_use_cases_cover_the_sympy_mcp_showcase`
+      pinning the curvature workflow (custom Lorentzian, hyperbolic plane, catalog
+      sphere) end to end against real Sage.
 
 Surveyed and *not* adopted: Axiom's stateless-HTTP scaling (statelessness is
 their design, session state is this project's point), its CLI one-shot mode (a
 different product), math-logic-mcp's Z3 layer (not Sage's instrument), and
 justice8096's per-call process model (rejected here for cold-start cost from
 the start).
+
+### Shipped from the code-level read (2026-08-24)
+
+A second pass the same day read each peer's source (not just its features). It
+produced fixes and small features that are already merged, recorded here so the
+roadmap reflects what the survey actually changed:
+
+- **Worker process hygiene** (from szeider's GAP crash-loop guard and a
+  transport-corruption bug in scicompute): the worker leads its own process
+  group and every hard kill goes through `os.killpg`, so helpers Sage forks are
+  reaped rather than orphaned; the JSON protocol moved off descriptor 1 so a
+  forked child cannot corrupt the framing.
+- **MCP tool annotations** (from justice8096): every tool declares
+  `readOnlyHint`/`destructiveHint`/`idempotentHint`/`openWorldHint`.
+- **Coaching timeout message** (from szeider's model-directed error text): the
+  timeout error names the retry — larger `timeout`, streaming, interrupt.
+- **`check_sage_health`** (from GaloisHLee) and **`lookup_sage_doc`** (from
+  scicompute's `doc` tool): an MCP-level readiness probe and a doc-URL lookup
+  that also reports whether a name is offered to caller code.
+- **Peer workloads as tests**: GaloisHLee's lattice workout (det/LLL/Hermite)
+  and szeider's `structure_description()` GAP case, pinned in `test_use_cases.py`.
+
+The two still-open features above — `verify_claim` and outcome benchmarks — plus
+the passagemath runtime are what remain of the survey.
 
 ---
 

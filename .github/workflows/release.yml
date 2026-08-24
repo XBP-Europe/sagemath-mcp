@@ -109,8 +109,11 @@ jobs:
 
   publish:
     needs: [build, docker, helm]
-    # PyPI is irreversible; never reachable from a manual dispatch.
-    if: startsWith(github.ref, 'refs/tags/v')
+    # PyPI is irreversible; never reachable from a manual dispatch. Prerelease
+    # tags are skipped: our prerelease scheme is vX.Y.Z-beta.N / -rc.N (a
+    # hyphen), so a hyphen in the tag means "do not publish to PyPI". A beta
+    # still produces build artifacts, a GHCR image and a GitHub prerelease.
+    if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-')
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -175,12 +178,14 @@ jobs:
   # v0.3.1 as Latest -- which is also where pyproject points its Changelog URL.
   github-release:
     needs: [publish]
-    # On a tag, still gated on a successful PyPI publish so a release object can
-    # never announce a version that was not shipped. On a manual dispatch,
-    # publish is skipped and this runs anyway in dry-run mode.
+    # On a stable tag, gated on a successful PyPI publish so a release object can
+    # never announce a version that was not shipped. On a prerelease tag, publish
+    # is deliberately skipped (no PyPI), so accept 'skipped' too and mark the
+    # release as a prerelease below. On a manual dispatch, runs in dry-run mode.
     if: >-
       always() &&
-      ((startsWith(github.ref, 'refs/tags/v') && needs.publish.result == 'success')
+      ((startsWith(github.ref, 'refs/tags/v') &&
+        (needs.publish.result == 'success' || needs.publish.result == 'skipped'))
        || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
@@ -226,16 +231,22 @@ jobs:
             echo "Release ${GITHUB_REF_NAME} already exists; nothing to do."
             exit 0
           fi
+          # A hyphen in the tag marks a prerelease (vX.Y.Z-beta.N); flag it so it
+          # does not show as "Latest" on the releases page.
+          PRERELEASE=""
+          case "${GITHUB_REF_NAME}" in *-*) PRERELEASE="--prerelease";; esac
           if [ "${{ steps.notes.outputs.found }}" = "true" ]; then
             gh release create "${GITHUB_REF_NAME}" \
               --title "${GITHUB_REF_NAME}" \
               --verify-tag \
+              ${PRERELEASE} \
               --notes-file release-notes.md \
               dist/*
           else
             gh release create "${GITHUB_REF_NAME}" \
               --title "${GITHUB_REF_NAME}" \
               --verify-tag \
+              ${PRERELEASE} \
               --generate-notes \
               dist/*
           fi

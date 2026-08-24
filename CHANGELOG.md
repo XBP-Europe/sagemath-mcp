@@ -7,9 +7,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-A survey of the other SageMath MCP servers (a feature comparison and a
-code-level read of each peer's source, 2026-08-24) drove this window. Nothing
-here is a breaking change.
+## [0.7.0-beta.1] - 2026-08-24
+
+The first beta on the **SageMath 10.10.beta9** runtime, cut from the
+`beta/sage-10.10` channel. It is a **prerelease**: it is not published to PyPI
+(so `pip install sagemath-mcp` still resolves 0.6.1); it ships as build
+artifacts, a signed GHCR image tagged `0.7.0-beta.1`, and a GitHub prerelease.
+On top of everything in this section, the three Sage-coupled artifacts
+(allowlist, star exports, baked denylist) were regenerated and reviewed against
+10.10.beta9: seven allowlist additions, the SnapPy external-interface family
+added to the denylist, and a reviewed `QuasiRibbonTableau.remove`. Everything
+below also drove this window — a survey of the other SageMath MCP servers (a
+feature comparison and a code-level read of each peer's source, 2026-08-24).
+Nothing here is a breaking change.
 
 ### Added
 

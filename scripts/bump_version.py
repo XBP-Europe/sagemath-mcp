@@ -18,18 +18,18 @@ CHART_PATH = PROJECT_ROOT / "charts" / "sagemath-mcp" / "Chart.yaml"
 SERVER_JSON_PATH = PROJECT_ROOT / "server.json"
 
 PYPROJECT_VERSION_PATTERN: Pattern[str] = re.compile(
-    r'^(version\s*=\s*)"(?P<version>\d+\.\d+\.\d+)"\s*$', re.MULTILINE
+    r'^(version\s*=\s*)"(?P<version>\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)"\s*$', re.MULTILINE
 )
 INIT_VERSION_PATTERN: Pattern[str] = re.compile(
-    r'^(\s*__version__\s*=\s*)"(?P<version>\d+\.\d+\.\d+)"\s*$', re.MULTILINE
+    r'^(\s*__version__\s*=\s*)"(?P<version>\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)"\s*$', re.MULTILINE
 )
 # The chart carries the version twice. Both were left behind by this script,
 # so the chart silently drifted from the package at every release.
 CHART_VERSION_PATTERN: Pattern[str] = re.compile(
-    r"^(version:\s*)(?P<version>\d+\.\d+\.\d+)\s*$", re.MULTILINE
+    r"^(version:\s*)(?P<version>\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)\s*$", re.MULTILINE
 )
 CHART_APP_VERSION_PATTERN: Pattern[str] = re.compile(
-    r'^(appVersion:\s*)"(?P<version>\d+\.\d+\.\d+)"\s*$', re.MULTILINE
+    r'^(appVersion:\s*)"(?P<version>\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)"\s*$', re.MULTILINE
 )
 
 
@@ -41,7 +41,10 @@ class Version:
 
     @classmethod
     def parse(cls, raw: str) -> Version:
-        parts = raw.strip().split(".")
+        # Accept a PEP 440 / SemVer prerelease suffix (0.7.0-beta.1) and parse
+        # the numeric base; a bump drops the suffix, finalising the prerelease.
+        base = raw.strip().split("-", 1)[0]
+        parts = base.split(".")
         if len(parts) != 3:
             raise ValueError(f"Expected semantic version (major.minor.patch), got '{raw}'")
         try:

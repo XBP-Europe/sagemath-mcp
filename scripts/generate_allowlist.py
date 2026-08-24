@@ -23,7 +23,7 @@ from __future__ import annotations
 import math
 import textwrap
 
-from sagemath_mcp._sage_worker import _build_namespace, _restricted_builtins
+from sagemath_mcp._sage_worker import _CALLER_SHIMS, _build_namespace, _restricted_builtins
 
 HEADER = '''"""The names caller code is allowed to read.
 
@@ -66,6 +66,12 @@ def main() -> int:
     # so log10, comb and friends are legitimate names there. Including them keeps
     # one allowlist valid for both runtimes; they are ordinary maths either way.
     names |= {name for name in vars(math) if not name.startswith("_")}
+    # The caller shims sit in the namespace (installed after the scrub), but they
+    # are deliberately not baked in here: `attrcall` is refused bare and permitted
+    # only as a screened literal call, and `set_verbose` is offered per-evaluation
+    # through `_OFFERED_SHIM_NAMES` so its baked refusal can name the streaming
+    # tool. Three tests fail when either one lands in the allowlist.
+    names -= set(_CALLER_SHIMS)
     body = textwrap.fill(
         ", ".join(f'"{name}"' for name in sorted(names)),
         width=88,

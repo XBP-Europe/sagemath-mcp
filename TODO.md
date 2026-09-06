@@ -126,14 +126,16 @@ prioritised. Correctness first, then packaging/adoption.
 
 **Packaging / build hygiene**
 
-- [ ] **Dockerfile `COPY . /workspace`** pulls the whole repo (tests,
-      `external_docs`, the 117 KB review file) into the image and busts the
-      layer cache on every edit. Copy `pyproject.toml` + `src/` (+ README/LICENSE
-      for the build) only, and pin the base image by digest. Consider a slim
-      conda-forge-based variant.
-- [ ] **Reconcile the tool count across files** (README 40, GitHub description
-      40, `server.json` "34") and generate any hardcoded count from
-      `tests/fixtures/tool_inventory.json`, the existing source of truth.
+- [x] **Dockerfile `COPY . /workspace`.** *Done, 2026-09-06 (#64).* Now copies
+      only the wheel-build inputs (`pyproject.toml`, `README.md`, `LICENSE`,
+      `src/`), so tests, `external_docs` and the review file stay out of the
+      image and the install layer's cache survives doc/test edits; verified the
+      built image still passes the stateful smoke and serves all 40 tools. Still
+      open: pin the base image by digest, and a slim conda-forge-based variant.
+- [x] **Reconcile the tool count across files.** *Done, 2026-09-06 (#64).*
+      `server.json` now says 40 (was "34"), and
+      `test_hardcoded_tool_counts_match_the_inventory` fails if any stated count
+      drifts from `tests/fixtures/tool_inventory.json`, the source of truth.
 - [ ] **`external_docs/reference_html`** vendors Sage's own HTML (102 KB) into an
       MIT repo — fetch at generation time instead of committing it.
 - [ ] **Clear the `sagemath-*` PyPI namespace question** with sage-devel now —

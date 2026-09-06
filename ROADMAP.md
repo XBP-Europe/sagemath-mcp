@@ -2,7 +2,19 @@
 
 This document tracks planned improvements to the SageMath MCP server, organized by priority and effort. The goal is to strengthen the server's position as a universal mathematics MCP server that enables LLMs to perform any symbolic or discrete mathematical operation.
 
-**Current state (v0.6.1):** 39 MCP tools (32 Sage-backed, 7 infrastructure) covering calculus, algebra, linear algebra, ODEs, number theory, combinatorics, graph theory, group theory, elliptic curves, coding theory, boolean algebra, polynomial rings, geometry, probability, vector calculus, statistics, 2D/3D plotting, numeric root-finding, incremental streaming, an MCP-level health probe and a documentation lookup. As of 2026-08-24 the suites pass 916 unit tests at 100% statement and branch coverage, over 1,000 collected against a real SageMath 10.9 runtime, and the extended CLI cases across Claude, Gemini and Codex. Counts are a snapshot; the coverage floor is the part CI enforces. Every tool carries MCP annotations (`readOnlyHint`/`destructiveHint`/`idempotentHint`/`openWorldHint`), pinned by an inventory test.
+**Current state (last release v0.6.1; the work below is on `main`, unreleased):**
+40 MCP tools (33 Sage-backed, 7 infrastructure) covering calculus, algebra,
+linear algebra, ODEs, number theory, combinatorics, graph theory, group theory,
+elliptic curves, coding theory, boolean algebra, polynomial rings, geometry,
+probability, vector calculus, statistics, 2D/3D plotting, numeric root-finding,
+claim verification (`verify_claim`), incremental streaming, an MCP-level health
+probe and a documentation lookup. As of 2026-09-06 the suites pass ~977 unit
+tests at 100% statement and branch coverage, over 1,130 collected against a real
+SageMath 10.9 runtime, and the extended CLI cases across Claude, Gemini and Codex
+(run locally; the keys are deliberately not in CI). Counts are a snapshot; the
+coverage floor is the part CI enforces. Every tool carries MCP annotations
+(`readOnlyHint`/`destructiveHint`/`idempotentHint`/`openWorldHint`), pinned by an
+inventory test.
 
 Integration coverage now includes every tool exercised against the examples in its own
 documentation, and a syntax matrix over the input spellings each tool must accept. Both
@@ -28,6 +40,37 @@ The 2026-08-13 review and the security rounds that followed are all recorded in
 [REVIEW_ACTIONS.md](REVIEW_ACTIONS.md) — 34 items, each with its reproduction,
 fix and regression test. All are closed; item 7's distribution half resolved on
 2026-08-24 (below).
+
+**The 2026-09-06 external review is fully worked through** (two rounds, merged in
+PR #61). Every concrete finding is closed, each with a regression test; the
+details are in [CHANGELOG.md](CHANGELOG.md) under *Unreleased*. What it produced:
+
+- **`verify_claim`** shipped, then hardened for soundness after the second round —
+  it never labels approximate arithmetic or an out-of-domain sample as an exact
+  result (see the field-survey item below).
+- **Portable workspace handles.** `start_sage_session` issues an unguessable
+  bearer `workspace_token` that addresses one workspace independently of the
+  transport-level MCP session id — the direction the 2026-07-28 MCP spec's
+  retirement of protocol-level sessions points to. This closes the last of the
+  session-ergonomics gap the survey called out. Names keep transport-scoped
+  isolation; the fastmcp cap (below) stays until handles are validated over real
+  transports.
+- **fastmcp pinned `>=3.4.7,<4`** — 4.0.3 breaks cross-client session isolation
+  (REVIEW_ACTIONS item 68). A fresh install otherwise resolves it.
+- **Session/worker robustness** — serialized worker startup (no double-launch
+  race), a configurable session ceiling, helper-tool evaluations now counted in
+  the metrics, and a real `/ready` probe that evaluates `1+1` on the backend.
+- **Release & onboarding** — every publish gated on a tag *push* (a dry-run
+  dispatch could reach PyPI), the release publishes the exact image its smoke
+  test verified, the README `docker run` carries the Compose hardening on
+  loopback, and the dev-container scripts pin the Dockerfile's Sage tag.
+- **Honest scope docs** — "full access / run any SageMath code" replaced with the
+  deny-by-default subset, and the specialized-tools-use-a-fresh-namespace
+  semantics surfaced where the model reads them.
+
+One non-blocking note from the review remains open, tracked in TODO.md: the
+verifier trusts Sage's own evaluation semantics for the exact-comparison rung,
+which the 0.7.0 release is the natural point to revisit before shipping.
 
 Distribution is settled: the server is listed on the **official MCP registry**
 (`io.github.XBP-Europe/sagemath-mcp`, published by the release pipeline) and on
@@ -147,7 +190,14 @@ documentation rather than surface:
       interval evidence always a certified enclosure), and `supported` always
       carries its evidence. The landing costs were paid: inventory snapshot,
       real-Sage ladder cases in `tests/test_verify.py`, and bypass tests that
-      the claim string cannot reach anything the evaluate gate refuses.
+      the claim string cannot reach anything the evaluate gate refuses. A second
+      external-review round (2026-09-06) closed two soundness holes: a comparison
+      over machine floats (`RR(1) + RR(1)/10^20 == RR(1)`) is now `supported` via
+      a `float_comparison` method, never `proved` — the operands are inspected
+      for exactness, decimal literals read as exact rationals — and a sampled
+      counterexample can no longer fall outside a stated domain (`x != 1/2` under
+      `assume(x, 'integer')` is not refuted at 1/2). Assumptions are named in the
+      evidence of any verdict that relied on them.
 - [ ] **Outcome benchmarks.** Axiom publishes GSM8K / MATH accuracy deltas;
       this project's doctest corpus sweep proves the guardrails do not refuse
       mathematics, which is a different claim from "models get more answers
@@ -160,16 +210,22 @@ documentation rather than surface:
       in the README. Runs where the CLI nightlies run — never CI-gated, because
       the number measures the client model as much as the server.
 - [ ] **Passagemath runtime for install footprint.** "Where this project is
-      behind" item 4 above, now with a route: passagemath ships SageMath as
-      modularized pip distributions, so `pip install "sagemath-mcp[passagemath]"`
-      could stand up the 32 Sage-backed tools without the ~3 GB image or a local
-      Sage build. The three generated artifacts (allowlist, star exports, baked
-      denylist) are derived from *the installed Sage*, so the passagemath
-      namespace needs its own reviewed set: generate both variants with the
-      existing scripts, bake both, select by probing the runtime at worker start,
-      and extend the weekly drift job to cover both. The open design cost is
-      exactly that doubling — two artifact sets to review on every engine bump —
-      and it is priced in, not discovered later.
+      behind" item 4 above. **Evaluated 2026-09-06**
+      ([docs/passagemath_evaluation.md](docs/passagemath_evaluation.md), verified
+      empirically): verdict **adopt, pinned to a verified release**, and the fit
+      is better than this sketch assumed — `pip install passagemath-standard`
+      yields a runtime where `from sage.all import *` works, `_sage_worker.py`
+      runs unmodified, and all 33 Sage-backed tool domains pass on 10.8.9, at
+      ~1 GB download / 3.8 GB disk / ~1 min versus the ~3 GB image. Two blockers
+      before it ships: (1) the star-exports/denylist derivation is layout-
+      sensitive and over-fires under the modular layout — the real engineering,
+      ~1–2 days, and it overlaps the "classify rather than accept" allowlist item
+      in TODO.md; (2) the full suite and doctest corpus sweep run against the pin.
+      Don't track their latest release: 10.8.10/10.8.11 each shipped a broken core
+      backend on Linux x86_64 (found in the evaluation, not their tracker), so an
+      exact pin plus a cold-install smoke gate in CI, which folds their release
+      risk into this project's existing engine-bump discipline. The priced-in cost
+      is still the two artifact sets to review on every engine bump.
 - [x] **Manifolds and GR: document, don't build.** *Done, 2026-08-24.* sympy-mcp's
       tensor/GR tools (Schwarzschild/Kerr metrics, Ricci/Einstein tensors) are its
       one breadth advantage, and Sage has the stronger machinery underneath
@@ -208,15 +264,17 @@ roadmap reflects what the survey actually changed:
   and szeider's `structure_description()` GAP case, pinned in `test_use_cases.py`.
 
 The still-open feature above — outcome benchmarks — plus the passagemath
-runtime are what remain of the survey; `verify_claim` shipped 2026-09-06.
+runtime are what remain of the survey; `verify_claim` shipped 2026-09-06, and
+portable workspace handles closed the session-ergonomics gap the same day.
 
 ---
 
 ## Explicitly not planned
 
-**More domain tools.** At 37 the surface already exceeds every peer. The gaps that
-matter are distribution and session ergonomics, not coverage. (`verify_claim` in the
-field-survey section is not an exception to this: it is a checking primitive over
+**More domain tools.** At 40 the surface already exceeds every peer. The gaps that
+matter are distribution and session ergonomics, not coverage — and session
+ergonomics is now largely closed (named workspaces, interrupt, portable handles).
+(`verify_claim` is not an exception to this: it is a checking primitive over
 claims, not another slice of mathematical coverage.)
 
 ---

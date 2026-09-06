@@ -1,7 +1,7 @@
 """Agent-facing diagnostics: a health probe and documentation lookup.
 
 Both adopted from the 2026-08-24 peer survey. Stdio clients cannot reach the
-HTTP ``/health`` route, so agents had no way to check readiness before
+HTTP ``/ready`` route, so agents had no way to check readiness before
 committing to a workflow; and models routinely want the Sage documentation
 for a name, where a static URL map answers without costing a worker round
 trip.
@@ -51,7 +51,7 @@ async def check_sage_health(
 ) -> dict:
     """Answer "can this server do mathematics for me right now?" cheaply.
 
-    The HTTP ``/health`` route answers the same question for Kubernetes, but a
+    The HTTP ``/ready`` route answers the same question for Kubernetes, but a
     stdio client cannot reach it. This is the MCP-level equivalent, and it
     exercises the real path -- worker spawn, protocol round trip, evaluation --
     not just process liveness.

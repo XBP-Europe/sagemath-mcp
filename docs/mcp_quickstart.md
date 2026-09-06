@@ -30,7 +30,7 @@ All tools use **SageMath** as the computation backend unless noted.
 - **Session Management:** `start_sage_session`, `list_sage_sessions`, `stop_sage_session`,
   `reset_sage_session`, `interrupt_sage_session` (stops the computation, keeps the variables),
   `cancel_sage_session` (restarts the worker, discards them).
-- **Infrastructure:** `/health` endpoint (HTTP only).
+- **Infrastructure:** `/health` (liveness) and `/ready` (readiness — evaluates `1+1` on the backend) endpoints (HTTP only).
 - **Resources:** `resource://sagemath/session/{scope}`, `resource://sagemath/monitoring/{scope}`,
   `resource://sagemath/docs/{scope}`.
 - **Deployment:** Local development via `uv run sagemath-mcp`, Docker Compose on `http://127.0.0.1:8314/mcp`,

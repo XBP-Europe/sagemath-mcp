@@ -1153,6 +1153,7 @@ All configuration is done via environment variables. No config files are needed.
 | `SAGEMATH_MCP_EVAL_TIMEOUT` | Per-evaluation timeout in seconds. | `30` |
 | `SAGEMATH_MCP_MAX_STDOUT` | Maximum characters of `stdout` returned per call. | `100000` |
 | `SAGEMATH_MCP_MAX_SESSIONS` | Ceiling on concurrently live sessions (workers); `0` means unbounded. A new session past the ceiling is refused; existing ones are always reachable. | `128` |
+| `SAGEMATH_MCP_WARM_POOL_SIZE` | Spare workers kept warm (Sage preloaded and lazy-init triggered) so a new session's first call is instant instead of paying ~1s; `0` disables it. Filled at startup, topped up in the background, never above `SAGEMATH_MCP_MAX_SESSIONS`. | `1` |
 | `SAGEMATH_MCP_SHUTDOWN_GRACE` | Grace period before a stuck worker is terminated. | `2` |
 | `SAGEMATH_MCP_FORCE_PYTHON_WORKER` | Use the pure-Python worker (helpful for tests/CI). | `false` |
 | `SAGEMATH_MCP_PURE_PYTHON` | When set to `1`, load math stdlib instead of Sage modules. | unset |

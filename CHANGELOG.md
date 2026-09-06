@@ -13,6 +13,20 @@ here is a breaking change.
 
 ### Added
 
+- **MCP prompts (3).** `prove_and_verify`, `solve_and_check` and
+  `explore_object` — reusable instructions a client surfaces in its prompt
+  picker, each steering the model toward what this server is good at: verifying
+  its own algebra with `verify_claim`, checking a result before presenting it,
+  and building an object once in a session and exploring it in `evaluate_sage`
+  rather than the fresh-namespace helper tools. Almost no MCP server ships
+  prompts; they are the cheapest way to shape usage.
+- **Pre-warmed worker pool.** The cost of a session's first call was ~1s of
+  Sage lazy initialisation (the import is cheap; the first *evaluation* is not).
+  The server now keeps a small pool of spare workers, each already past that
+  init, and a new session adopts one — measured **~980ms → ~2ms** on the first
+  call — while the pool refills in the background. Sized by
+  `SAGEMATH_MCP_WARM_POOL_SIZE` (default 1, `0` disables), never exceeding
+  `SAGEMATH_MCP_MAX_SESSIONS`.
 - **Portable workspace handles.** `start_sage_session` now returns a
   `workspace_token` alongside the workspace: a server-issued, unguessable bearer
   handle that addresses that one workspace independently of the transport-level

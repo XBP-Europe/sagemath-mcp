@@ -120,9 +120,13 @@ prioritised. Correctness first, then packaging/adoption.
       for `security.py`/`allowlist.py`; a mutation score (mutmut/cosmic-ray)
       scoped to them, plus Hypothesis-generated ASTs on top of the existing
       `test_security_bypass.py` corpus, is a real claim. Publish the number.
-- [ ] **Pre-warm one spare worker** so a session's first call does not pay the
-      `from sage.all import *` startup cost; and **ship MCP prompts** ("prove
-      this identity and verify", "solve step by step") — cheap usage steering.
+- [x] **Cheap protocol wins.** *Done, 2026-09-06.* Three MCP prompts
+      (`prove_and_verify`, `solve_and_check`, `explore_object`) steer the model
+      toward verified, stateful use. And a pre-warmed worker pool
+      (`SAGEMATH_MCP_WARM_POOL_SIZE`, default 1) pays the ~1s Sage lazy-init off
+      the client's path — the real cost was the first *evaluation*, not the
+      import — so a new session's first call drops from ~980ms to ~2ms
+      (verified real Sage). `tests/test_prompts.py`, `tests/test_warm_pool.py`.
 
 **Packaging / build hygiene**
 

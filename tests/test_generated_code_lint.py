@@ -446,3 +446,29 @@ def test_the_compose_file_does_not_publish_on_every_interface() -> None:
         assert mapping.startswith("127.0.0.1:") or mapping.startswith("localhost:"), (
             f"docker-compose publishes {mapping} on every interface"
         )
+
+
+def test_the_release_workflow_publishes_only_on_a_tag_push() -> None:
+    """Every irreversible publish must be gated on the tag PUSH event.
+
+    A workflow_dispatch can target a tag ref, so a condition of just
+    `startsWith(github.ref, 'refs/tags/v')` is reachable from a manual (even
+    dry-run) dispatch -- which is how a dry run could still reach PyPI. The one
+    coherent policy is that publishing requires the push event; this asserts no
+    bare ref-only gate survives, in code rather than in review.
+    """
+    workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+    offenders = []
+    for lineno, line in enumerate(workflow.splitlines(), start=1):
+        stripped = line.strip()
+        # Skip explanatory comments; check every real condition line, including
+        # the continuation lines of a multi-line `if: >-` block.
+        if stripped.startswith("#"):
+            continue
+        if "startsWith(github.ref" in stripped and "event_name == 'push'" not in stripped:
+            offenders.append(f"line {lineno}: {stripped}")
+    assert not offenders, (
+        "release.yml gates a publish on the ref without requiring the push event, "
+        "so a workflow_dispatch against a tag could publish:\n"
+        + "\n".join(f"  - {o}" for o in offenders)
+    )

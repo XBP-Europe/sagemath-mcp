@@ -63,10 +63,12 @@ jobs:
       packages: write
       id-token: write
     env:
-      # A manual dispatch with dry_run (the default) must not publish anything.
-      # This used to be push: true unconditionally, so the "validate without
-      # publishing" path pushed and signed a GHCR image anyway.
-      DO_PUSH: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run == false }}
+      # One publish policy, shared by every destination below: publish ONLY on a
+      # tag push. A workflow_dispatch can target a tag ref, so gating on the ref
+      # alone let a "validate without publishing" dispatch push and sign a GHCR
+      # image; requiring the push event closes that. Dispatch is always a dry
+      # run, which is the whole reason it exists (exercise the paths safely).
+      DO_PUSH: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
     steps:
       - uses: actions/checkout@v7
       - name: Set up Docker Buildx
@@ -151,8 +153,11 @@ jobs:
 
   publish:
     needs: [build, docker, helm]
-    # PyPI is irreversible; never reachable from a manual dispatch.
-    if: startsWith(github.ref, 'refs/tags/v')
+    # PyPI is irreversible; publish only on a tag PUSH. A workflow_dispatch can
+    # target a tag ref, so `startsWith(github.ref, ...)` alone was reachable from
+    # a dispatch (even a dry-run one) -- the push-event gate is what actually
+    # keeps a manual run from publishing. Same policy as DO_PUSH above.
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -173,12 +178,14 @@ jobs:
   # published PyPI description, so this can only run once the package is live.
   mcp-registry:
     needs: [publish]
-    # On a tag, still gated on a successful PyPI publish so a release object can
-    # never announce a version that was not shipped. On a manual dispatch,
-    # publish is skipped and this runs anyway in dry-run mode.
+    # On a tag push, gated on a successful PyPI publish so the registry can never
+    # announce a version that was not shipped. On a manual dispatch, publish is
+    # skipped and this runs in dry-run mode. Same push-only publish policy as the
+    # steps below.
     if: >-
       always() &&
-      ((startsWith(github.ref, 'refs/tags/v') && needs.publish.result == 'success')
+      ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        && needs.publish.result == 'success')
        || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
@@ -198,12 +205,12 @@ jobs:
           curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" \
             | tar xz mcp-publisher
       - name: Publish to the MCP registry
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         run: |
           ./mcp-publisher login github-oidc
           ./mcp-publisher publish
       - name: Dry run - validate the manifest and login only
-        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        if: ${{ !(github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) }}
         run: |
           python3 -c "import json,sys; d=json.load(open('server.json')); \
             assert d['name'] and d['version'] and d['packages'], 'server.json incomplete'; \
@@ -217,12 +224,13 @@ jobs:
   # v0.3.1 as Latest -- which is also where pyproject points its Changelog URL.
   github-release:
     needs: [publish]
-    # On a tag, still gated on a successful PyPI publish so a release object can
+    # On a tag push, gated on a successful PyPI publish so a release object can
     # never announce a version that was not shipped. On a manual dispatch,
-    # publish is skipped and this runs anyway in dry-run mode.
+    # publish is skipped and this runs in dry-run mode. Same push-only policy.
     if: >-
       always() &&
-      ((startsWith(github.ref, 'refs/tags/v') && needs.publish.result == 'success')
+      ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        && needs.publish.result == 'success')
        || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
@@ -255,12 +263,12 @@ jobs:
             echo "found=false" >> "$GITHUB_OUTPUT"
           fi
       - name: Dry run - render the notes without creating a release
-        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        if: ${{ !(github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) }}
         run: |
           echo "Would create a release with these notes:"
           head -40 release-notes.md || echo "(no changelog entry; generated notes would be used)"
       - name: Create the GitHub release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

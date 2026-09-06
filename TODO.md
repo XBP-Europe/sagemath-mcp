@@ -9,10 +9,15 @@ out of date.
 - [ ] From the 2026-09-06 external review, in its recommended order (foundations
       before features; the fastmcp<4 cap and the verifier's exactness fixes from
       the same review already landed — REVIEW_ACTIONS 68, `tools/verify.py`):
-      - **Explicit workspace identity.** The MCP spec has removed protocol-level
-        sessions in favour of explicit application handles, and fastmcp 4 already
-        broke `ctx.session_id`-based routing once. Give workspaces caller-visible
-        handles instead of leaning on transport session identity.
+      - [x] **Explicit workspace identity.** *Done, 2026-09-06.* The 2026-07-28
+        MCP spec retired protocol-level sessions and recommends application-issued
+        handles; `start_sage_session` now returns an unguessable bearer
+        `workspace_token` that addresses one workspace independently of the
+        transport id, resolved through one central path by every stateful tool
+        and lifecycle op. Names keep transport-scoped isolation; handles fail
+        closed and are kept out of keys/logs/monitoring/listings. The fastmcp<4
+        cap stays (a separate change lifts it). See `tools/session.py`,
+        `session.py`, `tests/test_workspace_handles.py`.
       - [x] **One canonical hardened onboarding path.** *Done, 2026-09-06.* The
         README `docker run` now carries the Compose hardening and publishes on
         loopback (lint-tested); both setup scripts pin the Dockerfile's Sage
@@ -32,9 +37,23 @@ out of date.
         probe now targets while `/health` stays a shallow liveness check.
       - [x] **Release validation.** *Done, 2026-09-06.* The Docker release job
         smoke-tests the built image with a stateful assign-and-read before any
-        push; `dry_run` dispatches publish nothing (push, login and Cosign are
-        all gated); CI's compose smoke now asserts its stateful result instead
-        of printing it. Verified locally against a freshly built image.
+        push; CI's compose smoke now asserts its stateful result. A second review
+        round extended the dry-run guard to every destination: PyPI, the MCP
+        registry and the GitHub release gated on the ref alone, which a
+        tag-targeted `workflow_dispatch` satisfied, so all publishing now
+        requires the tag **push** event under one policy, with a static test
+        (`test_the_release_workflow_publishes_only_on_a_tag_push`) enforcing it.
+        Open follow-up (assurance, non-blocking): the push step rebuilds rather
+        than pushing the exact candidate image the smoke test ran against —
+        build once, test, then push that artifact.
+      - [x] **Verifier certainty (second round).** *Done, 2026-09-06.* Two more
+        soundness defects the review reproduced: a comparison over machine floats
+        (`RR(1)+RR(1)/10^20 == RR(1)`) was labelled proved/exact — now the
+        operands are inspected and an inexact comparison is `supported` via a
+        `float_comparison` method, never exact; and a sampled counterexample
+        could violate a domain assumption (`x != 1/2` refuted at 1/2 under
+        `assume(x,'integer')`) — sampling now establishes each point's
+        admissibility and skips what it cannot confirm. `tests/test_verify.py`.
       - [x] **README language.** *Done, 2026-09-06.* "full access"/"run any
         SageMath code"/"arbitrary" replaced with the deny-by-default subset
         description across README, USAGE and the `evaluate_sage` tool

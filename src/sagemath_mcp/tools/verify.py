@@ -102,6 +102,28 @@ def _exact_decimal_literals(claim: str) -> str:
     return rewritten
 
 
+def _comparison_sides(claim: str) -> tuple[str | None, str | None]:
+    """The two operands of the claim's single top-level comparison.
+
+    Returned as source strings so the generated code can evaluate each side on
+    its own and inspect its exactness -- which the collapsed Boolean has already
+    thrown away. `RR(1) + RR(1)/10^20 == RR(1)` evaluates to True by
+    floating-point rounding, and without the operands the ladder called that an
+    exact proof; with them it can see both sides live in an inexact field and
+    refuse the exact verdict. Only a single comparison is handled (the
+    truth-assembly gate guarantees there is at most one); a bare predicate like
+    `is_prime(7)` has no sides and is left to whole-claim evaluation.
+    """
+    candidate = _EQUALS_NOT_COMPARISON.sub("==", claim)
+    try:
+        node = ast.parse(candidate, mode="eval").body
+    except SyntaxError:
+        return (None, None)
+    if isinstance(node, ast.Compare) and len(node.ops) == 1:
+        return (ast.unparse(node.left), ast.unparse(node.comparators[0]))
+    return (None, None)
+
+
 def _reject_truth_assembly(claim: str) -> None:
     """Refuse a claim whose truth Python would assemble out of bool().
 
@@ -152,10 +174,13 @@ enclosure); 'supported' means the numeric evidence is consistent with the claim 
 without proving it, and says how many samples at what precision; 'undecided' \
 means every rung was inconclusive -- it never means false.
 
-Decimal literals are read exactly -- 0.1 means 1/10, never the 53-bit double -- \
-so 0.1 + 0.2 == 0.3 is proved and no verdict is ever decided in floating point. \
-The session's active assumptions (assume(x > 0)) are honored, restricted over in \
-sampling, and named in the evidence of any verdict that relied on them.
+Exactness is never assumed. Decimal literals are read exactly (0.1 means 1/10, \
+never the 53-bit double), and a comparison whose operands are machine floats \
+(RR/RDF/CC, an .n() result) is reported as 'supported' over inexact numbers, \
+never as an exact proof -- state it over ZZ/QQ/QQbar or symbolically for an \
+exact verdict. The session's active assumptions (assume(x > 0), assume(x, \
+'integer')) are honored: a sampled counterexample must lie inside the stated \
+domain, and any verdict that relied on an assumption names it in the evidence.
 """)
 async def verify_claim(
     claim: Annotated[
@@ -212,11 +237,17 @@ async def verify_claim(
         # judging anything other than the final text is how item 55 happened.
         claim = _validated_expression(rewritten)
     _reject_truth_assembly(claim)
+    lhs_src, rhs_src = _comparison_sides(claim)
+    have_sides = lhs_src is not None and rhs_src is not None
+    lhs_literal = _encode_literal(lhs_src) if have_sides else "None"
+    rhs_literal = _encode_literal(rhs_src) if have_sides else "None"
     code = (
         _sage_prelude()
         + textwrap.dedent(
             f"""
         _text = {_encode_literal(claim)}
+        _lhs_src = {lhs_literal}
+        _rhs_src = {rhs_literal}
         _nsamples = {int(samples)}
         _prec = {int(precision_bits)}
         try:
@@ -227,6 +258,82 @@ async def verify_claim(
                 raise
             _claim = (sage_eval(_sides[0].strip(), locals=_locals)
                       == sage_eval(_sides[1].strip(), locals=_locals))
+        def _is_inexact(_v):
+            # A concrete number living in an inexact field -- a machine float
+            # (RR/RDF/CC/RIF), never the symbolic ring (whose is_exact() is also
+            # False but whose claims the prover decides exactly) and never an
+            # exact field (ZZ/QQ/QQbar/AA). Python float/complex have no parent
+            # and are inexact; Python int/bool are exact.
+            if isinstance(_v, bool):
+                return False
+            if isinstance(_v, (float, complex)):
+                return True
+            try:
+                _p = _v.parent()
+            except AttributeError:
+                return False
+            return (_p is not SR) and (not _p.is_exact())
+        def _domain_holds(_dom, _val):
+            # Does a rational sample value lie in a declared domain?
+            try:
+                if _dom == 'integer':
+                    return _val in ZZ
+                if _dom == 'noninteger':
+                    return _val not in ZZ
+                if _dom == 'even':
+                    return (_val in ZZ) and (ZZ(_val) % 2 == 0)
+                if _dom == 'odd':
+                    return (_val in ZZ) and (ZZ(_val) % 2 == 1)
+                if _dom == 'rational':
+                    return _val in QQ
+                if _dom in ('real', 'noncomplex'):
+                    return _val in QQ  # every sample value is a rational real
+                if _dom == 'complex':
+                    return True
+            except Exception:
+                return False
+            return False  # an unrecognised domain cannot be confirmed
+        def _point_admissible(_assumed, _point):
+            # `getattr` and private attributes are unavailable to generated code,
+            # so a domain declaration is read from its string form ("x is
+            # integer") rather than its internals.
+            _pt_names = dict((str(_k), _k) for _k in _point)
+            for _a in _assumed:
+                _s = str(_a)
+                if ' is ' in _s:
+                    _name, _, _dom = _s.partition(' is ')
+                    _name = _name.strip()
+                    _dom = _dom.strip()
+                    if _name not in _pt_names:
+                        continue  # constrains a variable this sample does not set
+                    if not _domain_holds(_dom, _point[_pt_names[_name]]):
+                        return False
+                    continue
+                # A relational assumption. Irrelevant if it shares no variable
+                # with the sample; otherwise it must be confirmed to hold there.
+                try:
+                    _avars = set(_a.variables())
+                except Exception:
+                    _avars = set()
+                if _avars and _avars.isdisjoint(_point):
+                    continue
+                try:
+                    _sv = _a.subs(_point)
+                    if (_sv is True) or (bool(_sv) is True):
+                        continue
+                    return False
+                except Exception:
+                    return False
+            return True
+        _inexact_operands = False
+        if _lhs_src is not None:
+            try:
+                _inexact_operands = (
+                    _is_inexact(sage_eval(_lhs_src, locals=_locals))
+                    or _is_inexact(sage_eval(_rhs_src, locals=_locals))
+                )
+            except Exception:
+                _inexact_operands = False
         _verdict = None
         _method = None
         _evidence = None
@@ -238,11 +345,31 @@ async def verify_claim(
         if _assumed:
             _anote = ("; under the session's active assumptions: "
                       + ', '.join(str(_a) for _a in _assumed))
-        if isinstance(_claim, bool):
+        if isinstance(_claim, bool) and _inexact_operands:
+            # The Boolean came out of a floating-point comparison, so it is a
+            # true observation about machine numbers but not the exact
+            # mathematical proof this tool advertises. Never proved/refuted
+            # here: a holding comparison is 'supported' (with the inexactness
+            # named), a failing one is 'undecided' -- rounding could have gone
+            # either way.
+            if _claim:
+                _verdict = 'supported'
+                _method = 'float_comparison'
+                _evidence = ('holds under inexact machine-number (floating-point) '
+                             'evaluation; not established as an exact identity. '
+                             'State it over exact numbers (ZZ/QQ/QQbar or symbolic) '
+                             'for an exact verdict' + _anote)
+            else:
+                _verdict = 'undecided'
+                _method = 'float_comparison'
+                _evidence = ('does not hold under inexact machine-number evaluation, '
+                             'which cannot exactly refute it -- rounding may have '
+                             'decided the comparison' + _anote)
+        elif isinstance(_claim, bool):
             _verdict = 'proved' if _claim else 'refuted'
             _method = 'exact_comparison'
             _evidence = ('the claim evaluates to ' + str(_claim)
-                         + ' under exact evaluation')
+                         + ' under exact evaluation' + _anote)
         elif not (hasattr(_claim, 'is_relational') and _claim.is_relational()):
             _bad = ('the claim must be a comparison (==, =, !=, <, <=, >, >=) or '
                     'evaluate to True/False; it evaluated to: ' + str(_claim))
@@ -357,18 +484,15 @@ async def verify_claim(
                         if _i % 2 == 1:
                             _val = -_val
                         _point[_v] = _val
-                    _violates = False
-                    for _a in _assumed:
-                        try:
-                            _av = _a.subs(_point)
-                            if _av is not True and _av is not False:
-                                _av = bool(_av)
-                        except Exception:
-                            continue
-                        if _av is False:
-                            _violates = True
-                            break
-                    if _violates:
+                    # Use a point only if its admissibility is established: every
+                    # active assumption must be confirmed to hold there (or be
+                    # irrelevant to it). A domain declaration like
+                    # `assume(x, 'integer')` cannot be substituted, so ignoring
+                    # it produced a false counterexample at x = 1/2 for
+                    # `x != 1/2`; now an unconfirmable assumption makes the point
+                    # inadmissible and the sweep converges to undecided rather
+                    # than exhibiting a counterexample outside the stated domain.
+                    if not _point_admissible(_assumed, _point):
                         _skipped += 1
                         continue
                     try:

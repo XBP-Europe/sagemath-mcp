@@ -39,14 +39,21 @@ here is a breaking change.
   returning `False` means *not proved*, never *false* — `refuted` requires an
   exact decision or an exhibited counterexample — and `supported` always
   carries its evidence (sample count, precision), never a bare confidence
-  number. Two more honesty rules landed after external review: decimal literals
-  are read as the exact rationals they denote (`0.1` means 1/10, so
+  number. Several more honesty rules landed after external review. Decimal
+  literals are read as the exact rationals they denote (`0.1` means 1/10, so
   `0.1 + 0.2 == 0.3` is proved and `1.0 + 1e-20 == 1.0` is refuted — deciding
-  over 53-bit doubles answered both wrongly while claiming exactness), and the
-  session's active assumptions are honored, restricted over in sampling, and
-  named in the evidence of any verdict that relied on them. No new security
-  surface: the claim passes the same fragment gate as every other tool
-  parameter before touching generated code.
+  over 53-bit doubles answered both wrongly while claiming exactness), and a
+  second review round closed the deeper case: a comparison whose operands are
+  genuine machine floats (`RR(1)`, an `.n()` result, a session value in `RR`) is
+  now reported as `supported` over inexact numbers via a new `float_comparison`
+  method, never as an exact proof — `RR(1) + RR(1)/10^20 == RR(1)` is true only
+  by rounding. The session's active assumptions are honored, now including
+  non-substitutable domain declarations: under `assume(x, 'integer')` a sampled
+  1/2 is inadmissible and never offered as a counterexample to `x != 1/2` (the
+  first pass silently ignored such declarations and refuted falsely), and any
+  verdict that relied on an assumption names it in the evidence. No new security
+  surface: the claim passes the same fragment gate as every other tool parameter
+  before touching generated code.
 - **Two diagnostics tools (37 → 39).** `check_sage_health` is an MCP-level
   readiness probe for stdio clients that cannot reach the HTTP `/health` route:
   it spins up (or reuses) the workspace worker, evaluates `1+1`, and reports
@@ -95,9 +102,15 @@ here is a breaking change.
   inside it (assign, read back in the same session — the exact workflow fastmcp
   4.0.3 broke while every signature stayed valid), and only then pushes and
   signs; a manual `dry_run` dispatch used to push and sign a GHCR image anyway
-  and now publishes nothing. The CI compose smoke test asserted nothing about
-  its stateful call — it printed the result and reported success even when the
-  second call failed — and now fails unless the read-back returns 42.
+  and now publishes nothing. A second review round found the same class of gap
+  on the other destinations: PyPI, the MCP registry and the GitHub release each
+  gated on `startsWith(github.ref, 'refs/tags/v')` alone, and a
+  `workflow_dispatch` can target a tag ref — so a dry-run dispatch against a tag
+  still satisfied them. Every publish now requires the tag **push** event under
+  one shared policy, and a static test asserts no ref-only gate returns. The CI
+  compose smoke test asserted nothing about its stateful call — it printed the
+  result and reported success even when the second call failed — and now fails
+  unless the read-back returns 42.
 - **The onboarding paths now match the security model** (2026-09-06 external
   review). The README's `docker run` example published the unauthenticated
   evaluator on every host interface while overriding the image's CMD without

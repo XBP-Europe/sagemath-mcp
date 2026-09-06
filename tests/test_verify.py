@@ -127,6 +127,19 @@ async def test_verify_claim_reads_decimal_literals_exactly(claim, expected, monk
     assert expected in session.calls[0]["code"]
 
 
+def test_comparison_sides_splits_a_single_comparison():
+    from sagemath_mcp.tools.verify import _comparison_sides
+
+    assert _comparison_sides("RR(1) == RR(2)") == ("RR(1)", "RR(2)")
+    # The equation spelling is normalized before splitting.
+    lhs, rhs = _comparison_sides("x^2 - 1 = 0")
+    assert lhs.replace(" ", "") == "x^2-1" and rhs == "0"
+    # A bare predicate has no comparison sides.
+    assert _comparison_sides("is_prime(7)") == (None, None)
+    # Sage-only syntax that does not parse: no sides, falls back to whole-claim.
+    assert _comparison_sides("R.<a> = QQ[]") == (None, None)
+
+
 async def test_verify_claim_accepts_the_equation_spelling(monkeypatch):
     """A single '=' is Sage's equation, not Python; the gate must let it pass."""
     session = StubSession(PROVED_PAYLOAD)
@@ -308,6 +321,28 @@ async def test_verify_claim_ladder_against_real_sage(monkeypatch):
         assert near_miss.verdict == "refuted"
         assert near_miss.method == "certified_interval"
         assert "certified" in near_miss.evidence
+
+        # External-review defect 1: a comparison over machine floats is not an
+        # exact proof, however the Boolean came out. Rewriting decimal literals
+        # does not make RR(...) exact -- the operands are inspected, seen to be
+        # inexact, and the verdict is qualified rather than 'proved/exact'.
+        float_eq = await server.verify_claim("RR(1) + RR(1)/10^20 == RR(1)", ctx=ctx)
+        assert float_eq.verdict == "supported"
+        assert float_eq.method == "float_comparison"
+        assert "inexact" in float_eq.evidence
+        # A decimal literal, by contrast, is the exact rational it denotes.
+        assert (await server.verify_claim("0.1 + 0.2 == 0.3", ctx=ctx)).verdict == "proved"
+        # An explicit float inequality is likewise supported, never proved.
+        assert (await server.verify_claim("RR(2) > RR(1)", ctx=ctx)).method == "float_comparison"
+
+        # External-review defect 2: a sampled counterexample must lie inside the
+        # stated domain. Under an integer-domain assumption, x = 1/2 is not a
+        # counterexample to x != 1/2 -- it is not an integer. The old code
+        # ignored the (non-substitutable) declaration and refuted falsely.
+        await server.evaluate_sage("assume(x, 'integer')", ctx=ctx, session="intdom")
+        integer_dom = await server.verify_claim("x != 1/2", ctx=ctx, session="intdom")
+        assert integer_dom.verdict != "refuted"
+        assert "1/2" not in (integer_dom.evidence or "")
 
         # Not a comparison at all: loud error, not a verdict.
         with pytest.raises(server.ToolError, match="must be a comparison"):

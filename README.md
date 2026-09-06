@@ -871,13 +871,18 @@ counterexample (interval evidence is always a certified enclosure, not a
 floating-point comparison). And `supported` always carries its evidence --
 sample count and precision -- never a bare confidence number.
 
-Two more preserve exactness where evaluation would quietly discard it. Decimal
-literals are read as the exact rationals they denote -- `0.1` means 1/10, so
-`0.1 + 0.2 == 0.3` is proved and `1.0 + 1e-20 == 1.0` is refuted, where deciding
-over 53-bit doubles would answer both wrongly while claiming exactness. And the
-session's active assumptions (`assume(x > 0)`) are honored: sampling never
-exhibits a "counterexample" outside the assumed domain, and any verdict that
-relied on an assumption names it in the evidence.
+Exactness is never assumed. Decimal literals are read as the exact rationals
+they denote -- `0.1` means 1/10, so `0.1 + 0.2 == 0.3` is proved and
+`1.0 + 1e-20 == 1.0` is refuted, where deciding over 53-bit doubles would answer
+both wrongly while claiming exactness. But a comparison whose operands are
+genuine machine floats (`RR(1)`, an `.n()` result, a session value in `RR`) is
+reported as `supported` "over inexact machine numbers", never as an exact proof
+-- `RR(1) + RR(1)/10^20 == RR(1)` is true only by rounding, and saying `proved`
+there would be the false certainty this tool exists to prevent. And the
+session's active assumptions are honored, domain declarations included: under
+`assume(x, 'integer')` a sampled point of 1/2 is not admissible, so it is never
+offered as a counterexample to `x != 1/2`; any verdict that leaned on an
+assumption names it in the evidence.
 
 Every tool that runs on a worker accepts the same optional `session` argument.
 Omitting it uses the `default` workspace, which is the behaviour of every earlier

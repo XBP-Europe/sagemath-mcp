@@ -119,8 +119,9 @@ class VerifyClaimResult(BaseModel):
     method: str | None = Field(
         default=None,
         description="The rung that decided: exact_comparison, symbolic_prover, "
-        "exact_difference, exact_algebraic, certified_interval, numeric_sampling "
-        "or exhausted.",
+        "exact_difference, exact_algebraic, certified_interval, numeric_sampling, "
+        "float_comparison (operands were machine floats, so the result is only "
+        "supported, never exact) or exhausted.",
     )
     evidence: str | None = Field(
         default=None,

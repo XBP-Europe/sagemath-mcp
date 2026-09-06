@@ -54,7 +54,7 @@ All math tools use **SageMath** as the computation backend.
 
 | Name | Backend | Description |
 | --- | --- | --- |
-| `evaluate_sage` | Sage | Execute arbitrary SageMath code within a persistent session; supports `timeout`, `want_latex`, `capture_stdout`. |
+| `evaluate_sage` | Sage | Execute SageMath code (the sandbox's mathematical subset) within a persistent session; supports `timeout`, `want_latex`, `capture_stdout`. Specialized tools evaluate in a fresh namespace, so multi-step work that reuses variables belongs here. |
 | `evaluate_sage_streaming` | Sage | Like `evaluate_sage` but emits each stdout line as a progress event for real-time display. |
 | `calculate_expression` | Sage | Evaluate a Sage expression and return string/numeric results. |
 | `solve_equation` | Sage | Solve a single equation or a system of equations for one or more variables. |

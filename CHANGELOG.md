@@ -54,6 +54,15 @@ here is a breaking change.
 
 ### Fixed
 
+- **Honest scope language** (2026-09-06 external review). "full access to
+  SageMath", "run any SageMath code" and "arbitrary SageMath code" are replaced
+  across the README, USAGE and the `evaluate_sage` tool description with the
+  deny-by-default subset the sandbox actually offers. The usability point the
+  same review raised is fixed alongside it: that the specialized tools evaluate
+  in a fresh namespace and cannot see `evaluate_sage` variables — so stateful
+  multi-step work belongs in `evaluate_sage` despite its "LAST RESORT" framing —
+  is now stated in the tool description the model reads and at the top of the
+  `evaluate_sage` reference, not only in a note far below.
 - **Session/worker robustness** (2026-09-06 external review). Four fixes:
   worker startup is now serialized by a per-session lock, closing a race where
   two simultaneous first requests to one session launched two workers and

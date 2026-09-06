@@ -48,11 +48,18 @@ LOGGER = logging.getLogger(__name__)
 # are deliberately restricted to work no dedicated tool performs, so that what
 # this tool shows and what it says agree.
 @mcp.tool(annotations=EVALUATES, description="""\
-Run arbitrary SageMath code in a persistent session; variables persist across calls.
+Run SageMath code in a persistent session; variables persist across calls. Caller \
+code is deny-by-default -- ordinary mathematics is allowed, but imports, external \
+CAS interfaces and file/display/persistence calls are refused.
 
-LAST RESORT. A dedicated tool exists for most tasks and should be preferred: it \
-validates arguments and returns a typed result instead of a repr string. Reach for \
-one of these first:
+LAST RESORT for a single self-contained calculation: a dedicated tool exists for \
+most of those and should be preferred, because it validates arguments and returns \
+a typed result instead of a repr string. One exception overrides that steer -- the \
+dedicated tools evaluate in a FRESH namespace and cannot see variables you defined \
+here, so any multi-step workflow that builds an object once and then explores it \
+(a graph and its invariants, a number field, a matrix decomposition) belongs in \
+evaluate_sage across as many calls as it takes. For a one-off, reach for one of \
+these first:
 
 - calculus: differentiate_expression, integrate_expression, limit_expression, \
 series_expansion, symbolic_sum, solve_ode
@@ -75,7 +82,8 @@ Modular arithmetic: Mod(17, 5); power_mod(3, 100, 97)
 Recurrences: var('n'); f = function('f'); desolve_rec(f(n+2)-f(n+1)-f(n), f, [0, 1])
 Continued fractions: continued_fraction(pi).convergents()[:10]
 Number fields: K.<a> = NumberField(x^3 - 2); K.class_number()
-Multi-step work that builds on values defined earlier in the same session.
+Any multi-step work that builds on values defined earlier in the same session, \
+since the dedicated tools cannot see them.
 """)
 async def evaluate_sage(
     code: Annotated[str, Field(description="SageMath code to execute")],

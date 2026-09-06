@@ -35,10 +35,12 @@ out of date.
         push; `dry_run` dispatches publish nothing (push, login and Cosign are
         all gated); CI's compose smoke now asserts its stateful result instead
         of printing it. Verified locally against a freshly built image.
-      - **README language.** Replace "run any SageMath code"/"full access" with
-        the supported-subset description; surface the helper tools' fresh-
-        namespace semantics next to `evaluate_sage`'s "LAST RESORT" guidance
-        rather than deep in the session-semantics section.
+      - [x] **README language.** *Done, 2026-09-06.* "full access"/"run any
+        SageMath code"/"arbitrary" replaced with the deny-by-default subset
+        description across README, USAGE and the `evaluate_sage` tool
+        description; the fresh-namespace exception now sits in the tool
+        description the model reads and at the top of the `evaluate_sage`
+        reference, not only in the deep session-semantics note.
 - [ ] From the 2026-08-24 field survey, one feature remains (roadmap has the
       mechanism): outcome benchmarks (GSM8K/MATH deltas) via the existing CLI
       harness — per the 2026-09-06 review, compare no-tools vs `evaluate_sage`

@@ -20,9 +20,9 @@
 [![Dependabot](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot)](https://github.com/XBP-Europe/sagemath-mcp/blob/main/.github/dependabot.yml)
 [![Last commit](https://img.shields.io/github/last-commit/XBP-Europe/sagemath-mcp.svg)](https://github.com/XBP-Europe/sagemath-mcp/commits/main)
 
-A universal mathematics [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that gives LLM clients full access to [SageMath](https://www.sagemath.org/) --- one of the most comprehensive open-source mathematics systems available. Built on [FastMCP 3.x](https://gofastmcp.com/), the server maintains a dedicated SageMath process for each MCP session so variables, functions, and assumptions persist across tool calls.
+A mathematics [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that gives LLM clients a sandboxed mathematical subset of [SageMath](https://www.sagemath.org/) --- one of the most comprehensive open-source mathematics systems available. Built on [FastMCP 3.x](https://gofastmcp.com/), the server maintains a dedicated SageMath process for each MCP session so variables, functions, and assumptions persist across tool calls. Caller code is deny-by-default: the full breadth of Sage mathematics is reachable, but imports, the external CAS interfaces, and the file/display/persistence primitives are not (see [Security Sandbox](#security-sandbox)).
 
-Whether the task is symbolic calculus, number theory, linear algebra, differential equations, plotting, combinatorics, graph theory, group theory, or basic arithmetic, the server provides **40 MCP tools** --- all math tools backed by the full SageMath engine, plus `evaluate_sage_streaming` (streaming wrapper) and an HTTP `/health` endpoint.
+Whether the task is symbolic calculus, number theory, linear algebra, differential equations, plotting, combinatorics, graph theory, group theory, or basic arithmetic, the server provides **40 MCP tools** --- the math tools backed by the SageMath engine, plus `evaluate_sage_streaming` (streaming wrapper) and HTTP `/health` and `/ready` endpoints.
 
 ---
 
@@ -60,7 +60,7 @@ Whether the task is symbolic calculus, number theory, linear algebra, differenti
 
 | Category | Tools | Backend | Capabilities |
 |----------|-------|---------|-------------|
-| **Core execution** | `evaluate_sage`, `evaluate_sage_streaming` | Sage | Run any SageMath code with persistent state, LaTeX output, stdout capture, progress heartbeats, per-call timeouts, and line-by-line streaming |
+| **Core execution** | `evaluate_sage`, `evaluate_sage_streaming` | Sage | Run SageMath code (the mathematical subset the sandbox permits) with persistent state, LaTeX output, stdout capture, progress heartbeats, per-call timeouts, and line-by-line streaming |
 | **Calculus** | `differentiate_expression`, `integrate_expression`, `limit_expression`, `series_expansion` | Sage | Derivatives of any order, indefinite & definite integrals, one-sided limits, Taylor/Laurent series |
 | **Algebra** | `solve_equation`, `simplify_expression`, `expand_expression`, `factor_expression`, `calculate_expression` | Sage | Single equations & systems, symbolic simplification, expansion, factoring, numeric evaluation |
 | **Symbolic sums** | `symbolic_sum` | Sage | Symbolic summation and products (finite and infinite series) |
@@ -245,7 +245,9 @@ The compose service exposes port `8314` on both host and container and mounts th
 
 ### `evaluate_sage` --- Open-Ended SageMath Execution
 
-The primary tool. Executes arbitrary SageMath code inside a persistent worker process. Variables, functions, classes, and assumptions defined in one call survive into subsequent calls within the same MCP session.
+Executes SageMath code — the mathematical subset the sandbox permits (see [Security Sandbox](#security-sandbox)) — inside a persistent worker process. Variables, functions, classes, and assumptions defined in one call survive into subsequent calls within the same MCP session.
+
+Its own tool description calls it a **LAST RESORT**, and for a single self-contained calculation a specialized tool is better: it validates arguments and returns a typed result. But that steer has one important exception. The specialized tools evaluate their input in a **fresh namespace** and cannot see variables you assigned with `evaluate_sage` — so any workflow that builds an object once and then explores it (a graph and its invariants, a number field, a polynomial ideal, a matrix decomposition) belongs in `evaluate_sage`, across as many calls as it takes. Persistent state is the reason to reach for it, not a reason to avoid it.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|

@@ -118,15 +118,23 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Push image
+      - name: Push the tested image
+        # Push the exact image the smoke test ran against -- retag and push it,
+        # rather than a second build-push-action that rebuilds and could produce
+        # a different artifact than the one just verified. All tags point at one
+        # image, so they share one registry digest, which is what gets signed.
         if: env.DO_PUSH == 'true'
-        id: build
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+        id: push
+        run: |
+          while IFS= read -r tag; do
+            [ -z "$tag" ] && continue
+            docker tag sagemath-mcp-candidate:smoke "$tag"
+            docker push "$tag"
+          done <<< "${{ steps.meta.outputs.tags }}"
+          FIRST_TAG=$(printf '%s\n' "${{ steps.meta.outputs.tags }}" | head -n1)
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$FIRST_TAG" | cut -d@ -f2)
+          test -n "$DIGEST"
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
       - name: Install Cosign
         if: env.DO_PUSH == 'true'
         uses: sigstore/cosign-installer@v4.1.2
@@ -136,7 +144,7 @@ jobs:
           COSIGN_YES: "true"
         run: |
           IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
-          DIGEST="${{ steps.build.outputs.digest }}"
+          DIGEST="${{ steps.push.outputs.digest }}"
           cosign sign "${IMAGE}@${DIGEST}"
 
   helm:

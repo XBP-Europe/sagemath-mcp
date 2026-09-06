@@ -43,9 +43,8 @@ out of date.
         tag-targeted `workflow_dispatch` satisfied, so all publishing now
         requires the tag **push** event under one policy, with a static test
         (`test_the_release_workflow_publishes_only_on_a_tag_push`) enforcing it.
-        Open follow-up (assurance, non-blocking): the push step rebuilds rather
-        than pushing the exact candidate image the smoke test ran against —
-        build once, test, then push that artifact.
+        The push step now publishes the exact candidate image the smoke test ran
+        against (retag + push + sign by registry digest), not a second build.
       - [x] **Verifier certainty (second round).** *Done, 2026-09-06.* Two more
         soundness defects the review reproduced: a comparison over machine floats
         (`RR(1)+RR(1)/10^20 == RR(1)`) was labelled proved/exact — now the

@@ -107,10 +107,13 @@ here is a breaking change.
   gated on `startsWith(github.ref, 'refs/tags/v')` alone, and a
   `workflow_dispatch` can target a tag ref — so a dry-run dispatch against a tag
   still satisfied them. Every publish now requires the tag **push** event under
-  one shared policy, and a static test asserts no ref-only gate returns. The CI
-  compose smoke test asserted nothing about its stateful call — it printed the
-  result and reported success even when the second call failed — and now fails
-  unless the read-back returns 42.
+  one shared policy, and a static test asserts no ref-only gate returns. The
+  Docker job now publishes the exact image the smoke test ran against — it
+  retags and pushes the tested candidate and signs it by its registry digest,
+  rather than a second build that could differ from the one just verified. The
+  CI compose smoke test asserted nothing about its stateful call — it printed
+  the result and reported success even when the second call failed — and now
+  fails unless the read-back returns 42.
 - **The onboarding paths now match the security model** (2026-09-06 external
   review). The README's `docker run` example published the unauthenticated
   evaluator on every host interface while overriding the image's CMD without

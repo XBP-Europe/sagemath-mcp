@@ -26,7 +26,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           }
         },
@@ -48,7 +48,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           }
         },
@@ -65,7 +65,7 @@
         "properties": {
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           }
         },
@@ -79,7 +79,7 @@
         "properties": {
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           }
         },
@@ -101,7 +101,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           }
         },
@@ -149,7 +149,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           }
         },
@@ -177,7 +177,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           },
           "variable": {
@@ -226,7 +226,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           },
           "x": {
@@ -275,7 +275,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           }
         },
@@ -302,7 +302,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           },
           "timeout": {
@@ -341,7 +341,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           },
           "timeout_seconds": {
@@ -375,7 +375,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           }
         },
@@ -396,7 +396,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           }
         },
@@ -422,7 +422,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           },
           "upper_bound": {
@@ -463,7 +463,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           }
         },
@@ -489,7 +489,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           },
           "source": {
@@ -545,7 +545,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           }
         },
@@ -579,7 +579,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           },
           "upper_bound": {
@@ -613,7 +613,7 @@
         "properties": {
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           }
         },
@@ -648,7 +648,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           },
           "variable": {
@@ -734,7 +734,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           }
         },
@@ -776,7 +776,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           }
         },
@@ -824,7 +824,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           }
         },
@@ -846,7 +846,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           },
           "x_range_max": {
@@ -907,7 +907,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           },
           "variable": {
@@ -946,7 +946,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           },
           "variable": {
@@ -991,7 +991,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           }
         },
@@ -1010,7 +1010,7 @@
         "properties": {
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           }
         },
@@ -1039,7 +1039,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           },
           "variable": {
@@ -1065,7 +1065,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           }
         },
@@ -1096,7 +1096,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           },
           "variable": {
@@ -1137,7 +1137,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           },
           "variable": {
@@ -1182,7 +1182,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           }
         },
@@ -1229,7 +1229,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           },
           "upper": {
@@ -1274,7 +1274,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           },
           "variables": {
@@ -1325,7 +1325,7 @@
           },
           "session": {
             "default": "default",
-            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "description": "Workspace to use, as a name or a portable handle. Workspaces have independent variables. A name is scoped to this MCP session; a handle returned by start_sage_session (workspace_token) reaches the same workspace across reconnects and is a bearer credential -- keep it secret. Omit for 'default'.",
             "type": "string"
           },
           "timeout": {

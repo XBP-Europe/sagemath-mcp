@@ -805,6 +805,29 @@ One client can hold several independent workspaces. Variables defined in one are
 > stop_sage_session(name="curves")
 ```
 
+**Portable workspace handles.** `start_sage_session` also returns a
+`workspace_token` — a server-issued, unguessable handle that addresses that one
+workspace:
+
+```
+> start_sage_session(name="curves")
+  {"message": "Session 'curves' ready", "name": "curves",
+   "workspace_token": "wsk_9f3c…"}          # keep this secret
+
+> evaluate_sage(code="E.rank()", session="wsk_9f3c…")   # reaches 'curves'
+```
+
+A plain `name` is scoped to your current MCP session, so it is lost if the
+transport hands you a new session id (a reconnect, or a transport that rotates
+the id per call). A handle is not: passed as the `session` argument it reaches
+the same workspace regardless of the transport id, which is what keeps state
+across a reconnect. It is a **bearer credential**, not authentication — it
+identifies no one, and anyone who holds it can reach that workspace — so treat
+it as a secret. An unknown or revoked handle is refused, never silently turned
+into a fresh workspace, and stopping a workspace invalidates its handles. The
+handle keeps its workspace only while that worker is alive (a server restart or
+an idle cull ends it); it is not a cross-restart recovery token.
+
 #### `check_sage_health`
 
 The MCP-level readiness probe, for stdio clients that cannot reach the HTTP

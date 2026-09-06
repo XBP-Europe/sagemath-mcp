@@ -113,7 +113,7 @@ async def evaluate_sage(
     # Compute the key once and reuse it. Cancelling used to pass ctx.session_id,
     # which restarts the DEFAULT workspace: cancelling work in 'curves' destroyed
     # unrelated default state while the curves worker kept running.
-    session_key = runtime.SESSION_MANAGER.key_for(ctx.session_id, session)
+    session_key = runtime.SESSION_MANAGER.resolve_key(ctx.session_id, session)
     sage_session = await runtime.SESSION_MANAGER.get(session_key)
     await ctx.info("Starting SageMath evaluation")
     progress_task = asyncio.create_task(_progress_heartbeat(ctx))

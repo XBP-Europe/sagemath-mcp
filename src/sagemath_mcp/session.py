@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import re
+import secrets
 import shutil
 import signal
 import sys
@@ -46,6 +47,12 @@ DEFAULT_SESSION_NAME = "default"
 # Separates the MCP client scope from the workspace name in a storage key.
 # Chosen so it cannot collide with a name a caller might pick.
 _NAME_SEPARATOR = "::"
+
+# Server-issued workspace handles carry this prefix. A `session` argument that
+# starts with it is treated as a portable handle (resolved through the alias
+# map) rather than a workspace name, so the prefix is reserved: an ordinary
+# name must not begin with it.
+WORKSPACE_TOKEN_PREFIX = "wsk_"
 
 # Buffer for a single JSON response line from the worker. asyncio defaults to
 # 64 KiB, which is smaller than legitimate results such as a base64-encoded
@@ -725,6 +732,12 @@ class SageSessionManager:
         self.settings = settings or DEFAULT_SETTINGS
         self._sessions: dict[str, SageSession] = {}
         self._lock = asyncio.Lock()
+        # Portable workspace handles: token -> storage key. A token addresses a
+        # workspace independently of the transport session id, so state survives
+        # a reconnect or a transport that rotates the id per call. Mutated only
+        # in coroutine steps with no await between read and write, so the
+        # single-threaded event loop already serialises it -- no lock needed.
+        self._aliases: dict[str, str] = {}
 
     @staticmethod
     def key_for(scope: str, name: str = DEFAULT_SESSION_NAME) -> str:
@@ -741,6 +754,39 @@ class SageSessionManager:
         """Inverse of key_for: recover (scope, name)."""
         scope, sep, name = key.partition(_NAME_SEPARATOR)
         return (scope, name) if sep else (key, DEFAULT_SESSION_NAME)
+
+    def resolve_key(self, scope: str, name: str = DEFAULT_SESSION_NAME) -> str:
+        """Storage key for a `session` argument, token-aware.
+
+        An ordinary name composes with the transport `scope`, exactly as before.
+        A server-issued handle (the reserved prefix) resolves through the alias
+        map to the key it was minted for, ignoring `scope` entirely -- that is
+        what makes the workspace portable across transport sessions. An
+        unrecognised handle is refused rather than silently opening a fresh
+        workspace: a caller cannot fabricate a handle to reach another's state,
+        so unguessability is the isolation guarantee.
+        """
+        candidate = (name or DEFAULT_SESSION_NAME).strip() or DEFAULT_SESSION_NAME
+        if candidate.startswith(WORKSPACE_TOKEN_PREFIX):
+            key = self._aliases.get(candidate)
+            if key is None:
+                raise SageProcessError(
+                    "Unknown or expired workspace handle. Start a workspace with "
+                    "start_sage_session to get a valid one."
+                )
+            return key
+        return self.key_for(scope, candidate)
+
+    def mint_workspace_token(self, key: str) -> str:
+        """Issue an unguessable portable handle addressing `key`."""
+        token = WORKSPACE_TOKEN_PREFIX + secrets.token_urlsafe(24)
+        self._aliases[token] = key
+        return token
+
+    def _forget_aliases_for(self, key: str) -> None:
+        """Drop every handle pointing at a key whose worker is gone."""
+        for token in [t for t, k in self._aliases.items() if k == key]:
+            del self._aliases[token]
 
     async def list_for_scope(self, scope: str) -> list[dict[str, object]]:
         """Describe every workspace belonging to one MCP client."""
@@ -762,10 +808,16 @@ class SageSessionManager:
         ]
 
     async def stop(self, scope: str, name: str) -> bool:
-        """Shut down one named workspace. Returns False if it did not exist."""
-        key = self.key_for(scope, name)
+        """Shut down one workspace by name or handle. False if it did not exist."""
+        try:
+            key = self.resolve_key(scope, name)
+        except SageProcessError:
+            # An unknown handle names no live workspace, which is what "False"
+            # says. Stopping is idempotent, so this is not an error.
+            return False
         async with self._lock:
             session = self._sessions.pop(key, None)
+        self._forget_aliases_for(key)
         if session is None:
             return False
         with contextlib.suppress(Exception):
@@ -831,6 +883,13 @@ class SageSessionManager:
                 sessions_to_shutdown.append((sid, self._sessions.pop(sid)))
         if not sessions_to_shutdown:
             return
+        # Handles to a culled worker are dead; drop them so the map cannot grow
+        # without bound. Presenting a forgotten handle now refuses rather than
+        # silently opening an empty workspace -- parity with a culled name,
+        # which the caller re-creates by name, is not possible for a handle
+        # whose only identity was the token.
+        for sid, _ in sessions_to_shutdown:
+            self._forget_aliases_for(sid)
         LOGGER.info("Culling %d idle Sage session(s)", len(sessions_to_shutdown))
         # Persist before terminating. shutdown() and stop() already do this, but
         # culling did not -- so with persistence enabled the ordinary idle

@@ -89,7 +89,7 @@ All math tools use **SageMath** as the computation backend.
 | `interrupt_sage_session` | Worker | Interrupt a running computation **and keep the variables defined so far**. Prefer this over cancelling. |
 | `cancel_sage_session` | Worker | Cancel the active computation and restart the underlying worker, discarding its variables. |
 | `reset_sage_session` | Worker | Clear the session state without cancelling a running job. |
-| `start_sage_session` | Worker | Start a **named workspace** with its own independent variables. |
+| `start_sage_session` | Worker | Start a **named workspace** with its own independent variables, and return a portable `workspace_token`: an unguessable bearer handle that reaches the same workspace across reconnects when passed as `session`. Keep it secret. |
 | `list_sage_sessions` | Worker | List the named workspaces belonging to this client. |
 | `stop_sage_session` | Worker | Stop a named workspace and release its worker. |
 | `check_sage_health` | Worker | Probe readiness: spins up (or reuses) the workspace worker, evaluates `1+1`, reports `ok`/latency instead of erroring. |

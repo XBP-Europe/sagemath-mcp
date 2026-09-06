@@ -306,7 +306,9 @@ def test_no_caller_string_is_interpolated_into_generated_code_unguarded() -> Non
         "_exact_matrix_entries",
     }
     # Interpolation into a message is not interpolation into code.
-    message_sinks = {"ToolError", "ResetResponse", "info", "warning", "error", "debug"}
+    message_sinks = {
+        "ToolError", "ResetResponse", "WorkspaceHandle", "info", "warning", "error", "debug",
+    }
     tree = _ast.parse(
         "\n".join(path.read_text(encoding="utf-8") for path in _package_files())
     )

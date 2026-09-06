@@ -10,6 +10,9 @@ from __future__ import annotations
 from .session import DEFAULT_SESSION_NAME
 
 SESSION_ARG_DESC = (
-    "Named workspace to use. Workspaces have independent variables; "
-    f"omit for '{DEFAULT_SESSION_NAME}'."
+    "Workspace to use, as a name or a portable handle. Workspaces have "
+    "independent variables. A name is scoped to this MCP session; a handle "
+    "returned by start_sage_session (workspace_token) reaches the same "
+    "workspace across reconnects and is a bearer credential -- keep it secret. "
+    f"Omit for '{DEFAULT_SESSION_NAME}'."
 )

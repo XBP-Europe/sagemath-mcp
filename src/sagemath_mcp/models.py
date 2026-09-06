@@ -49,6 +49,28 @@ class ResetResponse(BaseModel):
     message: str = Field(default="Session cleared")
 
 
+class WorkspaceHandle(BaseModel):
+    """A started workspace plus the portable handle that addresses it.
+
+    The handle is a server-issued, unguessable token. Passed back as a tool's
+    ``session`` argument it reaches this exact workspace independently of the
+    transport-level MCP session id -- so a client keeps its state across a
+    reconnect, or a transport that hands out a fresh session id per call (which
+    is what fastmcp 4 did, and where relying on the transport id alone lost
+    state). Holding the token is what grants access, so it is unguessable and
+    must be treated as a secret; it is never logged or exposed through the
+    monitoring or session resources.
+    """
+
+    message: str = Field(description="Human-readable confirmation.")
+    workspace_token: str = Field(
+        description="Opaque handle for this workspace. Pass it as the 'session' "
+        "argument of later tool calls to reach the same state regardless of the "
+        "transport session. Treat it as a secret."
+    )
+    name: str = Field(description="The workspace name this handle was opened for.")
+
+
 class SessionSnapshot(BaseModel):
     """Diagnostic snapshot stored inside the state resource."""
 

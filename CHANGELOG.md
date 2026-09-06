@@ -13,6 +13,21 @@ here is a breaking change.
 
 ### Added
 
+- **Portable workspace handles.** `start_sage_session` now returns a
+  `workspace_token` alongside the workspace: a server-issued, unguessable bearer
+  handle that addresses that one workspace independently of the transport-level
+  MCP session id. Passed as any tool's `session` argument it reaches the same
+  state across a reconnect — or a transport that rotates the session id per call
+  (which is what the MCP spec's retirement of protocol-level sessions, and
+  fastmcp 4, make the norm). Names keep their current transport-scoped behavior,
+  so two clients each using `default` stay isolated. The handle is a bearer
+  credential, not authentication: possession grants access, so it is unguessable
+  and kept out of monitoring, listings, error messages, logs and journal
+  filenames; an unknown or revoked handle is refused, never silently turned into
+  a fresh workspace; and stopping or culling a workspace invalidates its handles.
+  Every stateful tool and lifecycle operation (evaluate, verify, reset,
+  interrupt, cancel, stop) resolves a handle through one central path. The
+  `fastmcp>=3.4.7,<4` cap stays in place — this is additive, not a lift of it.
 - **`verify_claim` (39 → 40).** The checking primitive from the field survey,
   for the dominant failure mode of models doing mathematics: confident wrong
   algebra. A stated claim — `integral(x^2/(e^x-1), x, 0, oo) == 2*zeta(3)` — is

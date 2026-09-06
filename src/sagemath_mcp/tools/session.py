@@ -21,9 +21,11 @@ from ..models import (
     MonitoringSnapshot,
     ResetResponse,
     SessionSnapshot,
+    WorkspaceHandle,
 )
 from ..session import (
     DEFAULT_SESSION_NAME,
+    WORKSPACE_TOKEN_PREFIX,
     SageSessionManager,
 )
 from ..text import SESSION_ARG_DESC as _SESSION_ARG_DESC
@@ -56,7 +58,8 @@ async def reset_sage_session(
     """Reset the Sage session associated with the current MCP session."""
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required to reset state")
-    await runtime.SESSION_MANAGER.reset(runtime.SESSION_MANAGER.key_for(ctx.session_id, session))
+    key = runtime.SESSION_MANAGER.resolve_key(ctx.session_id, session)
+    await runtime.SESSION_MANAGER.reset(key)
     await ctx.info(f"Sage session '{session}' reset")
     return ResetResponse()
 
@@ -77,7 +80,7 @@ async def interrupt_sage_session(
     """
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required to interrupt work")
-    key = runtime.SESSION_MANAGER.key_for(ctx.session_id, session)
+    key = runtime.SESSION_MANAGER.resolve_key(ctx.session_id, session)
     interrupted = await runtime.SESSION_MANAGER.interrupt(key)
     if not interrupted:
         # No worker to signal: either nothing has run yet in this workspace, or
@@ -103,7 +106,8 @@ async def cancel_sage_session(
     """
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required to cancel work")
-    await runtime.SESSION_MANAGER.cancel(runtime.SESSION_MANAGER.key_for(ctx.session_id, session))
+    key = runtime.SESSION_MANAGER.resolve_key(ctx.session_id, session)
+    await runtime.SESSION_MANAGER.cancel(key)
     await ctx.warning(f"Sage session '{session}' cancelled and restarted")
     return ResetResponse(message="Session cancelled and restarted")
 
@@ -115,19 +119,37 @@ async def cancel_sage_session(
 async def start_sage_session(
     name: Annotated[str, Field(description="Workspace name, e.g. 'curves' or 'scratch'")],
     ctx: Context | None = None,
-) -> ResetResponse:
-    """Create a named workspace so one client can hold several at once.
+) -> WorkspaceHandle:
+    """Create a named workspace and issue a portable handle to it.
 
     Workspaces are independent: a variable defined in one is invisible to the
     others. Calling this for an existing name is harmless.
+
+    The returned `workspace_token` is a **bearer credential**: whoever presents
+    it as a later call's `session` argument reaches this exact workspace,
+    regardless of the transport-level MCP session id -- so state survives a
+    reconnect, or a transport that hands out a fresh id per call. It is not
+    authentication and identifies no one; possession alone grants access, so it
+    is unguessable and must be kept secret. The workspace also remains reachable
+    the old way, by `name`, within this transport session.
     """
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required to start a session")
     if not name.strip():
         raise ToolError("Session name must not be empty")
+    if name.strip().startswith(WORKSPACE_TOKEN_PREFIX):
+        raise ToolError(
+            f"A workspace name may not start with '{WORKSPACE_TOKEN_PREFIX}'; "
+            "that prefix is reserved for server-issued handles."
+        )
     await runtime.resolve_session(ctx.session_id, name)
+    key = runtime.SESSION_MANAGER.resolve_key(ctx.session_id, name)
+    token = runtime.SESSION_MANAGER.mint_workspace_token(key)
+    # The name is safe to log; the token is a secret and must never be.
     await ctx.info(f"Started Sage session '{name}'")
-    return ResetResponse(message=f"Session '{name}' ready")
+    return WorkspaceHandle(
+        message=f"Session '{name}' ready", workspace_token=token, name=name
+    )
 
 
 @mcp.tool(annotations=READS, description="List the named Sage workspaces belonging to this client")

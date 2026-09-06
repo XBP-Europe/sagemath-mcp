@@ -48,6 +48,12 @@ here is a breaking change.
 
 ### Fixed
 
+- **fastmcp capped below 4.** The requirement was `>=3.4.7` with no upper
+  bound, so a fresh install resolved fastmcp 4.0.3 — under which the
+  cache-isolation suite fails: a second client's identical tool call is not
+  executed in its own session, the cross-client leak
+  `tests/test_cache_isolation.py` exists to catch. Now `>=3.4.7,<4`; raising it
+  is deliberate work gated on that suite (REVIEW_ACTIONS item 68).
 - **Orphaned worker grandchildren.** The worker now leads its own process group
   and every hard kill goes through `os.killpg`, so helper processes Sage forks
   (the pexpect interfaces fork GAP among others) are reaped on cancel or timeout

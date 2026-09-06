@@ -9,7 +9,11 @@ description = "Model Context Protocol server that provides stateful SageMath com
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "fastmcp>=3.4.7",
+    # Capped below 4: under fastmcp 4.0.3 the cache-isolation suite fails --
+    # a second client's identical tool call is not executed in its own session,
+    # the cross-client leak tests/test_cache_isolation.py exists to catch.
+    # Raise only after that suite passes on the new major (REVIEW_ACTIONS 68).
+    "fastmcp>=3.4.7,<4",
     "pydantic>=2.13.4",
     "anyio>=4.14.2",
 ]

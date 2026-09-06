@@ -33,6 +33,9 @@ All tools use **SageMath** as the computation backend unless noted.
 - **Infrastructure:** `/health` (liveness) and `/ready` (readiness — evaluates `1+1` on the backend) endpoints (HTTP only).
 - **Resources:** `resource://sagemath/session/{scope}`, `resource://sagemath/monitoring/{scope}`,
   `resource://sagemath/docs/{scope}`.
+- **Prompts:** `prove_and_verify`, `solve_and_check`, `explore_object` — reusable
+  request templates (in the client's prompt picker) that steer toward verified,
+  stateful work.
 - **Deployment:** Local development via `uv run sagemath-mcp`, Docker Compose on `http://127.0.0.1:8314/mcp`,
   or the Helm chart (`charts/sagemath-mcp`) which exposes the MCP endpoint through a Kubernetes Service.
 

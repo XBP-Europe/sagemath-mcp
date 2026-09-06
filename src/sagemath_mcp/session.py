@@ -54,6 +54,14 @@ _NAME_SEPARATOR = "::"
 # name must not begin with it.
 WORKSPACE_TOKEN_PREFIX = "wsk_"
 
+# Placeholder id a pre-warmed spare carries until a session adopts it and takes
+# its real key. Never used as a storage key or a journal name.
+_WARM_SPARE_ID = "__warm_spare__"
+
+# Ceiling on the throwaway warm-up evaluation, so a wedged spare cannot hang the
+# server's startup or a background refill.
+_WARM_EVAL_TIMEOUT = 30.0
+
 # Buffer for a single JSON response line from the worker. asyncio defaults to
 # 64 KiB, which is smaller than legitimate results such as a base64-encoded
 # plot. 8 MiB leaves generous headroom above the default max_stdout_chars
@@ -738,6 +746,12 @@ class SageSessionManager:
         # in coroutine steps with no await between read and write, so the
         # single-threaded event loop already serialises it -- no lock needed.
         self._aliases: dict[str, str] = {}
+        # Spare workers with Sage preloaded but no client identity yet. A new
+        # session adopts one instead of paying the ~2s startup import. Filled by
+        # warm_up() at server start and topped up in the background; the refill
+        # tasks are tracked so shutdown can cancel them.
+        self._warm_pool: list[SageSession] = []
+        self._warm_tasks: set[asyncio.Task[None]] = set()
 
     @staticmethod
     def key_for(scope: str, name: str = DEFAULT_SESSION_NAME) -> str:
@@ -825,7 +839,63 @@ class SageSessionManager:
         await session.shutdown()
         return True
 
+    async def warm_up(self) -> None:
+        """Fill the spare-worker pool. Called once at server startup.
+
+        Best-effort: a spare that fails to spawn is skipped, not fatal -- the
+        next real ``get`` just spawns normally and pays the startup cost once.
+        """
+        target = max(0, self.settings.warm_pool_size)
+        while len(self._warm_pool) < target:
+            if not await self._spawn_warm_worker():
+                break
+
+    async def _spawn_warm_worker(self) -> bool:
+        """Add one fully-warmed spare to the pool. Returns whether it landed.
+
+        Spawning imports Sage, but the expensive part is the *first evaluation*
+        -- Sage defers a second of lazy setup to it (~1.3s measured, then ~2ms).
+        So the spare runs a throwaway `1+1` here, off any client's critical path,
+        and its journal is wiped so it is pristine when adopted.
+        """
+        spare = SageSession(_WARM_SPARE_ID, self.settings)
+        try:
+            await spare.ensure_started()
+            await spare.evaluate(
+                "1+1",
+                want_latex=False,
+                capture_stdout=False,
+                timeout_seconds=min(_WARM_EVAL_TIMEOUT, self.settings.eval_timeout),
+            )
+            spare._code_journal.clear()
+        except Exception as exc:  # a failed warm-up must never take the server down
+            LOGGER.warning("Could not pre-warm a spare Sage worker: %s", exc)
+            with contextlib.suppress(Exception):
+                await spare.shutdown()
+            return False
+        self._warm_pool.append(spare)
+        return True
+
+    def _schedule_warm_refill(self) -> None:
+        """Top the pool back up in the background after a spare is adopted.
+
+        Never pushes total workers (live sessions + pool + in-flight refills)
+        above ``max_sessions``; the refill is fire-and-forget, and its task is
+        tracked so shutdown can cancel it.
+        """
+        target = max(0, self.settings.warm_pool_size)
+        limit = self.settings.max_sessions
+        committed = len(self._sessions) + len(self._warm_pool) + len(self._warm_tasks)
+        if len(self._warm_pool) + len(self._warm_tasks) >= target:
+            return
+        if limit and committed >= limit:
+            return
+        task = asyncio.create_task(self._spawn_warm_worker())
+        self._warm_tasks.add(task)
+        task.add_done_callback(self._warm_tasks.discard)
+
     async def get(self, session_id: str) -> SageSession:
+        adopted = False
         async with self._lock:
             session = self._sessions.get(session_id)
             if session is None:
@@ -840,8 +910,21 @@ class SageSessionManager:
                         "unused workspace with stop_sage_session, or raise "
                         "SAGEMATH_MCP_MAX_SESSIONS."
                     )
-                session = SageSession(session_id, self.settings)
+                # Adopt a pre-warmed spare if one is ready: its worker has
+                # already run the Sage preload, so the first call is fast. The
+                # spare has no client identity until now -- reassigning its id is
+                # safe because its namespace holds only the preload, no state.
+                spare = self._warm_pool.pop() if self._warm_pool else None
+                if spare is not None:
+                    spare.session_id = session_id
+                    session = spare
+                    adopted = True
+                else:
+                    session = SageSession(session_id, self.settings)
+                    adopted = False
                 self._sessions[session_id] = session
+        if adopted:
+            self._schedule_warm_refill()
         await session.ensure_started()
         # Restore persisted journal if available
         if not session._code_journal:
@@ -908,21 +991,31 @@ class SageSessionManager:
                 LOGGER.warning("Failed to shut down session %s cleanly: %s", sid, result)
 
     async def shutdown(self) -> None:
+        # Stop refilling, and reclaim any spares that never got adopted.
+        for task in list(self._warm_tasks):
+            task.cancel()
+        with contextlib.suppress(Exception):
+            await asyncio.gather(*self._warm_tasks, return_exceptions=True)
+        self._warm_tasks.clear()
         async with self._lock:
             sessions = list(self._sessions.values())
             self._sessions.clear()
-        # Persist journals before shutting down workers
+            spares = list(self._warm_pool)
+            self._warm_pool.clear()
+        # Persist journals before shutting down workers (spares hold no state).
         for session in sessions:
             try:
                 session.save_journal()
             except Exception:
                 LOGGER.debug("Failed to save journal for %s", session.session_id)
-        if not sessions:
+        to_stop = sessions + spares
+        if not to_stop:
             return
         results = await asyncio.gather(
-            *(session.shutdown() for session in sessions),
+            *(session.shutdown() for session in to_stop),
             return_exceptions=True,
         )
+        sessions = to_stop
         for session, result in zip(sessions, results, strict=False):
             if isinstance(result, Exception):
                 LOGGER.warning(

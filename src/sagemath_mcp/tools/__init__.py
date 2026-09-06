@@ -1,9 +1,9 @@
 """Tool modules, imported for their registration side effects.
 
-Importing this package is what puts the 40 tools and 3 resources on the shared
-FastMCP object. ``server`` imports it for exactly that reason, so the names must
-stay listed here -- a module missing from this list registers nothing and its
-tools simply vanish from the catalogue.
+Importing this package is what puts the 40 tools, 3 resources and 3 prompts on
+the shared FastMCP object. ``server`` imports it for exactly that reason, so the
+names must stay listed here -- a module missing from this list registers nothing
+and its tools simply vanish from the catalogue.
 """
 
 from . import (  # noqa: F401
@@ -13,6 +13,7 @@ from . import (  # noqa: F401
     diagnostics,
     discrete,
     plotting,
+    prompts,
     session,
     stats,
     verify,

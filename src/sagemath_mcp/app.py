@@ -85,6 +85,10 @@ async def _lifespan(app: FastMCP) -> AsyncIterator[None]:
     global _CULL_TASK
     LOGGER.info("Starting SageMath MCP server (version %s)", __version__)
     _CULL_TASK = asyncio.create_task(_cull_loop())
+    # Pre-warm the spare-worker pool so the first client call is not the one that
+    # pays the multi-second Sage import. Best-effort and non-blocking-critical: a
+    # failure here is logged inside warm_up and the server still starts.
+    await runtime.SESSION_MANAGER.warm_up()
     try:
         yield
     finally:

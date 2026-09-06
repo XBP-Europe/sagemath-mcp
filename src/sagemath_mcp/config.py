@@ -49,6 +49,12 @@ class SageSettings:
     # to exhaust the host a worker at a time. Generous by default: local single
     # -client use never approaches it, and a shared deployment lowers it.
     max_sessions: int = 128
+    # Spare workers kept warm (Sage preloaded) so a new session's first call does
+    # not pay the ~2s `from sage.all import *`. 0 disables it. Each spare is an
+    # idle Sage process holding memory, so this is a small pool by default; the
+    # pool is filled at server startup and topped up in the background as spares
+    # are adopted, never above `max_sessions`.
+    warm_pool_size: int = 1
     force_python_worker: bool = False
     persist_sessions: bool = False
     persist_dir: str = ""
@@ -69,6 +75,9 @@ class SageSettings:
             ),
             max_sessions=_int_from_env(
                 "SAGEMATH_MCP_MAX_SESSIONS", defaults["max_sessions"]
+            ),
+            warm_pool_size=_int_from_env(
+                "SAGEMATH_MCP_WARM_POOL_SIZE", defaults["warm_pool_size"]
             ),
             force_python_worker=_bool_from_env(
                 "SAGEMATH_MCP_FORCE_PYTHON_WORKER", defaults["force_python_worker"]

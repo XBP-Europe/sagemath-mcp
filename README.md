@@ -84,7 +84,7 @@ Whether the task is symbolic calculus, number theory, linear algebra, differenti
 | **Session control** | `reset_sage_session`, `interrupt_sage_session`, `cancel_sage_session` | Worker | Clear state, or stop a computation with or without keeping variables |
 | **Named workspaces** | `start_sage_session`, `list_sage_sessions`, `stop_sage_session` | Worker | Several independent variable namespaces per client |
 | **Diagnostics** | `check_sage_health`, `lookup_sage_doc` | Worker/Server | MCP-level readiness probe (evaluates `1+1`, reports latency); doc links for a Sage name plus whether this server offers it to caller code |
-| **Infrastructure** | `/health` endpoint, 3 MCP resources | Server | Health check, session snapshots, aggregated metrics, documentation links |
+| **Infrastructure** | `/health` and `/ready` endpoints, 3 MCP resources | Server | Liveness (process up) and readiness (evaluates `1+1` on the backend), session snapshots, aggregated metrics, documentation links |
 
 ---
 
@@ -1122,6 +1122,7 @@ All configuration is done via environment variables. No config files are needed.
 | `SAGEMATH_MCP_IDLE_TTL` | Seconds of inactivity before a session is culled. | `900` |
 | `SAGEMATH_MCP_EVAL_TIMEOUT` | Per-evaluation timeout in seconds. | `30` |
 | `SAGEMATH_MCP_MAX_STDOUT` | Maximum characters of `stdout` returned per call. | `100000` |
+| `SAGEMATH_MCP_MAX_SESSIONS` | Ceiling on concurrently live sessions (workers); `0` means unbounded. A new session past the ceiling is refused; existing ones are always reachable. | `128` |
 | `SAGEMATH_MCP_SHUTDOWN_GRACE` | Grace period before a stuck worker is terminated. | `2` |
 | `SAGEMATH_MCP_FORCE_PYTHON_WORKER` | Use the pure-Python worker (helpful for tests/CI). | `false` |
 | `SAGEMATH_MCP_PURE_PYTHON` | When set to `1`, load math stdlib instead of Sage modules. | unset |

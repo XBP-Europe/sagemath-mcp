@@ -98,6 +98,16 @@ class SageSession:
         self._process: asyncio.subprocess.Process | None = None
         self._stderr_task: asyncio.Task[None] | None = None
         self._lock = asyncio.Lock()
+        # Serialises worker startup alone. `SageSessionManager.get` inserts the
+        # session under the manager lock and then calls `ensure_started` outside
+        # it, so two simultaneous first requests to one session share the object
+        # but race into `_launch_worker` -- a scheduling probe produced two live
+        # workers for two concurrent first calls, the second leaked. This is a
+        # separate lock from `self._lock` on purpose: `evaluate` and `reset`
+        # call `ensure_started` and then take `self._lock`, so reusing it would
+        # be a re-entrant acquire, and `self._lock`'s no-take contract for
+        # cancel/interrupt is load-bearing enough not to widen.
+        self._startup_lock = asyncio.Lock()
         self.started_at = time.time()
         self.last_used_at = self.started_at
         # (code, trusted) per statement. Trust is not a property of the text:
@@ -112,7 +122,12 @@ class SageSession:
     async def ensure_started(self) -> None:
         if self._process and self._process.returncode is None:
             return
-        await self._launch_worker()
+        async with self._startup_lock:
+            # Re-check under the lock: the loser of the race arrives here after
+            # the winner has already launched, and must not launch a second.
+            if self._process and self._process.returncode is None:
+                return
+            await self._launch_worker()
 
     async def _launch_worker(self) -> None:
         sage_binary = self.settings.sage_binary
@@ -762,6 +777,17 @@ class SageSessionManager:
         async with self._lock:
             session = self._sessions.get(session_id)
             if session is None:
+                # The ceiling is checked only when creating: an existing session
+                # is always reachable, so a client can never be locked out of
+                # state it already holds. Culling idle workers is the pressure
+                # valve; this is the backstop for when even that is not enough.
+                limit = self.settings.max_sessions
+                if limit and len(self._sessions) >= limit:
+                    raise SageProcessError(
+                        f"Session limit reached ({limit} live workers). Stop an "
+                        "unused workspace with stop_sage_session, or raise "
+                        "SAGEMATH_MCP_MAX_SESSIONS."
+                    )
                 session = SageSession(session_id, self.settings)
                 self._sessions[session_id] = session
         await session.ensure_started()

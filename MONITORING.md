@@ -16,7 +16,10 @@ Metrics are served through the `resource://sagemath/monitoring/metrics` MCP reso
 | `max_elapsed_ms` | Maximum execution time observed (milliseconds). |
 | `last_run_at` | UNIX timestamp of the most recent evaluation. |
 
-These counters reset when the MCP server restarts.
+The counters cover the whole tool surface: `evaluate_sage`, its streaming
+variant, and every specialized helper (`calculate_expression`,
+`integrate_expression`, `verify_claim`, …), which evaluate through the same
+recorded path. They reset when the MCP server restarts.
 
 The resource carries **only** these process-wide aggregates. The message,
 rejected code and captured stdout of the latest failure are deliberately **not**

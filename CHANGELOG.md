@@ -54,6 +54,18 @@ here is a breaking change.
 
 ### Fixed
 
+- **Session/worker robustness** (2026-09-06 external review). Four fixes:
+  worker startup is now serialized by a per-session lock, closing a race where
+  two simultaneous first requests to one session launched two workers and
+  leaked one; a configurable ceiling (`SAGEMATH_MCP_MAX_SESSIONS`, default 128)
+  bounds concurrently live workers so a client opening a workspace per call
+  cannot exhaust the host, while existing sessions stay reachable; the ~30
+  helper tools now record the same monitoring counters `evaluate_sage` does,
+  where before they evaluated invisibly to the metrics; and readiness moved to
+  a new HTTP `/ready` endpoint that evaluates `1+1` on the backend (503 when it
+  cannot), with the Helm readiness probe pointed at it, so a pod whose Sage is
+  unusable stops receiving traffic. `/health` stays a shallow liveness check on
+  purpose — a wedged computation should not restart the pod.
 - **The release now validates the artifact it publishes** (2026-09-06 external
   review). The Docker release job builds the image, runs a stateful smoke test
   inside it (assign, read back in the same session — the exact workflow fastmcp

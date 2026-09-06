@@ -43,6 +43,12 @@ class SageSettings:
     idle_ttl: float = 900.0
     shutdown_grace: float = 2.0
     max_stdout_chars: int = 100_000
+    # Ceiling on concurrently live sessions (workers), 0 meaning unbounded.
+    # Each session is a Sage subprocess holding real memory, so an unbounded
+    # map is a way for one client -- opening a fresh named workspace per call --
+    # to exhaust the host a worker at a time. Generous by default: local single
+    # -client use never approaches it, and a shared deployment lowers it.
+    max_sessions: int = 128
     force_python_worker: bool = False
     persist_sessions: bool = False
     persist_dir: str = ""
@@ -60,6 +66,9 @@ class SageSettings:
             ),
             max_stdout_chars=_int_from_env(
                 "SAGEMATH_MCP_MAX_STDOUT", defaults["max_stdout_chars"]
+            ),
+            max_sessions=_int_from_env(
+                "SAGEMATH_MCP_MAX_SESSIONS", defaults["max_sessions"]
             ),
             force_python_worker=_bool_from_env(
                 "SAGEMATH_MCP_FORCE_PYTHON_WORKER", defaults["force_python_worker"]

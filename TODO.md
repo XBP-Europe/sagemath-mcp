@@ -23,11 +23,13 @@ out of date.
         nightly runs skip all three clients; the harness is run locally where
         the keys live. Accepted trade-off — revisit only if a key-management
         route appears that does not put paid credentials in repository secrets.
-      - **Worker/session robustness.** Worker startup happens outside the
-        manager's creation lock (two simultaneous first requests to one session
-        can double-launch); no application-level ceiling on session count;
-        `/health` and the Helm probe don't exercise a Sage evaluation;
-        `_evaluate_structured` bypasses the evaluation metrics.
+      - [x] **Worker/session robustness.** *Done, 2026-09-06.* Startup is now
+        serialized by a per-session lock (no double-launch); a configurable
+        session ceiling (`SAGEMATH_MCP_MAX_SESSIONS`, default 128) bounds live
+        workers; the helper tools record metrics through `_evaluate_structured`
+        the way `evaluate_sage` does; and a new `/ready` endpoint evaluates
+        `1+1` on the backend (503 when it cannot), which the Helm readiness
+        probe now targets while `/health` stays a shallow liveness check.
       - [x] **Release validation.** *Done, 2026-09-06.* The Docker release job
         smoke-tests the built image with a stateful assign-and-read before any
         push; `dry_run` dispatches publish nothing (push, login and Cosign are

@@ -2378,6 +2378,7 @@ def test_the_health_route_reaches_the_built_http_app() -> None:
     server._register_health_route()
     paths = {getattr(route, "path", None) for route in mcp.http_app().routes}
     assert "/health" in paths, f"/health missing; app serves {sorted(p for p in paths if p)}"
+    assert "/ready" in paths, f"/ready missing; app serves {sorted(p for p in paths if p)}"
 
 
 @pytest.mark.asyncio

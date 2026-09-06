@@ -97,7 +97,8 @@ All math tools use **SageMath** as the computation backend.
 | `resource://sagemath/session/{scope}` | Server | Inspect active sessions (`scope=all` or specific session id). |
 | `resource://sagemath/monitoring/{scope}` | Server | Fetch evaluation metrics (`scope=metrics` or `all`). |
 | `resource://sagemath/docs/{scope}` | Server | Retrieve SageMath documentation links (`scope=all`, `reference`, `tutorial`). |
-| `/health` | Server | HTTP health check endpoint returning server status (for Kubernetes probes). |
+| `/health` | Server | HTTP liveness endpoint: 200 while the process is up and answering. Deliberately shallow — does not touch a Sage worker, so a busy backend does not restart the pod. |
+| `/ready` | Server | HTTP readiness endpoint: evaluates `1+1` on the backend and returns 200 only when it computes correctly, 503 otherwise. This is the probe a Service should gate traffic on. |
 
 The `resource://sagemath/docs/{scope}` resource returns links into the upstream
 SageMath manual, which is the authoritative copy and always current.

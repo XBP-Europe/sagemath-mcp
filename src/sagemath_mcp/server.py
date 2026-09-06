@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import time
 
 from fastmcp.exceptions import ToolError  # noqa: F401 - re-exported for callers and tests
 
@@ -16,7 +17,7 @@ from .app import mcp
 from .config import DEFAULT_SETTINGS  # noqa: F401 - part of this module's long-standing surface
 from .session import (
     DEFAULT_SESSION_NAME,
-    SageProcessError,  # noqa: F401 - re-exported
+    SageProcessError,
 )
 
 # The tool functions are re-exported here because `sagemath_mcp.server` is the
@@ -99,7 +100,13 @@ _SESSION_ARG_DESC = (
 
 
 async def health_check(request: object) -> object:
-    """Return 200 with server status for liveness/readiness probes."""
+    """Liveness: is the server process up and answering HTTP?
+
+    Deliberately shallow. This must not depend on a Sage worker: a liveness
+    probe that fails because a computation is wedged tells Kubernetes to kill
+    and restart the whole pod, which is the wrong response to a busy backend.
+    Readiness -- "can it do mathematics right now?" -- is /ready below.
+    """
     from starlette.responses import JSONResponse
 
     sessions = runtime.SESSION_MANAGER.snapshot()
@@ -112,6 +119,48 @@ async def health_check(request: object) -> object:
     )
 
 
+# A session key reserved for the readiness probe, so repeated probes reuse one
+# warm worker instead of creating a session per call (which would fight the
+# idle culler and the session ceiling). It is a normal session otherwise.
+_READINESS_SESSION_KEY = "__readiness_probe__"
+_READINESS_TIMEOUT_SECONDS = 10.0
+
+
+async def readiness_check(request: object) -> object:
+    """Readiness: can the server actually evaluate mathematics right now?
+
+    A TCP connect or the shallow /health both pass while the Sage backend is
+    unusable -- a worker that cannot spawn, a Sage install that imports but
+    cannot compute. This runs the real path (worker spawn, protocol round trip,
+    `1 + 1`) and answers 503 when it cannot, so a Service stops routing to a pod
+    whose backend is broken instead of sending it traffic it will fail.
+    """
+    from starlette.responses import JSONResponse
+
+    from .session import SageEvaluationError
+
+    backend = "pure-python" if runtime.SETTINGS.force_python_worker else "sagemath"
+    started = time.perf_counter()
+    try:
+        sage = await runtime.SESSION_MANAGER.get(_READINESS_SESSION_KEY)
+        result = await sage.evaluate(
+            "1 + 1",
+            want_latex=False,
+            capture_stdout=False,
+            timeout_seconds=min(_READINESS_TIMEOUT_SECONDS, runtime.SETTINGS.eval_timeout),
+        )
+        ready = result.result == "2"
+    except (SageProcessError, SageEvaluationError, TimeoutError) as exc:
+        return JSONResponse(
+            {"status": "unready", "backend": backend, "reason": str(exc)},
+            status_code=503,
+        )
+    payload = {
+        "status": "ready" if ready else "unready",
+        "backend": backend,
+        "elapsed_ms": round((time.perf_counter() - started) * 1000, 2),
+    }
+    return JSONResponse(payload, status_code=200 if ready else 503)
 
 
 _HEALTH_ROUTE_REGISTERED = False
@@ -136,6 +185,7 @@ def _register_health_route() -> None:
         # another identical route to every app built afterwards.
         return
     mcp.custom_route("/health", methods=["GET"])(health_check)
+    mcp.custom_route("/ready", methods=["GET"])(readiness_check)
     _HEALTH_ROUTE_REGISTERED = True
     LOGGER.debug("Registered /health endpoint")
 

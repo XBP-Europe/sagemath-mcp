@@ -3553,3 +3553,37 @@ stream stays clean.
 ### Status
 
 Fixed and shipped in PR #55; verified host + container (SageMath 10.10.beta9).
+
+## 68. fastmcp 4 breaks cross-client session isolation — high — DONE
+
+### What
+
+`pyproject.toml` required `fastmcp>=3.4.7` with no upper bound, so a fresh
+install (the integration container, any new CI runner, any user `pip install`)
+resolved fastmcp 4.0.3 the day it appeared. Under 4.0.3,
+`test_two_clients_do_not_share_tool_results` fails: a second client's identical
+`evaluate_sage` call is not executed in that client's own session — its
+assignment never reaches its worker, which is the same failure shape as the
+response-cache leak that test was written for (item 12's class: one client
+receiving results shaped by another client's calls). Nothing in this codebase
+changed; the dependency moved underneath it.
+
+### Fix
+
+Cap the requirement at `fastmcp>=3.4.7,<4` until the new major is reviewed
+against the isolation suite. The cap is the fix, not a workaround: a transport
+upgrade that fails the cross-client isolation test must not be installable.
+Raising it is deliberate work — run `tests/test_cache_isolation.py` (and the
+full integration suite) against the new major first.
+
+### How to verify
+
+In the Sage container: `pip install 'fastmcp==4.0.3'` makes
+`tests/test_cache_isolation.py::test_two_clients_do_not_share_tool_results`
+fail; `pip install 'fastmcp==3.4.7'` makes all four cache-isolation tests pass.
+Reproduced on an unmodified checkout of main, SageMath 10.9.
+
+### Status
+
+Fixed 2026-09-06; found by the integration suite on a freshly provisioned
+container, before any release shipped with the open bound.

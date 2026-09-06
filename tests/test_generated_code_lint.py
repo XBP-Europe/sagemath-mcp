@@ -306,7 +306,9 @@ def test_no_caller_string_is_interpolated_into_generated_code_unguarded() -> Non
         "_exact_matrix_entries",
     }
     # Interpolation into a message is not interpolation into code.
-    message_sinks = {"ToolError", "ResetResponse", "info", "warning", "error", "debug"}
+    message_sinks = {
+        "ToolError", "ResetResponse", "WorkspaceHandle", "info", "warning", "error", "debug",
+    }
     tree = _ast.parse(
         "\n".join(path.read_text(encoding="utf-8") for path in _package_files())
     )
@@ -393,6 +395,42 @@ def test_no_caller_string_is_interpolated_into_generated_code_unguarded() -> Non
     )
 
 
+def test_readme_docker_examples_do_not_publish_on_every_interface() -> None:
+    """The README's copy-paste lines are the onboarding path; they must be safe.
+
+    The quick start advertised `docker run -p 8314:8314`, publishing an
+    unauthenticated code evaluator on every host interface -- while also
+    overriding the image's CMD without its `--host 0.0.0.0`, so the line did
+    not even work. The compose file has had this guard for a while; the README
+    examples are read by strictly more people.
+    """
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    published = re.findall(r"-p\s+([\w.]+:)?(\d+):(\d+)", readme)
+    assert published, "no docker port mappings found; has the README changed shape?"
+    for host, host_port, container_port in published:
+        assert host in ("127.0.0.1:", "localhost:"), (
+            f"README publishes -p {host}{host_port}:{container_port} on every interface"
+        )
+
+
+def test_the_dev_container_scripts_pin_the_dockerfile_sage() -> None:
+    """The dev/test container must run the same Sage the runtime image does.
+
+    Both setup scripts defaulted to the moving `sagemath/sagemath:latest`, so
+    which Sage the integration suite ran against changed silently with pulls --
+    and diverged from the Dockerfile the release actually ships. Pinning is only
+    safe if a Sage bump updates all three together, which is what this asserts.
+    """
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    image = re.search(r"^FROM\s+(\S+)", dockerfile, re.M).group(1)
+    assert ":latest" not in image and ":" in image, f"Dockerfile FROM is not pinned: {image}"
+
+    for script in ("scripts/setup_sage_container.sh", "scripts/setup_sage_container.ps1"):
+        text = (ROOT / script).read_text(encoding="utf-8")
+        assert image in text, f"{script} does not default to the Dockerfile's {image}"
+        assert "sagemath/sagemath:latest" not in text, f"{script} still names the moving tag"
+
+
 def test_the_compose_file_does_not_publish_on_every_interface() -> None:
     """The server evaluates code and authenticates nobody.
 
@@ -408,3 +446,29 @@ def test_the_compose_file_does_not_publish_on_every_interface() -> None:
         assert mapping.startswith("127.0.0.1:") or mapping.startswith("localhost:"), (
             f"docker-compose publishes {mapping} on every interface"
         )
+
+
+def test_the_release_workflow_publishes_only_on_a_tag_push() -> None:
+    """Every irreversible publish must be gated on the tag PUSH event.
+
+    A workflow_dispatch can target a tag ref, so a condition of just
+    `startsWith(github.ref, 'refs/tags/v')` is reachable from a manual (even
+    dry-run) dispatch -- which is how a dry run could still reach PyPI. The one
+    coherent policy is that publishing requires the push event; this asserts no
+    bare ref-only gate survives, in code rather than in review.
+    """
+    workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+    offenders = []
+    for lineno, line in enumerate(workflow.splitlines(), start=1):
+        stripped = line.strip()
+        # Skip explanatory comments; check every real condition line, including
+        # the continuation lines of a multi-line `if: >-` block.
+        if stripped.startswith("#"):
+            continue
+        if "startsWith(github.ref" in stripped and "event_name == 'push'" not in stripped:
+            offenders.append(f"line {lineno}: {stripped}")
+    assert not offenders, (
+        "release.yml gates a publish on the ref without requiring the push event, "
+        "so a workflow_dispatch against a tag could publish:\n"
+        + "\n".join(f"  - {o}" for o in offenders)
+    )

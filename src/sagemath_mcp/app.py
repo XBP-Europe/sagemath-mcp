@@ -44,6 +44,9 @@ to `evaluate_sage` and the helper tools. Typical workflows include:
   `integrate_expression`, `matrix_multiply`, and `statistics_summary`.
 - Session management: `reset_sage_session` clears state; `cancel_sage_session` restarts the
   worker; monitoring data is exposed via `resource://sagemath/monitoring/metrics`.
+- Checking your own algebra: `verify_claim` re-checks a stated comparison through a proof
+  ladder and answers proved/refuted/supported/undecided, always with its evidence. Use it
+  before presenting a derived identity as fact.
 
 Guidance for best results:
 

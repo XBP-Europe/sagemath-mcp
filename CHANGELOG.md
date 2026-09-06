@@ -13,6 +13,47 @@ here is a breaking change.
 
 ### Added
 
+- **Portable workspace handles.** `start_sage_session` now returns a
+  `workspace_token` alongside the workspace: a server-issued, unguessable bearer
+  handle that addresses that one workspace independently of the transport-level
+  MCP session id. Passed as any tool's `session` argument it reaches the same
+  state across a reconnect — or a transport that rotates the session id per call
+  (which is what the MCP spec's retirement of protocol-level sessions, and
+  fastmcp 4, make the norm). Names keep their current transport-scoped behavior,
+  so two clients each using `default` stay isolated. The handle is a bearer
+  credential, not authentication: possession grants access, so it is unguessable
+  and kept out of monitoring, listings, error messages, logs and journal
+  filenames; an unknown or revoked handle is refused, never silently turned into
+  a fresh workspace; and stopping or culling a workspace invalidates its handles.
+  Every stateful tool and lifecycle operation (evaluate, verify, reset,
+  interrupt, cancel, stop) resolves a handle through one central path. The
+  `fastmcp>=3.4.7,<4` cap stays in place — this is additive, not a lift of it.
+- **`verify_claim` (39 → 40).** The checking primitive from the field survey,
+  for the dominant failure mode of models doing mathematics: confident wrong
+  algebra. A stated claim — `integral(x^2/(e^x-1), x, 0, oo) == 2*zeta(3)` — is
+  re-checked independently through a ladder: Sage's symbolic prover, the exact
+  difference (`(lhs-rhs).simplify_full().is_zero()`), exact arithmetic over
+  `QQbar`/`AA` for constant claims, then certified interval arithmetic and
+  numeric sampling over the free variables. Verdicts are `proved`, `refuted`,
+  `supported` or `undecided`, and two rules keep them honest: the prover
+  returning `False` means *not proved*, never *false* — `refuted` requires an
+  exact decision or an exhibited counterexample — and `supported` always
+  carries its evidence (sample count, precision), never a bare confidence
+  number. Several more honesty rules landed after external review. Decimal
+  literals are read as the exact rationals they denote (`0.1` means 1/10, so
+  `0.1 + 0.2 == 0.3` is proved and `1.0 + 1e-20 == 1.0` is refuted — deciding
+  over 53-bit doubles answered both wrongly while claiming exactness), and a
+  second review round closed the deeper case: a comparison whose operands are
+  genuine machine floats (`RR(1)`, an `.n()` result, a session value in `RR`) is
+  now reported as `supported` over inexact numbers via a new `float_comparison`
+  method, never as an exact proof — `RR(1) + RR(1)/10^20 == RR(1)` is true only
+  by rounding. The session's active assumptions are honored, now including
+  non-substitutable domain declarations: under `assume(x, 'integer')` a sampled
+  1/2 is inadmissible and never offered as a counterexample to `x != 1/2` (the
+  first pass silently ignored such declarations and refuted falsely), and any
+  verdict that relied on an assumption names it in the evidence. No new security
+  surface: the claim passes the same fragment gate as every other tool parameter
+  before touching generated code.
 - **Two diagnostics tools (37 → 39).** `check_sage_health` is an MCP-level
   readiness probe for stdio clients that cannot reach the HTTP `/health` route:
   it spins up (or reuses) the workspace worker, evaluates `1+1`, and reports
@@ -35,6 +76,60 @@ here is a breaking change.
 
 ### Fixed
 
+- **Honest scope language** (2026-09-06 external review). "full access to
+  SageMath", "run any SageMath code" and "arbitrary SageMath code" are replaced
+  across the README, USAGE and the `evaluate_sage` tool description with the
+  deny-by-default subset the sandbox actually offers. The usability point the
+  same review raised is fixed alongside it: that the specialized tools evaluate
+  in a fresh namespace and cannot see `evaluate_sage` variables — so stateful
+  multi-step work belongs in `evaluate_sage` despite its "LAST RESORT" framing —
+  is now stated in the tool description the model reads and at the top of the
+  `evaluate_sage` reference, not only in a note far below.
+- **Session/worker robustness** (2026-09-06 external review). Four fixes:
+  worker startup is now serialized by a per-session lock, closing a race where
+  two simultaneous first requests to one session launched two workers and
+  leaked one; a configurable ceiling (`SAGEMATH_MCP_MAX_SESSIONS`, default 128)
+  bounds concurrently live workers so a client opening a workspace per call
+  cannot exhaust the host, while existing sessions stay reachable; the ~30
+  helper tools now record the same monitoring counters `evaluate_sage` does,
+  where before they evaluated invisibly to the metrics; and readiness moved to
+  a new HTTP `/ready` endpoint that evaluates `1+1` on the backend (503 when it
+  cannot), with the Helm readiness probe pointed at it, so a pod whose Sage is
+  unusable stops receiving traffic. `/health` stays a shallow liveness check on
+  purpose — a wedged computation should not restart the pod.
+- **The release now validates the artifact it publishes** (2026-09-06 external
+  review). The Docker release job builds the image, runs a stateful smoke test
+  inside it (assign, read back in the same session — the exact workflow fastmcp
+  4.0.3 broke while every signature stayed valid), and only then pushes and
+  signs; a manual `dry_run` dispatch used to push and sign a GHCR image anyway
+  and now publishes nothing. A second review round found the same class of gap
+  on the other destinations: PyPI, the MCP registry and the GitHub release each
+  gated on `startsWith(github.ref, 'refs/tags/v')` alone, and a
+  `workflow_dispatch` can target a tag ref — so a dry-run dispatch against a tag
+  still satisfied them. Every publish now requires the tag **push** event under
+  one shared policy, and a static test asserts no ref-only gate returns. The
+  Docker job now publishes the exact image the smoke test ran against — it
+  retags and pushes the tested candidate and signs it by its registry digest,
+  rather than a second build that could differ from the one just verified. The
+  CI compose smoke test asserted nothing about its stateful call — it printed
+  the result and reported success even when the second call failed — and now
+  fails unless the read-back returns 42.
+- **The onboarding paths now match the security model** (2026-09-06 external
+  review). The README's `docker run` example published the unauthenticated
+  evaluator on every host interface while overriding the image's CMD without
+  its `--host 0.0.0.0` — unsafe and non-functional at once; it now carries the
+  same hardening flags as Compose and publishes on the loopback interface, and
+  a lint test holds every README port mapping to that. The dev/test container
+  scripts defaulted to the moving `sagemath/sagemath:latest` tag with no
+  resource ceilings; they now pin the Dockerfile's Sage release (a test keeps
+  the three in step), apply pids/memory limits and `no-new-privileges`, and
+  say plainly that they are a development fixture, not a hardened runtime.
+- **fastmcp capped below 4.** The requirement was `>=3.4.7` with no upper
+  bound, so a fresh install resolved fastmcp 4.0.3 — under which the
+  cache-isolation suite fails: a second client's identical tool call is not
+  executed in its own session, the cross-client leak
+  `tests/test_cache_isolation.py` exists to catch. Now `>=3.4.7,<4`; raising it
+  is deliberate work gated on that suite (REVIEW_ACTIONS item 68).
 - **Orphaned worker grandchildren.** The worker now leads its own process group
   and every hard kill goes through `os.killpg`, so helper processes Sage forks
   (the pexpect interfaces fork GAP among others) are reaped on cancel or timeout

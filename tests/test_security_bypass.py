@@ -250,6 +250,12 @@ def _trusted_cases():
         ("polynomial_ring_operation.base_ring", "polynomial_ring_operation",
          {"base_ring": f"QQ if {p} else QQ", "ring_vars": ["x"],
           "polynomials": ["x^2-1"], "operation": "ideal_dimension"}),
+        # verify_claim advertises that the claim passes the same gate as every
+        # other fragment; this is that promise, exercised through the tool.
+        ("verify_claim.claim", "verify_claim",
+         {"claim": f"{p} == 0"}),
+        ("verify_claim.claim scrubbed name", "verify_claim",
+         {"claim": "unpickle_global('os','system')('id') == 0"}),
     ]
 
 

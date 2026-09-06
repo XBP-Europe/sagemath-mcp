@@ -49,9 +49,19 @@ async def _exercise(progress_cb: Callable[[float, float | None, str | None], Non
 
         result1 = await session.call_tool("evaluate_sage", {"code": "value = 7"})
         print("evaluate_sage ->", result1.model_dump())
+        assert not result1.isError, f"assignment failed: {result1.model_dump()}"
 
+        # Asserted, not just printed. Under fastmcp 4.0.3 the second call ran in
+        # a fresh session, came back "'value' is not a name this server offers",
+        # and this smoke test still reported success -- the one workflow it
+        # exists to guard is the stateful one, so its failure must be loud.
         result2 = await session.call_tool("evaluate_sage", {"code": "value * 6"})
         print("stateful evaluate ->", result2.model_dump())
+        assert not result2.isError, f"stateful read failed: {result2.model_dump()}"
+        rendered = "".join(
+            block.text for block in result2.content if getattr(block, "text", None)
+        )
+        assert "42" in rendered, f"stateful read returned the wrong value: {rendered!r}"
 
         async def progress_wrapper(
             progress: float,

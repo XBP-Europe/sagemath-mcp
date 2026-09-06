@@ -34,4 +34,4 @@ async def resolve_session(client_session_id: str, name: str):
     out of ``server``. Reading the manager here also keeps the lookup late-bound.
     """
     manager = get_session_manager()
-    return await manager.get(manager.key_for(client_session_id, name))
+    return await manager.get(manager.resolve_key(client_session_id, name))

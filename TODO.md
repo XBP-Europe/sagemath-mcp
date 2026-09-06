@@ -6,11 +6,79 @@ reproduction and regression test in [REVIEW_ACTIONS.md](REVIEW_ACTIONS.md). This
 file carried 31 ticked boxes duplicating both, several of them years of context
 out of date.
 
-- [ ] From the 2026-08-24 field survey, two features remain (roadmap has the
-      mechanisms): a `verify_claim` tool that re-checks a stated claim through a
-      proof ladder, and outcome benchmarks (GSM8K/MATH deltas) via the existing
-      CLI harness. A third, a passagemath runtime extra to cut install footprint,
-      is also open.
+- [ ] From the 2026-09-06 external review, in its recommended order (foundations
+      before features; the fastmcp<4 cap and the verifier's exactness fixes from
+      the same review already landed — REVIEW_ACTIONS 68, `tools/verify.py`):
+      - [x] **Explicit workspace identity.** *Done, 2026-09-06.* The 2026-07-28
+        MCP spec retired protocol-level sessions and recommends application-issued
+        handles; `start_sage_session` now returns an unguessable bearer
+        `workspace_token` that addresses one workspace independently of the
+        transport id, resolved through one central path by every stateful tool
+        and lifecycle op. Names keep transport-scoped isolation; handles fail
+        closed and are kept out of keys/logs/monitoring/listings. The fastmcp<4
+        cap stays (a separate change lifts it). See `tools/session.py`,
+        `session.py`, `tests/test_workspace_handles.py`.
+      - [x] **One canonical hardened onboarding path.** *Done, 2026-09-06.* The
+        README `docker run` now carries the Compose hardening and publishes on
+        loopback (lint-tested); both setup scripts pin the Dockerfile's Sage
+        tag (test-enforced), apply pids/memory/no-new-privileges limits, and
+        are labelled as the dev/test fixture they are.
+      - **Nightly CLI checks: accepted as local-only** (decided 2026-09-06).
+        The clients' API keys are deliberately not published to CI, so the
+        nightly runs skip all three clients; the harness is run locally where
+        the keys live. Accepted trade-off — revisit only if a key-management
+        route appears that does not put paid credentials in repository secrets.
+      - [x] **Worker/session robustness.** *Done, 2026-09-06.* Startup is now
+        serialized by a per-session lock (no double-launch); a configurable
+        session ceiling (`SAGEMATH_MCP_MAX_SESSIONS`, default 128) bounds live
+        workers; the helper tools record metrics through `_evaluate_structured`
+        the way `evaluate_sage` does; and a new `/ready` endpoint evaluates
+        `1+1` on the backend (503 when it cannot), which the Helm readiness
+        probe now targets while `/health` stays a shallow liveness check.
+      - [x] **Release validation.** *Done, 2026-09-06.* The Docker release job
+        smoke-tests the built image with a stateful assign-and-read before any
+        push; CI's compose smoke now asserts its stateful result. A second review
+        round extended the dry-run guard to every destination: PyPI, the MCP
+        registry and the GitHub release gated on the ref alone, which a
+        tag-targeted `workflow_dispatch` satisfied, so all publishing now
+        requires the tag **push** event under one policy, with a static test
+        (`test_the_release_workflow_publishes_only_on_a_tag_push`) enforcing it.
+        The push step now publishes the exact candidate image the smoke test ran
+        against (retag + push + sign by registry digest), not a second build.
+      - [x] **Verifier certainty (second round).** *Done, 2026-09-06.* Two more
+        soundness defects the review reproduced: a comparison over machine floats
+        (`RR(1)+RR(1)/10^20 == RR(1)`) was labelled proved/exact — now the
+        operands are inspected and an inexact comparison is `supported` via a
+        `float_comparison` method, never exact; and a sampled counterexample
+        could violate a domain assumption (`x != 1/2` refuted at 1/2 under
+        `assume(x,'integer')`) — sampling now establishes each point's
+        admissibility and skips what it cannot confirm. `tests/test_verify.py`.
+      - [x] **README language.** *Done, 2026-09-06.* "full access"/"run any
+        SageMath code"/"arbitrary" replaced with the deny-by-default subset
+        description across README, USAGE and the `evaluate_sage` tool
+        description; the fresh-namespace exception now sits in the tool
+        description the model reads and at the top of the `evaluate_sage`
+        reference, not only in the deep session-semantics note.
+- [ ] From the 2026-08-24 field survey, one feature remains (roadmap has the
+      mechanism): outcome benchmarks (GSM8K/MATH deltas) via the existing CLI
+      harness — per the 2026-09-06 review, compare no-tools vs `evaluate_sage`
+      only vs the full catalogue, include iterative advanced mathematics beyond
+      GSM8K/MATH, and measure wrong-confident answers, refusals, recovery,
+      latency and tool-call count. `verify_claim` shipped 2026-09-06
+      (`tools/verify.py`).
+- [ ] Passagemath runtime extra to cut install footprint. Evaluated 2026-09-06
+      (`docs/passagemath_evaluation.md`): verdict **adopt, pinned to a verified
+      release**, technical fit better than the roadmap sketch assumed — `pip
+      install passagemath-standard` gives a working `from sage.all import *`,
+      `_sage_worker.py` runs unmodified, all 33 tool domains pass on 10.8.9,
+      ~1 GB/3.8 GB/~1 min setup vs the 3 GB image. Two blockers before shipping:
+      (1) the star-exports/denylist derivation is layout-sensitive and over-fires
+      under the modular layout (the real engineering, ~1–2 days — and it overlaps
+      the "classify rather than accept" item below); (2) full suite + corpus
+      sweep against the pin. Don't track their latest: 10.8.10/10.8.11 each
+      shipped a broken core backend on Linux x86_64 (found in the evaluation, not
+      their tracker), so pin + cold-install smoke gate in CI. File the
+      `maxima_lib` regression upstream.
 - [ ] Consider making `scripts/generate_allowlist.py` classify rather than accept.
       Four separate findings had one root cause: the allowlist is generated as
       *whatever survives the namespace scrub*, so it inherits every gap in that

@@ -20,9 +20,9 @@
 [![Dependabot](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot)](https://github.com/XBP-Europe/sagemath-mcp/blob/main/.github/dependabot.yml)
 [![Last commit](https://img.shields.io/github/last-commit/XBP-Europe/sagemath-mcp.svg)](https://github.com/XBP-Europe/sagemath-mcp/commits/main)
 
-A universal mathematics [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that gives LLM clients full access to [SageMath](https://www.sagemath.org/) --- one of the most comprehensive open-source mathematics systems available. Built on [FastMCP 3.x](https://gofastmcp.com/), the server maintains a dedicated SageMath process for each MCP session so variables, functions, and assumptions persist across tool calls.
+A mathematics [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that gives LLM clients a sandboxed mathematical subset of [SageMath](https://www.sagemath.org/) --- one of the most comprehensive open-source mathematics systems available. Built on [FastMCP 3.x](https://gofastmcp.com/), the server maintains a dedicated SageMath process for each MCP session so variables, functions, and assumptions persist across tool calls. Caller code is deny-by-default: the full breadth of Sage mathematics is reachable, but imports, the external CAS interfaces, and the file/display/persistence primitives are not (see [Security Sandbox](#security-sandbox)).
 
-Whether the task is symbolic calculus, number theory, linear algebra, differential equations, plotting, combinatorics, graph theory, group theory, or basic arithmetic, the server provides **39 MCP tools** --- all math tools backed by the full SageMath engine, plus `evaluate_sage_streaming` (streaming wrapper) and an HTTP `/health` endpoint.
+Whether the task is symbolic calculus, number theory, linear algebra, differential equations, plotting, combinatorics, graph theory, group theory, or basic arithmetic, the server provides **40 MCP tools** --- the math tools backed by the SageMath engine, plus `evaluate_sage_streaming` (streaming wrapper) and HTTP `/health` and `/ready` endpoints.
 
 ---
 
@@ -60,7 +60,7 @@ Whether the task is symbolic calculus, number theory, linear algebra, differenti
 
 | Category | Tools | Backend | Capabilities |
 |----------|-------|---------|-------------|
-| **Core execution** | `evaluate_sage`, `evaluate_sage_streaming` | Sage | Run any SageMath code with persistent state, LaTeX output, stdout capture, progress heartbeats, per-call timeouts, and line-by-line streaming |
+| **Core execution** | `evaluate_sage`, `evaluate_sage_streaming` | Sage | Run SageMath code (the mathematical subset the sandbox permits) with persistent state, LaTeX output, stdout capture, progress heartbeats, per-call timeouts, and line-by-line streaming |
 | **Calculus** | `differentiate_expression`, `integrate_expression`, `limit_expression`, `series_expansion` | Sage | Derivatives of any order, indefinite & definite integrals, one-sided limits, Taylor/Laurent series |
 | **Algebra** | `solve_equation`, `simplify_expression`, `expand_expression`, `factor_expression`, `calculate_expression` | Sage | Single equations & systems, symbolic simplification, expansion, factoring, numeric evaluation |
 | **Symbolic sums** | `symbolic_sum` | Sage | Symbolic summation and products (finite and infinite series) |
@@ -79,11 +79,12 @@ Whether the task is symbolic calculus, number theory, linear algebra, differenti
 | **Probability** | `distribution_operation` | Sage | Normal, exponential, Poisson, chi-squared, Student-t, uniform, beta, gamma; PDF, CDF, quantile, analytic mean/variance, sampling |
 | **Visualization** | `plot_expression`, `plot3d_expression`, `plot_multi_expression` | Sage | 2D plots, 3D surface plots, multi-function overlays as base64-encoded PNG |
 | **Numeric methods** | `find_root` | Sage | Numeric root-finding in an interval via Sage's `find_root()`, from an expression or an equation |
+| **Verification** | `verify_claim` | Sage | Independently re-check a stated claim through a proof ladder; answers `proved`, `refuted`, `supported` or `undecided`, always with its evidence |
 | **Vector calculus** | `vector_calculus_operation` | Sage | Gradient, divergence, curl, Laplacian on scalar/vector fields |
 | **Session control** | `reset_sage_session`, `interrupt_sage_session`, `cancel_sage_session` | Worker | Clear state, or stop a computation with or without keeping variables |
 | **Named workspaces** | `start_sage_session`, `list_sage_sessions`, `stop_sage_session` | Worker | Several independent variable namespaces per client |
 | **Diagnostics** | `check_sage_health`, `lookup_sage_doc` | Worker/Server | MCP-level readiness probe (evaluates `1+1`, reports latency); doc links for a Sage name plus whether this server offers it to caller code |
-| **Infrastructure** | `/health` endpoint, 3 MCP resources | Server | Health check, session snapshots, aggregated metrics, documentation links |
+| **Infrastructure** | `/health` and `/ready` endpoints, 3 MCP resources | Server | Liveness (process up) and readiness (evaluates `1+1` on the backend), session snapshots, aggregated metrics, documentation links |
 
 ---
 
@@ -175,9 +176,13 @@ uv run sagemath-mcp
 uv run sagemath-mcp --transport streamable-http --host 127.0.0.1 --port 8314
 ```
 
-### Optional: start a Sage container automatically
+### Optional: start a Sage container automatically (development/testing)
 
-If you'd like a ready-to-use Sage runtime without installing it locally, run:
+This container exists to run the test suite against a real Sage: it mounts your
+checkout writably and skips the read-only hardening the runtime paths apply, so
+treat it as a development fixture, not a deployment. For running the server,
+use the hardened Docker image or Compose paths below. To get a ready-to-use
+Sage runtime for the tests:
 
 ```bash
 make sage-container  # or ./scripts/setup_sage_container.sh
@@ -191,12 +196,31 @@ pwsh -File scripts/setup_sage_container.ps1
 
 ### Docker Image
 
-Build a ready-to-run container with the MCP server baked in:
+Build a ready-to-run container with the MCP server baked in. The image's
+default command already serves streamable HTTP on the container side; the run
+flags below are the same hardening Docker Compose applies (read-only root,
+dropped capabilities, fork/memory ceilings), and the port is published on the
+loopback interface deliberately — this server executes code and authenticates
+nobody:
 
 ```bash
 docker build -t sagemath-mcp:latest .
-docker run -p 8314:8314 sagemath-mcp:latest --transport streamable-http
+docker run --rm \
+  --read-only \
+  --tmpfs /tmp:rw,size=512m \
+  --tmpfs /home/sage/.sage:rw,size=256m \
+  --cap-drop ALL \
+  --security-opt no-new-privileges \
+  --pids-limit 256 \
+  --memory 4g \
+  -p 127.0.0.1:8314:8314 \
+  sagemath-mcp:latest
 ```
+
+Prefer `docker compose up --build` (below) — it applies the same hardening from
+one reviewed file. If you override the image's command, keep
+`--host 0.0.0.0`: the container-side binding is what makes the published
+loopback port reachable at all.
 
 Released images are published to `ghcr.io/xbp-europe/sagemath-mcp` and signed with Cosign.
 Verify a downloaded artifact with:
@@ -221,7 +245,9 @@ The compose service exposes port `8314` on both host and container and mounts th
 
 ### `evaluate_sage` --- Open-Ended SageMath Execution
 
-The primary tool. Executes arbitrary SageMath code inside a persistent worker process. Variables, functions, classes, and assumptions defined in one call survive into subsequent calls within the same MCP session.
+Executes SageMath code — the mathematical subset the sandbox permits (see [Security Sandbox](#security-sandbox)) — inside a persistent worker process. Variables, functions, classes, and assumptions defined in one call survive into subsequent calls within the same MCP session.
+
+Its own tool description calls it a **LAST RESORT**, and for a single self-contained calculation a specialized tool is better: it validates arguments and returns a typed result. But that steer has one important exception. The specialized tools evaluate their input in a **fresh namespace** and cannot see variables you assigned with `evaluate_sage` — so any workflow that builds an object once and then explores it (a graph and its invariants, a number field, a polynomial ideal, a matrix decomposition) belongs in `evaluate_sage`, across as many calls as it takes. Persistent state is the reason to reach for it, not a reason to avoid it.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -779,6 +805,29 @@ One client can hold several independent workspaces. Variables defined in one are
 > stop_sage_session(name="curves")
 ```
 
+**Portable workspace handles.** `start_sage_session` also returns a
+`workspace_token` — a server-issued, unguessable handle that addresses that one
+workspace:
+
+```
+> start_sage_session(name="curves")
+  {"message": "Session 'curves' ready", "name": "curves",
+   "workspace_token": "wsk_9f3c…"}          # keep this secret
+
+> evaluate_sage(code="E.rank()", session="wsk_9f3c…")   # reaches 'curves'
+```
+
+A plain `name` is scoped to your current MCP session, so it is lost if the
+transport hands you a new session id (a reconnect, or a transport that rotates
+the id per call). A handle is not: passed as the `session` argument it reaches
+the same workspace regardless of the transport id, which is what keeps state
+across a reconnect. It is a **bearer credential**, not authentication — it
+identifies no one, and anyone who holds it can reach that workspace — so treat
+it as a secret. An unknown or revoked handle is refused, never silently turned
+into a fresh workspace, and stopping a workspace invalidates its handles. The
+handle keeps its workspace only while that worker is alive (a server restart or
+an idle cull ends it); it is not a cross-restart recovery token.
+
 #### `check_sage_health`
 
 The MCP-level readiness probe, for stdio clients that cannot reach the HTTP
@@ -796,6 +845,44 @@ code. Caller code is deny-by-default, so a name Sage documents may still be
 withheld here; saying so up front saves the model a refused evaluation.
 
 **Returns:** `{"symbol": "EllipticCurve", "offered_to_caller_code": true, "links": {...}, "note": "..."}`
+
+#### `verify_claim`
+
+The checking primitive for the dominant failure mode of models doing
+mathematics: confident wrong algebra. The model states a claim -- an equality,
+an inequality, anything that evaluates to True/False -- and the server
+re-checks it independently through a ladder: Sage's symbolic prover, the exact
+difference (`(lhs-rhs).simplify_full().is_zero()`), exact arithmetic over
+`QQbar`/`AA` when the claim is constant, then certified interval arithmetic and
+numeric sampling over the free variables.
+
+```
+> verify_claim(claim="integral(x^2/(e^x-1), x, 0, oo) == 2*zeta(3)")
+  {"verdict": "proved", "method": "symbolic_prover", ...}
+
+> verify_claim(claim="log(640320^3 + 744)/sqrt(163) == pi", precision_bits=256)
+  {"verdict": "refuted", "method": "certified_interval",
+   "evidence": "lhs - rhs lies in ..., a certified enclosure at 256 bits that excludes zero"}
+```
+
+Two rules keep the verdicts honest. The prover returning `False` means *not
+proved*, never *false* -- `refuted` requires an exact decision or an exhibited
+counterexample (interval evidence is always a certified enclosure, not a
+floating-point comparison). And `supported` always carries its evidence --
+sample count and precision -- never a bare confidence number.
+
+Exactness is never assumed. Decimal literals are read as the exact rationals
+they denote -- `0.1` means 1/10, so `0.1 + 0.2 == 0.3` is proved and
+`1.0 + 1e-20 == 1.0` is refuted, where deciding over 53-bit doubles would answer
+both wrongly while claiming exactness. But a comparison whose operands are
+genuine machine floats (`RR(1)`, an `.n()` result, a session value in `RR`) is
+reported as `supported` "over inexact machine numbers", never as an exact proof
+-- `RR(1) + RR(1)/10^20 == RR(1)` is true only by rounding, and saying `proved`
+there would be the false certainty this tool exists to prevent. And the
+session's active assumptions are honored, domain declarations included: under
+`assume(x, 'integer')` a sampled point of 1/2 is not admissible, so it is never
+offered as a counterexample to `x != 1/2`; any verdict that leaned on an
+assumption names it in the evidence.
 
 Every tool that runs on a worker accepts the same optional `session` argument.
 Omitting it uses the `default` workspace, which is the behaviour of every earlier
@@ -1065,6 +1152,7 @@ All configuration is done via environment variables. No config files are needed.
 | `SAGEMATH_MCP_IDLE_TTL` | Seconds of inactivity before a session is culled. | `900` |
 | `SAGEMATH_MCP_EVAL_TIMEOUT` | Per-evaluation timeout in seconds. | `30` |
 | `SAGEMATH_MCP_MAX_STDOUT` | Maximum characters of `stdout` returned per call. | `100000` |
+| `SAGEMATH_MCP_MAX_SESSIONS` | Ceiling on concurrently live sessions (workers); `0` means unbounded. A new session past the ceiling is refused; existing ones are always reachable. | `128` |
 | `SAGEMATH_MCP_SHUTDOWN_GRACE` | Grace period before a stuck worker is terminated. | `2` |
 | `SAGEMATH_MCP_FORCE_PYTHON_WORKER` | Use the pure-Python worker (helpful for tests/CI). | `false` |
 | `SAGEMATH_MCP_PURE_PYTHON` | When set to `1`, load math stdlib instead of Sage modules. | unset |
@@ -1234,14 +1322,15 @@ sagemath-mcp/
 │   ├── runtime.py                  # Settings and the session manager
 │   ├── codegen.py                  # Prelude, literal encoding, validation gates, numeric guards
 │   ├── text.py                     # Client-facing strings shared by app and tools
-│   ├── tools/                      # The 39 tools and 3 resources, by domain
+│   ├── tools/                      # The 40 tools and 3 resources, by domain
 │   │   ├── session.py              #   6 session tools + the 3 resources
 │   │   ├── core.py                 #   evaluate_sage, streaming, calculate, simplify/expand/factor, find_root
 │   │   ├── calculus.py             #   differentiate, integrate, limit, series, ODEs, sums, vector calculus
 │   │   ├── algebra.py              #   solve, matrices, polynomial rings, boolean algebra
 │   │   ├── discrete.py             #   number theory, combinatorics, graphs, groups, curves, codes
 │   │   ├── stats.py                #   statistics_summary, distribution_operation
-│   │   └── plotting.py             #   2D/3D plots and geometry
+│   │   ├── plotting.py             #   2D/3D plots and geometry
+│   │   └── verify.py               #   verify_claim, the claim-checking primitive
 │   ├── session.py                  # Sage worker lifecycle, session management, idle culling
 │   ├── _sage_worker.py             # Subprocess worker: code execution, AST validation, LaTeX
 │   ├── security.py                 # AST validator, SecurityPolicy, configurable allowlists

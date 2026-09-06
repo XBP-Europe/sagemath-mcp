@@ -1701,7 +1701,7 @@ requires-dist = [
     { name = "anyio", specifier = ">=4.14.2" },
     { name = "build", marker = "extra == 'dev'", specifier = ">=1.5.0" },
     { name = "coverage", marker = "extra == 'dev'", specifier = ">=7.15.4" },
-    { name = "fastmcp", specifier = ">=3.4.7" },
+    { name = "fastmcp", specifier = ">=3.4.7,<4" },
     { name = "mcp", extras = ["cli"], marker = "extra == 'cli'", specifier = ">=1.29.0" },
     { name = "pip-audit", marker = "extra == 'dev'", specifier = ">=2.10.1" },
     { name = "pydantic", specifier = ">=2.13.4" },

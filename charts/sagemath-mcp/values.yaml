@@ -67,9 +67,13 @@ livenessProbe:
 
 readinessProbe:
   enabled: true
+  # Readiness runs the real Sage path (/ready evaluates 1+1), so a pod whose
+  # backend cannot compute stops receiving traffic even while its process is
+  # up. Liveness stays a TCP connect on purpose: a wedged computation should
+  # not restart the whole pod. timeoutSeconds covers a cold first worker spawn.
   initialDelaySeconds: 10
   periodSeconds: 10
-  timeoutSeconds: 5
+  timeoutSeconds: 12
   failureThreshold: 3
 
 startupProbe:

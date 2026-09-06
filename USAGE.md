@@ -48,13 +48,13 @@ sage -python -m uv run sagemath-mcp --transport streamable-http --host 0.0.0.0 -
 > The bundled compose file publishes to `127.0.0.1` for the same reason.
 The server advertises its MCP endpoint at `http://HOST:PORT/mcp`.
 
-## Available Tools & Resources (39 tools, 3 resources)
+## Available Tools & Resources (40 tools, 3 resources)
 
 All math tools use **SageMath** as the computation backend.
 
 | Name | Backend | Description |
 | --- | --- | --- |
-| `evaluate_sage` | Sage | Execute arbitrary SageMath code within a persistent session; supports `timeout`, `want_latex`, `capture_stdout`. |
+| `evaluate_sage` | Sage | Execute SageMath code (the sandbox's mathematical subset) within a persistent session; supports `timeout`, `want_latex`, `capture_stdout`. Specialized tools evaluate in a fresh namespace, so multi-step work that reuses variables belongs here. |
 | `evaluate_sage_streaming` | Sage | Like `evaluate_sage` but emits each stdout line as a progress event for real-time display. |
 | `calculate_expression` | Sage | Evaluate a Sage expression and return string/numeric results. |
 | `solve_equation` | Sage | Solve a single equation or a system of equations for one or more variables. |
@@ -77,6 +77,7 @@ All math tools use **SageMath** as the computation backend.
 | `plot3d_expression` | Sage | Render a 3D surface plot and return a base64-encoded PNG image. |
 | `plot_multi_expression` | Sage | Overlay multiple functions in a single 2D plot. |
 | `find_root` | Sage | Numeric root-finding in an interval via Sage's `find_root()`. Accepts an expression or an equation (`E - 0.6*sin(E) = 0.75`). |
+| `verify_claim` | Sage | Independently re-check a stated claim (`sin(x)^2 + cos(x)^2 == 1`) through a proof ladder: symbolic prover, exact difference, exact algebraic arithmetic, certified intervals, numeric sampling. Answers `proved`, `refuted`, `supported` or `undecided`, always with its evidence. |
 | `vector_calculus_operation` | Sage | Gradient, divergence, curl, Laplacian on scalar/vector fields. |
 | `graph_operation` | Sage | Named graphs and adjacency dicts; chromatic number, connectivity, planarity, diameter, shortest path. |
 | `group_operation` | Sage | Symmetric, dihedral, cyclic, alternating groups; order, abelian/cyclic test, center, exponent. |
@@ -88,7 +89,7 @@ All math tools use **SageMath** as the computation backend.
 | `interrupt_sage_session` | Worker | Interrupt a running computation **and keep the variables defined so far**. Prefer this over cancelling. |
 | `cancel_sage_session` | Worker | Cancel the active computation and restart the underlying worker, discarding its variables. |
 | `reset_sage_session` | Worker | Clear the session state without cancelling a running job. |
-| `start_sage_session` | Worker | Start a **named workspace** with its own independent variables. |
+| `start_sage_session` | Worker | Start a **named workspace** with its own independent variables, and return a portable `workspace_token`: an unguessable bearer handle that reaches the same workspace across reconnects when passed as `session`. Keep it secret. |
 | `list_sage_sessions` | Worker | List the named workspaces belonging to this client. |
 | `stop_sage_session` | Worker | Stop a named workspace and release its worker. |
 | `check_sage_health` | Worker | Probe readiness: spins up (or reuses) the workspace worker, evaluates `1+1`, reports `ok`/latency instead of erroring. |
@@ -96,7 +97,8 @@ All math tools use **SageMath** as the computation backend.
 | `resource://sagemath/session/{scope}` | Server | Inspect active sessions (`scope=all` or specific session id). |
 | `resource://sagemath/monitoring/{scope}` | Server | Fetch evaluation metrics (`scope=metrics` or `all`). |
 | `resource://sagemath/docs/{scope}` | Server | Retrieve SageMath documentation links (`scope=all`, `reference`, `tutorial`). |
-| `/health` | Server | HTTP health check endpoint returning server status (for Kubernetes probes). |
+| `/health` | Server | HTTP liveness endpoint: 200 while the process is up and answering. Deliberately shallow — does not touch a Sage worker, so a busy backend does not restart the pod. |
+| `/ready` | Server | HTTP readiness endpoint: evaluates `1+1` on the backend and returns 200 only when it computes correctly, 503 otherwise. This is the probe a Service should gate traffic on. |
 
 The `resource://sagemath/docs/{scope}` resource returns links into the upstream
 SageMath manual, which is the authoritative copy and always current.

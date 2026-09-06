@@ -62,14 +62,15 @@ jobs:
       contents: read
       packages: write
       id-token: write
+    env:
+      # One publish policy, shared by every destination below: publish ONLY on a
+      # tag push. A workflow_dispatch can target a tag ref, so gating on the ref
+      # alone let a "validate without publishing" dispatch push and sign a GHCR
+      # image; requiring the push event closes that. Dispatch is always a dry
+      # run, which is the whole reason it exists (exercise the paths safely).
+      DO_PUSH: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
     steps:
       - uses: actions/checkout@v7
-      - name: Log in to GHCR
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
       - name: Extract metadata (tags, labels)
@@ -77,22 +78,73 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}
-      - name: Build and push image
-        id: build
+      - name: Build candidate image
         uses: docker/build-push-action@v7
         with:
           context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          load: true
+          tags: sagemath-mcp-candidate:smoke
           labels: ${{ steps.meta.outputs.labels }}
+      - name: Stateful smoke test of the built image
+        # The exact artifact and dependency set being published, not the source
+        # tree: `pip install .` in the Dockerfile resolves dependencies at build
+        # time, so this is where a moved dependency surfaces. fastmcp 4.0.3
+        # broke exactly this workflow (assign, then read back in the same
+        # session) while every per-file signature stayed valid.
+        run: |
+          docker run --rm -i --entrypoint sage sagemath-mcp-candidate:smoke -python - <<'PY'
+          import asyncio
+          from fastmcp import Client
+          from sagemath_mcp import server
+
+          async def main() -> None:
+              async with Client(server.mcp) as client:
+                  first = await client.call_tool("evaluate_sage", {"code": "smoke = 41"})
+                  assert not first.is_error, first
+                  second = await client.call_tool("evaluate_sage", {"code": "smoke + 1"})
+                  assert not second.is_error, second
+                  text = "".join(
+                      block.text for block in second.content if getattr(block, "text", None)
+                  )
+                  assert "42" in text, f"stateful read returned {text!r}"
+                  print("stateful smoke: OK ->", text)
+
+          asyncio.run(main())
+          PY
+      - name: Log in to GHCR
+        if: env.DO_PUSH == 'true'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push the tested image
+        # Push the exact image the smoke test ran against -- retag and push it,
+        # rather than a second build-push-action that rebuilds and could produce
+        # a different artifact than the one just verified. All tags point at one
+        # image, so they share one registry digest, which is what gets signed.
+        if: env.DO_PUSH == 'true'
+        id: push
+        run: |
+          while IFS= read -r tag; do
+            [ -z "$tag" ] && continue
+            docker tag sagemath-mcp-candidate:smoke "$tag"
+            docker push "$tag"
+          done <<< "${{ steps.meta.outputs.tags }}"
+          FIRST_TAG=$(printf '%s\n' "${{ steps.meta.outputs.tags }}" | head -n1)
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$FIRST_TAG" | cut -d@ -f2)
+          test -n "$DIGEST"
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
       - name: Install Cosign
+        if: env.DO_PUSH == 'true'
         uses: sigstore/cosign-installer@v4.1.2
       - name: Sign container image
+        if: env.DO_PUSH == 'true'
         env:
           COSIGN_YES: "true"
         run: |
           IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
-          DIGEST="${{ steps.build.outputs.digest }}"
+          DIGEST="${{ steps.push.outputs.digest }}"
           cosign sign "${IMAGE}@${DIGEST}"
 
   helm:
@@ -109,8 +161,11 @@ jobs:
 
   publish:
     needs: [build, docker, helm]
-    # PyPI is irreversible; never reachable from a manual dispatch.
-    if: startsWith(github.ref, 'refs/tags/v')
+    # PyPI is irreversible; publish only on a tag PUSH. A workflow_dispatch can
+    # target a tag ref, so `startsWith(github.ref, ...)` alone was reachable from
+    # a dispatch (even a dry-run one) -- the push-event gate is what actually
+    # keeps a manual run from publishing. Same policy as DO_PUSH above.
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -131,12 +186,14 @@ jobs:
   # published PyPI description, so this can only run once the package is live.
   mcp-registry:
     needs: [publish]
-    # On a tag, still gated on a successful PyPI publish so a release object can
-    # never announce a version that was not shipped. On a manual dispatch,
-    # publish is skipped and this runs anyway in dry-run mode.
+    # On a tag push, gated on a successful PyPI publish so the registry can never
+    # announce a version that was not shipped. On a manual dispatch, publish is
+    # skipped and this runs in dry-run mode. Same push-only publish policy as the
+    # steps below.
     if: >-
       always() &&
-      ((startsWith(github.ref, 'refs/tags/v') && needs.publish.result == 'success')
+      ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        && needs.publish.result == 'success')
        || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
@@ -156,12 +213,12 @@ jobs:
           curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" \
             | tar xz mcp-publisher
       - name: Publish to the MCP registry
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         run: |
           ./mcp-publisher login github-oidc
           ./mcp-publisher publish
       - name: Dry run - validate the manifest and login only
-        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        if: ${{ !(github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) }}
         run: |
           python3 -c "import json,sys; d=json.load(open('server.json')); \
             assert d['name'] and d['version'] and d['packages'], 'server.json incomplete'; \
@@ -175,12 +232,13 @@ jobs:
   # v0.3.1 as Latest -- which is also where pyproject points its Changelog URL.
   github-release:
     needs: [publish]
-    # On a tag, still gated on a successful PyPI publish so a release object can
+    # On a tag push, gated on a successful PyPI publish so a release object can
     # never announce a version that was not shipped. On a manual dispatch,
-    # publish is skipped and this runs anyway in dry-run mode.
+    # publish is skipped and this runs in dry-run mode. Same push-only policy.
     if: >-
       always() &&
-      ((startsWith(github.ref, 'refs/tags/v') && needs.publish.result == 'success')
+      ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        && needs.publish.result == 'success')
        || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
@@ -213,12 +271,12 @@ jobs:
             echo "found=false" >> "$GITHUB_OUTPUT"
           fi
       - name: Dry run - render the notes without creating a release
-        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        if: ${{ !(github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) }}
         run: |
           echo "Would create a release with these notes:"
           head -40 release-notes.md || echo "(no changelog entry; generated notes would be used)"
       - name: Create the GitHub release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

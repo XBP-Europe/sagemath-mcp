@@ -26,6 +26,7 @@ from dataclasses import replace
 
 from fastmcp.exceptions import ToolError
 
+from . import monitoring
 from .allowlist import ALLOWED_CALLER_NAMES
 from .security import (
     _GREEK_NAMES,
@@ -600,7 +601,16 @@ async def _evaluate_structured(
     the template are validated separately by _validated_expression before they
     get here -- otherwise the helpers would be an unguarded path straight past
     the AST policy, which is exactly what they were.
+
+    Records the same monitoring counters `evaluate_sage` does. Without this the
+    ~30 helper tools -- every specialized call in the catalogue -- ran invisibly
+    to the metrics resource, so the counters accounted for `evaluate_sage`
+    alone and read as near-idle on a server doing steady helper-tool work.
+    Imported lazily to avoid a load-order dependency on session.py's error
+    types being importable at module import time.
     """
+    from .session import SageEvaluationError, SageProcessError
+
     try:
         worker_result = await session.evaluate(
             code,
@@ -612,7 +622,19 @@ async def _evaluate_structured(
     except TimeoutError as exc:
         # Same translation as evaluate_sage: every tool should report a timeout
         # as a tool error with the deadline in it, not a bare TimeoutError.
+        monitoring.record_failure(str(exc), is_security=False, details="TimeoutError")
         raise ToolError(str(exc)) from exc
+    except SageEvaluationError as exc:
+        monitoring.record_failure(
+            exc.error_type or str(exc),
+            is_security=exc.error_type == "SecurityViolation",
+            details=exc.traceback or exc.stdout,
+        )
+        raise
+    except SageProcessError as exc:
+        monitoring.record_failure(str(exc) or exc.__class__.__name__, is_security=False)
+        raise
+    monitoring.record_success(worker_result.elapsed_ms)
     if worker_result.result is None:
         return None
     try:

@@ -43,6 +43,18 @@ compose file publishing to `127.0.0.1:8314`, a `ClusterIP` service — because
 there is **no authentication**, which is normal for a locally-run MCP server and
 is why it must stay local unless you put something authenticating in front.
 
+**Workspace handles are bearer credentials, not authentication.** A
+`workspace_token` from `start_sage_session` grants access to that one workspace
+to whoever presents it; its protection is unguessability, which stops discovery
+but not copying or disclosure. It identifies no principal and is never bound to
+the transport session id. Treat it as a secret — it is kept out of monitoring,
+session listings, error messages, server logs and journal filenames — and, like
+everything else here, it assumes a single trust domain: an authenticating
+deployment should bind handles to its own authenticated principal on top. A
+handle addresses a live in-memory workspace only; it is not durable across a
+server restart, and it does not make state shared across instances (route a
+client back to the instance that holds its workspace).
+
 ## Threat Model
 
 ### Assets to protect

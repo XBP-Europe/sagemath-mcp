@@ -77,7 +77,7 @@ Whether the task is symbolic calculus, number theory, linear algebra, differenti
 | **Geometry** | `geometry_operation` | Sage | Distance, polygon area, polytope volume, convex hull, compactness via `Polyhedron` |
 | **Statistics** | `statistics_summary` | Sage | Mean, median, population & sample variance/std dev, min, max |
 | **Probability** | `distribution_operation` | Sage | Normal, exponential, Poisson, chi-squared, Student-t, uniform, beta, gamma; PDF, CDF, quantile, analytic mean/variance, sampling |
-| **Visualization** | `plot_expression`, `plot3d_expression`, `plot_multi_expression` | Sage | 2D plots, 3D surface plots, multi-function overlays as base64-encoded PNG |
+| **Visualization** | `plot_expression`, `plot3d_expression`, `plot_multi_expression` | Sage | 2D plots, 3D surface plots, multi-function overlays, returned as rendered images (PNG or SVG) the client displays |
 | **Numeric methods** | `find_root` | Sage | Numeric root-finding in an interval via Sage's `find_root()`, from an expression or an equation |
 | **Verification** | `verify_claim` | Sage | Independently re-check a stated claim through a proof ladder; answers `proved`, `refuted`, `supported` or `undecided`, always with its evidence |
 | **Vector calculus** | `vector_calculus_operation` | Sage | Gradient, divergence, curl, Laplacian on scalar/vector fields |
@@ -671,7 +671,7 @@ Compute descriptive statistics for a numeric dataset using Sage's `mean()` and `
 
 #### `plot_expression`
 
-Render a 2D plot of an expression and return it as a base64-encoded PNG image. Calls Sage's `plot()` function and serializes the result to an in-memory PNG buffer.
+Render a 2D plot of an expression and return it as MCP image content (PNG by default, or SVG via `image_format`) the client displays inline. Calls Sage's `plot()`, renders to an in-memory buffer at a bounded size, and returns it as an image block rather than a base64 string.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|

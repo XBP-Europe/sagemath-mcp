@@ -73,8 +73,8 @@ All math tools use **SageMath** as the computation backend.
 | `combinatorics_operation` | Sage | Binomial, permutations, combinations, partitions, factorial, Catalan, Fibonacci, Bell. |
 | `statistics_summary` | Sage | Compute population & sample mean/variance/std-dev plus min/max. |
 | `distribution_operation` | Sage | Probability distributions: normal, exponential, Poisson, chi-squared, Student-t, uniform, beta, gamma. |
-| `plot_expression` | Sage | Render a 2D plot and return a base64-encoded PNG image. |
-| `plot3d_expression` | Sage | Render a 3D surface plot and return a base64-encoded PNG image. |
+| `plot_expression` | Sage | Render a 2D plot and return it as MCP image content (PNG or SVG via `image_format`) the client displays inline. |
+| `plot3d_expression` | Sage | Render a 3D surface plot and return it as MCP image content the client displays inline. |
 | `plot_multi_expression` | Sage | Overlay multiple functions in a single 2D plot. |
 | `find_root` | Sage | Numeric root-finding in an interval via Sage's `find_root()`. Accepts an expression or an equation (`E - 0.6*sin(E) = 0.75`). |
 | `verify_claim` | Sage | Independently re-check a stated claim (`sin(x)^2 + cos(x)^2 == 1`) through a proof ladder: symbolic prover, exact difference, exact algebraic arithmetic, certified intervals, numeric sampling. Answers `proved`, `refuted`, `supported` or `undecided`, always with its evidence. |
@@ -206,7 +206,7 @@ For HTTP transports, point the client at `http://HOST:PORT/mcp` and enable strea
   | `attrgetter`, `methodcaller`, `itemgetter`, `operator.*` | They fetch attributes by a runtime string, which defeats every other rule here. |
   | `gp`, `maxima`, `singular`, `pari`, … | Each spawns the real program, and those have shell escapes: `pari('system("id")')` ran one. |
   | `cython()`, `sh()`, `load()`, `attach()`, `save`/`dump`/`export` | Compile, run a shell, execute a path, or write files. |
-  | `show`, `view`, `latex`, `html`, `animate`, `oeis` | Write to disk, launch a viewer or reach the network. **Use the plot tools instead** — `plot_expression` and friends return a base64 PNG, which is what you want over an MCP connection anyway. |
+  | `show`, `view`, `latex`, `html`, `animate`, `oeis` | Write to disk, launch a viewer or reach the network. **Use the plot tools instead** — `plot_expression` and friends return rendered MCP image content (PNG or SVG) the client displays, which is what you want over an MCP connection anyway. |
 
   The specialised tools cover most of what people reach for these for.
 - **`'n' is larger than 2^53`**: pass that argument as a decimal string. A JSON

@@ -76,6 +76,14 @@ here is a breaking change.
 
 ### Fixed
 
+- **Plots now render as images** (2026-09-06 external evaluation).
+  `plot_expression`, `plot3d_expression` and `plot_multi_expression` returned
+  `{"image_base64": ...}` — a JSON dict a client serialised as text, so a plot
+  arrived as a ~200 KB wall of base64 that displayed nothing and ate the context
+  window. They now return proper MCP image content (a `fastmcp` `Image` →
+  `ImageContent`) the client renders inline, at a bounded canvas/DPI (a PNG
+  dropped to ~25 KB), with a new `image_format` argument to choose SVG (vector,
+  smaller for line plots) instead of PNG.
 - **Honest scope language** (2026-09-06 external review). "full access to
   SageMath", "run any SageMath code" and "arbitrary SageMath code" are replaced
   across the README, USAGE and the `evaluate_sage` tool description with the

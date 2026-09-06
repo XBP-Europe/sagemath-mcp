@@ -22,7 +22,7 @@ All tools use **SageMath** as the computation backend unless noted.
 - **Geometry (Sage):** `geometry_operation` (distance, area, volume, convex hull via Polyhedron).
 - **Statistics (Sage):** `statistics_summary` — mean, median, variance, std dev, min, max.
 - **Probability (Sage):** `distribution_operation` (normal, exponential, Poisson, chi-squared, Student-t, etc.).
-- **Visualization (Sage):** `plot_expression`, `plot3d_expression`, `plot_multi_expression` (base64 PNG).
+- **Visualization (Sage):** `plot_expression`, `plot3d_expression`, `plot_multi_expression` (rendered image content, PNG or SVG).
 - **Numeric Methods (Sage):** `find_root` (root-finding in an interval).
 - **Verification (Sage):** `verify_claim` (re-check a stated comparison through a proof ladder; answers `proved`/`refuted`/`supported`/`undecided` with evidence).
 - **Vector Calculus (Sage):** `vector_calculus_operation` (gradient, divergence, curl, Laplacian).
@@ -73,7 +73,7 @@ The refusals worth knowing before you hit them:
 - **No `show()`, `view()`, `latex()`, `html()` or `animate()`.** This is the one
   that catches people, because `show(plot(...))` is how you would do it in a
   notebook. Over MCP you want **`plot_expression`** and its siblings, which
-  return a base64 PNG the client can actually display; `show` would write a file
+  return rendered image content the client actually displays; `show` would write a file
   on the server and try to open a viewer nobody is looking at.
 - **No file or network access** — `save`, `dump`, `export`, `load`, `attach`,
   `oeis`, `get_remote_file`.
@@ -158,5 +158,6 @@ file or reached the network during testing.
   worker and loses them.
 - Name a workspace (`"session": "curves"`) when a line of work should not be
   disturbed by unrelated calculations.
-- Ask for a plot only when you want the image: it comes back as base64 PNG and is
-  large compared with everything else here.
+- Ask for a plot only when you want the image: it comes back as rendered image
+  content (PNG, or SVG via `image_format`) and is large compared with everything
+  else here; SVG is the lighter choice for line plots.

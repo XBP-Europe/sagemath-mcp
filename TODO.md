@@ -44,9 +44,21 @@ out of date.
       harness — per the 2026-09-06 review, compare no-tools vs `evaluate_sage`
       only vs the full catalogue, include iterative advanced mathematics beyond
       GSM8K/MATH, and measure wrong-confident answers, refusals, recovery,
-      latency and tool-call count. A passagemath runtime extra to cut install
-      footprint is also open (evaluation in progress, docs/passagemath_evaluation.md).
-      `verify_claim` shipped 2026-09-06 (`tools/verify.py`).
+      latency and tool-call count. `verify_claim` shipped 2026-09-06
+      (`tools/verify.py`).
+- [ ] Passagemath runtime extra to cut install footprint. Evaluated 2026-09-06
+      (`docs/passagemath_evaluation.md`): verdict **adopt, pinned to a verified
+      release**, technical fit better than the roadmap sketch assumed — `pip
+      install passagemath-standard` gives a working `from sage.all import *`,
+      `_sage_worker.py` runs unmodified, all 33 tool domains pass on 10.8.9,
+      ~1 GB/3.8 GB/~1 min setup vs the 3 GB image. Two blockers before shipping:
+      (1) the star-exports/denylist derivation is layout-sensitive and over-fires
+      under the modular layout (the real engineering, ~1–2 days — and it overlaps
+      the "classify rather than accept" item below); (2) full suite + corpus
+      sweep against the pin. Don't track their latest: 10.8.10/10.8.11 each
+      shipped a broken core backend on Linux x86_64 (found in the evaluation, not
+      their tracker), so pin + cold-install smoke gate in CI. File the
+      `maxima_lib` regression upstream.
 - [ ] Consider making `scripts/generate_allowlist.py` classify rather than accept.
       Four separate findings had one root cause: the allowlist is generated as
       *whatever survives the namespace scrub*, so it inherits every gap in that

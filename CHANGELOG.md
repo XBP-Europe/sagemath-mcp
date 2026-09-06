@@ -24,8 +24,14 @@ here is a breaking change.
   returning `False` means *not proved*, never *false* — `refuted` requires an
   exact decision or an exhibited counterexample — and `supported` always
   carries its evidence (sample count, precision), never a bare confidence
-  number. No new security surface: the claim passes the same fragment gate as
-  every other tool parameter before touching generated code.
+  number. Two more honesty rules landed after external review: decimal literals
+  are read as the exact rationals they denote (`0.1` means 1/10, so
+  `0.1 + 0.2 == 0.3` is proved and `1.0 + 1e-20 == 1.0` is refuted — deciding
+  over 53-bit doubles answered both wrongly while claiming exactness), and the
+  session's active assumptions are honored, restricted over in sampling, and
+  named in the evidence of any verdict that relied on them. No new security
+  surface: the claim passes the same fragment gate as every other tool
+  parameter before touching generated code.
 - **Two diagnostics tools (37 → 39).** `check_sage_health` is an MCP-level
   readiness probe for stdio clients that cannot reach the HTTP `/health` route:
   it spins up (or reuses) the workspace worker, evaluates `1+1`, and reports

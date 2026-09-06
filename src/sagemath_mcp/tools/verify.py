@@ -25,7 +25,10 @@ tool parameter before it is interpolated into trusted generated code.
 from __future__ import annotations
 
 import ast
+import io
 import textwrap
+import tokenize
+from fractions import Fraction
 from typing import Annotated
 
 from fastmcp import Context
@@ -60,6 +63,43 @@ _TRUTH_ASSEMBLY_MESSAGE = (
     "conditionals and bool()/all()/any() are decided by Python's bool(), which "
     "silently treats 'not proved' as False. Verify each part as its own claim."
 )
+
+
+def _exact_decimal_literals(claim: str) -> str:
+    """Rewrite decimal literals as the exact rationals they denote.
+
+    `0.1 + 0.2 == 0.3` is true of the decimals and false of the 53-bit doubles
+    they become before any comparison runs -- and the first review of this tool
+    caught it answering about the doubles while calling the evidence "exact":
+    that claim came back refuted, and `1.0 + 1e-20 == 1.0` came back proved
+    because the increment rounded away before the comparison. Raising interval
+    precision afterwards cannot recover digits already lost, so exactness has
+    to be preserved *before* evaluation: `0.1` is read as 1/10, the digits the
+    caller actually wrote, and the bool path really is exact at any precision
+    the ladder later needs. Complex literals (`1.5j`) are left alone -- j is
+    not a symbol this rewrite can honestly rationalise.
+
+    The claim arrives folded to one line and gate-validated, and both gate
+    paths tokenize it in full, so `generate_tokens` cannot fail here.
+    """
+    tokens = list(tokenize.generate_tokens(io.StringIO(claim).readline))
+    rewritten = claim
+    for token in reversed(tokens):
+        if token.type != tokenize.NUMBER:
+            continue
+        lowered = token.string.lower()
+        if lowered.endswith("j") or lowered.startswith("0x"):
+            continue
+        if "." not in lowered and "e" not in lowered:
+            continue  # an integer is already exact
+        value = Fraction(token.string.replace("_", ""))
+        exact = (
+            f"({value.numerator})"
+            if value.denominator == 1
+            else f"({value.numerator}/{value.denominator})"
+        )
+        rewritten = rewritten[: token.start[1]] + exact + rewritten[token.end[1]:]
+    return rewritten
 
 
 def _reject_truth_assembly(claim: str) -> None:
@@ -111,6 +151,11 @@ are exact decisions ('refuted' always exhibits its counterexample or certified \
 enclosure); 'supported' means the numeric evidence is consistent with the claim \
 without proving it, and says how many samples at what precision; 'undecided' \
 means every rung was inconclusive -- it never means false.
+
+Decimal literals are read exactly -- 0.1 means 1/10, never the 53-bit double -- \
+so 0.1 + 0.2 == 0.3 is proved and no verdict is ever decided in floating point. \
+The session's active assumptions (assume(x > 0)) are honored, restricted over in \
+sampling, and named in the evidence of any verdict that relied on them.
 """)
 async def verify_claim(
     claim: Annotated[
@@ -160,6 +205,12 @@ async def verify_claim(
         )
     sage_session = await runtime.resolve_session(ctx.session_id, session)
     claim = _validated_expression(claim)
+    rewritten = _exact_decimal_literals(claim)
+    if rewritten != claim:
+        # Validate exactly what runs, the same rule the fold follows. The
+        # rewrite only inserts digits, parentheses and division, but the gate
+        # judging anything other than the final text is how item 55 happened.
+        claim = _validated_expression(rewritten)
     _reject_truth_assembly(claim)
     code = (
         _sage_prelude()
@@ -182,6 +233,11 @@ async def verify_claim(
         _bad = None
         _used_samples = None
         _used_prec = None
+        _assumed = assumptions()
+        _anote = ''
+        if _assumed:
+            _anote = ("; under the session's active assumptions: "
+                      + ', '.join(str(_a) for _a in _assumed))
         if isinstance(_claim, bool):
             _verdict = 'proved' if _claim else 'refuted'
             _method = 'exact_comparison'
@@ -202,7 +258,7 @@ async def verify_claim(
                     if bool(_claim):
                         _verdict = 'proved'
                         _method = 'symbolic_prover'
-                        _evidence = 'SageMath proves the relation symbolically'
+                        _evidence = 'SageMath proves the relation symbolically' + _anote
                 except Exception:
                     pass
             if _verdict is None and _is_eq:
@@ -210,7 +266,8 @@ async def verify_claim(
                     if ((_lhs - _rhs).simplify_full()).is_zero():
                         _verdict = 'proved'
                         _method = 'exact_difference'
-                        _evidence = '(lhs - rhs).simplify_full() is exactly zero'
+                        _evidence = ('(lhs - rhs).simplify_full() is exactly zero'
+                                     + _anote)
                 except Exception:
                     pass
             if _verdict is None and not _vars:
@@ -300,6 +357,20 @@ async def verify_claim(
                         if _i % 2 == 1:
                             _val = -_val
                         _point[_v] = _val
+                    _violates = False
+                    for _a in _assumed:
+                        try:
+                            _av = _a.subs(_point)
+                            if _av is not True and _av is not False:
+                                _av = bool(_av)
+                        except Exception:
+                            continue
+                        if _av is False:
+                            _violates = True
+                            break
+                    if _violates:
+                        _skipped += 1
+                        continue
                     try:
                         _dv = (_lhs - _rhs).subs(_point)
                         _enc = _C(_dv) if (_is_eq or _is_ne) else _F(_dv)
@@ -314,7 +385,7 @@ async def verify_claim(
                             _evidence = ('counterexample at ' + _at + ': lhs - rhs '
                                          'lies in ' + str(_enc) + ', a certified '
                                          'enclosure at ' + str(_prec)
-                                         + ' bits that excludes zero')
+                                         + ' bits that excludes zero' + _anote)
                         else:
                             _supporting += 1
                     elif _is_ne:
@@ -326,7 +397,8 @@ async def verify_claim(
                                     _verdict = 'refuted'
                                     _method = 'numeric_sampling'
                                     _evidence = ('counterexample at ' + _at
-                                                 + ': lhs - rhs is exactly zero there')
+                                                 + ': lhs - rhs is exactly zero there'
+                                                 + _anote)
                                 else:
                                     _skipped += 1
                             except Exception:
@@ -344,7 +416,7 @@ async def verify_claim(
                             _method = 'numeric_sampling'
                             _evidence = ('counterexample at ' + _at + ': lhs - rhs '
                                          'lies in ' + str(_enc) + ', certified at '
-                                         + str(_prec) + ' bits')
+                                         + str(_prec) + ' bits' + _anote)
                         else:
                             _skipped += 1
                 if _verdict is None:
@@ -357,7 +429,7 @@ async def verify_claim(
                                      + str(_nsamples) + ' sampled points, each '
                                      'checked with certified interval arithmetic '
                                      'at ' + str(_prec) + ' bits; no counterexample '
-                                     'found')
+                                     'found' + _anote)
                     else:
                         _verdict = 'undecided'
                         _method = 'numeric_sampling'

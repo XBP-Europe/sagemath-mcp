@@ -823,6 +823,14 @@ counterexample (interval evidence is always a certified enclosure, not a
 floating-point comparison). And `supported` always carries its evidence --
 sample count and precision -- never a bare confidence number.
 
+Two more preserve exactness where evaluation would quietly discard it. Decimal
+literals are read as the exact rationals they denote -- `0.1` means 1/10, so
+`0.1 + 0.2 == 0.3` is proved and `1.0 + 1e-20 == 1.0` is refuted, where deciding
+over 53-bit doubles would answer both wrongly while claiming exactness. And the
+session's active assumptions (`assume(x > 0)`) are honored: sampling never
+exhibits a "counterexample" outside the assumed domain, and any verdict that
+relied on an assumption names it in the evidence.
+
 Every tool that runs on a worker accepts the same optional `session` argument.
 Omitting it uses the `default` workspace, which is the behaviour of every earlier
 version.

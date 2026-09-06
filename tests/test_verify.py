@@ -95,6 +95,38 @@ async def test_verify_claim_folds_whitespace_like_every_other_fragment(monkeypat
     assert result.claim == "1 + 1 == 2"
 
 
+DECIMAL_REWRITES = [
+    ("classic", "0.1 + 0.2 == 0.3", "(1/10) + (1/5) == (3/10)"),
+    ("rounded-away", "1.0 + 1e-20 == 1.0", "(1) + (1/100000000000000000000) == (1)"),
+    ("whole", "2.0 == 2", "(2) == 2"),
+    ("scientific", "1.5e3 == 1500", "(1500) == 1500"),
+    ("complex-untouched", "1.5j == 1.5j", "1.5j == 1.5j"),
+    ("hex-untouched", "0x1e == 30", "0x1e == 30"),
+    ("integers-untouched", "2 + 2 == 4", "2 + 2 == 4"),
+]
+
+
+@pytest.mark.parametrize(
+    "claim,expected",
+    [(c, e) for _, c, e in DECIMAL_REWRITES],
+    ids=[i for i, _, _ in DECIMAL_REWRITES],
+)
+async def test_verify_claim_reads_decimal_literals_exactly(claim, expected, monkeypatch):
+    """0.1 means 1/10, never the 53-bit double it would round to.
+
+    The external review caught the bool path answering about doubles while
+    calling the evidence exact: `0.1 + 0.2 == 0.3` came back refuted and
+    `1.0 + 1e-20 == 1.0` came back proved. Exactness has to be preserved
+    before evaluation collapses the comparison -- no later precision can
+    recover digits already rounded away.
+    """
+    session = StubSession(PROVED_PAYLOAD)
+    await _stub_manager(monkeypatch, session)
+    result = await server.verify_claim(claim, ctx=FakeContext())
+    assert result.claim == expected
+    assert expected in session.calls[0]["code"]
+
+
 async def test_verify_claim_accepts_the_equation_spelling(monkeypatch):
     """A single '=' is Sage's equation, not Python; the gate must let it pass."""
     session = StubSession(PROVED_PAYLOAD)
@@ -280,5 +312,31 @@ async def test_verify_claim_ladder_against_real_sage(monkeypatch):
         # Not a comparison at all: loud error, not a verdict.
         with pytest.raises(server.ToolError, match="must be a comparison"):
             await server.verify_claim("2 + 2", ctx=ctx)
+
+        # The review's decimal counterexamples, now decided about the decimals
+        # the caller wrote rather than the doubles they would round to.
+        decimals = await server.verify_claim("0.1 + 0.2 == 0.3", ctx=ctx)
+        assert decimals.verdict == "proved"
+        assert decimals.method == "exact_comparison"
+        rounded = await server.verify_claim("1.0 + 1e-20 == 1.0", ctx=ctx)
+        assert rounded.verdict == "refuted"
+        assert rounded.method == "exact_comparison"
+
+        # A verdict that leaned on a session assumption must say so.
+        await server.evaluate_sage("assume(x > 0)", ctx=ctx, session="assumed")
+        assumed = await server.verify_claim("x > 0", ctx=ctx, session="assumed")
+        assert assumed.verdict == "proved"
+        assert "assumptions" in assumed.evidence
+        assert "x > 0" in assumed.evidence
+        # ... and sampling must not exhibit a counterexample outside the
+        # assumed domain: abs(x) == x is false for negative x, which the
+        # assumption excludes, so every admissible sample supports it.
+        restricted = await server.verify_claim("abs(x) == x", ctx=ctx, session="assumed")
+        assert restricted.verdict in {"proved", "supported"}
+        if restricted.verdict == "supported":
+            assert "assumptions" in restricted.evidence
+        # The same claim without the assumption is refuted at a negative sample.
+        unrestricted = await server.verify_claim("abs(x) == x", ctx=ctx)
+        assert unrestricted.verdict == "refuted"
     finally:
         await manager.shutdown()

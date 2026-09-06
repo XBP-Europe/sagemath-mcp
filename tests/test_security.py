@@ -557,3 +557,109 @@ def test_a_vetted_module_with_no_screened_names_is_not_expanded():
                    for n in ast.walk(rewritten))
     with pytest.raises(SecurityViolation):
         validate_module(rewritten, code=code, policy=policy)
+
+
+# --- pinning the policy's boundaries and logic from both sides ---
+#
+# These were written from a mutation-testing run (`make mutation`): each one
+# kills a survivor that flips a comparison, a boolean operator or a `not` on a
+# branch the suite reached but only exercised from one side. A test that a limit
+# *rejects* what is over it does not notice `>` quietly becoming `>=`; one that
+# asserts the value *at* the limit is accepted does.
+
+
+def test_is_dunder_matches_only_real_dunders():
+    """`_is_dunder` gates the shortest path out of the sandbox (`__globals__`).
+
+    The three parts are an `and`, not an `or`, and the length test is `> 4`, not
+    `>= 4` or `!= 4`: `____` (length 4) and `___` (length 3) both start and end
+    with `__` yet are not dunders, and `__x` starts with `__` without being one.
+    """
+    from sagemath_mcp.security import _is_dunder
+
+    assert _is_dunder("__globals__") is True
+    assert _is_dunder("__x__") is True  # length 5: `> 4` must not become `> 5`
+    # Each half required (kills `and` -> `or`).
+    assert _is_dunder("__x") is False
+    assert _is_dunder("x__") is False
+    assert _is_dunder("__xx") is False
+    # Length boundary (kills `> 4` -> `>= 4` and `> 4` -> `!= 4`).
+    assert _is_dunder("____") is False
+    assert _is_dunder("___") is False
+    assert _is_dunder("__") is False
+    assert _is_dunder("plain") is False
+
+
+def test_security_policy_defaults_are_pinned():
+    """The shipped defaults, asserted so a flipped literal cannot pass unnoticed."""
+    policy = SecurityPolicy()
+    assert policy.enabled is True
+    assert policy.log_violations is True
+    assert policy.enforce_name_allowlist is True
+    assert policy.forbid_global_stmt is False
+    assert policy.forbid_nonlocal_stmt is False
+
+
+def test_source_exactly_at_the_limit_is_accepted():
+    """`>` not `>=`: source of exactly `max_source_chars` passes; one over fails."""
+    code = "x = 1 + 2 + 3"
+    validate_code(code, policy=SecurityPolicy(max_source_chars=len(code)))
+    with pytest.raises(SecurityViolation, match="maximum length"):
+        validate_code(code, policy=SecurityPolicy(max_source_chars=len(code) - 1))
+
+
+def test_ast_node_count_exactly_at_the_limit_is_accepted():
+    """`>` not `>=`: a module with exactly `max_ast_nodes` nodes passes."""
+    import ast
+
+    code = "a = 1\nb = 2"
+    node_count = sum(1 for _ in ast.walk(ast.parse(code)))
+    validate_code(code, policy=SecurityPolicy(max_ast_nodes=node_count))
+    with pytest.raises(SecurityViolation, match="AST node count"):
+        validate_code(code, policy=SecurityPolicy(max_ast_nodes=node_count - 1))
+
+
+def test_ast_depth_exactly_at_the_limit_is_accepted():
+    """`>` not `>=`: a module of exactly `max_ast_depth` passes."""
+    import ast
+
+    from sagemath_mcp.security import _max_depth
+
+    code = "x = ((((1 + 2) + 3) + 4) + 5)"
+    depth = _max_depth(ast.parse(code))
+    validate_code(code, policy=SecurityPolicy(max_ast_depth=depth))
+    with pytest.raises(SecurityViolation, match="AST depth"):
+        validate_code(code, policy=SecurityPolicy(max_ast_depth=depth - 1))
+
+
+def test_forbidding_global_leaves_ordinary_code_alone():
+    """`forbid_global_stmt` refuses `global`, and *only* `global`.
+
+    The existing refusal test matches on the word "Global", which a mutant that
+    negated the `isinstance` check still produced -- by raising on the first
+    non-`Global` node. Asserting ordinary code passes under the flag pins the
+    node the rule actually fires on.
+    """
+    policy = SecurityPolicy(forbid_global_stmt=True)
+    validate_code("x = 1 + 2", policy=policy)
+
+
+def test_forbidding_nonlocal_leaves_ordinary_code_alone():
+    """`forbid_nonlocal_stmt` refuses `nonlocal`, and only `nonlocal`."""
+    policy = SecurityPolicy(forbid_nonlocal_stmt=True)
+    validate_code("y = 3 * 4", policy=policy)
+
+
+def test_an_allowed_pair_does_not_exempt_a_longer_chain():
+    """`(operator, abs)` is a permitted two-segment chain; the exemption is for
+    exactly two segments (`len(segments) == 2`, not `>= 2`). A forbidden third
+    segment must not ride in on it, and the refusal must name the segment it
+    actually stops at (`operator`, the caller-unowned root at index 0) -- not
+    slide down to `os`, which is what negating the caller-owned test does.
+
+    Pinning the *message* kills both the `== 2` -> `>= 2` mutant (which would
+    accept `operator.abs.os` outright) and the caller-owned `and` -> `or` mutant
+    (which would wave the root through and stop one segment later).
+    """
+    with pytest.raises(SecurityViolation, match="Access through 'operator'"):
+        validate_code("operator.abs.os")

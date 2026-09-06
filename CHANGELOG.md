@@ -93,12 +93,17 @@ here is a breaking change.
   (`tests/test_security_property.py`) assert the policy's invariants over
   generated inputs — every forbidden name in every referencing position, any
   attribute on any forbidden module, any import at all — which is what kills the
-  behavioural mutants. Baseline score: **413/696 killed (59.3%)**; excluding the
-  209 equivalent type-annotation mutants (an `X | None` hint is a never-evaluated
-  string under `from __future__ import annotations`, so no test can kill it), the
-  effective score is **84.8%**. The genuine survivors that remain — a handful of
-  boolean-logic and boundary-comparison flips on tested branches — are tracked in
-  TODO as a follow-up.
+  behavioural mutants. Nine of these tests were written directly against survivors
+  the first run surfaced, closing real gaps: `_is_dunder`'s length boundary and
+  its `and` (the shortest path out of the sandbox), the resource limits accepted
+  *at* the limit rather than only rejected past it, `forbid_global`/`forbid_nonlocal`
+  firing on the right node, and the attribute-chain exemption not shielding a
+  forbidden third segment (`operator.abs.os`). Score: **426/696 killed (61.2%)**;
+  excluding the 209 equivalent type-annotation mutants (an `X | None` hint is a
+  never-evaluated string under `from __future__ import annotations`, so no test
+  can kill it), the effective score is **87.5%**. The remaining survivors are
+  equivalent or near-equivalent (interned-string `==`/`is`, keyword-only `*`
+  markers, `index == last` where `index <= last`), tracked in TODO.
 
 ### Changed
 

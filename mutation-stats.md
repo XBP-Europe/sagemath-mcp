@@ -14,10 +14,10 @@ CI-gated; run with `make mutation`.
 | --- | ---: |
 | Mutants generated | 696 |
 | Mutants run | 696 |
-| Killed | 413 |
-| Surviving | 283 |
-| **Mutation score** | **59.34%** |
-| Survival rate | 40.66% |
+| Killed | 426 |
+| Surviving | 270 |
+| **Mutation score** | **61.21%** |
+| Survival rate | 38.79% |
 
 ## Surviving mutants, by operator
 
@@ -30,20 +30,20 @@ never evaluated, so no test can kill it.
 | Operator | Surviving |
 | --- | ---: |
 | `ReplaceBinaryOperator_BitOr` | 209 |
-| `NumberReplacer` | 29 |
-| `ReplaceComparisonOperator` | 19 |
-| `ReplaceAndWithOr` | 5 |
+| `NumberReplacer` | 28 |
+| `ReplaceComparisonOperator` | 13 |
 | `ReplaceBinaryOperator_Mul` | 4 |
-| `AddNot` | 4 |
-| `ReplaceTrueWithFalse` | 3 |
 | `ReplaceContinueWithBreak` | 3 |
+| `AddNot` | 2 |
+| `ReplaceTrueWithFalse` | 2 |
 | `ReplaceFalseWithTrue` | 2 |
+| `ReplaceAndWithOr` | 2 |
 | `ReplaceOrWithAnd` | 2 |
 | `ExceptionReplacer` | 2 |
 | `ReplaceBinaryOperator_Sub` | 1 |
 
 Excluding the 209 equivalent type-annotation mutants, the
-effective mutation score is **84.80%** (413/487).
+effective mutation score is **87.47%** (426/487).
 
 The remaining survivors are a mix: some are still near-equivalent (a
 `== "s"` turned to `is "s"` compares interned strings the same way; a

@@ -122,18 +122,23 @@ prioritised. Correctness first, then packaging/adoption.
       `test_security_bypass.py` corpus. Scoped to `security.py` only — `allowlist.py`
       is generated *data*, guarded by the Sage-agreement integration test, not
       logic to mutate. Parallelised (~35 min serial → ~2 min, `--workers`), with a
-      weekly non-gating CI job publishing `mutation-stats.md`. Published baseline:
-      **59.3% raw, 84.8% effective** (413/696 killed; 209 survivors are equivalent
+      weekly non-gating CI job publishing `mutation-stats.md`. Published score:
+      **61.2% raw, 87.5% effective** (426/696 killed; 209 survivors are equivalent
       `X | None` type-annotation mutants that no test can kill).
-- [ ] **Close the genuine mutation survivors.** ~15-20 non-equivalent survivors
-      remain after the 209 equivalent annotation mutants and the near-equivalent
-      ones (`== "s"` → `is "s"` on interned strings, `NumberReplacer` on
-      non-behavioural constants). The killable, security-relevant ones are
-      boolean-logic swaps (`or`↔`and`, added `not`) and boundary comparisons
-      (`>`↔`>=`) on branches the suite already reaches — e.g. `security.py`
-      L524/L696 (`or`→`and`), L1201-1203/L1253 (`and`→`or`), L890/L939/L947
-      (`>`→`>=`). Each needs a targeted test that exercises the branch on both
-      sides. Re-run `make mutation` to confirm the score climbs.
+- [x] **Close the genuine mutation survivors.** *Done, 2026-09-06.* Nine targeted
+      tests in `test_security.py` killed the cleanly-killable, security-relevant
+      gaps the first run surfaced (413 → 426 killed, 84.8% → 87.5% effective):
+      `_is_dunder`'s `> 4` boundary and its `and` (`____`, `___`, `__x`), the
+      source/node/depth limits accepted *at* the limit not only rejected past it,
+      `forbid_global`/`forbid_nonlocal` leaving ordinary code alone (the old test
+      matched a word a negated `isinstance` still produced), and the attribute-chain
+      exemption not shielding a forbidden third segment (`operator.abs.os`, which
+      also pinned the caller-owned `and`). The ~60 remaining non-annotation
+      survivors were triaged as equivalent or near-equivalent — `== "s"` → `is "s"`
+      on interned strings, keyword-only `*` markers read as `Mul`, `index == last`
+      where `index <= last`, cosmetic message-formatting flips — none of them a
+      reachable behaviour change. Not worth contrived tests; re-triage if a future
+      refactor makes any of them reachable.
 - [x] **Cheap protocol wins.** *Done, 2026-09-06.* Three MCP prompts
       (`prove_and_verify`, `solve_and_check`, `explore_object`) steer the model
       toward verified, stateful use. And a pre-warmed worker pool

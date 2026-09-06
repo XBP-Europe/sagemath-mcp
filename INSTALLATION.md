@@ -5,7 +5,7 @@ SageMath MCP server.
 
 > **SageMath itself is required, not optional.** Installing this package gives
 > you the MCP server; it does not give you Sage. Without a Sage runtime the
-> server starts and advertises all 39 tools, and then every evaluation fails
+> server starts and advertises all 40 tools, and then every evaluation fails
 > with `Unable to locate Sage executable 'sage'`. The supported way to supply
 > one is the Docker container below — the project is built and tested against
 > **SageMath 10.9**, and the set of names callers may use is generated from that

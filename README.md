@@ -100,7 +100,7 @@ Whether the task is symbolic calculus, number theory, linear algebra, differenti
 │  app.py + tools/ --- FastMCP 3.x Application                    │
 │                                                                 │
 │  ┌─────────────┐  ┌──────────────┐  ┌────────────────────────┐  │
-│  │ 39 MCP Tools│  │ 3 Resources  │  │ Middleware             │  │
+│  │ 40 MCP Tools│  │ 3 Resources  │  │ Middleware             │  │
 │  │ (evaluate,  │  │ (session,    │  │ - Request logging      │  │
 │  │  solve,     │  │  monitoring, │  │ - Catalogue cache only │  │
 │  │  diff, ...) │  │  docs)       │  │ - Progress heartbeats  │  │
@@ -831,7 +831,7 @@ an idle cull ends it); it is not a cross-restart recovery token.
 #### `check_sage_health`
 
 The MCP-level readiness probe, for stdio clients that cannot reach the HTTP
-`/health` route. It exercises the real path -- worker spawn, protocol round
+`/ready` route. It exercises the real path -- worker spawn, protocol round
 trip, evaluation of `1+1` -- and reports failure in its result rather than
 erroring, so an agent can always call it before committing to a workflow.
 
@@ -1371,7 +1371,7 @@ sagemath-mcp/
 
 | Component | Version | Purpose |
 |-----------|---------|---------|
-| [FastMCP](https://gofastmcp.com/) | 3.2+ | MCP server framework (tools, resources, middleware) |
+| [FastMCP](https://gofastmcp.com/) | >=3.4.7,<4 | MCP server framework (tools, resources, middleware); capped below 4, which breaks cross-client session isolation |
 | [MCP SDK](https://github.com/modelcontextprotocol/python-sdk) | 1.27+ | Model Context Protocol implementation |
 | [Pydantic](https://docs.pydantic.dev/) | 2.12+ | Data validation and serialization for all models |
 | [anyio](https://anyio.readthedocs.io/) | 4.13+ | Async runtime abstraction |

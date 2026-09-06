@@ -21,6 +21,8 @@ that gap.
 | `test_sage_worker.py` | no | Worker protocol, the streaming stdout buffer, interrupt and startup-failure paths |
 | `test_security_bypass.py` | no | Every sandbox escape found so far, each one a regression test |
 | `test_cache_isolation.py` | no | Two clients must not share cached tool responses |
+| `test_workspace_handles.py` | no | Portable workspace handles: issuance, resolution independent of the transport session, fail-closed on unknown/revoked handles, and no leakage through listings or the session resource |
+| `test_robustness.py` | **partly** | Session/worker robustness: the startup race (no double-launch), the session ceiling, helper-tool evaluations reaching the metrics, and the `/ready` readiness endpoint |
 | `test_diagnostics.py` | no | The health probe (`check_sage_health`, reports unhealthy rather than erroring) and the doc lookup (`lookup_sage_doc`, links plus whether a name is offered to caller code) |
 | `test_tool_inventory.py` | no | The MCP contract: tool names, schemas and descriptions against a committed snapshot, and that every tool declares its MCP annotations with the destructive/read-only/non-idempotent memberships pinned |
 | `test_readme_badges.py` | no | README badge claims against the files that decide them |
@@ -28,6 +30,7 @@ that gap.
 | `test_math_suite.py` | no | Mathematical results the pure-Python worker can check |
 | `test_cli_harness.py` | no | The extended CLI harness's own verdict logic, fed synthetic wire logs |
 | `test_math_coverage.py` | **partly** | Mathematics that must *work*: binding forms and allowlist reachability without Sage, then truths Sage evaluates, equivalent spellings and preparser behaviour with it |
+| `test_verify.py` | **partly** | The `verify_claim` proof ladder: the comparison-side split, exact-decimal rewriting and injection guards without Sage, then the verdicts (proved/refuted/supported/undecided, `float_comparison`, domain-aware sampling) against real Sage |
 | `test_research_workflows.py` | **yes** | Multi-step sessions on open problems — Collatz, Goldbach, twin primes, odd perfect numbers, zeta zeros, BSD, Erdős–Straus, three cubes, abc. The realistic workload, and the strongest stress on the allowlist |
 | `test_numerical_workflows.py` | **yes** | Floating point, where the remembered answer is wrong: cancellation, conditioning, Newton's rate, order of accuracy, CFL, stiffness, quadrature over the wrong domain |
 | `test_physics_workflows.py` | **yes** | Physics sessions that end at a measured number — Wien and the Sun's temperature, Stefan–Boltzmann, Mercury's 43″/century, the oscillator ladder, anharmonic diagonalisation, phonons, Maxwell, the Bohr radius, a decay fit, the double pendulum |

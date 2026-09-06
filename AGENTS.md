@@ -20,7 +20,7 @@
 
 ## Where Code Goes
 - A new tool belongs in the matching `src/sagemath_mcp/tools/` module (`core`, `calculus`,
-  `algebra`, `discrete`, `stats`, `plotting`, `session`, `diagnostics`) and must be listed in
+  `algebra`, `discrete`, `stats`, `plotting`, `session`, `diagnostics`, `verify`) and must be listed in
   `tools/__init__.py` -- a module missing from that list registers nothing.
 - Decorate against `mcp` imported from `..app`. Never use FastMCP's `mount`/`import_server`
   to compose them: it prefixes tool names, renaming every tool a client has configured.

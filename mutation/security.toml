@@ -1,0 +1,12 @@
+# Mutation testing of the AST security policy. Line coverage proves almost
+# nothing for a policy; a mutation score proves the bypass suite actually
+# catches a weakening of a rule. Scoped to the logic (security.py) -- allowlist.py
+# is generated data whose correctness the Sage-agreement integration test guards.
+[cosmic-ray]
+module-path = "src/sagemath_mcp/security.py"
+timeout = 60.0
+excluded-modules = []
+test-command = "env PYTHONPATH=src python -m pytest -x -q tests/test_security.py tests/test_security_bypass.py tests/test_generated_code_lint.py tests/test_math_coverage.py tests/test_security_property.py"
+
+[cosmic-ray.distributor]
+name = "local"

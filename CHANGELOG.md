@@ -79,6 +79,26 @@ here is a breaking change.
   `readOnlyHint`/`destructiveHint`/`idempotentHint`/`openWorldHint`, so a client
   can tell which calls discard state (`cancel`/`reset`/`stop`) from those that
   keep it (`interrupt`). An inventory test pins the memberships.
+- **Mutation testing of the security policy.** `make mutation`
+  (`scripts/run_mutation_tests.py`) drives cosmic-ray over
+  `src/sagemath_mcp/security.py`: it applies each deliberate weakening — a
+  flipped comparison, a dropped `not`, a relaxed `and` — and runs the security
+  suite, counting how many the tests *catch*. That is a claim line coverage
+  cannot make: `security.py` was already at 100% coverage and still let these
+  through. The run is parallelised across HTTP workers, each mutating its own
+  copy of the tree with `PYTHONPATH` shadowing the editable install, so a
+  ~35-minute serial sweep finishes in ~2 minutes (`--workers`, default 8; `1`
+  is the serial reference); a weekly, non-gating CI job publishes
+  `mutation-stats.md`. New Hypothesis property tests
+  (`tests/test_security_property.py`) assert the policy's invariants over
+  generated inputs — every forbidden name in every referencing position, any
+  attribute on any forbidden module, any import at all — which is what kills the
+  behavioural mutants. Baseline score: **413/696 killed (59.3%)**; excluding the
+  209 equivalent type-annotation mutants (an `X | None` hint is a never-evaluated
+  string under `from __future__ import annotations`, so no test can kill it), the
+  effective score is **84.8%**. The genuine survivors that remain — a handful of
+  boolean-logic and boundary-comparison flips on tested branches — are tracked in
+  TODO as a follow-up.
 
 ### Changed
 

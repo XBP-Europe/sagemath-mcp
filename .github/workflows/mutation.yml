@@ -1,0 +1,37 @@
+name: Mutation testing
+
+# The mutation score of the security policy measures test *quality*, not
+# correctness, and a full run is slow -- so this is never a required check on a
+# PR. It runs weekly and on demand, regenerates mutation-stats.md, and uploads
+# it as an artifact. No Sage is needed: the security suite it drives is
+# pure-Python.
+on:
+  schedule:
+    - cron: "0 4 * * 1" # Mondays, 04:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  mutation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.0.1
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - name: Create virtual environment
+        run: uv venv
+      - name: Install project
+        run: uv pip install -e .[dev]
+      - name: Run mutation testing on the security policy
+        run: make mutation
+      - name: Show the score
+        run: cat mutation-stats.md
+      - uses: actions/upload-artifact@v7
+        with:
+          name: mutation-stats
+          path: mutation-stats.md

@@ -1250,6 +1250,17 @@ uv run pytest tests/test_server.py -k "test_solve_equation"
 uv run pytest --cov=sagemath_mcp --cov-report=term-missing
 ```
 
+### Mutation testing
+
+100% line and branch coverage proves the security policy's lines *run*, not that a test would *notice* if the policy were wrong. `make mutation` measures the latter: it drives [cosmic-ray](https://github.com/sixty-north/cosmic-ray) over `src/sagemath_mcp/security.py`, applying each deliberate weakening (a flipped comparison, a dropped `not`, a relaxed `and`) and re-running the security suite to see how many the tests *catch*.
+
+```bash
+make mutation                                          # parallel (default 8 workers), ~2 min
+uv run python scripts/run_mutation_tests.py --workers 1  # serial reference
+```
+
+Each worker mutates its own copy of the tree with `PYTHONPATH` shadowing the editable install, turning a ~35-minute serial sweep into ~2 minutes. The result is written to `mutation-stats.md`; a weekly, non-gating CI job (`.github/workflows/mutation.yml`) regenerates and uploads it. The Hypothesis property tests in `tests/test_security_property.py` — every forbidden name in every referencing position, any attribute on any forbidden module, any import at all — are what kill the behavioural mutants. This is never a required check: the score measures test *quality*, not correctness, and `allowlist.py` is out of scope because it is generated data guarded by the Sage-agreement integration test.
+
 ### Linting
 
 Ruff with line-length 100, target Python 3.12. Rules: E, F, W, B, UP, ASYNC, RUF, I (import sorting). Run `make lint` before committing.

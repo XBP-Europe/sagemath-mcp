@@ -116,10 +116,24 @@ prioritised. Correctness first, then packaging/adoption.
       but an optional bearer-token FastMCP auth provider — and making the
       Dockerfile's `0.0.0.0` bind an explicit, loudly-noted opt-in — is a fair
       refinement for anyone fronting it. Not a blocker; a deliberate opt-in.
-- [ ] **Mutation-test the security policy.** 100% line coverage proves little
-      for `security.py`/`allowlist.py`; a mutation score (mutmut/cosmic-ray)
-      scoped to them, plus Hypothesis-generated ASTs on top of the existing
-      `test_security_bypass.py` corpus, is a real claim. Publish the number.
+- [x] **Mutation-test the security policy.** *Done, 2026-09-06.* `make mutation`
+      (`scripts/run_mutation_tests.py`) runs cosmic-ray over `security.py`, plus
+      Hypothesis property tests (`tests/test_security_property.py`) on top of the
+      `test_security_bypass.py` corpus. Scoped to `security.py` only — `allowlist.py`
+      is generated *data*, guarded by the Sage-agreement integration test, not
+      logic to mutate. Parallelised (~35 min serial → ~2 min, `--workers`), with a
+      weekly non-gating CI job publishing `mutation-stats.md`. Published baseline:
+      **59.3% raw, 84.8% effective** (413/696 killed; 209 survivors are equivalent
+      `X | None` type-annotation mutants that no test can kill).
+- [ ] **Close the genuine mutation survivors.** ~15-20 non-equivalent survivors
+      remain after the 209 equivalent annotation mutants and the near-equivalent
+      ones (`== "s"` → `is "s"` on interned strings, `NumberReplacer` on
+      non-behavioural constants). The killable, security-relevant ones are
+      boolean-logic swaps (`or`↔`and`, added `not`) and boundary comparisons
+      (`>`↔`>=`) on branches the suite already reaches — e.g. `security.py`
+      L524/L696 (`or`→`and`), L1201-1203/L1253 (`and`→`or`), L890/L939/L947
+      (`>`→`>=`). Each needs a targeted test that exercises the branch on both
+      sides. Re-run `make mutation` to confirm the score climbs.
 - [x] **Cheap protocol wins.** *Done, 2026-09-06.* Three MCP prompts
       (`prove_and_verify`, `solve_and_check`, `explore_object`) steer the model
       toward verified, stateful use. And a pre-warmed worker pool

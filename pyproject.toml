@@ -52,6 +52,10 @@ dev = [
     "ruff>=0.16.2",
     "build>=1.5.0",
     "pip-audit>=2.10.1",
+    # Property-based tests over the security policy (tests/test_security_property.py)
+    # and mutation testing of it (make mutation, scripts/run_mutation_tests.py).
+    "hypothesis>=6.167.1",
+    "cosmic-ray>=8.7.0",
 ]
 
 [project.scripts]

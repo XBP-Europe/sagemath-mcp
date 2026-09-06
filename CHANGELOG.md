@@ -54,6 +54,14 @@ here is a breaking change.
 
 ### Fixed
 
+- **The release now validates the artifact it publishes** (2026-09-06 external
+  review). The Docker release job builds the image, runs a stateful smoke test
+  inside it (assign, read back in the same session — the exact workflow fastmcp
+  4.0.3 broke while every signature stayed valid), and only then pushes and
+  signs; a manual `dry_run` dispatch used to push and sign a GHCR image anyway
+  and now publishes nothing. The CI compose smoke test asserted nothing about
+  its stateful call — it printed the result and reported success even when the
+  second call failed — and now fails unless the read-back returns 42.
 - **The onboarding paths now match the security model** (2026-09-06 external
   review). The README's `docker run` example published the unauthenticated
   evaluator on every host interface while overriding the image's CMD without

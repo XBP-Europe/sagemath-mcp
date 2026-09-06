@@ -18,16 +18,21 @@ out of date.
         loopback (lint-tested); both setup scripts pin the Dockerfile's Sage
         tag (test-enforced), apply pids/memory/no-new-privileges limits, and
         are labelled as the dev/test fixture they are.
-      - **Nightly CLI checks fail loudly on zero clients.** The 2026-09-06 run
-        skipped all three clients (missing keys) and still reported success.
+      - **Nightly CLI checks: accepted as local-only** (decided 2026-09-06).
+        The clients' API keys are deliberately not published to CI, so the
+        nightly runs skip all three clients; the harness is run locally where
+        the keys live. Accepted trade-off — revisit only if a key-management
+        route appears that does not put paid credentials in repository secrets.
       - **Worker/session robustness.** Worker startup happens outside the
         manager's creation lock (two simultaneous first requests to one session
         can double-launch); no application-level ceiling on session count;
         `/health` and the Helm probe don't exercise a Sage evaluation;
         `_evaluate_structured` bypasses the evaluation metrics.
-      - **Release validation.** Gate publication on a real-Sage stateful smoke
-        test of the built image; the manual `dry_run` input does not suppress the
-        Docker job's `push: true`.
+      - [x] **Release validation.** *Done, 2026-09-06.* The Docker release job
+        smoke-tests the built image with a stateful assign-and-read before any
+        push; `dry_run` dispatches publish nothing (push, login and Cosign are
+        all gated); CI's compose smoke now asserts its stateful result instead
+        of printing it. Verified locally against a freshly built image.
       - **README language.** Replace "run any SageMath code"/"full access" with
         the supported-subset description; surface the helper tools' fresh-
         namespace semantics next to `evaluate_sage`'s "LAST RESORT" guidance

@@ -54,6 +54,16 @@ here is a breaking change.
 
 ### Fixed
 
+- **The onboarding paths now match the security model** (2026-09-06 external
+  review). The README's `docker run` example published the unauthenticated
+  evaluator on every host interface while overriding the image's CMD without
+  its `--host 0.0.0.0` — unsafe and non-functional at once; it now carries the
+  same hardening flags as Compose and publishes on the loopback interface, and
+  a lint test holds every README port mapping to that. The dev/test container
+  scripts defaulted to the moving `sagemath/sagemath:latest` tag with no
+  resource ceilings; they now pin the Dockerfile's Sage release (a test keeps
+  the three in step), apply pids/memory limits and `no-new-privileges`, and
+  say plainly that they are a development fixture, not a hardened runtime.
 - **fastmcp capped below 4.** The requirement was `>=3.4.7` with no upper
   bound, so a fresh install resolved fastmcp 4.0.3 — under which the
   cache-isolation suite fails: a second client's identical tool call is not

@@ -176,9 +176,13 @@ uv run sagemath-mcp
 uv run sagemath-mcp --transport streamable-http --host 127.0.0.1 --port 8314
 ```
 
-### Optional: start a Sage container automatically
+### Optional: start a Sage container automatically (development/testing)
 
-If you'd like a ready-to-use Sage runtime without installing it locally, run:
+This container exists to run the test suite against a real Sage: it mounts your
+checkout writably and skips the read-only hardening the runtime paths apply, so
+treat it as a development fixture, not a deployment. For running the server,
+use the hardened Docker image or Compose paths below. To get a ready-to-use
+Sage runtime for the tests:
 
 ```bash
 make sage-container  # or ./scripts/setup_sage_container.sh
@@ -192,12 +196,31 @@ pwsh -File scripts/setup_sage_container.ps1
 
 ### Docker Image
 
-Build a ready-to-run container with the MCP server baked in:
+Build a ready-to-run container with the MCP server baked in. The image's
+default command already serves streamable HTTP on the container side; the run
+flags below are the same hardening Docker Compose applies (read-only root,
+dropped capabilities, fork/memory ceilings), and the port is published on the
+loopback interface deliberately — this server executes code and authenticates
+nobody:
 
 ```bash
 docker build -t sagemath-mcp:latest .
-docker run -p 8314:8314 sagemath-mcp:latest --transport streamable-http
+docker run --rm \
+  --read-only \
+  --tmpfs /tmp:rw,size=512m \
+  --tmpfs /home/sage/.sage:rw,size=256m \
+  --cap-drop ALL \
+  --security-opt no-new-privileges \
+  --pids-limit 256 \
+  --memory 4g \
+  -p 127.0.0.1:8314:8314 \
+  sagemath-mcp:latest
 ```
+
+Prefer `docker compose up --build` (below) — it applies the same hardening from
+one reviewed file. If you override the image's command, keep
+`--host 0.0.0.0`: the container-side binding is what makes the published
+loopback port reachable at all.
 
 Released images are published to `ghcr.io/xbp-europe/sagemath-mcp` and signed with Cosign.
 Verify a downloaded artifact with:

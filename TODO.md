@@ -13,11 +13,11 @@ out of date.
         sessions in favour of explicit application handles, and fastmcp 4 already
         broke `ctx.session_id`-based routing once. Give workspaces caller-visible
         handles instead of leaning on transport session identity.
-      - **One canonical hardened onboarding path.** `setup_sage_container.sh`
-        defaults to a moving image tag with none of the memory/PID/read-only
-        hardening compose and Helm apply; the README quick-start `docker run`
-        drops the image's host binding. Make the hardened path the copy-paste
-        default and mark dev paths as dev.
+      - [x] **One canonical hardened onboarding path.** *Done, 2026-09-06.* The
+        README `docker run` now carries the Compose hardening and publishes on
+        loopback (lint-tested); both setup scripts pin the Dockerfile's Sage
+        tag (test-enforced), apply pids/memory/no-new-privileges limits, and
+        are labelled as the dev/test fixture they are.
       - **Nightly CLI checks fail loudly on zero clients.** The 2026-09-06 run
         skipped all three clients (missing keys) and still reported success.
       - **Worker/session robustness.** Worker startup happens outside the

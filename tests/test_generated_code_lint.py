@@ -393,6 +393,42 @@ def test_no_caller_string_is_interpolated_into_generated_code_unguarded() -> Non
     )
 
 
+def test_readme_docker_examples_do_not_publish_on_every_interface() -> None:
+    """The README's copy-paste lines are the onboarding path; they must be safe.
+
+    The quick start advertised `docker run -p 8314:8314`, publishing an
+    unauthenticated code evaluator on every host interface -- while also
+    overriding the image's CMD without its `--host 0.0.0.0`, so the line did
+    not even work. The compose file has had this guard for a while; the README
+    examples are read by strictly more people.
+    """
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    published = re.findall(r"-p\s+([\w.]+:)?(\d+):(\d+)", readme)
+    assert published, "no docker port mappings found; has the README changed shape?"
+    for host, host_port, container_port in published:
+        assert host in ("127.0.0.1:", "localhost:"), (
+            f"README publishes -p {host}{host_port}:{container_port} on every interface"
+        )
+
+
+def test_the_dev_container_scripts_pin_the_dockerfile_sage() -> None:
+    """The dev/test container must run the same Sage the runtime image does.
+
+    Both setup scripts defaulted to the moving `sagemath/sagemath:latest`, so
+    which Sage the integration suite ran against changed silently with pulls --
+    and diverged from the Dockerfile the release actually ships. Pinning is only
+    safe if a Sage bump updates all three together, which is what this asserts.
+    """
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    image = re.search(r"^FROM\s+(\S+)", dockerfile, re.M).group(1)
+    assert ":latest" not in image and ":" in image, f"Dockerfile FROM is not pinned: {image}"
+
+    for script in ("scripts/setup_sage_container.sh", "scripts/setup_sage_container.ps1"):
+        text = (ROOT / script).read_text(encoding="utf-8")
+        assert image in text, f"{script} does not default to the Dockerfile's {image}"
+        assert "sagemath/sagemath:latest" not in text, f"{script} still names the moving tag"
+
+
 def test_the_compose_file_does_not_publish_on_every_interface() -> None:
     """The server evaluates code and authenticates nobody.
 

@@ -48,7 +48,7 @@ sage -python -m uv run sagemath-mcp --transport streamable-http --host 0.0.0.0 -
 > The bundled compose file publishes to `127.0.0.1` for the same reason.
 The server advertises its MCP endpoint at `http://HOST:PORT/mcp`.
 
-## Available Tools & Resources (39 tools, 3 resources)
+## Available Tools & Resources (40 tools, 3 resources)
 
 All math tools use **SageMath** as the computation backend.
 
@@ -77,6 +77,7 @@ All math tools use **SageMath** as the computation backend.
 | `plot3d_expression` | Sage | Render a 3D surface plot and return a base64-encoded PNG image. |
 | `plot_multi_expression` | Sage | Overlay multiple functions in a single 2D plot. |
 | `find_root` | Sage | Numeric root-finding in an interval via Sage's `find_root()`. Accepts an expression or an equation (`E - 0.6*sin(E) = 0.75`). |
+| `verify_claim` | Sage | Independently re-check a stated claim (`sin(x)^2 + cos(x)^2 == 1`) through a proof ladder: symbolic prover, exact difference, exact algebraic arithmetic, certified intervals, numeric sampling. Answers `proved`, `refuted`, `supported` or `undecided`, always with its evidence. |
 | `vector_calculus_operation` | Sage | Gradient, divergence, curl, Laplacian on scalar/vector fields. |
 | `graph_operation` | Sage | Named graphs and adjacency dicts; chromatic number, connectivity, planarity, diameter, shortest path. |
 | `group_operation` | Sage | Symmetric, dihedral, cyclic, alternating groups; order, abelian/cyclic test, center, exponent. |

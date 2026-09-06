@@ -78,6 +78,43 @@ class MonitoringSnapshot(BaseModel):
     last_run_at: float | None = None
 
 
+class VerifyClaimResult(BaseModel):
+    """Outcome of independently re-checking a stated mathematical claim.
+
+    The honesty rules live in the vocabulary. ``proved`` and ``refuted`` are
+    exact decisions; ``supported`` means the evidence is consistent with the
+    claim without deciding it, and always says what that evidence was;
+    ``undecided`` means the ladder ran out. A prover answering False is never
+    reported as ``refuted`` -- refutation requires an exhibited counterexample
+    or an exact decision.
+    """
+
+    claim: str = Field(description="The claim that was checked, whitespace-folded.")
+    verdict: Literal["proved", "refuted", "supported", "undecided"] = Field(
+        description="proved/refuted are exact; supported is evidence short of proof; "
+        "undecided means every rung of the ladder was inconclusive."
+    )
+    method: str | None = Field(
+        default=None,
+        description="The rung that decided: exact_comparison, symbolic_prover, "
+        "exact_difference, exact_algebraic, certified_interval, numeric_sampling "
+        "or exhausted.",
+    )
+    evidence: str | None = Field(
+        default=None,
+        description="What the deciding rung actually established, including the "
+        "counterexample for a sampled refutation.",
+    )
+    samples: int | None = Field(
+        default=None,
+        description="Number of sample points supporting a numeric-sampling verdict.",
+    )
+    precision_bits: int | None = Field(
+        default=None,
+        description="Interval-arithmetic precision behind a numeric verdict.",
+    )
+
+
 class DocumentationLink(BaseModel):
     """Pointer to external SageMath documentation."""
 

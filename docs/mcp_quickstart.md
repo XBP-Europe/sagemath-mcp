@@ -24,6 +24,7 @@ All tools use **SageMath** as the computation backend unless noted.
 - **Probability (Sage):** `distribution_operation` (normal, exponential, Poisson, chi-squared, Student-t, etc.).
 - **Visualization (Sage):** `plot_expression`, `plot3d_expression`, `plot_multi_expression` (base64 PNG).
 - **Numeric Methods (Sage):** `find_root` (root-finding in an interval).
+- **Verification (Sage):** `verify_claim` (re-check a stated comparison through a proof ladder; answers `proved`/`refuted`/`supported`/`undecided` with evidence).
 - **Vector Calculus (Sage):** `vector_calculus_operation` (gradient, divergence, curl, Laplacian).
 - **Diagnostics:** `check_sage_health` (readiness probe: evaluates `1+1`, reports latency), `lookup_sage_doc` (doc links for a Sage name, and whether this server offers it to caller code).
 - **Session Management:** `start_sage_session`, `list_sage_sessions`, `stop_sage_session`,

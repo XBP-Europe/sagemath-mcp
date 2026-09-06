@@ -1299,6 +1299,54 @@
         ],
         "type": "object"
       }
+    },
+    "verify_claim": {
+      "description": "Independently re-check a stated mathematical claim and report how far the evidence goes: proved, refuted, supported or undecided.\n\nUse this to verify your own algebra before presenting it. The claim is a single comparison in Sage syntax -- an equality, an inequality, or anything that evaluates to True/False:\n\n  integral(x^2/(e^x-1), x, 0, oo) == 2*zeta(3)\n  sin(x)^2 + cos(x)^2 == 1\n  pi < 22/7\n  e^pi != pi^e\n\nThe check climbs a ladder: Sage's symbolic prover, the exact difference ((lhs-rhs).simplify_full().is_zero()), exact arithmetic over QQbar/AA when the claim is constant, then certified interval arithmetic and numeric sampling over the free variables. Verdicts are honest by construction: 'proved' and 'refuted' are exact decisions ('refuted' always exhibits its counterexample or certified enclosure); 'supported' means the numeric evidence is consistent with the claim without proving it, and says how many samples at what precision; 'undecided' means every rung was inconclusive -- it never means false.\n",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "claim": {
+            "description": "The claim to check, as a single comparison, e.g. 'sin(x)**2 + cos(x)**2 == 1'",
+            "type": "string"
+          },
+          "precision_bits": {
+            "default": 128,
+            "description": "Precision of the certified interval arithmetic behind numeric verdicts",
+            "maximum": 4096,
+            "minimum": 53,
+            "type": "integer"
+          },
+          "samples": {
+            "default": 12,
+            "description": "Sample points per free variable sweep when the claim cannot be decided exactly",
+            "maximum": 64,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "session": {
+            "default": "default",
+            "description": "Named workspace to use. Workspaces have independent variables; omit for 'default'.",
+            "type": "string"
+          },
+          "timeout": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Override the evaluation timeout in seconds"
+          }
+        },
+        "required": [
+          "claim"
+        ],
+        "type": "object"
+      }
     }
   }
 }

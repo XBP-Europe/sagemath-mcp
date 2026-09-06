@@ -6,11 +6,10 @@ reproduction and regression test in [REVIEW_ACTIONS.md](REVIEW_ACTIONS.md). This
 file carried 31 ticked boxes duplicating both, several of them years of context
 out of date.
 
-- [ ] From the 2026-08-24 field survey, two features remain (roadmap has the
-      mechanisms): a `verify_claim` tool that re-checks a stated claim through a
-      proof ladder, and outcome benchmarks (GSM8K/MATH deltas) via the existing
-      CLI harness. A third, a passagemath runtime extra to cut install footprint,
-      is also open.
+- [ ] From the 2026-08-24 field survey, one feature remains (roadmap has the
+      mechanism): outcome benchmarks (GSM8K/MATH deltas) via the existing CLI
+      harness. A passagemath runtime extra to cut install footprint is also
+      open. `verify_claim` shipped 2026-09-06 (`tools/verify.py`).
 - [ ] Consider making `scripts/generate_allowlist.py` classify rather than accept.
       Four separate findings had one root cause: the allowlist is generated as
       *whatever survives the namespace scrub*, so it inherits every gap in that

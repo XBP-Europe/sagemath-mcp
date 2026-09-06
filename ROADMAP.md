@@ -134,23 +134,20 @@ here. Three features survived the filter — each makes sense for this server an
 each has a mechanism, not just a wish — and a fourth resolved into
 documentation rather than surface:
 
-- [ ] **`verify_claim` tool.** Axiom ships a `verify` tool with confidence
-      scoring; nothing in the Sage field does. This is a checking primitive, not
-      a domain tool, and it matches the dominant failure mode of models doing
-      mathematics: confident wrong algebra. The model states a claim —
-      `integral(x^2/(e^x-1), x, 0, oo) == 2*zeta(3)` — and the server re-checks
-      it independently. Mechanism: the claim string passes the same preparse +
-      AST validation as `evaluate_sage` (no new security surface); the generated
-      check climbs a ladder — Sage's symbolic prover, exact difference
+- [x] **`verify_claim` tool.** *Done, 2026-09-06.* Shipped as designed here
+      (`tools/verify.py`): the claim passes the fragment gate every tool
+      parameter passes (no new security surface), and the generated check climbs
+      the ladder — Sage's symbolic prover, exact difference
       (`(lhs-rhs).simplify_full().is_zero()`), exact arithmetic over `QQbar`/`AA`
-      when the claim is constant, then high-precision numeric sampling over the
-      free variables — and answers `proved`, `refuted`, `supported` (with sample
-      count and precision), or `undecided`. Two rules keep it honest: the prover
-      returning `False` means *not proved*, never *false* — `refuted` requires an
-      exhibited counterexample evaluated exactly; and `supported` always carries
-      its evidence, never a bare confidence number. Costs on landing: tool
-      inventory snapshot, math-coverage cases, and bypass tests that the claim
-      string cannot reach anything the evaluate gate refuses.
+      when the claim is constant, then certified interval arithmetic and numeric
+      sampling over the free variables — answering `proved`, `refuted`,
+      `supported` (with sample count and precision) or `undecided`. Both honesty
+      rules landed: the prover returning `False` is never reported as *false*
+      (`refuted` requires an exact decision or an exhibited counterexample, with
+      interval evidence always a certified enclosure), and `supported` always
+      carries its evidence. The landing costs were paid: inventory snapshot,
+      real-Sage ladder cases in `tests/test_verify.py`, and bypass tests that
+      the claim string cannot reach anything the evaluate gate refuses.
 - [ ] **Outcome benchmarks.** Axiom publishes GSM8K / MATH accuracy deltas;
       this project's doctest corpus sweep proves the guardrails do not refuse
       mathematics, which is a different claim from "models get more answers
@@ -210,8 +207,8 @@ roadmap reflects what the survey actually changed:
 - **Peer workloads as tests**: GaloisHLee's lattice workout (det/LLL/Hermite)
   and szeider's `structure_description()` GAP case, pinned in `test_use_cases.py`.
 
-The two still-open features above — `verify_claim` and outcome benchmarks — plus
-the passagemath runtime are what remain of the survey.
+The still-open feature above — outcome benchmarks — plus the passagemath
+runtime are what remain of the survey; `verify_claim` shipped 2026-09-06.
 
 ---
 

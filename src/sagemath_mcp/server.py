@@ -81,6 +81,9 @@ from .tools.stats import (  # noqa: F401
     distribution_operation,
     statistics_summary,
 )
+from .tools.verify import (  # noqa: F401
+    verify_claim,
+)
 
 LOGGER = logging.getLogger(__name__)
 

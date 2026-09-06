@@ -22,7 +22,7 @@
 
 A universal mathematics [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that gives LLM clients full access to [SageMath](https://www.sagemath.org/) --- one of the most comprehensive open-source mathematics systems available. Built on [FastMCP 3.x](https://gofastmcp.com/), the server maintains a dedicated SageMath process for each MCP session so variables, functions, and assumptions persist across tool calls.
 
-Whether the task is symbolic calculus, number theory, linear algebra, differential equations, plotting, combinatorics, graph theory, group theory, or basic arithmetic, the server provides **39 MCP tools** --- all math tools backed by the full SageMath engine, plus `evaluate_sage_streaming` (streaming wrapper) and an HTTP `/health` endpoint.
+Whether the task is symbolic calculus, number theory, linear algebra, differential equations, plotting, combinatorics, graph theory, group theory, or basic arithmetic, the server provides **40 MCP tools** --- all math tools backed by the full SageMath engine, plus `evaluate_sage_streaming` (streaming wrapper) and an HTTP `/health` endpoint.
 
 ---
 
@@ -79,6 +79,7 @@ Whether the task is symbolic calculus, number theory, linear algebra, differenti
 | **Probability** | `distribution_operation` | Sage | Normal, exponential, Poisson, chi-squared, Student-t, uniform, beta, gamma; PDF, CDF, quantile, analytic mean/variance, sampling |
 | **Visualization** | `plot_expression`, `plot3d_expression`, `plot_multi_expression` | Sage | 2D plots, 3D surface plots, multi-function overlays as base64-encoded PNG |
 | **Numeric methods** | `find_root` | Sage | Numeric root-finding in an interval via Sage's `find_root()`, from an expression or an equation |
+| **Verification** | `verify_claim` | Sage | Independently re-check a stated claim through a proof ladder; answers `proved`, `refuted`, `supported` or `undecided`, always with its evidence |
 | **Vector calculus** | `vector_calculus_operation` | Sage | Gradient, divergence, curl, Laplacian on scalar/vector fields |
 | **Session control** | `reset_sage_session`, `interrupt_sage_session`, `cancel_sage_session` | Worker | Clear state, or stop a computation with or without keeping variables |
 | **Named workspaces** | `start_sage_session`, `list_sage_sessions`, `stop_sage_session` | Worker | Several independent variable namespaces per client |
@@ -797,6 +798,31 @@ withheld here; saying so up front saves the model a refused evaluation.
 
 **Returns:** `{"symbol": "EllipticCurve", "offered_to_caller_code": true, "links": {...}, "note": "..."}`
 
+#### `verify_claim`
+
+The checking primitive for the dominant failure mode of models doing
+mathematics: confident wrong algebra. The model states a claim -- an equality,
+an inequality, anything that evaluates to True/False -- and the server
+re-checks it independently through a ladder: Sage's symbolic prover, the exact
+difference (`(lhs-rhs).simplify_full().is_zero()`), exact arithmetic over
+`QQbar`/`AA` when the claim is constant, then certified interval arithmetic and
+numeric sampling over the free variables.
+
+```
+> verify_claim(claim="integral(x^2/(e^x-1), x, 0, oo) == 2*zeta(3)")
+  {"verdict": "proved", "method": "symbolic_prover", ...}
+
+> verify_claim(claim="log(640320^3 + 744)/sqrt(163) == pi", precision_bits=256)
+  {"verdict": "refuted", "method": "certified_interval",
+   "evidence": "lhs - rhs lies in ..., a certified enclosure at 256 bits that excludes zero"}
+```
+
+Two rules keep the verdicts honest. The prover returning `False` means *not
+proved*, never *false* -- `refuted` requires an exact decision or an exhibited
+counterexample (interval evidence is always a certified enclosure, not a
+floating-point comparison). And `supported` always carries its evidence --
+sample count and precision -- never a bare confidence number.
+
 Every tool that runs on a worker accepts the same optional `session` argument.
 Omitting it uses the `default` workspace, which is the behaviour of every earlier
 version.
@@ -1234,14 +1260,15 @@ sagemath-mcp/
 │   ├── runtime.py                  # Settings and the session manager
 │   ├── codegen.py                  # Prelude, literal encoding, validation gates, numeric guards
 │   ├── text.py                     # Client-facing strings shared by app and tools
-│   ├── tools/                      # The 39 tools and 3 resources, by domain
+│   ├── tools/                      # The 40 tools and 3 resources, by domain
 │   │   ├── session.py              #   6 session tools + the 3 resources
 │   │   ├── core.py                 #   evaluate_sage, streaming, calculate, simplify/expand/factor, find_root
 │   │   ├── calculus.py             #   differentiate, integrate, limit, series, ODEs, sums, vector calculus
 │   │   ├── algebra.py              #   solve, matrices, polynomial rings, boolean algebra
 │   │   ├── discrete.py             #   number theory, combinatorics, graphs, groups, curves, codes
 │   │   ├── stats.py                #   statistics_summary, distribution_operation
-│   │   └── plotting.py             #   2D/3D plots and geometry
+│   │   ├── plotting.py             #   2D/3D plots and geometry
+│   │   └── verify.py               #   verify_claim, the claim-checking primitive
 │   ├── session.py                  # Sage worker lifecycle, session management, idle culling
 │   ├── _sage_worker.py             # Subprocess worker: code execution, AST validation, LaTeX
 │   ├── security.py                 # AST validator, SecurityPolicy, configurable allowlists

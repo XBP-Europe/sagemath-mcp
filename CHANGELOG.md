@@ -13,6 +13,19 @@ here is a breaking change.
 
 ### Added
 
+- **`verify_claim` (39 → 40).** The checking primitive from the field survey,
+  for the dominant failure mode of models doing mathematics: confident wrong
+  algebra. A stated claim — `integral(x^2/(e^x-1), x, 0, oo) == 2*zeta(3)` — is
+  re-checked independently through a ladder: Sage's symbolic prover, the exact
+  difference (`(lhs-rhs).simplify_full().is_zero()`), exact arithmetic over
+  `QQbar`/`AA` for constant claims, then certified interval arithmetic and
+  numeric sampling over the free variables. Verdicts are `proved`, `refuted`,
+  `supported` or `undecided`, and two rules keep them honest: the prover
+  returning `False` means *not proved*, never *false* — `refuted` requires an
+  exact decision or an exhibited counterexample — and `supported` always
+  carries its evidence (sample count, precision), never a bare confidence
+  number. No new security surface: the claim passes the same fragment gate as
+  every other tool parameter before touching generated code.
 - **Two diagnostics tools (37 → 39).** `check_sage_health` is an MCP-level
   readiness probe for stdio clients that cannot reach the HTTP `/health` route:
   it spins up (or reuses) the workspace worker, evaluates `1+1`, and reports

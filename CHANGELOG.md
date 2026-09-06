@@ -90,6 +90,18 @@ here is a breaking change.
 
 ### Fixed
 
+- **Non-finite results stay valid JSON and keep their shape** (2026-09-06
+  return-shape audit). A `float('inf')`/`nan` serialises to the bare tokens
+  `Infinity`/`NaN`, which are not valid JSON — a strict client rejects the whole
+  response. And a result *containing* one (calculate_expression's
+  `{string, numeric}` for `log(0)`) collapsed entirely to a single
+  double-encoded string, because the `-inf` token in its repr defeated result
+  reconstruction, dropping the documented `numeric` field. Both are fixed
+  centrally, where every helper tool's result passes: reconstruction now accepts
+  `inf`/`nan` at any depth via a bounded literal evaluator (no code execution),
+  and non-finite floats are sent as the strings `Infinity`/`-Infinity`/`NaN`.
+  The rest of the audit was already sound — large integers travel as decimal
+  strings, plots as image content, and ordinary string results are fine.
 - **Plots now render as images** (2026-09-06 external evaluation).
   `plot_expression`, `plot3d_expression` and `plot_multi_expression` returned
   `{"image_base64": ...}` — a JSON dict a client serialised as text, so a plot

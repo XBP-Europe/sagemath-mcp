@@ -534,3 +534,31 @@ async def test_plot3d_expression_renders_png(monkeypatch, label, expression):
         assert len(payload) > 1000, f"{label}: payload suspiciously small"
     finally:
         await manager.shutdown()
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_non_finite_results_keep_their_shape_and_are_json_safe(monkeypatch):
+    """A tool result that is (or contains) a non-finite float must stay valid
+    JSON and keep its documented shape.
+
+    calculate_expression("log(0)") produces numeric = -inf. Its repr's `-inf`
+    token used to defeat the result reconstruction, so the whole {string,
+    numeric} dict collapsed to a single double-encoded `string` field -- and a
+    bare -inf would have been emitted as the invalid-JSON token `-Infinity`.
+    """
+    import json
+
+    settings = SageSettings(force_python_worker=False, eval_timeout=60.0)
+    manager = SageSessionManager(settings)
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
+    ctx = FakeContext("non-finite")
+    try:
+        result = await server.calculate_expression("log(0)", ctx=ctx)
+        # Shape preserved: both fields present, not a single stringified blob.
+        assert set(result) == {"string", "numeric"}
+        assert result["numeric"] == "-Infinity"  # non-finite -> JSON-safe string
+        # The whole thing round-trips through a strict JSON parser.
+        json.loads(json.dumps(result))
+    finally:
+        await manager.shutdown()

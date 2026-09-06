@@ -73,6 +73,42 @@ def test_the_snapshot_covers_every_tool() -> None:
     assert len(expected["resource_templates"]) == 3
 
 
+def test_hardcoded_tool_counts_match_the_inventory() -> None:
+    """Every stated "N tools" count agrees with the snapshot, the source of truth.
+
+    The count drifted three ways at once before this existed -- 39 in the README,
+    37 in the GitHub description, 34 in server.json -- because each was typed by
+    hand. The snapshot already fixes the tool list; anchoring the counts to it
+    turns the next drift into a failing test with the file and the right number,
+    instead of a reviewer's spot-check. Add a tool, regenerate the snapshot, and
+    this points at each place the number still needs bumping.
+    """
+    root = pathlib.Path(__file__).resolve().parents[1]
+    n = len(json.loads(SNAPSHOT.read_text(encoding="utf-8"))["tools"])
+
+    # (file, anchor) pairs, one per current-state count claim. Each anchor is
+    # specific enough not to collide with a dated historical snapshot (e.g. the
+    # ROADMAP's "surveyed 2026-08-13" table, which deliberately still says 37).
+    anchors = [
+        ("README.md", f"**{n} MCP tools**"),
+        ("README.md", f"│  │ {n} MCP Tools│"),
+        ("USAGE.md", f"({n} tools, 3 resources)"),
+        ("CLAUDE.md", f"The {n} tools and 3 resources"),
+        ("CLAUDE.md", f"MCP tools ({n},"),
+        ("ROADMAP.md", f"{n} MCP tools"),
+        ("server.json", f"{n} tools"),
+    ]
+    missing = [
+        f"{doc}: expected the count {n} as {anchor!r}"
+        for doc, anchor in anchors
+        if anchor not in (root / doc).read_text(encoding="utf-8")
+    ]
+    assert not missing, (
+        f"tool count drifted from the inventory ({n} tools):\n"
+        + "\n".join(f"  - {m}" for m in missing)
+    )
+
+
 def test_every_tool_is_documented_for_users() -> None:
     """A tool nobody documents is a tool nobody uses.
 

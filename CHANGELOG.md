@@ -84,6 +84,19 @@ here is a breaking change.
   `ImageContent`) the client renders inline, at a bounded canvas/DPI (a PNG
   dropped to ~25 KB), with a new `image_format` argument to choose SVG (vector,
   smaller for line plots) instead of PNG.
+- **Slimmer, cache-friendly Docker image** (2026-09-06 external evaluation). The
+  Dockerfile did `COPY . /workspace`, pulling the whole repo — tests,
+  `external_docs`, the 100 KB+ review file — into the image and busting the
+  install layer's cache on every edit to any of them. It now copies only the
+  wheel-build inputs (`pyproject.toml`, `README.md`, `LICENSE`, `src/`), so the
+  image excludes the working tree and the layer survives doc/test edits.
+  Verified the built image still runs the stateful smoke and serves all 40 tools.
+- **Tool count reconciled and pinned to the inventory.** The count disagreed
+  across files (README 40, GitHub description 40, `server.json` "34");
+  `server.json` now says 40, and a new test
+  (`test_hardcoded_tool_counts_match_the_inventory`) fails if any stated count
+  drifts from `tests/fixtures/tool_inventory.json`, the source of truth — so the
+  next added tool points at every place to bump.
 - **Honest scope language** (2026-09-06 external review). "full access to
   SageMath", "run any SageMath code" and "arbitrary SageMath code" are replaced
   across the README, USAGE and the `evaluate_sage` tool description with the

@@ -27,6 +27,23 @@ from sagemath_mcp.session import SageSessionManager
 
 from .conftest import FakeContext
 
+
+def _result_value(result, key):
+    """Pull the asserted value out of a tool result.
+
+    Plot tools return MCP image content (a ``fastmcp`` ``Image``) rather than a
+    dict; for the plot cases the harness asserts against the base64 image data,
+    exposed under the ``image_base64`` key for continuity with the old shape.
+    """
+    from fastmcp.utilities.types import Image
+
+    if isinstance(result, Image):
+        if key == "image_base64":
+            return result.to_image_content().data
+        raise KeyError(key)
+    return result[key]
+
+
 requires_sage = pytest.mark.skipif(
     shutil.which("sage") is None, reason="Sage executable not available"
 )
@@ -460,10 +477,11 @@ async def test_documented_examples(monkeypatch, tool):
             except Exception as exc:  # report every failure, do not abort the group
                 failures.append(f"{case_id}: raised {type(exc).__name__}: {exc}")
                 continue
-            if key not in result:
+            try:
+                actual = _result_value(result, key)
+            except (KeyError, TypeError):
                 failures.append(f"{case_id}: result has no key {key!r}; got {result!r}")
                 continue
-            actual = result[key]
             if not _matches(expected, actual):
                 wanted = getattr(expected, "__name__", repr(expected))
                 failures.append(f"{case_id}: expected {wanted}, got {actual!r}")
@@ -508,8 +526,9 @@ async def test_plot3d_expression_renders_png(monkeypatch, label, expression):
 
     try:
         result = await S.plot3d_expression(expression, ctx=ctx)
-        assert result["format"] == "png"
-        payload = result["image_base64"]
+        content = result.to_image_content()
+        assert content.mimeType == "image/png"
+        payload = content.data
         # Base64 of the PNG magic bytes.
         assert payload.startswith("iVBORw0KGgo"), f"{label}: not a PNG payload"
         assert len(payload) > 1000, f"{label}: payload suspiciously small"

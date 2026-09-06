@@ -46,6 +46,17 @@ def _is_png(value) -> bool:
     return isinstance(value, str) and value.startswith("iVBORw0KGgo") and len(value) > 1000
 
 
+def _result_value(result, key):
+    """Plot tools return MCP image content; expose its base64 under image_base64."""
+    from fastmcp.utilities.types import Image
+
+    if isinstance(result, Image):
+        if key == "image_base64":
+            return result.to_image_content().data
+        raise KeyError(key)
+    return result[key]
+
+
 # --------------------------------------------------------------------------
 # Equivalence classes: {group: (result key, [(label, call), ...])}
 # Every spelling in a group must yield the same value for that key.
@@ -316,10 +327,11 @@ async def test_equivalent_spellings_agree(monkeypatch, group):
             except Exception as exc:
                 failures.append(f"{label}: raised {type(exc).__name__}: {exc}")
                 continue
-            if key not in result:
+            try:
+                observed[label] = _result_value(result, key)
+            except (KeyError, TypeError):
                 failures.append(f"{label}: result has no key {key!r}; got {result!r}")
                 continue
-            observed[label] = result[key]
     finally:
         await manager.shutdown()
 
@@ -350,7 +362,12 @@ async def test_valid_spellings_are_accepted(monkeypatch, group):
             except Exception as exc:
                 failures.append(f"{label}: raised {type(exc).__name__}: {exc}")
                 continue
-            actual = result.get(key)
+            from fastmcp.utilities.types import Image
+
+            if isinstance(result, Image):
+                actual = result.to_image_content().data if key == "image_base64" else None
+            else:
+                actual = result.get(key)
             if callable(expected):
                 ok = bool(expected(actual))
             elif isinstance(expected, float):

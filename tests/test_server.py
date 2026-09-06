@@ -737,12 +737,38 @@ async def test_number_theory_invalid_op():
 
 @pytest.mark.asyncio
 async def test_plot_expression(monkeypatch):
-    session = StubSession("'aWdub3JlZA=='")
+    session = StubSession("'aWdub3JlZA=='")  # base64 of b"ignored"
     await _stub_manager(monkeypatch, session)
     ctx = FakeContext()
     result = await server.plot_expression("sin(x)", ctx=ctx)
-    assert result["format"] == "png"
-    assert result["image_base64"] == "aWdub3JlZA=="
+    # Returns MCP image content, not a JSON dict of base64: a client renders it.
+    content = result.to_image_content()
+    assert content.mimeType == "image/png"
+    assert content.data == "aWdub3JlZA=="
+
+
+@pytest.mark.asyncio
+async def test_plot_expression_svg(monkeypatch):
+    session = StubSession("'aWdub3JlZA=='")
+    await _stub_manager(monkeypatch, session)
+    result = await server.plot_expression("sin(x)", image_format="svg", ctx=FakeContext())
+    assert result.to_image_content().mimeType == "image/svg+xml"
+
+
+@pytest.mark.asyncio
+async def test_plot_expression_rejects_malformed_image_data(monkeypatch):
+    session = StubSession("'not!!valid!!base64'")
+    await _stub_manager(monkeypatch, session)
+    with pytest.raises(server.ToolError, match="malformed image data"):
+        await server.plot_expression("sin(x)", ctx=FakeContext())
+
+
+@pytest.mark.asyncio
+async def test_plot_expression_rejects_non_string_result(monkeypatch):
+    session = StubSession("42")  # literal_eval -> int, not an image payload
+    await _stub_manager(monkeypatch, session)
+    with pytest.raises(server.ToolError, match="did not return image data"):
+        await server.plot_expression("sin(x)", ctx=FakeContext())
 
 
 @pytest.mark.asyncio
@@ -1206,14 +1232,13 @@ async def test_combinatorics_no_context():
 
 @pytest.mark.asyncio
 async def test_plot3d_expression(monkeypatch):
-    session = StubSession("'iVBORw0KGgo...'")
+    session = StubSession("'aWdub3JlZA=='")
     await _stub_manager(monkeypatch, session)
     ctx = FakeContext()
     result = await server.plot3d_expression(
         expression="x^2 + y^2", ctx=ctx,
     )
-    assert result["format"] == "png"
-    assert "image_base64" in result
+    assert result.to_image_content().mimeType == "image/png"
 
 
 @pytest.mark.asyncio
@@ -1340,14 +1365,13 @@ async def test_find_root_no_context():
 
 @pytest.mark.asyncio
 async def test_plot_multi_expression(monkeypatch):
-    session = StubSession("'iVBORw0KGgo...'")
+    session = StubSession("'aWdub3JlZA=='")
     await _stub_manager(monkeypatch, session)
     ctx = FakeContext()
     result = await server.plot_multi_expression(
         expressions=["sin(x)", "cos(x)"], ctx=ctx,
     )
-    assert result["format"] == "png"
-    assert "image_base64" in result
+    assert result.to_image_content().mimeType == "image/png"
 
 
 @pytest.mark.asyncio

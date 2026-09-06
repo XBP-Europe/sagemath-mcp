@@ -91,6 +91,80 @@ out of date.
 - [x] Official MCP registry: listed as `io.github.XBP-Europe/sagemath-mcp`,
       published by the release pipeline's `mcp-registry` job. Done.
 
+## From the 2026-09-06 external project evaluation
+
+An outside reviewer went through the repo and the source. Roughly a third of
+their list was already done (tool annotations, the session ceiling, the
+red-team bypass corpus, Dependabot's Docker/Actions coverage, the passagemath
+extra evaluation) or wrong; these are the items that survived as legitimate,
+prioritised. Correctness first, then packaging/adoption.
+
+**Correctness / product**
+
+- [x] **Plots return MCP image content, not a base64 dict.** *Done, 2026-09-06.*
+      `plot_expression`/`plot3d_expression`/`plot_multi_expression` returned
+      `{"image_base64": ...}` — JSON text a client showed as a base64 wall
+      instead of a picture. They now return a `fastmcp` `Image` (rendered
+      `ImageContent`), bounded in size (a PNG dropped ~200 KB → ~25 KB), with an
+      `image_format` option for SVG. Verified against real Sage.
+- [ ] **Audit every tool's return for client-travel**, the same way large
+      integers were fixed — anything "technically returned but practically
+      broken" through an MCP client. The plot fix was the worst case; sweep the
+      rest.
+- [ ] **Optional HTTP auth.** The posture (SECURITY.md: no auth, the container
+      is the boundary, keep it loopback) is deliberate and stays the default,
+      but an optional bearer-token FastMCP auth provider — and making the
+      Dockerfile's `0.0.0.0` bind an explicit, loudly-noted opt-in — is a fair
+      refinement for anyone fronting it. Not a blocker; a deliberate opt-in.
+- [ ] **Mutation-test the security policy.** 100% line coverage proves little
+      for `security.py`/`allowlist.py`; a mutation score (mutmut/cosmic-ray)
+      scoped to them, plus Hypothesis-generated ASTs on top of the existing
+      `test_security_bypass.py` corpus, is a real claim. Publish the number.
+- [ ] **Pre-warm one spare worker** so a session's first call does not pay the
+      `from sage.all import *` startup cost; and **ship MCP prompts** ("prove
+      this identity and verify", "solve step by step") — cheap usage steering.
+
+**Packaging / build hygiene**
+
+- [ ] **Dockerfile `COPY . /workspace`** pulls the whole repo (tests,
+      `external_docs`, the 117 KB review file) into the image and busts the
+      layer cache on every edit. Copy `pyproject.toml` + `src/` (+ README/LICENSE
+      for the build) only, and pin the base image by digest. Consider a slim
+      conda-forge-based variant.
+- [ ] **Reconcile the tool count across files** (README 40, GitHub description
+      40, `server.json` "34") and generate any hardcoded count from
+      `tests/fixtures/tool_inventory.json`, the existing source of truth.
+- [ ] **`external_docs/reference_html`** vendors Sage's own HTML (102 KB) into an
+      MIT repo — fetch at generation time instead of committing it.
+- [ ] **Clear the `sagemath-*` PyPI namespace question** with sage-devel now —
+      Sage upstream owns `sagemath-standard`/`sagemath-symbolics`/… and this is a
+      third-party package in that namespace. A friendly ask today, a forced
+      rename after adoption.
+- [ ] **README is a manual, not a front door** (1,593 lines, 17 badges). Trim to
+      ~150: what it is, one working install path (lead with the GHCR image
+      one-liner, which bundles Sage), one client config, three example prompts,
+      links out. Move the tool reference to `docs/`, drop the embedded changelog,
+      trim badges. Fold in the verified `verify_claim` + doctest-corpus number.
+
+**Adoption (not code)**
+
+- [ ] Reach the actual audience: announce on sage-devel / the Sage Zulip; talk
+      to CoCalc (hosted Sage). Publish the doctest-corpus acceptance % as a
+      benchmark (already generated) — the strongest single credibility claim.
+- [ ] Citability + community: a JOSS paper, a Zenodo DOI, `CITATION.cff`,
+      `SUPPORT.md` (release cadence / what "supported" means), enable GitHub
+      Discussions, label good-first-issues. The bus factor (CODEOWNERS names one
+      person) is what an enterprise evaluator notices.
+- [ ] Extra install paths worth their weekend: a conda-forge recipe (where Sage
+      users actually live), a nix flake (`nix run github:…` incl. Sage), and an
+      `.mcpb` bundle for one-click Claude Desktop install. Trust signals: PyPI
+      Trusted Publishing PEP 740 attestations, an SBOM on releases, SLSA image
+      provenance, an OpenSSF Scorecard badge.
+- [ ] **Measure the tool surface before defending it.** The roadmap argues 40
+      tools is a differentiator; the reviewer argues `evaluate_sage` covers most
+      of it and a 12-tool build might score the same. Use the CLI harness to
+      test a reduced set vs the full catalogue on pass rate before deciding.
+
 Smithery is **not pursued** (decided 2026-08-24). Since its Arcade.dev
 acquisition, `smithery.ai/new` publishes only a public HTTPS endpoint — the
 GitHub/`smithery.yaml` connect is gone. Listing would mean hosting a public,

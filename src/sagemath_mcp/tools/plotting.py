@@ -8,11 +8,14 @@ would have prefixed them.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import textwrap
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastmcp import Context
 from fastmcp.exceptions import ToolError
+from fastmcp.utilities.types import Image
 from pydantic import Field
 
 from .. import runtime
@@ -32,9 +35,62 @@ from .hints import COMPUTES
 # while staying well inside the evaluation timeout.
 _PLOT3D_GRID = 48
 
+# A returned image travels inside the tool result, so it must stay small: a
+# full-resolution PNG is hundreds of KB, which is a wall of base64 in the
+# client's context. A bounded canvas at a modest DPI keeps a PNG in the tens of
+# KB while staying legible.
+_FIG_INCHES = (7.0, 4.5)
+_FIG_DPI = 110
+
+# The `image_format` argument maps to a matplotlib savefig format and an MCP
+# image mime suffix. SVG is vector text -- far smaller than a PNG for a line
+# plot -- so it is offered for callers that want the lightest result. The map is
+# the only thing interpolated into generated code, never the raw argument.
+_SAVE_FORMAT = {"png": "png", "svg": "svg"}
+_MIME_SUFFIX = {"png": "png", "svg": "svg+xml"}
+
+_ImageFormat = Literal["png", "svg"]
+_IMAGE_FORMAT_DESC = "Image format to return: 'png' (raster) or 'svg' (vector, smaller)"
+
+
+def _savefig_snippet(save_format: str) -> str:
+    """Generated-code tail: size the current `_fig` and render it to base64.
+
+    Every plot tool builds a matplotlib ``Figure`` named ``_fig``; this bounds
+    its canvas and encodes it in the requested format. ``bbox_inches='tight'``
+    trims the margins so the cap is spent on the plot, not whitespace.
+    """
+    return textwrap.dedent(
+        f"""
+        _fig.set_size_inches({_FIG_INCHES[0]}, {_FIG_INCHES[1]})
+        _buf = _io.BytesIO()
+        _fig.savefig(_buf, format='{save_format}', dpi={_FIG_DPI}, bbox_inches='tight')
+        _buf.seek(0)
+        base64.b64encode(_buf.read()).decode('ascii')
+        """
+    )
+
+
+async def _render_image(session, code: str, image_format: str) -> Image:
+    """Run image-generating code and return proper MCP image content.
+
+    The tools used to return ``{{"image_base64": ...}}`` -- a plain dict, which
+    serialises as JSON text, so a client showed a wall of base64 instead of a
+    picture and paid the context cost with nothing to look at. Decoding to bytes
+    and wrapping in ``Image`` yields an ``ImageContent`` block the client renders.
+    """
+    result = await _evaluate_structured(session, code)
+    if not isinstance(result, str):
+        raise ToolError("Plot rendering did not return image data")
+    try:
+        data = base64.b64decode(result, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise ToolError(f"Plot rendering returned malformed image data: {exc}") from exc
+    return Image(data=data, format=_MIME_SUFFIX[image_format])
+
 @mcp.tool(
     annotations=COMPUTES,
-    description="Plot a 3D surface of a two-variable expression as base64 PNG",
+    description="Plot a 3D surface of a two-variable expression as a rendered image",
 )
 async def plot3d_expression(
     expression: Annotated[
@@ -46,9 +102,10 @@ async def plot3d_expression(
     x_range_max: Annotated[float, Field(description="X upper bound")] = 5.0,
     y_range_min: Annotated[float, Field(description="Y lower bound")] = -5.0,
     y_range_max: Annotated[float, Field(description="Y upper bound")] = 5.0,
+    image_format: Annotated[_ImageFormat, Field(description=_IMAGE_FORMAT_DESC)] = "png",
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
-) -> dict:
+) -> Image:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
     session = await runtime.resolve_session(ctx.session_id, session)
@@ -102,20 +159,16 @@ async def plot3d_expression(
         _ax.plot_trisurf(_gx, _gy, _gz, cmap='viridis')
         _ax.set_xlabel({_encode_literal(x_variable)})
         _ax.set_ylabel({_encode_literal(y_variable)})
-        _buf = _io.BytesIO()
-        _fig.savefig(_buf, format='png')
-        _buf.seek(0)
-        base64.b64encode(_buf.read()).decode('ascii')
         """
         )
+        + _savefig_snippet(_SAVE_FORMAT[image_format])
     )
-    result = await _evaluate_structured(session, code)
-    return {"image_base64": result, "format": "png"}
+    return await _render_image(session, code, image_format)
 
 
 @mcp.tool(
     annotations=COMPUTES,
-    description="Plot multiple expressions overlaid on a single 2D graph",
+    description="Plot multiple expressions overlaid on a single 2D graph, as a rendered image",
 )
 async def plot_multi_expression(
     expressions: Annotated[
@@ -124,9 +177,10 @@ async def plot_multi_expression(
     variable: Annotated[str, Field(description="Plot variable")] = "x",
     range_min: Annotated[float, Field(description="Lower bound of plot range")] = -10.0,
     range_max: Annotated[float, Field(description="Upper bound of plot range")] = 10.0,
+    image_format: Annotated[_ImageFormat, Field(description=_IMAGE_FORMAT_DESC)] = "png",
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
-) -> dict:
+) -> Image:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
     session = await runtime.resolve_session(ctx.session_id, session)
@@ -139,32 +193,30 @@ async def plot_multi_expression(
         _var = var({_encode_literal(variable)})
         _exprs = [sage_eval(e, locals=_locals) for e in {_encode_literal(expressions)}]
         _plt = sum(plot(e, (_var, {range_min}, {range_max})) for e in _exprs)
-        _buf = _io.BytesIO()
         # Graphics.save() needs a filesystem path and rejects a BytesIO with
         # "expected str, bytes or os.PathLike object". Going through the
         # matplotlib figure renders to memory, which the sandbox allows.
-        _plt.matplotlib().savefig(_buf, format='png')
-        _buf.seek(0)
-        base64.b64encode(_buf.read()).decode('ascii')
+        _fig = _plt.matplotlib()
         """
         )
+        + _savefig_snippet(_SAVE_FORMAT[image_format])
     )
-    result = await _evaluate_structured(session, code)
-    return {"image_base64": result, "format": "png"}
+    return await _render_image(session, code, image_format)
 
 
 @mcp.tool(
     annotations=COMPUTES,
-    description="Plot an expression and return a base64-encoded PNG image",
+    description="Plot an expression and return it as a rendered image (PNG or SVG)",
 )
 async def plot_expression(
     expression: Annotated[str, Field(description="Expression to plot")],
     variable: Annotated[str, Field(description="Plot variable")] = "x",
     range_min: Annotated[float, Field(description="Lower bound of plot range")] = -10.0,
     range_max: Annotated[float, Field(description="Upper bound of plot range")] = 10.0,
+    image_format: Annotated[_ImageFormat, Field(description=_IMAGE_FORMAT_DESC)] = "png",
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
-) -> dict:
+) -> Image:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
     session = await runtime.resolve_session(ctx.session_id, session)
@@ -177,18 +229,15 @@ async def plot_expression(
         _var = var({_encode_literal(variable)})
         _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
         _plt = plot(_expr, (_var, {range_min}, {range_max}))
-        _buf = _io.BytesIO()
         # Graphics.save() needs a filesystem path and rejects a BytesIO with
         # "expected str, bytes or os.PathLike object". Going through the
         # matplotlib figure renders to memory, which the sandbox allows.
-        _plt.matplotlib().savefig(_buf, format='png')
-        _buf.seek(0)
-        base64.b64encode(_buf.read()).decode('ascii')
+        _fig = _plt.matplotlib()
         """
         )
+        + _savefig_snippet(_SAVE_FORMAT[image_format])
     )
-    result = await _evaluate_structured(session, code)
-    return {"image_base64": result, "format": "png"}
+    return await _render_image(session, code, image_format)
 
 
 @mcp.tool(

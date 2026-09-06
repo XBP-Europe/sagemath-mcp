@@ -836,12 +836,21 @@
       }
     },
     "plot3d_expression": {
-      "description": "Plot a 3D surface of a two-variable expression as base64 PNG",
+      "description": "Plot a 3D surface of a two-variable expression as a rendered image",
       "input_schema": {
         "additionalProperties": false,
         "properties": {
           "expression": {
             "description": "Expression of two variables (e.g. 'sin(x)*cos(y)')",
+            "type": "string"
+          },
+          "image_format": {
+            "default": "png",
+            "description": "Image format to return: 'png' (raster) or 'svg' (vector, smaller)",
+            "enum": [
+              "png",
+              "svg"
+            ],
             "type": "string"
           },
           "session": {
@@ -887,12 +896,21 @@
       }
     },
     "plot_expression": {
-      "description": "Plot an expression and return a base64-encoded PNG image",
+      "description": "Plot an expression and return it as a rendered image (PNG or SVG)",
       "input_schema": {
         "additionalProperties": false,
         "properties": {
           "expression": {
             "description": "Expression to plot",
+            "type": "string"
+          },
+          "image_format": {
+            "default": "png",
+            "description": "Image format to return: 'png' (raster) or 'svg' (vector, smaller)",
+            "enum": [
+              "png",
+              "svg"
+            ],
             "type": "string"
           },
           "range_max": {
@@ -923,7 +941,7 @@
       }
     },
     "plot_multi_expression": {
-      "description": "Plot multiple expressions overlaid on a single 2D graph",
+      "description": "Plot multiple expressions overlaid on a single 2D graph, as a rendered image",
       "input_schema": {
         "additionalProperties": false,
         "properties": {
@@ -933,6 +951,15 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "image_format": {
+            "default": "png",
+            "description": "Image format to return: 'png' (raster) or 'svg' (vector, smaller)",
+            "enum": [
+              "png",
+              "svg"
+            ],
+            "type": "string"
           },
           "range_max": {
             "default": 10.0,

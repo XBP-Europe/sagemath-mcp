@@ -404,6 +404,72 @@ def test_integers_a_client_can_represent_are_left_as_numbers() -> None:
         assert isinstance(_exactify_large_ints(value), int)
 
 
+def test_non_finite_floats_become_strings() -> None:
+    """`Infinity`/`NaN` are not valid JSON; a strict client rejects the whole
+    response, so a quantile at p=1 or an overflowing determinant would return
+    nothing parseable. Send them as strings instead."""
+    import json
+
+    from sagemath_mcp.codegen import _exactify_large_ints
+
+    assert _exactify_large_ints(float("inf")) == "Infinity"
+    assert _exactify_large_ints(float("-inf")) == "-Infinity"
+    assert _exactify_large_ints(float("nan")) == "NaN"
+    # Recurses into the containers tools actually return.
+    safe = _exactify_large_ints({"a": [1.0, float("inf")], "b": float("nan")})
+    assert safe == {"a": [1.0, "Infinity"], "b": "NaN"}
+    # And the result is now valid JSON a client can parse.
+    json.loads(json.dumps(safe))  # would emit bare Infinity/NaN before the fix
+
+
+def test_finite_floats_are_left_untouched() -> None:
+    from sagemath_mcp.codegen import _exactify_large_ints
+
+    for value in (0.0, -1.5, 3.14, 1e300, -1e-300):
+        assert _exactify_large_ints(value) == value
+        assert isinstance(_exactify_large_ints(value), float)
+
+
+def test_reconstruct_result_restores_a_dict_with_a_non_finite_float() -> None:
+    """calculate_expression's shape: the whole dict used to collapse to a string
+    because `ast.literal_eval` rejects the `inf`/`nan` tokens in a repr."""
+    from sagemath_mcp.codegen import _exactify_large_ints, _reconstruct_result
+
+    parsed = _reconstruct_result("{'string': '-Infinity', 'numeric': -inf}")
+    assert parsed == {"string": "-Infinity", "numeric": float("-inf")}
+    # And after sanitising, the shape is preserved and JSON-safe.
+    safe = _exactify_large_ints(parsed)
+    assert safe == {"string": "-Infinity", "numeric": "-Infinity"}
+
+
+def test_reconstruct_result_handles_bare_and_nested_non_finite() -> None:
+    import math
+
+    from sagemath_mcp.codegen import _reconstruct_result
+
+    assert math.isnan(_reconstruct_result("nan"))
+    assert _reconstruct_result("[1.0, inf, nan]")[1] == float("inf")
+    assert _reconstruct_result("+inf") == float("inf")
+
+
+def test_reconstruct_result_keeps_a_non_literal_as_the_raw_string() -> None:
+    """A Sage object repr is not a literal; the caller keeps the string as-is."""
+    from sagemath_mcp.codegen import _UNRECONSTRUCTED, _reconstruct_result
+
+    # A name that is not inf/nan, and a call, are both refused -> sentinel.
+    assert _reconstruct_result("Rational(1, 2)") is _UNRECONSTRUCTED
+    assert _reconstruct_result("x + 1") is _UNRECONSTRUCTED
+    # Unparseable text is also handled.
+    assert _reconstruct_result("[1, 2") is _UNRECONSTRUCTED
+
+
+def test_reconstruct_result_still_parses_ordinary_finite_values() -> None:
+    from sagemath_mcp.codegen import _reconstruct_result
+
+    assert _reconstruct_result("{'a': 42, 'b': [1, 2.5]}") == {"a": 42, "b": [1, 2.5]}
+    assert _reconstruct_result("'just a string'") == "just a string"
+
+
 def test_exactify_reaches_inside_containers() -> None:
     """Results are often lists and dicts: factorisations, bases, varieties."""
     from sagemath_mcp.codegen import _exactify_large_ints

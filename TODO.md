@@ -107,10 +107,15 @@ prioritised. Correctness first, then packaging/adoption.
       instead of a picture. They now return a `fastmcp` `Image` (rendered
       `ImageContent`), bounded in size (a PNG dropped ~200 KB → ~25 KB), with an
       `image_format` option for SVG. Verified against real Sage.
-- [ ] **Audit every tool's return for client-travel**, the same way large
-      integers were fixed — anything "technically returned but practically
-      broken" through an MCP client. The plot fix was the worst case; sweep the
-      rest.
+- [x] **Audit every tool's return for client-travel.** *Done, 2026-09-06.*
+      Swept every tool's return. One real class beyond the known ones: a
+      non-finite float (`inf`/`nan`) is invalid JSON (`Infinity`/`NaN` tokens a
+      strict client rejects) and, when nested, defeated result reconstruction so
+      `calculate_expression("log(0)")` dropped its `numeric` field to a
+      double-encoded string. Fixed centrally in `_evaluate_structured` —
+      reconstruction accepts `inf`/`nan`, non-finite floats travel as strings.
+      Everything else already sound (large ints → decimal strings, plots → image
+      content, plain strings fine). `tests/test_codegen.py`.
 - [ ] **Optional HTTP auth.** The posture (SECURITY.md: no auth, the container
       is the boundary, keep it loopback) is deliberate and stays the default,
       but an optional bearer-token FastMCP auth provider — and making the

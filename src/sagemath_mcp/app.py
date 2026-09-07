@@ -28,6 +28,7 @@ from fastmcp.server.middleware.logging import LoggingMiddleware
 from fastmcp.server.middleware.timing import TimingMiddleware
 
 from . import __version__, runtime
+from .auth import build_http_auth
 
 LOGGER = logging.getLogger(__name__)
 
@@ -105,6 +106,10 @@ mcp = FastMCP(
     instructions=MCP_INSTRUCTIONS,
     version=__version__,
     lifespan=_lifespan,
+    # None unless SAGEMATH_MCP_HTTP_AUTH_TOKEN is set, so the app is
+    # unauthenticated by default (SECURITY.md). When set, it guards the MCP
+    # endpoint over HTTP; stdio and the /health, /ready probes are unaffected.
+    auth=build_http_auth(runtime.SETTINGS),
 )
 mcp.add_middleware(TimingMiddleware())
 mcp.add_middleware(

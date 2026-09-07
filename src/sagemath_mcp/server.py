@@ -190,6 +190,30 @@ def _register_health_route() -> None:
     LOGGER.debug("Registered /health endpoint")
 
 
+# Addresses that mean "only this machine". Binding anything else on an HTTP
+# transport exposes the evaluator beyond the host.
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1", "::ffff:127.0.0.1"})
+
+
+def _exposure_warning(host: str, has_auth: bool) -> str | None:
+    """The warning to log for an HTTP bind, or None when the bind is safe.
+
+    Binding a non-loopback host publishes an unauthenticated code evaluator to
+    whatever can route to it. Inside a container that is the correct bind -- the
+    host maps a loopback-published port to it -- but on a bare host it is a hole.
+    Warn unless the bind is loopback, or a bearer token is required.
+    """
+    if has_auth or host in _LOOPBACK_HOSTS:
+        return None
+    return (
+        f"HTTP transport is binding {host!r} with NO authentication -- anyone who "
+        "can reach this address can execute code. This is only safe behind a "
+        "loopback-published container port or an authenticating proxy. Require a "
+        "token with SAGEMATH_MCP_HTTP_AUTH_TOKEN, or bind locally with "
+        "--host 127.0.0.1."
+    )
+
+
 def main(argv: list[str] | None = None) -> None:  # pragma: no cover - CLI entrypoint
     parser = argparse.ArgumentParser(description="Run the SageMath MCP server.")
     parser.add_argument(
@@ -220,6 +244,12 @@ def main(argv: list[str] | None = None) -> None:  # pragma: no cover - CLI entry
         if args.path:
             transport_kwargs["path"] = args.path
         _register_health_route()
+        has_auth = mcp.auth is not None
+        if has_auth:
+            LOGGER.info("HTTP bearer-token authentication is enabled.")
+        warning = _exposure_warning(args.host, has_auth)
+        if warning:
+            LOGGER.warning(warning)
 
     mcp.run(transport=args.transport, **transport_kwargs)
 

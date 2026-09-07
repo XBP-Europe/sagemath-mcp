@@ -33,6 +33,18 @@ def _bool_from_env(name: str, default: bool) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _optional_str_from_env(name: str) -> str | None:
+    """A secret-like string, or None when unset or blank.
+
+    A blank or whitespace-only value reads as "not configured" -- an empty
+    `SAGEMATH_MCP_HTTP_AUTH_TOKEN=` from a shell or compose file must not enable
+    auth with an empty password. The value is otherwise returned exactly, not
+    stripped: a token is opaque bytes, not something to normalise.
+    """
+    raw = os.getenv(name)
+    return raw if raw and raw.strip() else None
+
+
 @dataclass(slots=True)
 class SageSettings:
     """Runtime settings for Sage session management."""
@@ -58,6 +70,12 @@ class SageSettings:
     force_python_worker: bool = False
     persist_sessions: bool = False
     persist_dir: str = ""
+    # Optional bearer token for the HTTP transports. None (the default) leaves the
+    # endpoint unauthenticated -- the deliberate posture: the container is the
+    # boundary, keep it on loopback (SECURITY.md). Set it, and every MCP request
+    # must carry `Authorization: Bearer <token>`; the `/health` and `/ready`
+    # probes stay open. See `auth.py`.
+    http_auth_token: str | None = None
 
     @classmethod
     def from_env(cls) -> SageSettings:
@@ -88,6 +106,7 @@ class SageSettings:
             persist_dir=os.getenv(
                 "SAGEMATH_MCP_PERSIST_DIR", defaults["persist_dir"]
             ),
+            http_auth_token=_optional_str_from_env("SAGEMATH_MCP_HTTP_AUTH_TOKEN"),
         )
 
 

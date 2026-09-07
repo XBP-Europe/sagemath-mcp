@@ -115,14 +115,23 @@ out of date.
       install story only after two consecutive passagemath stable releases pass
       the smoke gate on first try — 10.8.10 and 10.8.11 both failed it (#2836),
       so the counter is at zero (§ evaluation blockers).
-- [ ] Consider making `scripts/generate_allowlist.py` classify rather than accept.
-      Four separate findings had one root cause: the allowlist is generated as
-      *whatever survives the namespace scrub*, so it inherits every gap in that
-      scrub. A generator that refused to allowlist what it cannot classify as
-      mathematical — module objects, callables whose provenance is not `sage.*` —
-      would turn each of those into a loud failure at generation time instead of
-      a probe finding it later. Bigger than any of the individual fixes, and it
-      needs its own round of testing against real Sage.
+- [x] **`scripts/generate_allowlist.py` classifies rather than accepts.**
+      *Done, 2026-09-07.* Four findings had one root cause: the allowlist was
+      *whatever survived the namespace scrub*, inheriting every gap in it. The
+      generator now classifies each surviving name and **fails generation** on
+      anything it cannot place as mathematics — a module object from outside
+      `sage`, or a value of foreign provenance not in a small reviewed set
+      (`_VETTED_FOREIGN`/`_SAFE_MODULE_NAMES`). A dangerous helper a future Sage
+      adds stops the generator with its name instead of being allowlisted
+      silently. Calibrated against real Sage so it is **output-neutral**: verified
+      byte-identical output on monolithic 10.9 (container) and passagemath 10.8.9
+      (both under Python 3.12), so no regeneration and no risk of new refusals.
+      The reviewed exceptions on monolithic are the 42 sage catalog-modules
+      (`codes`, `groups`, …), `math`/`operator`, and 12 foreign names (`copy`,
+      `reduce`, `PariError`, cysignals alarms, …). Guarded by
+      `tests/test_generate_allowlist.py` (synthetic, fast) and a real-Sage
+      integration test asserting no false positives. **Guard-only** by decision;
+      tightening the surface (dropping bare `sage`/`operator`) was deferred.
 - [x] Glama: listed and claimed as XBP-Europe (via `glama.json`, #50). Done.
 - [x] Official MCP registry: listed as `io.github.XBP-Europe/sagemath-mcp`,
       published by the release pipeline's `mcp-registry` job. Done.

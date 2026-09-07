@@ -3815,3 +3815,44 @@ and the membership/identity fall-through.
 
 Fixed 2026-09-07; found by an external review at 356d520. Builds on items 71
 (round 2) and 65/68.
+
+## 74. Warm-pool reclamation releases a worker's slot before it exits — medium — DONE
+
+### What
+
+The capacity-reclamation path (external review, round 3) freed a slot before the
+worker holding it had exited: `get` cancelled a refill task and dropped its spare
+from `_warm_in_flight` *before* awaiting shutdown, then created the replacement
+immediately. With a refill in flight, that left three live processes for a
+ceiling of two. The root cause is that a cancelled task cannot reliably shut its
+own worker down -- `await spare.shutdown()` in the task's `except` gets a
+re-delivered `CancelledError` that `suppress` swallows mid-shutdown -- so even
+`manager.shutdown()` could return with an owned worker still alive.
+
+### Fix
+
+Ownership through cleanup, done by the canceller in an uncancelled context:
+
+- `_warm_tasks` is now `{task: spare}`, so whoever cancels a refill holds the
+  worker to reclaim.
+- On `CancelledError`, `_spawn_warm_worker` re-raises WITHOUT shutting down and
+  leaves the spare in `_warm_in_flight` -- the canceller owns it.
+- `_reclaim_refill(task, spare)` cancels the task, awaits it, shuts the spare
+  down in the caller's context, and only then drops it from `_warm_in_flight`.
+  `get` awaits reclamation before creating the replacement, so the slot is
+  genuinely free (worker exited), not merely signalled.
+- `shutdown` reclaims `_warm_pool` + `_warm_in_flight` in its own context, so a
+  cancelled refill's worker is always cleaned up.
+
+### How to verify
+
+`tests/test_warm_pool.py::test_reclaim_awaits_the_worker_exit_before_reusing_the_slot`
+holds a refill spare alive mid warm-up with a real worker subprocess, has a
+second client trigger reclamation, and asserts the reclaimed worker is no longer
+alive, `_warm_in_flight`/`_warm_tasks` are empty, and live workers stay within
+the ceiling. Plus the round-2 ceiling and cancelled-refill tests. 100% coverage.
+
+### Status
+
+Fixed 2026-09-07; found by an external review at 356d520. `SAGEMATH_MCP_WARM_POOL_SIZE=0`
+was the interim mitigation and is no longer needed.

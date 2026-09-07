@@ -13,7 +13,7 @@ dependencies = [
     # a second client's identical tool call is not executed in its own session,
     # the cross-client leak tests/test_cache_isolation.py exists to catch.
     # Raise only after that suite passes on the new major (REVIEW_ACTIONS 68).
-    "fastmcp>=3.4.7,<4",
+    "fastmcp>=3.4.7,<5",
     "pydantic>=2.13.4",
     "anyio>=4.14.2",
 ]
@@ -52,7 +52,7 @@ passagemath = [
     # passagemath_evaluation.md §4), so a bump goes through the cold-install smoke
     # gate, not automatically. The security artifacts dispatch to the passagemath
     # set at import (src/sagemath_mcp/_artifacts.py) when this is installed.
-    "passagemath-standard==10.8.9",
+    "passagemath-standard==10.8.10",
 ]
 dev = [
     "pytest>=9.1.1",

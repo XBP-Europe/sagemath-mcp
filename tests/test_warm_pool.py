@@ -213,3 +213,15 @@ async def test_shutdown_reclaims_a_spare_whose_refill_is_cancelled(monkeypatch):
         assert not spare.is_alive()
     finally:
         release.set()
+
+
+async def test_warm_up_respects_the_session_ceiling():
+    """warm_up never fills the pool past max_sessions, even when the configured
+    pool size is larger -- spares count against the same ceiling as live workers.
+    """
+    manager = SageSessionManager(_settings(max_sessions=1, warm_pool_size=3))
+    try:
+        await manager.warm_up()
+        assert len(manager._warm_pool) == 1
+    finally:
+        await manager.shutdown()

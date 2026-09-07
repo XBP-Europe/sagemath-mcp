@@ -44,6 +44,16 @@ cli = [
     # Capped below 2.0 by fastmcp-slim (mcp<2.0,>=1.24.0); do not raise past 1.x.
     "mcp[cli]>=1.29.0",
 ]
+passagemath = [
+    # A pip-installed alternative runtime to the monolithic SageMath Docker image
+    # (~1 GB download vs a 3 GB image pull; `sage.all` and the worker run
+    # unmodified). Pinned EXACTLY, never a range: passagemath's own release QA
+    # shipped a broken Maxima backend in 10.8.10/10.8.11 (docs/
+    # passagemath_evaluation.md §4), so a bump goes through the cold-install smoke
+    # gate, not automatically. The security artifacts dispatch to the passagemath
+    # set at import (src/sagemath_mcp/_artifacts.py) when this is installed.
+    "passagemath-standard==10.8.9",
+]
 dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
@@ -100,6 +110,9 @@ ignore = ["E203"]
 # "needed" and "unused" (RUF100) across regenerations. Ignoring here keeps
 # `make allowlist` from producing a file that fails lint.
 "src/sagemath_mcp/allowlist.py" = ["RUF001", "RUF002", "RUF003"]
+# Same rationale for the passagemath allowlist -- generated from the installed
+# passagemath, whose Unicode mathematical names decide which rules fire.
+"src/sagemath_mcp/allowlist_passagemath.py" = ["RUF001", "RUF002", "RUF003"]
 
 [tool.pytest.ini_options]
 addopts = "-ra --ignore=tests/cli_integration"
@@ -111,6 +124,14 @@ filterwarnings = ["ignore::pytest.PytestUnraisableExceptionWarning"]
 [tool.coverage.run]
 branch = true
 source = ["sagemath_mcp"]
+# The passagemath artifact set is imported only on a passagemath runtime
+# (_artifacts.py dispatches to it), so it is never loaded by the monolithic,
+# coverage-gated unit suite. It is generated data checked by the passagemath CI
+# lane's agreement tests, the same way allowlist.py is checked on monolithic.
+omit = [
+    "src/sagemath_mcp/allowlist_passagemath.py",
+    "src/sagemath_mcp/star_exports_passagemath.py",
+]
 
 [tool.coverage.report]
 show_missing = true

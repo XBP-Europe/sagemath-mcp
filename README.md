@@ -160,6 +160,42 @@ sagemath-mcp --transport streamable-http --host 127.0.0.1 --port 8314
 
 If the command is not on your `PATH`, run `python -m sagemath_mcp.server --help`.
 
+### A Sage runtime without the 3 GB image (passagemath)
+
+The server needs a SageMath runtime. Instead of the ~3 GB `sagemath/sagemath`
+Docker image or a local Sage build, you can install [passagemath](https://github.com/passagemath/passagemath)
+— a pip-installable, modularized fork of SageMath — as an extra. **This path is
+experimental** (see the status caveats below):
+
+```bash
+pip install "sagemath-mcp[passagemath]"   # ~1 GB download, no Docker, no local Sage build
+sagemath-mcp
+```
+
+`from sage.all import *` and the worker run unmodified on it. The server detects
+the runtime at import (`importlib.metadata`) and loads the matching generated
+security artifact set, so the **application-level** deny-by-default policy — the
+allowlist, the import ban, the AST rules — is equivalent on both runtimes.
+
+That equivalence is *not* a substitute for Docker's containment: the AST policy
+is the boundary inside the process, but a pip-installed passagemath runs with
+your user's privileges and file access, whereas the container image also gives
+you OS-level isolation (non-root user, read-only mounts, dropped capabilities).
+For an untrusted or multi-tenant deployment, run the container regardless of
+runtime; the passagemath extra trades that outer boundary for install
+convenience.
+
+The version is pinned exactly (`passagemath-standard==10.8.9`) rather than
+tracking latest, because passagemath's own release QA has shipped broken
+backends — see [docs/passagemath_evaluation.md](docs/passagemath_evaluation.md)
+for the full measurements. Linux and macOS wheels only; native Windows does not
+ship the `pari`/`singular`/`maxima` wheels this server's tools need.
+
+**Experimental status.** There is no passagemath CI lane yet, and the full
+integration suite and doctest-corpus sweep against the pin are still outstanding
+(TODO), so treat correctness on passagemath as validated by spot checks, not by
+the same continuous gate the monolithic runtime has.
+
 ### Develop from source
 
 ```bash

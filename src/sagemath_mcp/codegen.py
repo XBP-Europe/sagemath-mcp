@@ -28,7 +28,7 @@ from dataclasses import replace
 from fastmcp.exceptions import ToolError
 
 from . import monitoring
-from .allowlist import ALLOWED_CALLER_NAMES
+from ._artifacts import ALLOWED_CALLER_NAMES
 from .security import (
     _GREEK_NAMES,
     _SYMBOL_SHAPE,

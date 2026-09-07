@@ -469,29 +469,59 @@ def test_external_cas_interfaces_are_blocked(label, payload) -> None:
         validate_module(ast.parse(payload), code=payload, policy=SECURITY_POLICY)
 
 
-def test_the_interface_export_list_is_used_when_it_can_be_imported() -> None:
-    """Sage's own list is the source of truth; here it is stood in for.
+def test_the_interface_export_list_is_attributed_by_value_home() -> None:
+    """Interface names are attributed by the value's own ``__module__``, not by
+    the module that re-exports them.
 
-    Without Sage the import fails and the set is empty, so the branch that
-    actually removes the interfaces would never run in the unit suite.
+    Monolithic ``sage.interfaces.all`` is 74 names, all interfaces, so adding the
+    whole list is right there. passagemath's modularized ``sage.interfaces.all``
+    re-exports ordinary mathematics -- ``Integer``, ``parent``, ``prod`` -- and
+    adding those blind poisoned the danger set until nine star-export modules
+    failed on a name like ``parent`` (REVIEW_ACTIONS 69). A name is kept unless
+    it *provably* resolves to a home outside ``sage.interfaces``: a real
+    interface lives under ``sage.interfaces`` (kept) or is an optional one absent
+    from this runtime and fails to resolve (kept, conservatively); only a foreign
+    re-export is dropped.
     """
+    import sys
+    import types
+
     from sagemath_mcp import _sage_worker
+
+    fake = types.ModuleType("fake_interfaces_all")
+
+    class RealInterface:  # lives under sage.interfaces -> kept
+        pass
+
+    RealInterface.__module__ = "sage.interfaces.fake"
+
+    def ordinary_reexport():  # a foreign re-export like `parent` -> dropped
+        pass
+
+    ordinary_reexport.__module__ = "sage.structure.element"
+
+    class LazyImport:  # an optional interface that cannot resolve -> kept
+        def _get_object(self):
+            raise ImportError("absent under this runtime")
+
+    fake.RealInterface = RealInterface
+    fake.ordinary_reexport = ordinary_reexport
+    fake.absent_interface = LazyImport()
 
     original_exports = _sage_worker._EXTERNAL_INTERFACE_EXPORTS
     original_modules = _sage_worker._DANGEROUS_SAGE_MODULES
+    sys.modules["fake_interfaces_all"] = fake
     try:
-        # json.decoder exports JSONDecoder and friends; it stands in for
-        # sage.interfaces.all, whose whole export list is what gets removed.
-        _sage_worker._EXTERNAL_INTERFACE_EXPORTS = "json.decoder"
+        _sage_worker._EXTERNAL_INTERFACE_EXPORTS = "fake_interfaces_all"
         _sage_worker._DANGEROUS_SAGE_MODULES = ()
         found = _sage_worker._dangerous_sage_names()
-        assert "JSONDecoder" in found, "the export list was not consumed"
-        # Unlike the per-module rule, everything exported goes -- an interface
-        # re-exported from elsewhere is still an interface.
-        assert "scanstring" in found
+        assert "RealInterface" in found, "an interface under sage.interfaces was dropped"
+        assert "absent_interface" in found, "an unresolvable interface must be kept"
+        assert "ordinary_reexport" not in found, "a foreign re-export must be dropped"
     finally:
         _sage_worker._EXTERNAL_INTERFACE_EXPORTS = original_exports
         _sage_worker._DANGEROUS_SAGE_MODULES = original_modules
+        del sys.modules["fake_interfaces_all"]
 
 
 # --- Imports re-create everything the namespace scrub removed ------------------

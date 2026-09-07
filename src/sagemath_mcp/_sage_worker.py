@@ -14,7 +14,7 @@ import traceback
 from types import ModuleType, SimpleNamespace
 from typing import Any
 
-from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
+from sagemath_mcp._artifacts import ALLOWED_CALLER_NAMES
 from sagemath_mcp.security import (
     SECURITY_POLICY,
     _bound_names,
@@ -347,6 +347,21 @@ _DANGEROUS_BARE_NAMES = (
     "search_doc",
     "reference",
     "Profiler",
+    # passagemath surfaces three CAS-interface names monolithic Sage does not:
+    # `Maxima`/`Mathics3` are interface classes (a `Maxima()` instance evaluates
+    # arbitrary Maxima input) and `mathics3` an interface object. Absent from
+    # monolithic Sage's namespace, so listing them is a no-op there and denylists
+    # them under passagemath -- verified they are not in the monolithic allowlist.
+    # See docs/passagemath_evaluation.md §5.
+    "Maxima",
+    "Mathics3",
+    "mathics3",
+    # passagemath defines this lazy-import startup helper in `sage.misc.
+    # lazy_import` (a dangerous-provenance module), so the derivation flags it;
+    # monolithic Sage does not define it at all. A bare-name entry (not the
+    # auto-regenerated baked list) so `make denylist` cannot drop it, and it is a
+    # no-op on monolithic where the name is absent.
+    "commence_startup",
 )
 
 # Sage's interfaces to other computer algebra systems. Each one spawns the real
@@ -447,7 +462,38 @@ def _dangerous_sage_names() -> frozenset[str]:
         interfaces = None
         failed.append(_EXTERNAL_INTERFACE_EXPORTS)
     if interfaces is not None:
-        names.update(n for n in vars(interfaces) if not n.startswith("_"))
+        # Every public name here is a CAS interface -- unless the runtime's layout
+        # re-exports ordinary mathematics through it. Monolithic Sage does not
+        # (74 names, all interfaces); passagemath's modularized `sage.interfaces.
+        # all` re-exports `Integer`, `parent`, `prod`, `Hom`, ..., and adding
+        # those unconditionally poisoned the danger set so nine star-export
+        # modules failed on a name like `parent`. Drop a name only when it
+        # *provably* resolves to a home outside `sage.interfaces`: a real
+        # interface either lives under `sage.interfaces` or fails to resolve (an
+        # optional interface absent from this runtime), and is kept either way,
+        # so this cannot weaken the danger set -- verified a no-op on monolithic.
+        for name, value in vars(interfaces).items():
+            if name.startswith("_"):
+                continue
+            try:
+                resolved = (
+                    value._get_object() if type(value).__name__ == "LazyImport" else value
+                )
+            except Exception:
+                names.add(name)  # optional interface absent from this runtime; keep, harmless
+                continue
+            home = getattr(resolved, "__module__", None)
+            if isinstance(home, str) and (
+                home == "sage.interfaces" or home.startswith("sage.interfaces.")
+            ):
+                names.add(name)
+            # Anything else is not an interface object: a re-exported *module*
+            # (`math`, `os`, `operator` -- no `__module__` to place it) or ordinary
+            # mathematics whose value is defined elsewhere (`parent` ->
+            # `sage.structure.element`). passagemath's `sage.interfaces.all`
+            # re-exports all of those; dropping them is what keeps `math`/`operator`
+            # offered and off the danger set. The real interfaces (`Maxima`, `gp`,
+            # `Gap`, `Singular`, ...) resolve into `sage.interfaces` and are kept.
 
     for module_name in _DANGEROUS_SAGE_MODULES:
         try:

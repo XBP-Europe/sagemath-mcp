@@ -3587,3 +3587,60 @@ Reproduced on an unmodified checkout of main, SageMath 10.9.
 
 Fixed 2026-09-06; found by the integration suite on a freshly provisioned
 container, before any release shipped with the open bound.
+
+## 69. Denylist derivation over-fires under a modularized Sage layout — medium — DONE
+
+### What
+
+`_dangerous_sage_names()` (the basis for the namespace scrub and the
+star-export screen) builds its danger set partly from `sage.interfaces.all`,
+and did so **unconditionally**: `names.update(n for n in vars(interfaces) if
+not n.startswith("_"))`. Every public name that module exports was treated as a
+CAS interface. Under monolithic SageMath that is exactly right — `sage.
+interfaces.all` there is 74 names, all interfaces. Under passagemath's
+modularized layout the same module re-exports **195** names including ordinary
+mathematics — `Integer`, `parent`, `prod`, `Hom`, `get_coercion_model`,
+`copy`, `cputime` — so those landed in the danger set. The consequence:
+`_star_export_screen` then failed any curated star-export module that exported
+one of them, and **9 of 15** modules dropped (`real_roots`, `lean_matrix`,
+`binary_code`, `dims`, `weierstrass_morphism`, `lcalc_Lfunction`, `fp_graded.
+module`, `fraction_field_FpT`, `pbori`) — losing that mathematics for a name
+like `parent`. This blocked shipping the passagemath runtime extra (roadmap
+item; `docs/passagemath_evaluation.md` §5, "the one real engineering item").
+
+### Fix
+
+Attribute each interface name by the value's own home, not by the module that
+re-exports it. In the `sage.interfaces.all` pass, resolve each name (through
+`LazyImport._get_object()` in a `try/except`, the pattern the second
+namespace-resolving pass already uses) and add it **unless it provably resolves
+to a `__module__` outside `sage.interfaces`**. A real interface either lives
+under `sage.interfaces.*` (kept) or fails to resolve because it is optional and
+absent from this runtime (kept, conservatively); only an ordinary re-export
+like `parent` — which resolves cleanly to `sage.structure.element` — is
+dropped. This cannot weaken the danger set: nothing that was flaggable stops
+being flagged.
+
+### How to verify
+
+- **Monolithic (no regression), in the Sage 10.9 container:** the fix drops
+  **0** names from `sage.interfaces.all` (all 74 resolve into `sage.
+  interfaces.*`), so the derived set is unchanged. `sage -python
+  scripts/generate_star_exports.py` and `generate_allowlist.py` produce output
+  **byte-identical** to the committed `star_exports.py` / `allowlist.py`, and
+  the 17 derivation/screen/denylist agreement tests pass
+  (`test_the_baked_in_denylist_still_matches_this_sage`,
+  `test_the_star_exports_match_this_sage`,
+  `test_the_denylist_derivation_resolves_lazy_imports`, the
+  `test_star_export_screen_*` unit tests).
+- **passagemath (the fix), `passagemath-standard==10.8.9`:** the star-export
+  screen goes from **6/15 to 15/15** clean; `Integer`/`parent`/`prod`/`copy`/
+  `cputime` are no longer in the danger set; and every real interface
+  (`Maxima`, `gp`, `Gp`, `singular`, `Singular`, `maxima`, `gap`, `Gap`,
+  `magma`, `Magma`, `axiom`, `fricas`) is still flagged.
+
+### Status
+
+Fixed 2026-09-07. This is blocker #1 of the passagemath runtime extra; the
+remaining integration (runtime dispatch, the passagemath artifact set, the
+`[passagemath]` pin, and a passagemath CI lane) builds on it.

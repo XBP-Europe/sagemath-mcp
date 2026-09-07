@@ -285,9 +285,13 @@ Matched to the current codebase; the worker and launch path need no changes.
 
 Blocking the extra (all actionable now):
 
-1. The star-exports/denylist derivation fix (§5) — without it the passagemath
-   artifact set either loses 9 star-export modules for artifact reasons or is
-   generated from a derivation known to misattribute.
+1. ~~The star-exports/denylist derivation fix (§5)~~ **DONE 2026-09-07**
+   (REVIEW_ACTIONS 69). The `sage.interfaces.all` pass now attributes each name
+   by the value's own `__module__` instead of adding the module's whole
+   namespace, so the modularized layout no longer poisons the danger set with
+   `Integer`/`parent`/`prod`. Verified a byte-for-byte no-op on monolithic (17
+   agreement tests pass, artifacts regenerate identically) and 6/15 → 15/15 on
+   `passagemath-standard==10.8.9`, real interfaces still flagged.
 2. Pin verification: full integration suite + doctest corpus sweep against
    `passagemath-standard==10.8.9` (this evaluation ran a 33-domain probe and
    the worker protocol, not the full suites).

@@ -560,12 +560,19 @@ async def test_the_baked_in_denylist_still_matches_this_sage():
     moves a helper fails here rather than quietly leaving it reachable.
     """
     from sagemath_mcp._sage_worker import (
+        _DANGEROUS_BARE_NAMES,
         _DANGEROUS_SAGE_NAME_LIST,
         _dangerous_sage_names,
     )
 
+    # The scrub strips the baked list AND the hand-maintained bare names, so a
+    # derived name is covered if it is in either. Subtracting only the baked list
+    # would falsely fail on a name carried in `_DANGEROUS_BARE_NAMES` (e.g.
+    # `commence_startup`, which passagemath defines in a dangerous module and
+    # monolithic Sage does not).
+    covered = _DANGEROUS_SAGE_NAME_LIST | set(_DANGEROUS_BARE_NAMES)
     derived = _dangerous_sage_names()
-    missing = sorted(derived - _DANGEROUS_SAGE_NAME_LIST)
+    missing = sorted(derived - covered)
     assert not missing, (
         "this Sage defines dangerous helpers the baked-in list does not cover: "
         f"{missing}. Adding a module to _DANGEROUS_SAGE_MODULES does not strip "

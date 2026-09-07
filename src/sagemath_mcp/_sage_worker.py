@@ -14,7 +14,7 @@ import traceback
 from types import ModuleType, SimpleNamespace
 from typing import Any
 
-from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
+from sagemath_mcp._artifacts import ALLOWED_CALLER_NAMES
 from sagemath_mcp.security import (
     SECURITY_POLICY,
     _bound_names,
@@ -347,6 +347,21 @@ _DANGEROUS_BARE_NAMES = (
     "search_doc",
     "reference",
     "Profiler",
+    # passagemath surfaces three CAS-interface names monolithic Sage does not:
+    # `Maxima`/`Mathics3` are interface classes (a `Maxima()` instance evaluates
+    # arbitrary Maxima input) and `mathics3` an interface object. Absent from
+    # monolithic Sage's namespace, so listing them is a no-op there and denylists
+    # them under passagemath -- verified they are not in the monolithic allowlist.
+    # See docs/passagemath_evaluation.md §5.
+    "Maxima",
+    "Mathics3",
+    "mathics3",
+    # passagemath defines this lazy-import startup helper in `sage.misc.
+    # lazy_import` (a dangerous-provenance module), so the derivation flags it;
+    # monolithic Sage does not define it at all. A bare-name entry (not the
+    # auto-regenerated baked list) so `make denylist` cannot drop it, and it is a
+    # no-op on monolithic where the name is absent.
+    "commence_startup",
 )
 
 # Sage's interfaces to other computer algebra systems. Each one spawns the real
@@ -464,16 +479,21 @@ def _dangerous_sage_names() -> frozenset[str]:
                 resolved = (
                     value._get_object() if type(value).__name__ == "LazyImport" else value
                 )
-                home = getattr(resolved, "__module__", None)
             except Exception:
-                names.add(name)  # absent under this runtime; keeping it costs nothing
+                names.add(name)  # optional interface absent from this runtime; keep, harmless
                 continue
-            if not (
-                isinstance(home, str)
-                and home != "sage.interfaces"
-                and not home.startswith("sage.interfaces.")
+            home = getattr(resolved, "__module__", None)
+            if isinstance(home, str) and (
+                home == "sage.interfaces" or home.startswith("sage.interfaces.")
             ):
                 names.add(name)
+            # Anything else is not an interface object: a re-exported *module*
+            # (`math`, `os`, `operator` -- no `__module__` to place it) or ordinary
+            # mathematics whose value is defined elsewhere (`parent` ->
+            # `sage.structure.element`). passagemath's `sage.interfaces.all`
+            # re-exports all of those; dropping them is what keeps `math`/`operator`
+            # offered and off the danger set. The real interfaces (`Maxima`, `gp`,
+            # `Gap`, `Singular`, ...) resolve into `sage.interfaces` and are kept.
 
     for module_name in _DANGEROUS_SAGE_MODULES:
         try:

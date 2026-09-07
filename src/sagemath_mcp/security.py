@@ -9,8 +9,7 @@ import re
 import textwrap
 from dataclasses import dataclass, field, replace
 
-from .allowlist import ALLOWED_CALLER_NAMES
-from .star_exports import STAR_EXPORTS
+from ._artifacts import ALLOWED_CALLER_NAMES, STAR_EXPORTS
 from .symbols import PREDEFINED_SYMBOLS
 
 LOGGER = logging.getLogger(__name__)

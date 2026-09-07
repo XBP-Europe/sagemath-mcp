@@ -50,6 +50,24 @@ allowlist:
 	docker exec sage-mcp cat /tmp/allowlist_new.py > src/sagemath_mcp/allowlist.py
 	@git --no-pager diff --stat src/sagemath_mcp/allowlist.py
 
+# The passagemath artifact set (allowlist + star-exports). No Docker: an isolated
+# `uv run --with` builds a passagemath env from the pinned wheel and runs the
+# same generators, so this pollutes neither the project venv (installing
+# passagemath there would flip _artifacts to the passagemath set for the whole
+# unit suite) nor the container. Write through /tmp: the generator imports the
+# file it replaces. Regenerate the allowlist AFTER any denylist change, never
+# before -- the allowlist is the namespace minus the strip.
+PASSAGEMATH_PIN ?= passagemath-standard==10.8.9
+allowlist-passagemath:
+	PYTHONPATH=src uv run --no-project --with "$(PASSAGEMATH_PIN)" python scripts/generate_allowlist.py > /tmp/allowlist_passagemath_new.py
+	mv /tmp/allowlist_passagemath_new.py src/sagemath_mcp/allowlist_passagemath.py
+	@git --no-pager diff --stat src/sagemath_mcp/allowlist_passagemath.py
+
+star-exports-passagemath:
+	PYTHONPATH=src uv run --no-project --with "$(PASSAGEMATH_PIN)" python scripts/generate_star_exports.py > /tmp/star_exports_passagemath_new.py
+	mv /tmp/star_exports_passagemath_new.py src/sagemath_mcp/star_exports_passagemath.py
+	@git --no-pager diff --stat src/sagemath_mcp/star_exports_passagemath.py
+
 # No `docker compose up` here: the runner's ensure_docker_container() already
 # starts the container when it is not running, and it uses `docker-compose`
 # (v1). This target used the v2 spelling, so on a host with only v1 installed
@@ -82,4 +100,4 @@ all: test integration-test
 mutation:
 	uv run python scripts/run_mutation_tests.py
 
-.PHONY: test sage-deps integration-test lint build mutation sage-container allowlist denylist doctest-execution cli-integration cli-extended all
+.PHONY: test sage-deps integration-test lint build mutation sage-container allowlist allowlist-passagemath star-exports-passagemath denylist doctest-execution cli-integration cli-extended all

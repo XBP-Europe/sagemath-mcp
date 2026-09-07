@@ -160,6 +160,26 @@ sagemath-mcp --transport streamable-http --host 127.0.0.1 --port 8314
 
 If the command is not on your `PATH`, run `python -m sagemath_mcp.server --help`.
 
+### A Sage runtime without the 3 GB image (passagemath)
+
+The server needs a SageMath runtime. Instead of the ~3 GB `sagemath/sagemath`
+Docker image or a local Sage build, you can install [passagemath](https://github.com/passagemath/passagemath)
+— a pip-installable, modularized fork of SageMath — as an extra:
+
+```bash
+pip install "sagemath-mcp[passagemath]"   # ~1 GB download, no Docker, no local Sage build
+sagemath-mcp
+```
+
+`from sage.all import *` and the worker run unmodified on it. The server detects
+the runtime at import (`importlib.metadata`) and loads the matching security
+artifact set, so the deny-by-default sandbox is identical either way. The
+version is pinned exactly (`passagemath-standard==10.8.9`) rather than tracking
+latest, because passagemath's own release QA has shipped broken backends — see
+[docs/passagemath_evaluation.md](docs/passagemath_evaluation.md) for the full
+measurements. Linux and macOS wheels only; native Windows does not ship the
+`pari`/`singular`/`maxima` wheels this server's tools need.
+
 ### Develop from source
 
 ```bash

@@ -13,6 +13,29 @@ here is a breaking change.
 
 ### Added
 
+- **passagemath as a selectable runtime (`pip install "sagemath-mcp[passagemath]"`).**
+  A pip-installable, modularized fork of SageMath as an alternative to the ~3 GB
+  `sagemath/sagemath` Docker image — ~1 GB download, no Docker, no local Sage
+  build; `from sage.all import *` and the worker run unmodified. Both runtimes
+  work: the server detects which is installed at import
+  (`importlib.metadata.version("passagemath-standard")`) and dispatches to the
+  matching generated security-artifact set (`_artifacts.py` →
+  `allowlist_passagemath.py` / `star_exports_passagemath.py`), so the
+  deny-by-default sandbox is identical on both. The extra is pinned exactly
+  (`passagemath-standard==10.8.9`) because passagemath's own release QA has
+  shipped broken backends (`docs/passagemath_evaluation.md` §4). Landing this
+  required making the denylist derivation layout-aware (the modularized
+  `sage.interfaces.all` re-exports ordinary maths, which the old derivation
+  swallowed — REVIEW_ACTIONS 69) and denylisting three passagemath-only
+  interface names (`Maxima`, `Mathics3`, `mathics3`) plus its `commence_startup`
+  helper. Verified byte-for-byte no-op on monolithic (artifacts regenerate
+  identically, all agreement tests pass) and correct on passagemath (15/15
+  star-export modules screen clean, ordinary maths offered, interfaces refused,
+  vetted star-imports allowed). `make allowlist-passagemath` /
+  `star-exports-passagemath` regenerate its artifacts with no Docker. Remaining
+  before it is a recommended path: a passagemath CI lane (integration suite +
+  doctest corpus sweep against the pin) and filing the upstream `maxima_lib`
+  regression.
 - **Outcome benchmark.** `benchmarks/` — a fixed, seeded case set (`cases.json`,
   24 problems in five difficulty tiers, every gold answer verified in the Sage
   10.9 container) and a Workflow (`outcome_benchmark.workflow.js`) that runs it

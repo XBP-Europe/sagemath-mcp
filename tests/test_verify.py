@@ -313,15 +313,20 @@ async def test_verify_claim_ladder_against_real_sage(monkeypatch):
         if bernoulli.verdict == "supported":
             assert bernoulli.samples and bernoulli.precision_bits
 
-        # A true constant equality neither the prover nor the algebraic field
-        # decides (Catalan's constant is not known to be algebraic): supported,
-        # with the certified enclosure as the evidence.
+        # A true constant equality (Catalan's constant is not known to be
+        # algebraic). Monolithic Sage 10.9 decides it neither symbolically nor
+        # over the algebraic field, so the ladder falls to the certified
+        # enclosure -> supported. passagemath 10.8.9's symbolic stack proves the
+        # identity outright on an earlier rung. Both are sound -- the identity is
+        # true -- so accept either and pin the enclosure evidence only where the
+        # ladder actually reached it.
         catalan_claim = await server.verify_claim(
             "integral(log(x)/(1+x^2), x, 0, 1) == -catalan", ctx=ctx
         )
-        assert catalan_claim.verdict == "supported"
-        assert catalan_claim.method == "certified_interval"
-        assert catalan_claim.precision_bits == 128
+        assert catalan_claim.verdict in {"proved", "supported"}
+        if catalan_claim.verdict == "supported":
+            assert catalan_claim.method == "certified_interval"
+            assert catalan_claim.precision_bits == 128
 
         # A strict inequality whose sides are exactly equal: the enclosure of
         # lhs - rhs contains zero at every precision, so the honest answer is

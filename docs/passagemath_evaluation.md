@@ -292,12 +292,25 @@ Blocking the extra (all actionable now):
    `Integer`/`parent`/`prod`. Verified a byte-for-byte no-op on monolithic (17
    agreement tests pass, artifacts regenerate identically) and 6/15 → 15/15 on
    `passagemath-standard==10.8.9`, real interfaces still flagged.
-2. Pin verification: full integration suite + doctest corpus sweep against
-   `passagemath-standard==10.8.9` (this evaluation ran a 33-domain probe and
-   the worker protocol, not the full suites).
-3. File the `maxima_lib` regression upstream and record the answer — it
-   determines whether 10.8.10+ is ever pinnable or the pin waits for their
-   Maxima 5.50 work (<https://github.com/passagemath/passagemath/issues/2632>).
+2. ~~Pin verification: full integration suite + doctest corpus sweep against
+   `passagemath-standard==10.8.9`~~ **DONE 2026-09-07.** A `passagemath` lane in
+   `ci.yml` cold-installs the exact pin and runs the whole suite against it as
+   the pin-bump smoke gate. Measured on 10.8.9: **1184 passed / 1 skipped**, and
+   the corpus sweep is **433,201 examples over 3,232 files at 99.02% acceptance**
+   — comparable to monolithic 10.9 (432,878 at 98.86%) and clearing every floor
+   with margin, so no re-baseline. Three artifact-drift tests were made
+   runtime-aware and `sage_library()` was taught passagemath's namespace-package
+   layout (`sage.__file__` is None; the sources are `sage.__path__[0]`). The one
+   cross-runtime difference was sound: passagemath's symbolic stack proves the
+   `∫₀¹ log(x)/(1+x²) dx == -Catalan` identity that monolithic 10.9 only
+   supports.
+3. ~~File the `maxima_lib` regression upstream~~ **DONE 2026-09-07:**
+   passagemath/passagemath#2836, after reproducing it firsthand on both 10.8.10
+   and 10.8.11 (identical `ECL says: THROW: The catch MACSYMA-QUIT is undefined`
+   at `maxima_lib.py:361`, compiling `mring.lisp` under Maxima 5.49.0 / ECL
+   26.5.5; 10.8.9 unaffected). The answer it records determines whether 10.8.10+
+   is ever pinnable or the pin waits for their Maxima 5.50 work
+   (<https://github.com/passagemath/passagemath/issues/2632>).
 
 Not blocking, but gating any move from "pinned extra" to "recommended install
 path": two consecutive passagemath stable releases passing this project's

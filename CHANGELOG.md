@@ -7,6 +7,39 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **passagemath CI lane and pin smoke gate.** A `passagemath` job in `ci.yml`
+  cold-installs the exact `passagemath-standard==10.8.9` pin (no Docker, ~1 min)
+  and runs the whole test suite against it — the real worker, the artifact-drift
+  tests and the doctest corpus sweep — so it doubles as the smoke gate for
+  bumping the pin: a release like 10.8.10, which broke the Maxima backend, would
+  fail here rather than in a user's install. On the pin the suite is **1184
+  passed / 1 skipped** and the corpus sweep measures **433,201 examples over
+  3,232 files at 99.02% acceptance** (monolithic 10.9: 432,878 at 98.86%),
+  clearing every floor with margin. This closes blocker (2) of the passagemath
+  adoption plan (`docs/passagemath_evaluation.md`).
+
+### Fixed
+
+- **The security-artifact drift tests validate the runtime that is installed.**
+  `test_the_caller_allowlist_matches_this_sage` and
+  `test_the_star_exports_match_this_sage` imported the monolithic
+  `allowlist.py`/`star_exports.py` directly, so under passagemath they compared
+  its 24-names-different namespace against the wrong baked set; they now go
+  through `_artifacts`, which dispatches to the runtime's own set (a strict no-op
+  on monolithic). `test_external_interfaces_are_not_in_the_namespace` is now
+  layout-aware the same way `_dangerous_sage_names` is (REVIEW_ACTIONS 69): it
+  counts a name as an interface only when its value resolves under
+  `sage.interfaces`, so passagemath's modularized `sage.interfaces.all`
+  re-exporting ordinary mathematics (`Integer`, `parent`, `Hom`, ...) no longer
+  reads as a breach — verified no genuine interface is reachable on the pin.
+- **The doctest corpus sweep runs under passagemath.** `sage_library()` derived
+  the source tree from `sage.__file__`, which is `None` under passagemath's
+  namespace-package layout; it now falls back to `sage.__path__`. The sweep also
+  models star-imports with the runtime's own vetted set rather than always the
+  monolithic one.
+
 ## [0.7.0] - 2026-09-07
 
 A survey of the other SageMath MCP servers (a feature comparison and a

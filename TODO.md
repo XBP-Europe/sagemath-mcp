@@ -92,12 +92,25 @@ out of date.
       `_DANGEROUS_BARE_NAMES`), the `[passagemath]` exact pin, and
       `make allowlist-passagemath`/`star-exports-passagemath`. Verified a
       byte-for-byte no-op on monolithic and correct end-to-end on passagemath
-      10.8.9. **Remaining before it is a *recommended* path:** blocker (2) a
-      passagemath CI lane running the full integration suite + doctest corpus
-      sweep against the pin (the cold-install smoke gate), and blocker (3) filing
-      the `maxima_lib` 10.8.10/10.8.11 regression upstream. Move from pinned extra
-      to primary install story only after two consecutive passagemath stable
-      releases pass the smoke gate on first try (§ evaluation blockers).
+      10.8.9.
+      **Blocker (2) DONE 2026-09-07:** a `passagemath` CI lane (`ci.yml`)
+      cold-installs the exact pin and runs the whole suite against it — the real
+      worker, the artifact-drift tests and the doctest corpus sweep — as the
+      pin-bump smoke gate, no Docker. Getting there took making three drift
+      tests runtime-aware (they had imported the monolithic allowlist/star-exports
+      and interface list directly; now `_artifacts`-dispatched and layout-aware,
+      a strict no-op on monolithic — verified) and fixing `sage_library()` for
+      passagemath's namespace-package layout (`sage.__file__` is None). Measured
+      against the pin: the whole suite is **1184 passed / 1 skipped**, and the
+      corpus sweep is **433,201 examples at 99.02% acceptance** (3232 files),
+      clearing every existing floor with margin — no re-baseline needed. The one
+      cross-runtime difference was sound (passagemath's symbolic stack *proves* a
+      Catalan-constant identity monolithic 10.9 only *supports*; the ladder test
+      now accepts either).
+      **Remaining before it is a *recommended* path:** blocker (3) filing the
+      `maxima_lib` 10.8.10/10.8.11 regression upstream. Move from pinned extra to
+      primary install story only after two consecutive passagemath stable releases
+      pass the smoke gate on first try (§ evaluation blockers).
 - [ ] Consider making `scripts/generate_allowlist.py` classify rather than accept.
       Four separate findings had one root cause: the allowlist is generated as
       *whatever survives the namespace scrub*, so it inherits every gap in that

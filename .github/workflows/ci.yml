@@ -170,3 +170,60 @@ jobs:
           docker compose down
       - name: Build artifacts
         run: make build
+
+  passagemath:
+    # The pip-installable alternative runtime (docs/passagemath_evaluation.md):
+    # `pip install .[passagemath]` gives a working `from sage.all import *` with
+    # no Docker. This lane cold-installs the EXACT pin and runs the whole suite
+    # against it -- the real worker, the passagemath artifact-drift tests and the
+    # doctest corpus sweep -- so it doubles as the smoke gate for bumping the pin:
+    # a release like 10.8.10, which broke the Maxima backend, fails here instead
+    # of in a user's install. Cold setup is ~1 min against a 3 GB image pull, so
+    # this is the fast Sage lane. Pinned to Python 3.12: passagemath ships cp312
+    # wheels for every backend this server's tools need.
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.0.1
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - name: Create virtual environment
+        run: uv venv --python 3.12
+      - name: Cold-install the pinned passagemath runtime
+        run: uv pip install -e '.[dev,passagemath]'
+      - name: Fail fast unless passagemath is the live runtime
+        # Every real-runtime test keys on `shutil.which("sage")`; passagemath
+        # ships that wrapper (accepting `-python`) via passagemath-environment.
+        # Without it the suite would skip every Sage test and pass vacuously, so
+        # assert the wrapper is present AND that the passagemath artifact set is
+        # the one `_artifacts` selected.
+        run: |
+          source .venv/bin/activate
+          command -v sage
+          sage --version
+          python - <<'PY'
+          import sage
+          import sagemath_mcp._artifacts as artifacts
+
+          assert artifacts.IS_PASSAGEMATH, "passagemath artifact set was not selected"
+          print("passagemath", sage.version.version)
+          PY
+      - name: Test suite against passagemath (real worker + corpus sweep)
+        # Never export SAGEMATH_MCP_PURE_PYTHON here: an inherited "=1" makes the
+        # real worker silently preload `from math import *`, and the suite would
+        # pass against the shim rather than against passagemath.
+        env:
+          SAGEMATH_MCP_DOCTEST_STATS_FILE: doctest-corpus-stats.md
+        run: |
+          source .venv/bin/activate
+          unset SAGEMATH_MCP_PURE_PYTHON
+          pytest -ra
+      - name: Upload passagemath corpus stats
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: passagemath-corpus-stats
+          path: doctest-corpus-stats.md
+          if-no-files-found: ignore

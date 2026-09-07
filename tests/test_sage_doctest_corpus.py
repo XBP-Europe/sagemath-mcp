@@ -50,8 +50,12 @@ from pathlib import Path
 
 import pytest
 
+# The runtime-appropriate allowlist and star-exports, so the sweep models the
+# policy the installed Sage actually runs under -- the monolithic set in the
+# Docker lane, the passagemath set in the [passagemath] lane -- rather than
+# scoring passagemath's corpus against monolithic's star-imports.
+from sagemath_mcp._artifacts import ALLOWED_CALLER_NAMES, STAR_EXPORTS
 from sagemath_mcp._sage_worker import _OFFERED_SHIM_NAMES, _auto_declarable_symbols
-from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
 from sagemath_mcp.config import SageSettings
 from sagemath_mcp.security import (
     SecurityViolation,
@@ -61,7 +65,6 @@ from sagemath_mcp.security import (
     validate_module,
 )
 from sagemath_mcp.session import SageSession
-from sagemath_mcp.star_exports import STAR_EXPORTS
 
 requires_sage = pytest.mark.skipif(
     shutil.which("sage") is None, reason="Sage executable not available"
@@ -231,13 +234,26 @@ def write_stats(result: Harvest, library: Path) -> Path:
 
 
 def sage_library() -> Path | None:
-    """Where the running SageMath keeps its sources, or None."""
+    """Where the running SageMath keeps its sources, or None.
+
+    Monolithic Sage is an ordinary package -- `sage/__init__.py`, so `__file__`
+    points at it and the sources are its parent. passagemath ships `sage` as a
+    namespace package split across distributions: `__file__` is None and the
+    merged source tree is the first existing entry of `__path__` (one directory
+    under the installed venv, both runtimes' wheels landing in it).
+    """
     try:
         import sage
     except ImportError:  # pragma: no cover - integration only
         return None
-    path = Path(sage.__file__).resolve().parent
-    return path if path.is_dir() else None
+    if sage.__file__ is not None:
+        path = Path(sage.__file__).resolve().parent
+        return path if path.is_dir() else None
+    for entry in getattr(sage, "__path__", []):  # pragma: no cover - passagemath only
+        path = Path(entry).resolve()
+        if path.is_dir():
+            return path
+    return None  # pragma: no cover - integration only
 
 
 def _docstrings(path: Path) -> list[str]:

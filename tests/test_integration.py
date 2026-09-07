@@ -517,14 +517,36 @@ async def test_external_interfaces_are_not_in_the_namespace():
     gp and maxima both executed shell commands through their own `system`
     escapes. Stripping Sage's own export list covers the ones a hand-written
     list would miss, including anything a future release adds.
+
+    Layout-aware, the same way `_dangerous_sage_names` is (REVIEW_ACTIONS 69):
+    monolithic `sage.interfaces.all` exports only interface objects, but
+    passagemath's modularized layout re-exports ordinary mathematics through it
+    (`Integer`, `parent`, `Hom`, ...) which is legitimately in the namespace.
+    A name counts as an interface only when its value resolves to a home under
+    `sage.interfaces`, or fails to resolve (an optional interface absent from
+    this runtime -- kept, so this cannot miss one). This is a strict subset of
+    the raw export list, so it never weakens the check on monolithic Sage.
     """
     import sage.interfaces.all as interfaces
 
     from sagemath_mcp._sage_worker import _build_namespace
 
     namespace = _build_namespace()
-    exported = {name for name in vars(interfaces) if not name.startswith("_")}
-    still_reachable = sorted(exported & set(namespace))
+    interface_objects = set()
+    for name, value in vars(interfaces).items():
+        if name.startswith("_"):
+            continue
+        try:
+            resolved = value._get_object() if type(value).__name__ == "LazyImport" else value
+        except Exception:
+            interface_objects.add(name)  # optional interface absent here; keep it
+            continue
+        home = getattr(resolved, "__module__", None)
+        if isinstance(home, str) and (
+            home == "sage.interfaces" or home.startswith("sage.interfaces.")
+        ):
+            interface_objects.add(name)
+    still_reachable = sorted(interface_objects & set(namespace))
     assert not still_reachable, f"external interfaces reachable: {still_reachable}"
 
 
@@ -644,12 +666,17 @@ async def test_the_caller_allowlist_matches_this_sage():
     """
     import math
 
+    # Through `_artifacts`, not `allowlist` directly, so this validates whichever
+    # runtime is installed: the monolithic list under the Docker Sage, the
+    # passagemath list under the `[passagemath]` extra. Importing the monolithic
+    # module here would compare it against passagemath's 24-names-different
+    # namespace and fail the passagemath lane on a difference that is expected.
+    from sagemath_mcp._artifacts import ALLOWED_CALLER_NAMES
     from sagemath_mcp._sage_worker import (
         _CALLER_SHIMS,
         _build_namespace,
         _restricted_builtins,
     )
-    from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
 
     namespace = _build_namespace()
     live_including_dunders = set(namespace) | set(_restricted_builtins())
@@ -722,8 +749,8 @@ def test_the_star_exports_match_this_sage():
     Regenerate with the snippet in scripts/generate_star_exports.py and review
     the diff.
     """
+    from sagemath_mcp._artifacts import STAR_EXPORTS  # runtime-appropriate set
     from sagemath_mcp._sage_worker import _star_export_screen
-    from sagemath_mcp.star_exports import STAR_EXPORTS
 
     drift = {}
     for module_name, baked in STAR_EXPORTS.items():

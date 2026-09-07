@@ -267,17 +267,22 @@ def test_readme_security_table_matches_the_policy() -> None:
     )
 
 
-def test_readme_documents_the_modules_the_policy_blocks() -> None:
-    """The reverse direction: no silently-enforced module missing from the docs."""
+def test_the_docs_document_the_modules_the_policy_blocks() -> None:
+    """The reverse direction: no silently-enforced module missing from the docs.
+
+    The full blocked/allowed tables live in USAGE.md's security model (the README
+    is a front door that summarises and links to it), so that is where every
+    forbidden module must be named.
+    """
     from sagemath_mcp.security import SECURITY_POLICY
 
-    readme = (Path(__file__).resolve().parents[1] / "README.md").read_text(encoding="utf-8")
+    usage = (Path(__file__).resolve().parents[1] / "USAGE.md").read_text(encoding="utf-8")
     missing = [
         module
         for module in SECURITY_POLICY.forbidden_attribute_parents
-        if f"`{module}`" not in readme
+        if f"`{module}`" not in usage
     ]
-    assert not missing, f"policy blocks modules the README never mentions: {missing}"
+    assert not missing, f"policy blocks modules the docs never mention: {missing}"
 
 
 def test_no_caller_string_is_interpolated_into_generated_code_unguarded() -> None:

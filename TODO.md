@@ -213,11 +213,17 @@ prioritised. Correctness first, then packaging/adoption.
       Sage upstream owns `sagemath-standard`/`sagemath-symbolics`/… and this is a
       third-party package in that namespace. A friendly ask today, a forced
       rename after adoption.
-- [ ] **README is a manual, not a front door** (1,593 lines, 17 badges). Trim to
-      ~150: what it is, one working install path (lead with the GHCR image
-      one-liner, which bundles Sage), one client config, three example prompts,
-      links out. Move the tool reference to `docs/`, drop the embedded changelog,
-      trim badges. Fold in the verified `verify_claim` + doctest-corpus number.
+- [x] **README is a front door, not a manual.** *Done, 2026-09-07.* Trimmed
+      ~1,680 → ~230 lines: what it is, install-and-run per audience (GHCR image
+      first, then PyPI, then the passagemath extra), one client config, three
+      example prompts, a compact 40-tool index, condensed architecture + security,
+      links out. The full per-tool reference, the interpretation notes and the
+      complete security model moved into `USAGE.md` (the single manual, per the
+      chosen "expand USAGE.md" split); the embedded changelog is dropped for
+      `CHANGELOG.md`. `verify_claim` and the 98.6%/432,878 doctest number are
+      folded in. Badges kept (they are test-validated); the doc-honesty test for
+      blocked modules now asserts against `USAGE.md`. Tool-count and badge
+      invariants unchanged; 100% coverage holds.
 
 **Adoption (not code)**
 

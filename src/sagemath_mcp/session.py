@@ -760,6 +760,11 @@ class SageSessionManager:
         # worker it had already spawned, and so total-worker accounting can see
         # them before they reach `_warm_pool`.
         self._warm_in_flight: set[SageSession] = set()
+        # Manager-owned reclamations: shutting a cancelled refill's worker down
+        # is started here, not in the requesting task, so a caller cancelled
+        # mid-cleanup cannot orphan a live worker. Its spare stays reserved in
+        # `_warm_in_flight` until the process exits, and shutdown awaits these.
+        self._reclaim_tasks: set[asyncio.Task[None]] = set()
 
     @staticmethod
     def key_for(scope: str, name: str = DEFAULT_SESSION_NAME) -> str:
@@ -907,16 +912,26 @@ class SageSessionManager:
         self._warm_pool.append(spare)
         return True
 
-    async def _reclaim_refill(self, task: asyncio.Task[None], spare: SageSession) -> None:
-        """Cancel a refill and release its worker before its slot is reused.
+    def _start_reclaim(self, task: asyncio.Task[None], spare: SageSession) -> asyncio.Task[None]:
+        """Cancel a refill and hand its worker to a MANAGER-OWNED cleanup task.
 
-        Awaits the cancelled task, then shuts its spare down here -- in the
-        caller's uncancelled context, where the shutdown actually completes --
-        and only then drops it from `_warm_in_flight`. So the capacity a
-        replacement takes is genuinely free: the worker has exited, not merely
-        been signalled.
+        The cleanup is tracked in `_reclaim_tasks`, not run inline in the
+        requesting coroutine, so a caller cancelled while waiting for it cannot
+        abandon a live worker -- the earlier design ran the shutdown in the
+        waiter's task and leaked the process when that task was cancelled.
         """
         task.cancel()
+        cleanup = asyncio.ensure_future(self._reclaim_refill(task, spare))
+        self._reclaim_tasks.add(cleanup)
+        cleanup.add_done_callback(self._reclaim_tasks.discard)
+        return cleanup
+
+    async def _reclaim_refill(self, task: asyncio.Task[None], spare: SageSession) -> None:
+        """Await the cancelled refill, shut its worker down, then release the slot.
+
+        The spare stays in `_warm_in_flight` -- counted by admission -- until its
+        process has actually exited, so a replacement cannot start alongside it.
+        """
         with contextlib.suppress(BaseException):
             await asyncio.gather(task, return_exceptions=True)
         with contextlib.suppress(Exception):
@@ -932,7 +947,11 @@ class SageSessionManager:
         """
         target = max(0, self.settings.warm_pool_size)
         limit = self.settings.max_sessions
-        committed = len(self._sessions) + len(self._warm_pool) + len(self._warm_tasks)
+        # `_warm_in_flight` is the true reservation for the ceiling -- it holds a
+        # spare through warming AND reclamation, so a worker mid-cleanup still
+        # counts. The pool-target check uses live refills, since a reclaiming
+        # spare is on its way out and should not block a fresh one.
+        committed = len(self._sessions) + len(self._warm_pool) + len(self._warm_in_flight)
         if len(self._warm_pool) + len(self._warm_tasks) >= target:
             return
         if limit and committed >= limit:
@@ -975,18 +994,32 @@ class SageSessionManager:
                     # refill's slot first. Without this, `get` counted only
                     # `_sessions` while the refill counted its own slot, so a
                     # spare and a new session could both take the last slot and
-                    # overshoot max_sessions (CAP 2 LIVE 2 SPARES 1). Reclamation
-                    # AWAITS the worker's exit before the slot is reused, so the
-                    # replacement does not start alongside a still-live spare.
+                    # overshoot max_sessions (CAP 2 LIVE 2 SPARES 1). The
+                    # reservation (a spare in `_warm_in_flight`) is counted until
+                    # its process has EXITED, and reclamation is manager-owned and
+                    # shielded, so this waits for a genuinely free slot even if
+                    # this request is cancelled mid-cleanup -- the worker still
+                    # gets reclaimed and the slot is not double-counted.
+                    # Loop only while there is something to reclaim: a live refill
+                    # to cancel, or a reclamation already draining a slot. If the
+                    # ceiling is hit with neither, the session ceiling (checked
+                    # above) governs and there is nothing more to free here.
                     while (
                         limit
-                        and len(self._sessions) + len(self._warm_pool) + len(self._warm_tasks)
+                        and len(self._sessions) + len(self._warm_pool) + len(self._warm_in_flight)
                         >= limit
-                        and self._warm_tasks
+                        and (self._warm_tasks or self._reclaim_tasks)
                     ):
-                        victim, victim_spare = next(iter(self._warm_tasks.items()))
-                        del self._warm_tasks[victim]
-                        await self._reclaim_refill(victim, victim_spare)
+                        if self._warm_tasks:
+                            victim, victim_spare = next(iter(self._warm_tasks.items()))
+                            del self._warm_tasks[victim]
+                            await asyncio.shield(self._start_reclaim(victim, victim_spare))
+                        else:
+                            # A reclamation already owns the slot; wait for it to
+                            # free one rather than overshoot.
+                            await asyncio.shield(
+                                asyncio.gather(*self._reclaim_tasks, return_exceptions=True)
+                            )
                     session = SageSession(session_id, self.settings)
                     adopted = False
                 self._sessions[session_id] = session
@@ -1064,6 +1097,13 @@ class SageSessionManager:
         with contextlib.suppress(Exception):
             await asyncio.gather(*self._warm_tasks, return_exceptions=True)
         self._warm_tasks.clear()
+        # Await any manager-owned reclamations still in flight (a caller cancelled
+        # mid-cleanup handed its worker to one of these), so shutdown does not
+        # return while an owned worker is still being torn down.
+        if self._reclaim_tasks:
+            with contextlib.suppress(Exception):
+                await asyncio.gather(*self._reclaim_tasks, return_exceptions=True)
+        self._reclaim_tasks.clear()
         async with self._lock:
             sessions = list(self._sessions.values())
             self._sessions.clear()

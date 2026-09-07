@@ -3731,3 +3731,46 @@ certified_interval) are unchanged for exact operands.
 
 Fixed 2026-09-07; found by an external review at cc4a8ae. Builds on items 65/68
 (the first-round float and integer-domain fixes).
+
+## 72. Warm pool can exceed its ceiling and leak a worker on cancellation — medium — DONE
+
+### What
+
+Two defects in the pre-warmed worker pool (`session.py`), both reproduced by the
+reviewer with real worker subprocesses.
+
+*Capacity race.* `get` enforced the ceiling on `len(self._sessions)` alone, while
+`_schedule_warm_refill` counted its own pending slot. With `max_sessions=2`,
+`warm_pool_size=1`: client A adopts the spare and schedules a refill; client B
+starts before the refill finishes; `get` sees only one live session and creates a
+second; the refill then completes -- three workers for a ceiling of two
+(`CAP 2 LIVE 2 SPARES 1`). Initial `warm_up()` also ignored the ceiling.
+
+*Cancellation leak.* When shutdown cancelled a refill after its subprocess had
+spawned, `_spawn_warm_worker`'s `except Exception` did not cover
+`CancelledError` (not an `Exception` subclass), so the spare was never shut down,
+and it had not yet entered `_warm_pool` for shutdown to find.
+
+### Fix
+
+- Total-worker accounting is shared: `get`, when it must create a real worker
+  (a real session takes priority over an opportunistic spare), reclaims a
+  pending refill's slot if live sessions + pool + in-flight refills would
+  otherwise exceed the ceiling; `warm_up` stops filling at the same bound.
+- `_spawn_warm_worker` catches `BaseException`, so a cancelled refill shuts down
+  the worker it spawned and re-raises the cancellation. In-flight spares are
+  tracked in `_warm_in_flight`, which `shutdown` also reclaims as a backstop.
+
+### How to verify
+
+`tests/test_warm_pool.py`:
+`test_a_refill_never_pushes_the_total_over_the_ceiling` (blocks a refill in
+flight, starts a second client, asserts sessions + pool + pending stays <=
+max_sessions) and `test_shutdown_reclaims_a_spare_whose_refill_is_cancelled`
+(holds a spare in flight, shuts down, asserts its worker was shut down and is not
+alive). Both use the pure-Python worker.
+
+### Status
+
+Fixed 2026-09-07; found by an external review at cc4a8ae. `SAGEMATH_MCP_WARM_POOL_SIZE=0`
+was the interim mitigation and is no longer needed.

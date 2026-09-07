@@ -752,6 +752,11 @@ class SageSessionManager:
         # tasks are tracked so shutdown can cancel them.
         self._warm_pool: list[SageSession] = []
         self._warm_tasks: set[asyncio.Task[None]] = set()
+        # Spares whose refill is still running -- tracked so a cancelled refill
+        # (shutdown, or a real session reclaiming its slot) cannot leak the
+        # worker it had already spawned, and so total-worker accounting can see
+        # them before they reach `_warm_pool`.
+        self._warm_in_flight: set[SageSession] = set()
 
     @staticmethod
     def key_for(scope: str, name: str = DEFAULT_SESSION_NAME) -> str:
@@ -846,7 +851,14 @@ class SageSessionManager:
         next real ``get`` just spawns normally and pays the startup cost once.
         """
         target = max(0, self.settings.warm_pool_size)
+        limit = self.settings.max_sessions
         while len(self._warm_pool) < target:
+            # Spares count against the same ceiling as live workers, so the pool
+            # never fills past max_sessions even before any client connects.
+            if limit and (
+                len(self._sessions) + len(self._warm_pool) + len(self._warm_in_flight)
+            ) >= limit:
+                break
             if not await self._spawn_warm_worker():
                 break
 
@@ -859,6 +871,7 @@ class SageSessionManager:
         and its journal is wiped so it is pristine when adopted.
         """
         spare = SageSession(_WARM_SPARE_ID, self.settings)
+        self._warm_in_flight.add(spare)
         try:
             await spare.ensure_started()
             await spare.evaluate(
@@ -868,11 +881,21 @@ class SageSessionManager:
                 timeout_seconds=min(_WARM_EVAL_TIMEOUT, self.settings.eval_timeout),
             )
             spare._code_journal.clear()
-        except Exception as exc:  # a failed warm-up must never take the server down
-            LOGGER.warning("Could not pre-warm a spare Sage worker: %s", exc)
-            with contextlib.suppress(Exception):
+        except BaseException as exc:
+            # `BaseException`, not `Exception`, on purpose: `CancelledError` (the
+            # refill task being cancelled at shutdown or to free a slot for a
+            # real session) does not derive from `Exception`, and the earlier
+            # `except Exception` let it skip cleanup -- leaving the spawned worker
+            # alive. Reclaim it either way; re-raise a cancellation so the task
+            # still counts as cancelled.
+            self._warm_in_flight.discard(spare)
+            with contextlib.suppress(BaseException):
                 await spare.shutdown()
+            if isinstance(exc, asyncio.CancelledError):
+                raise
+            LOGGER.warning("Could not pre-warm a spare Sage worker: %s", exc)
             return False
+        self._warm_in_flight.discard(spare)
         self._warm_pool.append(spare)
         return True
 
@@ -920,6 +943,22 @@ class SageSessionManager:
                     session = spare
                     adopted = True
                 else:
+                    # A real worker takes priority over an opportunistic spare.
+                    # If creating it would push the total -- live sessions + pool
+                    # + in-flight refills -- over the ceiling, reclaim a pending
+                    # refill's slot first. Without this, `get` counted only
+                    # `_sessions` while the refill counted its own slot, so a
+                    # spare and a new session could both take the last slot and
+                    # overshoot max_sessions (CAP 2 LIVE 2 SPARES 1).
+                    if limit:
+                        while (
+                            len(self._sessions) + len(self._warm_pool) + len(self._warm_tasks)
+                            >= limit
+                            and self._warm_tasks
+                        ):
+                            victim = next(iter(self._warm_tasks))
+                            self._warm_tasks.discard(victim)
+                            victim.cancel()
                     session = SageSession(session_id, self.settings)
                     adopted = False
                 self._sessions[session_id] = session
@@ -1000,8 +1039,12 @@ class SageSessionManager:
         async with self._lock:
             sessions = list(self._sessions.values())
             self._sessions.clear()
-            spares = list(self._warm_pool)
+            # Include in-flight spares: a refill cancelled just above may not have
+            # finished its own cleanup, so reclaim its worker here too (shutting
+            # a session down twice is harmless).
+            spares = list(self._warm_pool) + list(self._warm_in_flight)
             self._warm_pool.clear()
+            self._warm_in_flight.clear()
         # Persist journals before shutting down workers (spares hold no state).
         for session in sessions:
             try:

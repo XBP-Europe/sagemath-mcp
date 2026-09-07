@@ -3856,3 +3856,49 @@ the ceiling. Plus the round-2 ceiling and cancelled-refill tests. 100% coverage.
 
 Fixed 2026-09-07; found by an external review at 356d520. `SAGEMATH_MCP_WARM_POOL_SIZE=0`
 was the interim mitigation and is no longer needed.
+
+## 75. Verifier: Boolean wrappers bypass exactness; Greek claims crash — high/medium — DONE
+
+### What
+
+Two more soundness/robustness defects (external review, round 4).
+
+*Boolean provenance (high).* `_is_inexact` treats every `bool` as exact, and the
+comparison/predicate paths only inspected the collapsed value, so wrapping an
+inexact predicate re-earned an exact verdict:
+`(RR(1)+RR(1)/10^20-RR(1)).is_zero() == True` and
+`(lambda: (RR(1)+RR(1)/10^20-RR(1)).is_zero())()` were both
+`proved/exact_comparison`. Adding `== True` cannot increase certainty.
+
+*Unicode (medium).* The round-3 fix sliced operand substrings by AST column
+offset, but Python AST offsets count UTF-8 bytes while `str` slices count
+characters, so `α == α` extracted `'α '` / `''` and raised invalid syntax.
+
+### Fix
+
+- Exactness is judged from the claim's INPUTS, not its collapsed value:
+  `_exactness_probe_sources` returns every value-bearing sub-expression and the
+  ladder evaluates each, flagging any that is (or contains) a machine number.
+  The inexact leaf (`RR(1)`) is found inside a `== True`, a lambda body or a
+  predicate receiver alike. Exact claims are untouched (their sub-expressions
+  are exact), including exact predicates wrapped in `== True`.
+- `_is_inexact` no longer flags a value whose `parent()` is not a real number
+  ring: a symbolic function's `parent()` is its own class, whose `is_exact()`
+  raises, and the old `except: return True` called every `sin`/`cos`/`is_prime`
+  inexact. A no-parent or ring-less value is not a machine float.
+- `_comparison_sides` and `_exactness_probe_sources` use
+  `ast.get_source_segment`, which is character-correct (and keeps `^`), so Greek
+  and other non-ASCII claims survive.
+
+### How to verify
+
+`tests/test_verify.py`, real Sage: the `== True` and lambda wrappers are
+`supported/float_comparison`; `is_prime(7)`, `is_prime(7) == True`,
+`sin(x)^2 + cos(x)^2 == 1`, `sqrt(2) != 3/2`, `integral(sin(x)/x,x,0,oo)==pi/2`
+and `α == α` / `α^2 - 2*α + 1 == (α - 1)^2` are `proved`. 34 verify tests pass;
+`_comparison_sides`/`_exactness_probe_sources` unit tests cover the operator,
+the `^` substring, the Greek segment and the probe hit.
+
+### Status
+
+Fixed 2026-09-07; found by an external review at a3c6459. Builds on items 71/73.

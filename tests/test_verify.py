@@ -128,7 +128,7 @@ async def test_verify_claim_reads_decimal_literals_exactly(claim, expected, monk
 
 
 def test_comparison_sides_splits_a_single_comparison():
-    from sagemath_mcp.tools.verify import _comparison_sides, _predicate_operand_sources
+    from sagemath_mcp.tools.verify import _comparison_sides, _exactness_probe_sources
 
     assert _comparison_sides("RR(1) == RR(2)") == ("RR(1)", "RR(2)", "==")
     # The equation spelling is normalized before splitting, and the sides keep
@@ -137,12 +137,20 @@ def test_comparison_sides_splits_a_single_comparison():
     lhs, rhs, op = _comparison_sides("x^2 - 1 = 0")
     assert lhs.replace(" ", "") == "x^2-1" and rhs == "0" and op == "=="
     assert _comparison_sides("e^pi != pi^e") == ("e^pi", "pi^e", "!=")
-    # A bare predicate has no comparison sides; its operands are read instead.
+    # Greek letters: get_source_segment must return whole symbols, not a slice
+    # cut mid-character by a byte offset (each letter is two UTF-8 bytes).
+    alpha = chr(0x3B1)  # built from its code point so no ambiguous literal is in the source
+    assert _comparison_sides(f"{alpha} == {alpha}") == (alpha, alpha, "==")
+    # A bare predicate has no comparison sides; whole-claim evaluation.
     assert _comparison_sides("is_prime(7)") == (None, None, None)
-    assert _predicate_operand_sources("is_prime(7)") == ["7"]
-    assert _predicate_operand_sources("(RR(1)+RR(1)/10^20).is_zero()") == [
-        "RR(1)+RR(1)/10^20"
-    ]
+    # The exactness probe surfaces the inexact input wherever it hides -- inside
+    # a predicate receiver, a `== True` wrapper, or a zero-arg lambda body.
+    for claim in (
+        "(RR(1)+RR(1)/10^20-RR(1)).is_zero() == True",
+        "(lambda: (RR(1)+RR(1)/10^20-RR(1)).is_zero())()",
+    ):
+        assert any("RR(1)" in s for s in _exactness_probe_sources(claim))
+    assert _exactness_probe_sources(alpha) == [alpha]  # UTF-8 handled here too
     # A comparison whose operator is not one of the six ordering/equality ops
     # (membership, identity) has no proof-grade sides: whole-claim evaluation.
     assert _comparison_sides("x in (1, 2, 3)") == (None, None, None)
@@ -423,5 +431,33 @@ async def test_verify_claim_ladder_against_real_sage(monkeypatch):
         assert (await server.verify_claim("is_prime(7)", ctx=ctx)).verdict == "proved"
         power = await server.verify_claim("x^2 - 2*x + 1 = (x - 1)^2", ctx=ctx)
         assert power.verdict == "proved"
+
+        # External-review round 4: a Boolean's type must not establish exactness.
+        # Wrapping the inexact predicate in `== True` or a zero-argument lambda
+        # kept the rounding but was reported proved; exactness is now read from
+        # the sub-expressions, so both qualify while their exact counterparts do
+        # not.
+        boolean_wrap = await server.verify_claim(
+            "(RR(1)+RR(1)/10^20-RR(1)).is_zero() == True", ctx=ctx
+        )
+        assert boolean_wrap.verdict == "supported"
+        assert boolean_wrap.method == "float_comparison"
+        lambda_wrap = await server.verify_claim(
+            "(lambda: (RR(1)+RR(1)/10^20-RR(1)).is_zero())()", ctx=ctx
+        )
+        assert lambda_wrap.verdict == "supported"
+        # `== True` on an EXACT predicate cannot lower certainty either -- it is
+        # still proved, and the probe does not false-positive on function names.
+        assert (await server.verify_claim("is_prime(7) == True", ctx=ctx)).verdict == "proved"
+
+        # External-review round 4: Greek-symbol claims. AST column offsets count
+        # UTF-8 bytes, so the old raw slicing cut a two-byte letter in half and
+        # produced invalid syntax; get_source_segment keeps the whole symbol.
+        alpha = chr(0x3B1)
+        assert (await server.verify_claim(f"{alpha} == {alpha}", ctx=ctx)).verdict == "proved"
+        greek = await server.verify_claim(
+            f"{alpha}^2 - 2*{alpha} + 1 == ({alpha} - 1)^2", ctx=ctx
+        )
+        assert greek.verdict == "proved"
     finally:
         await manager.shutdown()

@@ -122,8 +122,8 @@ def _comparison_sides(claim: str) -> tuple[str | None, str | None, str | None]:
     evaluates to True by floating-point rounding; with the sides the ladder sees
     both live in an inexact field and refuses the exact verdict. Only a single
     comparison is handled (the truth-assembly gate guarantees at most one); a
-    bare predicate like `is_prime(7)` has no sides and is left to whole-claim
-    evaluation (its inputs are inspected via `_predicate_operand_sources`).
+    bare predicate like `is_prime(7)` has no sides and is evaluated whole. Either
+    way, exactness is judged from `_exactness_probe_sources`, not from this.
     """
     candidate = _EQUALS_NOT_COMPARISON.sub("==", claim)
     try:
@@ -133,49 +133,60 @@ def _comparison_sides(claim: str) -> tuple[str | None, str | None, str | None]:
     if isinstance(node, ast.Compare) and len(node.ops) == 1:
         op = _AST_COMPARE_OPS.get(type(node.ops[0]))
         if op is not None:
-            # Slice the ORIGINAL substrings, never ast.unparse: `^` is Python
+            # The ORIGINAL source of each side, never ast.unparse: `^` is Python
             # bit-xor (looser than +/-/*), so unparsing `x^2 - 2*x + 1` yields
-            # `x ^ (2 - 2*x + 1)` -- the wrong expression once Sage's preparser
-            # reads `^` as a power. The claim is whitespace-folded to one line,
-            # so column offsets index it directly.
+            # `x ^ (2 - 2*x + 1)`, the wrong expression once Sage's preparser
+            # reads `^` as a power. `get_source_segment`, not raw column slicing:
+            # AST offsets count UTF-8 bytes while `str` slices count characters,
+            # so a claim in Greek letters (two bytes per char) sliced mid-symbol.
             return (
-                candidate[node.left.col_offset : node.left.end_col_offset],
-                candidate[node.comparators[0].col_offset : node.comparators[0].end_col_offset],
+                ast.get_source_segment(candidate, node.left),
+                ast.get_source_segment(candidate, node.comparators[0]),
                 op,
             )
     return (None, None, None)
 
 
-def _predicate_operand_sources(claim: str) -> list[str]:
-    """Operand sources for a claim that is *not* a top-level comparison.
+def _exactness_probe_sources(claim: str) -> list[str]:
+    """Every value-bearing sub-expression of the claim, as source strings.
 
-    A bare predicate collapses to a Boolean that cannot reveal its own
-    provenance -- `(RR(1)+RR(1)/10^20-RR(1)).is_zero()` returns True by rounding,
-    with no comparison sides for the ladder to inspect, so it was proved exact.
-    The exactness check reads the predicate's inputs from the source instead: the
-    receiver and arguments of a top-level call (`X.is_zero()` -> `[X]`,
-    `is_prime(n)` -> `[n]`), otherwise the whole expression. Empty when the claim
-    IS a comparison -- that path already inspects its two sides.
+    Exactness is a property of a claim's INPUTS, and a Boolean result hides them:
+    `_is_inexact` can only see that the value is a `bool` and calls it exact, so
+    `(RR(1)+RR(1)/10^20-RR(1)).is_zero()` -- and, once a comparison collapses,
+    `... == True` or `(lambda: ...)()` -- were reported as exact proofs though
+    they rest on rounding. Adding `== True` cannot increase certainty.
+
+    So instead of trusting the collapsed value, the ladder evaluates each
+    sub-expression the claim is built from and asks whether any is (or contains)
+    a machine number. The inexact leaf (`RR(1)`) is a sub-expression of all three
+    cases above -- inside the receiver, inside the lambda body -- so it is found
+    regardless of how the Boolean was assembled. Exact claims are unaffected:
+    every sub-expression of `sin(x)^2 + cos(x)^2 == 1` is exact.
+
+    Sources come from `get_source_segment` (UTF-8-byte offsets vs character
+    slices, and `^` must not round-trip -- see `_comparison_sides`), deduplicated.
     """
     candidate = _EQUALS_NOT_COMPARISON.sub("==", claim)
     try:
-        node = ast.parse(candidate, mode="eval").body
+        tree = ast.parse(candidate, mode="eval")
     except SyntaxError:
         return []
-    def _src(sub: ast.AST) -> str:
-        # Original substring, not ast.unparse -- see _comparison_sides on why `^`
-        # cannot survive a round-trip through the Python AST.
-        return candidate[sub.col_offset : sub.end_col_offset]
-
-    if isinstance(node, ast.Compare):
-        return []
-    if isinstance(node, ast.Call):
-        sources: list[str] = []
-        if isinstance(node.func, ast.Attribute):
-            sources.append(_src(node.func.value))
-        sources.extend(_src(a) for a in node.args if not isinstance(a, ast.Starred))
-        return sources or [_src(node)]
-    return [_src(node)]
+    # Value expressions that can introduce or carry a number. Booleans
+    # (`ast.BoolOp`) are excluded as containers -- their operands are visited on
+    # their own -- and names/constants are cheap to re-check.
+    value_nodes = (
+        ast.Call, ast.Attribute, ast.BinOp, ast.UnaryOp, ast.Subscript,
+        ast.Name, ast.Constant, ast.List, ast.Tuple, ast.Set, ast.Dict,
+    )
+    sources: list[str] = []
+    seen: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, value_nodes):
+            segment = ast.get_source_segment(candidate, node)
+            if segment and segment not in seen:
+                seen.add(segment)
+                sources.append(segment)
+    return sources
 
 
 def _reject_truth_assembly(claim: str) -> None:
@@ -296,11 +307,11 @@ async def verify_claim(
     lhs_literal = _encode_literal(lhs_src) if have_sides else "None"
     rhs_literal = _encode_literal(rhs_src) if have_sides else "None"
     op_literal = _encode_literal(op_src) if have_sides else "None"
-    # For a bare predicate (no top-level comparison), the values to check for
-    # exactness are the predicate's own operands, read from the source -- the
-    # collapsed Boolean cannot reveal them. Encoded as literals like the sides.
-    operand_srcs = _predicate_operand_sources(claim)
-    operand_srcs_literal = "[" + ", ".join(_encode_literal(s) for s in operand_srcs) + "]"
+    # Exactness is judged from the claim's inputs, not its collapsed value: every
+    # value-bearing sub-expression is evaluated and checked, so a machine number
+    # hidden inside a Boolean (a predicate, `== True`, a lambda) is still found.
+    probe_srcs = _exactness_probe_sources(claim)
+    probe_srcs_literal = "[" + ", ".join(_encode_literal(s) for s in probe_srcs) + "]"
     code = (
         _sage_prelude()
         + textwrap.dedent(
@@ -309,7 +320,7 @@ async def verify_claim(
         _lhs_src = {lhs_literal}
         _rhs_src = {rhs_literal}
         _op_src = {op_literal}
-        _operand_srcs = {operand_srcs_literal}
+        _probe_srcs = {probe_srcs_literal}
         _nsamples = {int(samples)}
         _prec = {int(precision_bits)}
         # When the claim is a single comparison, evaluate each side EXACTLY ONCE
@@ -392,13 +403,20 @@ async def verify_claim(
             try:
                 _p = _v.parent()
             except AttributeError:
-                return True  # unknown provenance -> qualify, never prove
+                # No parent and not a Python number or container: a function, a
+                # module, a symbolic constant, a string -- none of which is a
+                # machine float. (An inexact NUMBER always has a parent whose
+                # ring answers is_exact(), or is a Python float caught above.)
+                return False
             if _p is SR:
                 return _symbolic_is_inexact(_v)
             try:
                 return not _p.is_exact()
             except Exception:
-                return True
+                # `parent()` did not return a ring with a usable `is_exact()`
+                # (a symbolic function's parent is its own class, for instance).
+                # That is not a machine-number field, so the value is not inexact.
+                return False
         def _domain_holds(_dom, _val):
             # Does a rational sample value lie in a declared domain?
             try:
@@ -451,28 +469,22 @@ async def verify_claim(
                 except Exception:
                     return False
             return True
+        # Exactness is judged from the claim's INPUTS, not its collapsed value: a
+        # Boolean's type says nothing about how it was produced, so
+        # `(...).is_zero()`, `... == True` and `(lambda: ...)()` all hid their
+        # rounding. Evaluate every value-bearing sub-expression and flag any that
+        # is (or contains) a machine number; the inexact leaf is found wherever
+        # it sits. A sub-expression that cannot be evaluated on its own (a
+        # comprehension target, a lambda parameter) is skipped -- it says nothing
+        # about exactness -- rather than qualifying every claim that has one.
         _inexact_operands = False
-        try:
-            if _lhs_src is not None:
-                # A comparison: inspect the retained side values, the very ones
-                # the relation above was built from -- not a second evaluation
-                # of the source.
-                _inexact_operands = _is_inexact(_lhs_v) or _is_inexact(_rhs_v)
-            elif isinstance(_claim, bool):
-                # A bare predicate (no comparison sides). The collapsed Boolean
-                # cannot reveal its provenance, so inspect the predicate's own
-                # operands, read from the source. No operands to check (an opaque
-                # predicate) is itself unestablished provenance -> qualify.
-                if _operand_srcs:
-                    _inexact_operands = any(
-                        _is_inexact(sage_eval(_s, locals=_locals)) for _s in _operand_srcs
-                    )
-                else:
+        for _s in _probe_srcs:
+            try:
+                if _is_inexact(sage_eval(_s, locals=_locals)):
                     _inexact_operands = True
-            elif hasattr(_claim, 'is_relational') and _claim.is_relational():
-                _inexact_operands = _is_inexact(_claim.lhs()) or _is_inexact(_claim.rhs())
-        except Exception:
-            _inexact_operands = True  # cannot establish exactness -> qualify, never prove
+                    break
+            except Exception:
+                continue
         _verdict = None
         _method = None
         _evidence = None

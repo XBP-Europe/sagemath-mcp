@@ -204,11 +204,15 @@ jobs:
           command -v sage
           sage --version
           python - <<'PY'
-          import sage
+          import importlib.metadata
+
           import sagemath_mcp._artifacts as artifacts
 
+          # `import sage` alone does not resolve the lazy `sage.version` under
+          # passagemath's namespace-package layout, so read the distribution
+          # metadata -- the same probe `_artifacts` uses to select the set.
           assert artifacts.IS_PASSAGEMATH, "passagemath artifact set was not selected"
-          print("passagemath", sage.version.version)
+          print("passagemath-standard", importlib.metadata.version("passagemath-standard"))
           PY
       - name: Test suite against passagemath (real worker + corpus sweep)
         # Never export SAGEMATH_MCP_PURE_PYTHON here: an inherited "=1" makes the

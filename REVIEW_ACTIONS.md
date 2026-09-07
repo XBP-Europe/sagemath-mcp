@@ -3902,3 +3902,46 @@ the `^` substring, the Greek segment and the probe hit.
 ### Status
 
 Fixed 2026-09-07; found by an external review at a3c6459. Builds on items 71/73.
+
+## 76. Warm-pool ceiling breaks when the reclaiming request is cancelled — medium — DONE
+
+### What
+
+The round-3 reclamation (item 74) ran the reclaimed worker's shutdown inline in
+the requesting coroutine: `get` did `await self._reclaim_refill(victim, spare)`.
+When that request was cancelled mid-cleanup -- `get("B")` cancelled while the
+worker was still shutting down -- the cleanup died with its waiter, the spare
+was never dropped from `_warm_in_flight`, and the worker stayed alive. A later
+`get("C")` then found the spare still counted but no reclamation making
+progress and started a third worker: three live processes for a ceiling of two.
+
+### Fix
+
+Reclamation is now MANAGER-owned, not waiter-owned, so it survives cancellation
+of whoever asked for it:
+
+- `_start_reclaim(task, spare)` cancels the refill and launches
+  `_reclaim_refill` as a tracked task in `_reclaim_tasks`, returning it.
+- `get` awaits that task through `asyncio.shield`, so a cancelled request stops
+  waiting but the cleanup runs on. Its spare stays in `_warm_in_flight` --
+  counted by admission -- until the process has actually exited.
+- The admission loop reclaims a live refill (`_warm_tasks`) or, when a
+  reclamation already owns the slot, waits on `_reclaim_tasks` rather than
+  overshooting. It loops only while something is reclaimable.
+- `shutdown` awaits `_reclaim_tasks` too, so it never returns over a worker an
+  owned reclamation is still tearing down.
+
+### How to verify
+
+`tests/test_warm_pool.py`, real worker subprocesses:
+`test_cancelling_the_reclaimer_mid_cleanup_does_not_overshoot` cancels `get("B")`
+while the reclaimed worker's shutdown is blocked, then admits `get("C")` and
+asserts C waits for the freed slot (no third worker) and the reclaimed worker
+exits. `test_shutdown_awaits_an_in_flight_reclamation` asserts `shutdown` blocks
+on an in-flight reclamation. 15 warm-pool tests pass; 100% coverage.
+
+### Status
+
+Fixed 2026-09-07; found by an external review at a3c6459. Completes item 74.
+`SAGEMATH_MCP_WARM_POOL_SIZE=0` remains the interim mitigation for conservative
+deployments and is not otherwise needed.

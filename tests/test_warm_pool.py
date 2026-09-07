@@ -10,6 +10,7 @@ so "warm" is fast, but the pool mechanics are the same.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 
 from sagemath_mcp.config import SageSettings
 from sagemath_mcp.session import _WARM_SPARE_ID, SageProcessError, SageSession, SageSessionManager
@@ -263,4 +264,121 @@ async def test_reclaim_awaits_the_worker_exit_before_reusing_the_slot(monkeypatc
         live = [s for s in manager._sessions.values() if s.is_alive()]
         assert len(live) <= 2
     finally:
+        await manager.shutdown()
+
+
+async def test_cancelling_the_reclaimer_mid_cleanup_does_not_overshoot(monkeypatch):
+    """Cancellation of the reclaiming waiter (external review, round 4).
+
+    B triggers reclamation of an in-flight spare and is cancelled while that
+    spare is still shutting down; C then asks for a workspace. Reclamation is
+    manager-owned and its reservation is held (counted) until the process exits,
+    so C waits for the freed slot instead of overshooting the ceiling.
+    """
+    manager = SageSessionManager(_settings(max_sessions=2, warm_pool_size=1))
+    warming = asyncio.Event()
+    shutting = asyncio.Event()
+    release_shutdown = asyncio.Event()
+    real_eval = SageSession.evaluate
+    real_shutdown = SageSession.shutdown
+
+    async def blocking_eval(self, *args, **kwargs):
+        if self.session_id == _WARM_SPARE_ID and not warming.is_set():
+            warming.set()
+            await asyncio.Event().wait()  # hold the refill spare warming until reclaimed
+        return await real_eval(self, *args, **kwargs)
+
+    async def blocking_shutdown(self):
+        if self.session_id == _WARM_SPARE_ID and not release_shutdown.is_set():
+            shutting.set()
+            await release_shutdown.wait()  # hold the reclamation mid-cleanup
+        return await real_shutdown(self)
+
+    try:
+        await manager.warm_up()  # W0 pooled (unpatched, so its warm-up completes)
+        # Patch AFTER warm_up so only the *refill* spare (W1) blocks.
+        monkeypatch.setattr(SageSession, "evaluate", blocking_eval)
+        monkeypatch.setattr(SageSession, "shutdown", blocking_shutdown)
+
+        await manager.get("A")  # adopts W0, schedules W1 (its warm eval blocks)
+        await asyncio.wait_for(warming.wait(), 3)
+        assert len(manager._warm_in_flight) == 1
+        w1 = next(iter(manager._warm_in_flight))
+
+        # B reclaims W1; cancel B while W1's shutdown (the cleanup) is blocked.
+        b = asyncio.create_task(manager.get("B"))
+        await asyncio.wait_for(shutting.wait(), 3)
+        b.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await b
+
+        # C must wait for the manager-owned reclamation, not start a third worker.
+        c = asyncio.create_task(manager.get("C"))
+        await asyncio.sleep(0.1)
+        assert not c.done(), "C proceeded before the reclaimed worker's slot was freed"
+        release_shutdown.set()
+        await asyncio.wait_for(c, 5)
+
+        assert not w1.is_alive(), "the reclaimed worker survived a cancelled reclaimer"
+        assert not manager._warm_in_flight
+        live = [s for s in manager._sessions.values() if s.is_alive()]
+        assert len(live) <= 2, f"overshoot: {len(live)} live workers for a ceiling of 2"
+    finally:
+        release_shutdown.set()
+        await manager.shutdown()
+
+
+async def test_shutdown_awaits_an_in_flight_reclamation(monkeypatch):
+    """Shutdown must not return while a manager-owned reclamation is still tearing
+    a worker down (external review, round 4).
+
+    A refill's reclaimer is cancelled mid-cleanup, leaving the shutdown of its
+    worker owned by ``_reclaim_tasks``. ``manager.shutdown()`` has to await that
+    cleanup so it does not return over a still-live worker.
+    """
+    manager = SageSessionManager(_settings(max_sessions=2, warm_pool_size=1))
+    warming = asyncio.Event()
+    shutting = asyncio.Event()
+    release_shutdown = asyncio.Event()
+    real_eval = SageSession.evaluate
+    real_shutdown = SageSession.shutdown
+
+    async def blocking_eval(self, *args, **kwargs):
+        if self.session_id == _WARM_SPARE_ID and not warming.is_set():
+            warming.set()
+            await asyncio.Event().wait()
+        return await real_eval(self, *args, **kwargs)
+
+    async def blocking_shutdown(self):
+        if self.session_id == _WARM_SPARE_ID and not release_shutdown.is_set():
+            shutting.set()
+            await release_shutdown.wait()
+        return await real_shutdown(self)
+
+    try:
+        await manager.warm_up()
+        monkeypatch.setattr(SageSession, "evaluate", blocking_eval)
+        monkeypatch.setattr(SageSession, "shutdown", blocking_shutdown)
+
+        await manager.get("A")  # schedules the refill whose warm eval blocks
+        await asyncio.wait_for(warming.wait(), 3)
+        w1 = next(iter(manager._warm_in_flight))
+
+        b = asyncio.create_task(manager.get("B"))  # reclaims the refill
+        await asyncio.wait_for(shutting.wait(), 3)
+        b.cancel()  # reclamation becomes manager-owned, still mid-cleanup
+        with contextlib.suppress(asyncio.CancelledError):
+            await b
+        assert manager._reclaim_tasks
+
+        sd = asyncio.create_task(manager.shutdown())
+        await asyncio.sleep(0.1)
+        assert not sd.done(), "shutdown returned while a reclamation was still in flight"
+        release_shutdown.set()
+        await asyncio.wait_for(sd, 5)
+
+        assert not w1.is_alive()
+        assert not manager._reclaim_tasks
+    finally:
+        release_shutdown.set()
         await manager.shutdown()

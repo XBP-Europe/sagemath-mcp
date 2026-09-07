@@ -9,6 +9,17 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Optional HTTP bearer-token authentication (opt-in).** Set
+  `SAGEMATH_MCP_HTTP_AUTH_TOKEN=<secret>` and every MCP request over the HTTP
+  transports must carry `Authorization: Bearer <secret>`; the `/health` and
+  `/ready` probes stay open for load balancers. The token is compared in constant
+  time (`secrets.compare_digest`) and never logged. No-auth stays the deliberate
+  default — the container is the boundary, keep it on loopback (`SECURITY.md`) —
+  and the server now logs a loud warning when it binds a non-loopback host with
+  no token set, so the Dockerfile's container-internal `--host 0.0.0.0` is an
+  explicit, noted choice. It is a single shared secret (an API key, not an OAuth
+  server) that guards the transport, not a replacement for the container or TLS.
+  See `src/sagemath_mcp/auth.py` and `tests/test_auth.py`.
 - **passagemath CI lane and pin smoke gate.** A `passagemath` job in `ci.yml`
   cold-installs the exact `passagemath-standard==10.8.9` pin (no Docker, ~1 min)
   and runs the whole test suite against it — the real worker, the artifact-drift

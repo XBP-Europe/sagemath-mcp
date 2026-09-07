@@ -40,8 +40,19 @@ even if you cannot yet build a payload from it.
 The practical consequence: **run the container, and do not expose the port.**
 Defaults are loopback throughout — stdio transport, `--host 127.0.0.1`, the
 compose file publishing to `127.0.0.1:8314`, a `ClusterIP` service — because
-there is **no authentication**, which is normal for a locally-run MCP server and
-is why it must stay local unless you put something authenticating in front.
+there is **no authentication by default**, which is normal for a locally-run MCP
+server and is why it must stay local unless you put something authenticating in
+front.
+
+**Optional bearer-token auth (opt-in).** For anyone who does front the HTTP
+endpoint, setting `SAGEMATH_MCP_HTTP_AUTH_TOKEN=<secret>` requires every MCP
+request to carry `Authorization: Bearer <secret>`, compared in constant time and
+never logged; the `/health` and `/ready` probes stay open for load balancers. It
+is a single shared secret — an API key, not an OAuth server, with no rotation,
+scopes or per-user identity — and it guards the **transport**, not the process:
+it does not replace the container boundary or TLS, which a real deployment still
+fronts. It is off unless set, and the server logs a warning when it binds a
+non-loopback host with no token.
 
 **Workspace handles are bearer credentials, not authentication.** A
 `workspace_token` from `start_sage_session` grants access to that one workspace
@@ -141,7 +152,8 @@ crosses a trust boundary.
   not outbound access.
 - Authentication, TLS, tenant authorization and audit retention are supplied by
   the surrounding platform when this becomes a shared or remotely reachable
-  service.
+  service. The optional `SAGEMATH_MCP_HTTP_AUTH_TOKEN` bearer token is a single
+  shared secret for the transport, not a substitute for that platform.
 - The documented image and Sage version are used. A Sage upgrade can add new
   helpers or change namespace provenance and must rerun the full security and
   integration suites before release.

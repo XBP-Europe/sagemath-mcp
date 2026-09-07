@@ -10,6 +10,7 @@ def _clear_env(monkeypatch):
         "SAGEMATH_MCP_SHUTDOWN_GRACE",
         "SAGEMATH_MCP_MAX_STDOUT",
         "SAGEMATH_MCP_FORCE_PYTHON_WORKER",
+        "SAGEMATH_MCP_HTTP_AUTH_TOKEN",
     ]:
         monkeypatch.delenv(key, raising=False)
 
@@ -48,3 +49,24 @@ def test_bool_flag_parsing(monkeypatch, raw_value, expected):
     monkeypatch.setenv("SAGEMATH_MCP_FORCE_PYTHON_WORKER", raw_value)
     settings = SageSettings.from_env()
     assert settings.force_python_worker is expected
+
+
+def test_http_auth_token_defaults_to_none(monkeypatch):
+    """Unset -> no token -> the HTTP endpoint is unauthenticated by default."""
+    _clear_env(monkeypatch)
+    assert SageSettings.from_env().http_auth_token is None
+
+
+@pytest.mark.parametrize("blank", ["", "   ", "\t\n"])
+def test_http_auth_token_blank_reads_as_unset(monkeypatch, blank):
+    """A bare `SAGEMATH_MCP_HTTP_AUTH_TOKEN=` must not enable auth with no secret."""
+    _clear_env(monkeypatch)
+    monkeypatch.setenv("SAGEMATH_MCP_HTTP_AUTH_TOKEN", blank)
+    assert SageSettings.from_env().http_auth_token is None
+
+
+def test_http_auth_token_is_taken_verbatim(monkeypatch):
+    """A configured token is used exactly, not stripped -- it is opaque bytes."""
+    _clear_env(monkeypatch)
+    monkeypatch.setenv("SAGEMATH_MCP_HTTP_AUTH_TOKEN", "  s3cret-token  ")
+    assert SageSettings.from_env().http_auth_token == "  s3cret-token  "

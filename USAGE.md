@@ -43,10 +43,30 @@ sage -python -m uv run sagemath-mcp --transport streamable-http --host 0.0.0.0 -
 ```
 > `--host 0.0.0.0` is correct **inside a container**, where it means "listen on
 > the container's interfaces" and the published port decides who can reach it.
-> Do not use it on a host: the server evaluates code and has no authentication,
-> so binding every interface exposes an unauthenticated evaluator to the network.
-> The bundled compose file publishes to `127.0.0.1` for the same reason.
+> Do not use it on a host: the server evaluates code and has no authentication
+> by default, so binding every interface exposes an unauthenticated evaluator to
+> the network. The bundled compose file publishes to `127.0.0.1` for the same
+> reason.
 The server advertises its MCP endpoint at `http://HOST:PORT/mcp`.
+
+#### Optional bearer-token authentication
+
+No auth is the deliberate default (the container is the boundary — see
+[SECURITY.md](SECURITY.md)). If you front the HTTP endpoint on a network, set a
+shared secret and every MCP request must then present it:
+
+```bash
+export SAGEMATH_MCP_HTTP_AUTH_TOKEN="$(openssl rand -hex 32)"
+uv run sagemath-mcp --transport streamable-http --host 0.0.0.0 --port 8314
+# clients send:  Authorization: Bearer <that token>
+```
+
+The token is compared in constant time and never logged. The `/health` and
+`/ready` probes stay open so a load balancer can reach them. It is a single
+shared secret — an API key, not an OAuth server, and not a substitute for the
+container boundary or TLS. Leave `SAGEMATH_MCP_HTTP_AUTH_TOKEN` unset to keep the
+endpoint open; the server logs a warning if it binds a non-loopback host with no
+token.
 
 ## Available Tools & Resources (40 tools, 3 resources)
 

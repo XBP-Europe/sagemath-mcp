@@ -373,5 +373,29 @@ async def test_verify_claim_ladder_against_real_sage(monkeypatch):
         # The same claim without the assumption is refuted at a negative sample.
         unrestricted = await server.verify_claim("abs(x) == x", ctx=ctx)
         assert unrestricted.verdict == "refuted"
+
+        # External-review round 2, defect 1: exactness is a prerequisite for a
+        # proof and it recurses. Wrapping an approximate value in a list or in
+        # the symbolic ring does not make it exact, so neither may be 'proved'.
+        boxed = await server.verify_claim("[RR(1) + RR(1)/10^20] == [RR(1)]", ctx=ctx)
+        assert boxed.verdict == "supported"
+        assert boxed.method == "float_comparison"
+        wrapped = await server.verify_claim("SR(RR(1) + RR(1)/10^20) == 1", ctx=ctx)
+        assert wrapped.verdict == "supported"
+        assert wrapped.method == "float_comparison"
+        # A symbolic expression built only from exact constants stays exact.
+        assert (await server.verify_claim("SR(1/2) == 1/2", ctx=ctx)).verdict == "proved"
+        assert (await server.verify_claim("cos(pi) == -1", ctx=ctx)).verdict == "proved"
+
+        # External-review round 2, defect 2: the algebraic branch must not
+        # conceal the assumption it leaned on. sin(pi*x) != 1 is decided exactly
+        # over the algebraic numbers, but only because x is an integer -- the
+        # verdict now carries that, in a structured field and in the evidence.
+        await server.evaluate_sage("assume(x, 'integer')", ctx=ctx, session="algdom")
+        alg = await server.verify_claim("sin(pi*x) != 1", ctx=ctx, session="algdom")
+        assert alg.verdict == "proved"
+        assert alg.method == "exact_algebraic"
+        assert "x is integer" in alg.assumptions
+        assert "integer" in (alg.evidence or "")
     finally:
         await manager.shutdown()

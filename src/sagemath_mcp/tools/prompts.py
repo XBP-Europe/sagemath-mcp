@@ -40,10 +40,16 @@ def prove_and_verify(
 ) -> str:
     return (
         "Establish the following claim. Show the key steps of the argument, then "
-        "confirm it independently by calling the `verify_claim` tool with the exact "
-        "claim string. Treat `verify_claim`'s answer as the arbiter: if it does not "
-        "return `proved`, your argument is suspect -- reconcile the difference "
-        "before you answer, and never present an unverified identity as established.\n\n"
+        "check it independently by calling the `verify_claim` tool with the exact "
+        "claim string, and read its verdict honestly:\n"
+        "- `proved` or `refuted` is an exact decision -- if it is `refuted`, your "
+        "argument is wrong; reconcile it before you answer.\n"
+        "- `supported` means the evidence is consistent with the claim but does not "
+        "prove it, and `undecided` means the tool could not settle it. Neither is "
+        "evidence that your argument is wrong -- an inconclusive CAS result is not a "
+        "refutation. Say what was and was not established (for a `float_comparison` "
+        "result, restate the claim over exact numbers for a decisive check), and do "
+        "not present an unproven identity as established.\n\n"
         f"Claim: {claim}"
     )
 

@@ -3679,3 +3679,55 @@ helper maps `wsk_…` to `the workspace` and a name to itself.
 Fixed 2026-09-07; found by an external review (REVIEW_ACTIONS-style) at cc4a8ae.
 Note: reset/cancel do not revoke the token -- it stays valid, by design; this is
 about keeping it out of logs, not rotating it.
+
+## 71. Verifier: exactness not enforced on every path; assumptions concealed — high — DONE
+
+### What
+
+Two soundness gaps in `verify_claim` (`tools/verify.py`).
+
+*Exactness (defect 1).* `_is_inexact` established exactness only for scalar
+operands and exempted the symbolic ring, and the check gated only the Boolean
+path -- the symbolic/exact rungs ran regardless. So an approximate value
+wrapped in a container or in `SR` was proved:
+`[RR(1)+RR(1)/10^20] == [RR(1)]` → proved/exact_comparison, and
+`SR(RR(1)+RR(1)/10^20) == 1` → proved/symbolic_prover. The operand inspection
+also failed *open* on exception (treated as exact).
+
+*Assumptions (defect 2).* Under `assume(x, 'integer')`, `sin(pi*x) != 1` was
+`proved/exact_algebraic` with no mention of the integer assumption -- the
+algebraic branch omitted the assumptions note. Without the assumption the claim
+fails at x = 1/2. And the `prove_and_verify` prompt called any non-`proved`
+result "suspect", conflating an inconclusive CAS result with a refutation.
+
+### Fix
+
+- `_is_inexact` recurses into lists/tuples/sets/dicts and, for symbolic
+  expressions, walks the tree flagging any leaf carrying a machine number
+  (a `RealNumber`/float), while treating symbolic constants (`pi`, `e`) and
+  exact rationals/integers as exact.
+- Exactness is now a prerequisite for *every* proof path: if the operands are
+  inexact (or their exactness cannot be established -- the check fails *closed*),
+  the verdict is `supported`/`undecided` via `float_comparison`, never
+  proved/refuted. Operand inexactness is read from the claim's own `lhs()`/
+  `rhs()` where possible, not a second evaluation of the source.
+- Assumptions are attached centrally (a structured `assumptions` field on
+  `VerifyClaimResult`, and appended to the evidence once) so no branch can omit
+  them.
+- The `prove_and_verify` prompt now distinguishes `refuted` (argument is wrong)
+  from `supported`/`undecided` (inconclusive, not a refutation).
+
+### How to verify
+
+`tests/test_verify.py::test_verify_claim_ladder_against_real_sage`, against real
+Sage: the boxed and `SR(...)`-wrapped inexact claims are `supported/
+float_comparison`; `SR(1/2) == 1/2` and `cos(pi) == -1` stay `proved`;
+`sin(pi*x) != 1` under `assume(x,'integer')` is `proved/exact_algebraic` with
+`"x is integer"` in `.assumptions` and "integer" in the evidence. 34 verify
+tests pass; the exact rungs (symbolic_prover, exact_difference, exact_algebraic,
+certified_interval) are unchanged for exact operands.
+
+### Status
+
+Fixed 2026-09-07; found by an external review at cc4a8ae. Builds on items 65/68
+(the first-round float and integer-domain fixes).

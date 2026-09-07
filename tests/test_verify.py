@@ -128,16 +128,26 @@ async def test_verify_claim_reads_decimal_literals_exactly(claim, expected, monk
 
 
 def test_comparison_sides_splits_a_single_comparison():
-    from sagemath_mcp.tools.verify import _comparison_sides
+    from sagemath_mcp.tools.verify import _comparison_sides, _predicate_operand_sources
 
-    assert _comparison_sides("RR(1) == RR(2)") == ("RR(1)", "RR(2)")
-    # The equation spelling is normalized before splitting.
-    lhs, rhs = _comparison_sides("x^2 - 1 = 0")
-    assert lhs.replace(" ", "") == "x^2-1" and rhs == "0"
-    # A bare predicate has no comparison sides.
-    assert _comparison_sides("is_prime(7)") == (None, None)
+    assert _comparison_sides("RR(1) == RR(2)") == ("RR(1)", "RR(2)", "==")
+    # The equation spelling is normalized before splitting, and the sides keep
+    # their ORIGINAL text -- `^` must not round-trip through the Python AST
+    # (bit-xor precedence would turn `x^2 - 1` into `x^(2 - 1)`).
+    lhs, rhs, op = _comparison_sides("x^2 - 1 = 0")
+    assert lhs.replace(" ", "") == "x^2-1" and rhs == "0" and op == "=="
+    assert _comparison_sides("e^pi != pi^e") == ("e^pi", "pi^e", "!=")
+    # A bare predicate has no comparison sides; its operands are read instead.
+    assert _comparison_sides("is_prime(7)") == (None, None, None)
+    assert _predicate_operand_sources("is_prime(7)") == ["7"]
+    assert _predicate_operand_sources("(RR(1)+RR(1)/10^20).is_zero()") == [
+        "RR(1)+RR(1)/10^20"
+    ]
+    # A comparison whose operator is not one of the six ordering/equality ops
+    # (membership, identity) has no proof-grade sides: whole-claim evaluation.
+    assert _comparison_sides("x in (1, 2, 3)") == (None, None, None)
     # Sage-only syntax that does not parse: no sides, falls back to whole-claim.
-    assert _comparison_sides("R.<a> = QQ[]") == (None, None)
+    assert _comparison_sides("R.<a> = QQ[]") == (None, None, None)
 
 
 async def test_verify_claim_accepts_the_equation_spelling(monkeypatch):
@@ -397,5 +407,21 @@ async def test_verify_claim_ladder_against_real_sage(monkeypatch):
         assert alg.method == "exact_algebraic"
         assert "x is integer" in alg.assumptions
         assert "integer" in (alg.evidence or "")
+
+        # External-review round 3: two more paths that mistook a rounded result
+        # for exact evidence. A dict with an inexact KEY (not just values), and a
+        # bare predicate whose collapsed Boolean hid its inexact input.
+        dict_key = await server.verify_claim("{RR(1)+RR(1)/10^20: 0} == {RR(1): 0}", ctx=ctx)
+        assert dict_key.verdict == "supported"
+        assert dict_key.method == "float_comparison"
+        predicate = await server.verify_claim("(RR(1)+RR(1)/10^20-RR(1)).is_zero()", ctx=ctx)
+        assert predicate.verdict == "supported"
+        assert predicate.method == "float_comparison"
+        # Exact bare predicates are still decided, and the `^`-precedence trap of
+        # rebuilding a comparison from its parsed sides does not corrupt a true
+        # identity into a refutation.
+        assert (await server.verify_claim("is_prime(7)", ctx=ctx)).verdict == "proved"
+        power = await server.verify_claim("x^2 - 2*x + 1 = (x - 1)^2", ctx=ctx)
+        assert power.verdict == "proved"
     finally:
         await manager.shutdown()

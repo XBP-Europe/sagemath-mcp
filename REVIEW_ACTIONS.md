@@ -3774,3 +3774,44 @@ alive). Both use the pure-Python worker.
 
 Fixed 2026-09-07; found by an external review at cc4a8ae. `SAGEMATH_MCP_WARM_POOL_SIZE=0`
 was the interim mitigation and is no longer needed.
+
+## 73. Verifier: dict keys and bare predicates still earned exact verdicts — high — DONE
+
+### What
+
+Two proof paths still returned `proved/exact_comparison` for rounded results
+(external review, round 3):
+
+- **Dict keys.** `_is_inexact` recursed into a dict's values but not its keys,
+  so `{RR(1)+RR(1)/10^20: 0} == {RR(1): 0}` was proved exact.
+- **Bare predicates.** A claim with no top-level comparison
+  (`(RR(1)+RR(1)/10^20-RR(1)).is_zero()`) has no sides to inspect; operand
+  inspection never ran, and the resulting Boolean took the exact path.
+
+The comparison path also re-evaluated the operand *source* after evaluating the
+whole claim, rather than checking the values the comparison actually used.
+
+### Fix
+
+- `_is_inexact` now checks dict keys and values.
+- `_comparison_sides` returns the operator and slices the operands' ORIGINAL
+  substrings (not `ast.unparse`, whose bit-xor precedence would turn `x^2 - 1`
+  into `x^(2 - 1)`); the generated code evaluates each side ONCE, checks the
+  retained values' exactness, and builds the relation from them.
+- `_predicate_operand_sources` extracts a bare predicate's receiver and
+  arguments from the source; the generated code checks their exactness, and a
+  predicate whose inputs cannot be established is qualified, not proved.
+
+### How to verify
+
+`tests/test_verify.py`, real Sage: the dict-key and `is_zero()` claims are
+`supported/float_comparison`; `is_prime(7)` stays `proved`; and
+`x^2 - 2*x + 1 = (x - 1)^2` stays `proved/symbolic_prover` (the precedence trap
+would have refuted it). 34 verify tests pass; `_comparison_sides` /
+`_predicate_operand_sources` unit tests cover the operator, the `^` substring,
+and the membership/identity fall-through.
+
+### Status
+
+Fixed 2026-09-07; found by an external review at 356d520. Builds on items 71
+(round 2) and 65/68.

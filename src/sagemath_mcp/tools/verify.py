@@ -102,26 +102,80 @@ def _exact_decimal_literals(claim: str) -> str:
     return rewritten
 
 
-def _comparison_sides(claim: str) -> tuple[str | None, str | None]:
-    """The two operands of the claim's single top-level comparison.
+_AST_COMPARE_OPS = {
+    ast.Eq: "==",
+    ast.NotEq: "!=",
+    ast.Lt: "<",
+    ast.LtE: "<=",
+    ast.Gt: ">",
+    ast.GtE: ">=",
+}
 
-    Returned as source strings so the generated code can evaluate each side on
-    its own and inspect its exactness -- which the collapsed Boolean has already
-    thrown away. `RR(1) + RR(1)/10^20 == RR(1)` evaluates to True by
-    floating-point rounding, and without the operands the ladder called that an
-    exact proof; with them it can see both sides live in an inexact field and
-    refuse the exact verdict. Only a single comparison is handled (the
-    truth-assembly gate guarantees there is at most one); a bare predicate like
-    `is_prime(7)` has no sides and is left to whole-claim evaluation.
+
+def _comparison_sides(claim: str) -> tuple[str | None, str | None, str | None]:
+    """The two operands and operator of the claim's single top-level comparison.
+
+    Returned as source strings so the generated code can evaluate each side
+    *once*, inspect its exactness, and build the comparison from those retained
+    values -- rather than re-evaluating the source after the collapsed Boolean
+    has already thrown the operands away. `RR(1) + RR(1)/10^20 == RR(1)`
+    evaluates to True by floating-point rounding; with the sides the ladder sees
+    both live in an inexact field and refuses the exact verdict. Only a single
+    comparison is handled (the truth-assembly gate guarantees at most one); a
+    bare predicate like `is_prime(7)` has no sides and is left to whole-claim
+    evaluation (its inputs are inspected via `_predicate_operand_sources`).
     """
     candidate = _EQUALS_NOT_COMPARISON.sub("==", claim)
     try:
         node = ast.parse(candidate, mode="eval").body
     except SyntaxError:
-        return (None, None)
+        return (None, None, None)
     if isinstance(node, ast.Compare) and len(node.ops) == 1:
-        return (ast.unparse(node.left), ast.unparse(node.comparators[0]))
-    return (None, None)
+        op = _AST_COMPARE_OPS.get(type(node.ops[0]))
+        if op is not None:
+            # Slice the ORIGINAL substrings, never ast.unparse: `^` is Python
+            # bit-xor (looser than +/-/*), so unparsing `x^2 - 2*x + 1` yields
+            # `x ^ (2 - 2*x + 1)` -- the wrong expression once Sage's preparser
+            # reads `^` as a power. The claim is whitespace-folded to one line,
+            # so column offsets index it directly.
+            return (
+                candidate[node.left.col_offset : node.left.end_col_offset],
+                candidate[node.comparators[0].col_offset : node.comparators[0].end_col_offset],
+                op,
+            )
+    return (None, None, None)
+
+
+def _predicate_operand_sources(claim: str) -> list[str]:
+    """Operand sources for a claim that is *not* a top-level comparison.
+
+    A bare predicate collapses to a Boolean that cannot reveal its own
+    provenance -- `(RR(1)+RR(1)/10^20-RR(1)).is_zero()` returns True by rounding,
+    with no comparison sides for the ladder to inspect, so it was proved exact.
+    The exactness check reads the predicate's inputs from the source instead: the
+    receiver and arguments of a top-level call (`X.is_zero()` -> `[X]`,
+    `is_prime(n)` -> `[n]`), otherwise the whole expression. Empty when the claim
+    IS a comparison -- that path already inspects its two sides.
+    """
+    candidate = _EQUALS_NOT_COMPARISON.sub("==", claim)
+    try:
+        node = ast.parse(candidate, mode="eval").body
+    except SyntaxError:
+        return []
+    def _src(sub: ast.AST) -> str:
+        # Original substring, not ast.unparse -- see _comparison_sides on why `^`
+        # cannot survive a round-trip through the Python AST.
+        return candidate[sub.col_offset : sub.end_col_offset]
+
+    if isinstance(node, ast.Compare):
+        return []
+    if isinstance(node, ast.Call):
+        sources: list[str] = []
+        if isinstance(node.func, ast.Attribute):
+            sources.append(_src(node.func.value))
+        sources.extend(_src(a) for a in node.args if not isinstance(a, ast.Starred))
+        return sources or [_src(node)]
+    return [_src(node)]
 
 
 def _reject_truth_assembly(claim: str) -> None:
@@ -237,10 +291,16 @@ async def verify_claim(
         # judging anything other than the final text is how item 55 happened.
         claim = _validated_expression(rewritten)
     _reject_truth_assembly(claim)
-    lhs_src, rhs_src = _comparison_sides(claim)
+    lhs_src, rhs_src, op_src = _comparison_sides(claim)
     have_sides = lhs_src is not None and rhs_src is not None
     lhs_literal = _encode_literal(lhs_src) if have_sides else "None"
     rhs_literal = _encode_literal(rhs_src) if have_sides else "None"
+    op_literal = _encode_literal(op_src) if have_sides else "None"
+    # For a bare predicate (no top-level comparison), the values to check for
+    # exactness are the predicate's own operands, read from the source -- the
+    # collapsed Boolean cannot reveal them. Encoded as literals like the sides.
+    operand_srcs = _predicate_operand_sources(claim)
+    operand_srcs_literal = "[" + ", ".join(_encode_literal(s) for s in operand_srcs) + "]"
     code = (
         _sage_prelude()
         + textwrap.dedent(
@@ -248,16 +308,40 @@ async def verify_claim(
         _text = {_encode_literal(claim)}
         _lhs_src = {lhs_literal}
         _rhs_src = {rhs_literal}
+        _op_src = {op_literal}
+        _operand_srcs = {operand_srcs_literal}
         _nsamples = {int(samples)}
         _prec = {int(precision_bits)}
-        try:
-            _claim = sage_eval(_text, locals=_locals)
-        except SyntaxError:
-            _sides = _text.split('=')
-            if len(_sides) != 2:
-                raise
-            _claim = (sage_eval(_sides[0].strip(), locals=_locals)
-                      == sage_eval(_sides[1].strip(), locals=_locals))
+        # When the claim is a single comparison, evaluate each side EXACTLY ONCE
+        # and build the relation from those retained values -- so the exactness
+        # check below inspects the very values the comparison used, not a second
+        # evaluation of the source (which a non-deterministic function could make
+        # disagree). Bare predicates have no sides and are evaluated whole.
+        _lhs_v = _rhs_v = None
+        if _lhs_src is not None:
+            _lhs_v = sage_eval(_lhs_src, locals=_locals)
+            _rhs_v = sage_eval(_rhs_src, locals=_locals)
+            if _op_src == '==':
+                _claim = (_lhs_v == _rhs_v)
+            elif _op_src == '!=':
+                _claim = (_lhs_v != _rhs_v)
+            elif _op_src == '<':
+                _claim = (_lhs_v < _rhs_v)
+            elif _op_src == '<=':
+                _claim = (_lhs_v <= _rhs_v)
+            elif _op_src == '>':
+                _claim = (_lhs_v > _rhs_v)
+            else:
+                _claim = (_lhs_v >= _rhs_v)
+        else:
+            try:
+                _claim = sage_eval(_text, locals=_locals)
+            except SyntaxError:
+                _sides = _text.split('=')
+                if len(_sides) != 2:
+                    raise
+                _claim = (sage_eval(_sides[0].strip(), locals=_locals)
+                          == sage_eval(_sides[1].strip(), locals=_locals))
         def _symbolic_is_inexact(_e):
             # A symbolic expression is exact only if every numeric constant in it
             # is exact. Walk the tree; a leaf that wraps a machine number
@@ -299,7 +383,12 @@ async def verify_claim(
             if isinstance(_v, (list, tuple, set, frozenset)):
                 return any(_is_inexact(_e) for _e in _v)
             if isinstance(_v, dict):
-                return any(_is_inexact(_e) for _e in _v.values())
+                # Keys take part in equality too -- a dict with an inexact key
+                # and an exact value must still count -- so check both, not just
+                # values.
+                return any(_is_inexact(_e) for _e in _v.keys()) or any(
+                    _is_inexact(_e) for _e in _v.values()
+                )
             try:
                 _p = _v.parent()
             except AttributeError:
@@ -364,16 +453,24 @@ async def verify_claim(
             return True
         _inexact_operands = False
         try:
-            if hasattr(_claim, 'is_relational') and _claim.is_relational():
-                # Inspect the claim's OWN operands, not a second evaluation of
-                # the source: a function that returns different values on two
-                # calls could otherwise be judged exact and run exact.
+            if _lhs_src is not None:
+                # A comparison: inspect the retained side values, the very ones
+                # the relation above was built from -- not a second evaluation
+                # of the source.
+                _inexact_operands = _is_inexact(_lhs_v) or _is_inexact(_rhs_v)
+            elif isinstance(_claim, bool):
+                # A bare predicate (no comparison sides). The collapsed Boolean
+                # cannot reveal its provenance, so inspect the predicate's own
+                # operands, read from the source. No operands to check (an opaque
+                # predicate) is itself unestablished provenance -> qualify.
+                if _operand_srcs:
+                    _inexact_operands = any(
+                        _is_inexact(sage_eval(_s, locals=_locals)) for _s in _operand_srcs
+                    )
+                else:
+                    _inexact_operands = True
+            elif hasattr(_claim, 'is_relational') and _claim.is_relational():
                 _inexact_operands = _is_inexact(_claim.lhs()) or _is_inexact(_claim.rhs())
-            elif isinstance(_claim, bool) and _lhs_src is not None:
-                _inexact_operands = (
-                    _is_inexact(sage_eval(_lhs_src, locals=_locals))
-                    or _is_inexact(sage_eval(_rhs_src, locals=_locals))
-                )
         except Exception:
             _inexact_operands = True  # cannot establish exactness -> qualify, never prove
         _verdict = None

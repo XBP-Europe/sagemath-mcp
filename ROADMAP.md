@@ -198,17 +198,21 @@ documentation rather than surface:
       counterexample can no longer fall outside a stated domain (`x != 1/2` under
       `assume(x, 'integer')` is not refuted at 1/2). Assumptions are named in the
       evidence of any verdict that relied on them.
-- [ ] **Outcome benchmarks.** Axiom publishes GSM8K / MATH accuracy deltas;
-      this project's doctest corpus sweep proves the guardrails do not refuse
-      mathematics, which is a different claim from "models get more answers
-      right with these tools". The machinery is already here:
-      `tests/cli_integration` drives Claude, Gemini and Codex against the live
-      server with per-case validation. Add a benchmark case set (a fixed-seed
-      subset of the MIT-licensed GSM8K and MATH datasets) and a no-tools control
-      mode in the runner, emit the with/without scores to a stats file the way
-      the corpus sweep writes `doctest-corpus-stats.md`, and publish the deltas
-      in the README. Runs where the CLI nightlies run — never CI-gated, because
-      the number measures the client model as much as the server.
+- [x] **Outcome benchmarks.** *Done, 2026-09-07.* `benchmarks/` — a fixed,
+      seeded case set (`cases.json`, 24 problems across five difficulty tiers,
+      every gold answer verified in the Sage container) and a Workflow
+      (`outcome_benchmark.workflow.js`) that runs it through the model twice,
+      reasoning-only vs. with Sage compute, and scores every answer for
+      mathematical equivalence in Sage by an independent step. Published to
+      `benchmark-stats.md` and the README the way the corpus sweep writes
+      `doctest-corpus-stats.md`. First run (subject `haiku`): **17/24 → 24/24**,
+      the whole +7 in the compute-heavy/infeasible tiers, including one
+      reasoning-only answer that was *confidently wrong* — the failure mode the
+      server addresses. Never CI-gated: the number measures the model as much as
+      the server. Follow-up remains to fold the fixed case set + a no-tools
+      control into `tests/cli_integration` for the rigorous three-arm
+      (no-tools / `evaluate_sage`-only / full-catalogue) version under the CLI
+      nightlies, where real tool-gating and per-client keys live.
 - [ ] **Passagemath runtime for install footprint.** "Where this project is
       behind" item 4 above. **Evaluated 2026-09-06**
       ([docs/passagemath_evaluation.md](docs/passagemath_evaluation.md), verified

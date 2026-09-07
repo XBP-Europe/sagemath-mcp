@@ -1,0 +1,645 @@
+{
+ "tiers": [
+  "arithmetic",
+  "competition",
+  "advanced",
+  "compute-heavy",
+  "infeasible"
+ ],
+ "arms": [
+  "no_tools",
+  "sage"
+ ],
+ "subjectModel": "haiku",
+ "judgeModel": "sonnet",
+ "perProblem": [
+  {
+   "id": "A1",
+   "tier": "arithmetic",
+   "arm": "no_tools",
+   "answer": "6.80",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 0,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "A2",
+   "tier": "arithmetic",
+   "arm": "no_tools",
+   "answer": "213",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 0,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "A3",
+   "tier": "arithmetic",
+   "arm": "no_tools",
+   "answer": "390",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 0,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "A4",
+   "tier": "arithmetic",
+   "arm": "no_tools",
+   "answer": "15",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 0,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "A1",
+   "tier": "arithmetic",
+   "arm": "sage",
+   "answer": "34/5",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 1,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "A2",
+   "tier": "arithmetic",
+   "arm": "sage",
+   "answer": "213",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 1,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "A3",
+   "tier": "arithmetic",
+   "arm": "sage",
+   "answer": "390",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 1,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "A4",
+   "tier": "arithmetic",
+   "arm": "sage",
+   "answer": "15",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 1,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "B1",
+   "tier": "competition",
+   "arm": "no_tools",
+   "answer": "1170",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 0,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "B2",
+   "tier": "competition",
+   "arm": "no_tools",
+   "answer": "9",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 0,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "B3",
+   "tier": "competition",
+   "arm": "no_tools",
+   "answer": "792",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 0,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "B4",
+   "tier": "competition",
+   "arm": "no_tools",
+   "answer": "e - 2",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 0,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "B5",
+   "tier": "competition",
+   "arm": "no_tools",
+   "answer": "200",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 0,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "B1",
+   "tier": "competition",
+   "arm": "sage",
+   "answer": "1170",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 1,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "B2",
+   "tier": "competition",
+   "arm": "sage",
+   "answer": "9",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 1,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "B3",
+   "tier": "competition",
+   "arm": "sage",
+   "answer": "792",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 1,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "B4",
+   "tier": "competition",
+   "arm": "sage",
+   "answer": "e - 2",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 1,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "B5",
+   "tier": "competition",
+   "arm": "sage",
+   "answer": "200",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 1,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "C1",
+   "tier": "advanced",
+   "arm": "no_tools",
+   "answer": "{2, 2-\u221a2, 2+\u221a2}",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 0,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "C2",
+   "tier": "advanced",
+   "arm": "no_tools",
+   "answer": "\u03c0\u2074/90",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 0,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "C3",
+   "tier": "advanced",
+   "arm": "no_tools",
+   "answer": "(x-2)(x-1)(x+1)(x+2)",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 0,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "C4",
+   "tier": "advanced",
+   "arm": "no_tools",
+   "answer": "1229",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 0,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "C5",
+   "tier": "advanced",
+   "arm": "no_tools",
+   "answer": "{1, 2, 3}",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 0,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "C1",
+   "tier": "advanced",
+   "arm": "sage",
+   "answer": "[2, 2 - sqrt(2), 2 + sqrt(2)]",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 3,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "C2",
+   "tier": "advanced",
+   "arm": "sage",
+   "answer": "pi^4/90",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 1,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "C3",
+   "tier": "advanced",
+   "arm": "sage",
+   "answer": "(x - 2)*(x - 1)*(x + 1)*(x + 2)",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 1,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "C4",
+   "tier": "advanced",
+   "arm": "sage",
+   "answer": "1229",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 1,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "C5",
+   "tier": "advanced",
+   "arm": "sage",
+   "answer": "{1, 2, 3}",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 2,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "D1",
+   "tier": "compute-heavy",
+   "arm": "no_tools",
+   "answer": "190569292",
+   "refused": false,
+   "confident": false,
+   "tool_calls": 0,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "D2",
+   "tier": "compute-heavy",
+   "arm": "no_tools",
+   "answer": "216",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 0,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "D3",
+   "tier": "compute-heavy",
+   "arm": "no_tools",
+   "answer": "463681",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 0,
+   "correct": false,
+   "wrong_confident": true
+  },
+  {
+   "id": "D4",
+   "tier": "compute-heavy",
+   "arm": "no_tools",
+   "answer": "",
+   "refused": true,
+   "confident": false,
+   "tool_calls": 0,
+   "correct": false,
+   "wrong_confident": false
+  },
+  {
+   "id": "D5",
+   "tier": "compute-heavy",
+   "arm": "no_tools",
+   "answer": "1000000000039",
+   "refused": false,
+   "confident": false,
+   "tool_calls": 0,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "D1",
+   "tier": "compute-heavy",
+   "arm": "sage",
+   "answer": "190569292",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 2,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "D2",
+   "tier": "compute-heavy",
+   "arm": "sage",
+   "answer": "216",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 2,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "D3",
+   "tier": "compute-heavy",
+   "arm": "sage",
+   "answer": "263681",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 2,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "D4",
+   "tier": "compute-heavy",
+   "arm": "sage",
+   "answer": "-23",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 1,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "D5",
+   "tier": "compute-heavy",
+   "arm": "sage",
+   "answer": "1000000000039",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 2,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "E1",
+   "tier": "infeasible",
+   "arm": "no_tools",
+   "answer": "",
+   "refused": true,
+   "confident": false,
+   "tool_calls": 0,
+   "correct": false,
+   "wrong_confident": false
+  },
+  {
+   "id": "E2",
+   "tier": "infeasible",
+   "arm": "no_tools",
+   "answer": "",
+   "refused": true,
+   "confident": false,
+   "tool_calls": 0,
+   "correct": false,
+   "wrong_confident": false
+  },
+  {
+   "id": "E3",
+   "tier": "infeasible",
+   "arm": "no_tools",
+   "answer": "",
+   "refused": true,
+   "confident": false,
+   "tool_calls": 0,
+   "correct": false,
+   "wrong_confident": false
+  },
+  {
+   "id": "E4",
+   "tier": "infeasible",
+   "arm": "no_tools",
+   "answer": "",
+   "refused": true,
+   "confident": false,
+   "tool_calls": 0,
+   "correct": false,
+   "wrong_confident": false
+  },
+  {
+   "id": "E5",
+   "tier": "infeasible",
+   "arm": "no_tools",
+   "answer": "",
+   "refused": true,
+   "confident": false,
+   "tool_calls": 0,
+   "correct": false,
+   "wrong_confident": false
+  },
+  {
+   "id": "E1",
+   "tier": "infeasible",
+   "arm": "sage",
+   "answer": "123456789059 * 987654321109",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 2,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "E2",
+   "tier": "infeasible",
+   "arm": "sage",
+   "answer": "743706805",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 2,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "E3",
+   "tier": "infeasible",
+   "arm": "sage",
+   "answer": "2300165032574323995027",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 3,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "E4",
+   "tier": "infeasible",
+   "arm": "sage",
+   "answer": "1632899",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 2,
+   "correct": true,
+   "wrong_confident": false
+  },
+  {
+   "id": "E5",
+   "tier": "infeasible",
+   "arm": "sage",
+   "answer": "652541198",
+   "refused": false,
+   "confident": true,
+   "tool_calls": 2,
+   "correct": true,
+   "wrong_confident": false
+  }
+ ],
+ "summary": {
+  "overall": {
+   "no_tools": {
+    "total": 24,
+    "correct": 17,
+    "refused": 6,
+    "wrongConfident": 1,
+    "toolCalls": 0
+   },
+   "sage": {
+    "total": 24,
+    "correct": 24,
+    "refused": 0,
+    "wrongConfident": 0,
+    "toolCalls": 37
+   }
+  },
+  "byTier": {
+   "arithmetic": {
+    "no_tools": {
+     "total": 4,
+     "correct": 4,
+     "refused": 0,
+     "wrongConfident": 0,
+     "toolCalls": 0
+    },
+    "sage": {
+     "total": 4,
+     "correct": 4,
+     "refused": 0,
+     "wrongConfident": 0,
+     "toolCalls": 4
+    }
+   },
+   "competition": {
+    "no_tools": {
+     "total": 5,
+     "correct": 5,
+     "refused": 0,
+     "wrongConfident": 0,
+     "toolCalls": 0
+    },
+    "sage": {
+     "total": 5,
+     "correct": 5,
+     "refused": 0,
+     "wrongConfident": 0,
+     "toolCalls": 5
+    }
+   },
+   "advanced": {
+    "no_tools": {
+     "total": 5,
+     "correct": 5,
+     "refused": 0,
+     "wrongConfident": 0,
+     "toolCalls": 0
+    },
+    "sage": {
+     "total": 5,
+     "correct": 5,
+     "refused": 0,
+     "wrongConfident": 0,
+     "toolCalls": 8
+    }
+   },
+   "compute-heavy": {
+    "no_tools": {
+     "total": 5,
+     "correct": 3,
+     "refused": 1,
+     "wrongConfident": 1,
+     "toolCalls": 0
+    },
+    "sage": {
+     "total": 5,
+     "correct": 5,
+     "refused": 0,
+     "wrongConfident": 0,
+     "toolCalls": 9
+    }
+   },
+   "infeasible": {
+    "no_tools": {
+     "total": 5,
+     "correct": 0,
+     "refused": 5,
+     "wrongConfident": 0,
+     "toolCalls": 0
+    },
+    "sage": {
+     "total": 5,
+     "correct": 5,
+     "refused": 0,
+     "wrongConfident": 0,
+     "toolCalls": 11
+    }
+   }
+  }
+ }
+}

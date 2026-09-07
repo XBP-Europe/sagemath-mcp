@@ -59,12 +59,16 @@ out of date.
         description; the fresh-namespace exception now sits in the tool
         description the model reads and at the top of the `evaluate_sage`
         reference, not only in the deep session-semantics note.
-- [ ] From the 2026-08-24 field survey, one feature remains (roadmap has the
-      mechanism): outcome benchmarks (GSM8K/MATH deltas) via the existing CLI
-      harness — per the 2026-09-06 review, compare no-tools vs `evaluate_sage`
-      only vs the full catalogue, include iterative advanced mathematics beyond
-      GSM8K/MATH, and measure wrong-confident answers, refusals, recovery,
-      latency and tool-call count. `verify_claim` shipped 2026-09-06
+- [x] From the 2026-08-24 field survey: outcome benchmarks. *Done, 2026-09-07.*
+      `benchmarks/` (fixed seeded case set + Workflow, scored for equivalence in
+      Sage); first run subject `haiku` = **17/24 → 24/24 with Sage**, +7 all in
+      the compute-heavy/infeasible tiers, one reasoning-only answer confidently
+      wrong. Published to `benchmark-stats.md` + README. This is the live 2-arm
+      (reasoning vs. Sage compute) version; the rigorous three-arm (no-tools vs
+      `evaluate_sage`-only vs full catalogue, with real tool-gating and the
+      wrong-confident/refusal/latency/tool-call breakdown per the 2026-09-06
+      review) still wants folding into the `tests/cli_integration` nightlies,
+      where the per-client keys live. `verify_claim` shipped 2026-09-06
       (`tools/verify.py`).
 - [ ] Passagemath runtime extra to cut install footprint. Evaluated 2026-09-06
       (`docs/passagemath_evaluation.md`): verdict **adopt, pinned to a verified

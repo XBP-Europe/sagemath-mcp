@@ -13,6 +13,21 @@ here is a breaking change.
 
 ### Added
 
+- **Outcome benchmark.** `benchmarks/` — a fixed, seeded case set (`cases.json`,
+  24 problems in five difficulty tiers, every gold answer verified in the Sage
+  10.9 container) and a Workflow (`outcome_benchmark.workflow.js`) that runs it
+  through the model twice, reasoning-only vs. with Sage compute, scoring every
+  answer for *mathematical equivalence* in Sage (not string-matched) by an
+  independent step. It measures the claim the doctest corpus cannot: do models
+  get more mathematics *right* with these tools. First run (subject `haiku`,
+  judge `sonnet`, `scripts/write_benchmark_stats.py` → `benchmark-stats.md`):
+  **17/24 → 24/24**, the entire +7 in the compute-heavy and infeasible tiers —
+  a factoring, an 8×8 determinant, a partition count — where reasoning alone
+  refused six and answered one *confidently wrong*, while Sage got all ten. On
+  the arithmetic/competition/advanced tiers both arms score 100%: the tool does
+  not help where the model is already right, and does not hurt. A stronger
+  subject model closes the gap on its own — this is as much a measurement of the
+  model as of the server, so it is never CI-gated.
 - **MCP prompts (3).** `prove_and_verify`, `solve_and_check` and
   `explore_object` — reusable instructions a client surfaces in its prompt
   picker, each steering the model toward what this server is good at: verifying

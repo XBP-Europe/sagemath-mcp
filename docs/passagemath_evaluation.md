@@ -304,9 +304,13 @@ Blocking the extra (all actionable now):
    cross-runtime difference was sound: passagemath's symbolic stack proves the
    `∫₀¹ log(x)/(1+x²) dx == -Catalan` identity that monolithic 10.9 only
    supports.
-3. File the `maxima_lib` regression upstream and record the answer — it
-   determines whether 10.8.10+ is ever pinnable or the pin waits for their
-   Maxima 5.50 work (<https://github.com/passagemath/passagemath/issues/2632>).
+3. ~~File the `maxima_lib` regression upstream~~ **DONE 2026-09-07:**
+   passagemath/passagemath#2836, after reproducing it firsthand on both 10.8.10
+   and 10.8.11 (identical `ECL says: THROW: The catch MACSYMA-QUIT is undefined`
+   at `maxima_lib.py:361`, compiling `mring.lisp` under Maxima 5.49.0 / ECL
+   26.5.5; 10.8.9 unaffected). The answer it records determines whether 10.8.10+
+   is ever pinnable or the pin waits for their Maxima 5.50 work
+   (<https://github.com/passagemath/passagemath/issues/2632>).
 
 Not blocking, but gating any move from "pinned extra" to "recommended install
 path": two consecutive passagemath stable releases passing this project's

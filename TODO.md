@@ -107,10 +107,14 @@ out of date.
       cross-runtime difference was sound (passagemath's symbolic stack *proves* a
       Catalan-constant identity monolithic 10.9 only *supports*; the ladder test
       now accepts either).
-      **Remaining before it is a *recommended* path:** blocker (3) filing the
-      `maxima_lib` 10.8.10/10.8.11 regression upstream. Move from pinned extra to
-      primary install story only after two consecutive passagemath stable releases
-      pass the smoke gate on first try (§ evaluation blockers).
+      **Blocker (3) DONE 2026-09-07:** the `maxima_lib` regression is filed
+      upstream — passagemath/passagemath#2836 — after reproducing it firsthand on
+      both 10.8.10 and 10.8.11 (identical `ECL says: THROW: The catch
+      MACSYMA-QUIT is undefined` at `maxima_lib.py:361`; 10.8.9 unaffected).
+      **All three blockers are now closed.** Move from pinned extra to primary
+      install story only after two consecutive passagemath stable releases pass
+      the smoke gate on first try — 10.8.10 and 10.8.11 both failed it (#2836),
+      so the counter is at zero (§ evaluation blockers).
 - [ ] Consider making `scripts/generate_allowlist.py` classify rather than accept.
       Four separate findings had one root cause: the allowlist is generated as
       *whatever survives the namespace scrub*, so it inherits every gap in that

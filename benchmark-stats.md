@@ -68,11 +68,16 @@ a wrong-confident cell (⚠) is the failure mode `verify_claim` exists for.
 - The two arms are the **same model**; one is told to reason unaided, the
   other to compute and verify with Sage. The delta is the lift from having
   the CAS in the loop.
+- The compute arm runs Sage **directly** (`docker exec ... sage -c`), so it
+  bypasses this server -- its tool selection, input validation, handles and
+  verifier. So the result supports *Sage computation helps this model on these
+  cases*, not yet *this server's design improves outcomes*. Measuring through
+  the MCP interface with enforced tool permissions is the intended next step.
 - *Reasoning only* is **prompt-enforced**: the agent is told not to execute
   anything and self-reports zero tool calls. It is not hard tool-gated. The
   rigorous three-arm version (no-tools / `evaluate_sage`-only / full
-  catalogue, with real gating) is the `tests/cli_integration` harness, which
-  runs under the CLI nightlies with API keys.
+  catalogue, with real gating) is a planned `tests/cli_integration` harness --
+  a follow-up under the CLI nightlies, not something that runs today.
 - Answers are scored by an **independent** Sage-backed step, so a plausible
   wrong answer is caught, not accepted on its wording.
 - Small, fixed, seeded case set: this is a directional signal a run can

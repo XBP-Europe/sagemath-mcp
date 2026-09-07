@@ -47,6 +47,19 @@ DOC_LINKS: list[DocumentationLink] = [
 ]
 
 
+def _loggable(session: str) -> str:
+    """A workspace label safe for logs, notifications and responses.
+
+    A workspace token is a **bearer credential** (see `session.py`): whoever
+    holds it reaches that workspace, so it must never appear in a log line, an
+    MCP notification or a tool response -- the same secrecy `start_sage_session`
+    promises. A caller's `session` argument may be either a plain name or a
+    token, so a token is shown as a generic label and a name (not a secret) as
+    itself. Every lifecycle tool routes its user-facing strings through here.
+    """
+    return "the workspace" if session.strip().startswith(WORKSPACE_TOKEN_PREFIX) else f"'{session}'"
+
+
 @mcp.tool(
     annotations=DISCARDS,
     description="Reset the SageMath session state for the current MCP session",
@@ -60,7 +73,7 @@ async def reset_sage_session(
         raise ToolError("MCP context with session_id is required to reset state")
     key = runtime.SESSION_MANAGER.resolve_key(ctx.session_id, session)
     await runtime.SESSION_MANAGER.reset(key)
-    await ctx.info(f"Sage session '{session}' reset")
+    await ctx.info(f"Sage session {_loggable(session)} reset")
     return ResetResponse()
 
 
@@ -85,10 +98,10 @@ async def interrupt_sage_session(
     if not interrupted:
         # No worker to signal: either nothing has run yet in this workspace, or
         # it has already exited. Not an error, but say which.
-        await ctx.info(f"No running Sage worker for session '{session}'")
-        return ResetResponse(message=f"No running computation in session '{session}'")
-    await ctx.warning(f"Interrupted session '{session}'; state preserved")
-    return ResetResponse(message=f"Interrupted session '{session}'; state preserved")
+        await ctx.info(f"No running Sage worker for session {_loggable(session)}")
+        return ResetResponse(message=f"No running computation in session {_loggable(session)}")
+    await ctx.warning(f"Interrupted session {_loggable(session)}; state preserved")
+    return ResetResponse(message=f"Interrupted session {_loggable(session)}; state preserved")
 
 
 @mcp.tool(
@@ -108,7 +121,7 @@ async def cancel_sage_session(
         raise ToolError("MCP context with session_id is required to cancel work")
     key = runtime.SESSION_MANAGER.resolve_key(ctx.session_id, session)
     await runtime.SESSION_MANAGER.cancel(key)
-    await ctx.warning(f"Sage session '{session}' cancelled and restarted")
+    await ctx.warning(f"Sage session {_loggable(session)} cancelled and restarted")
     return ResetResponse(message="Session cancelled and restarted")
 
 
@@ -171,9 +184,9 @@ async def stop_sage_session(
         raise ToolError("MCP context with session_id is required to stop a session")
     stopped = await runtime.SESSION_MANAGER.stop(ctx.session_id, name)
     if not stopped:
-        raise ToolError(f"No Sage session named '{name}' for this client")
-    await ctx.info(f"Stopped Sage session '{name}'")
-    return ResetResponse(message=f"Session '{name}' stopped")
+        raise ToolError(f"No Sage session named {_loggable(name)} for this client")
+    await ctx.info(f"Stopped Sage session {_loggable(name)}")
+    return ResetResponse(message=f"Session {_loggable(name)} stopped")
 
 
 @mcp.resource("resource://sagemath/session/{scope}")

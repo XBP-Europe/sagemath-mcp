@@ -3644,3 +3644,38 @@ being flagged.
 Fixed 2026-09-07. This is blocker #1 of the passagemath runtime extra; the
 remaining integration (runtime dispatch, the passagemath artifact set, the
 `[passagemath]` pin, and a passagemath CI lane) builds on it.
+## 70. Workspace token leaks into lifecycle logs and responses — high — DONE
+
+### What
+
+`start_sage_session` issues a `workspace_token` (bearer credential, `wsk_`
+prefix) and promises it is kept out of logs, listings and error messages. But
+`reset_sage_session`, `interrupt_sage_session` and `cancel_sage_session` take a
+`session` argument that now *carries that token* and interpolated it straight
+into MCP notifications -- `await ctx.info(f"Sage session '{session}' reset")`
+and the `ctx.warning` equivalents -- and `stop_sage_session` echoed the value it
+resolved into its response and log line. A reviewer's probes confirmed
+`TOKEN_IN_INFO_LOG` and `TOKEN_IN_WARNING_LOG` on a real HTTP client. Not a
+cross-client leak, but credential propagation into logging channels, contrary to
+the documented secrecy guarantee.
+
+### Fix
+
+A single `_loggable(session)` helper in `tools/session.py`: a value that starts
+with the workspace-token prefix is shown as the generic label `the workspace`;
+a plain name (not a secret) is shown as itself. Every user-facing string in
+reset/interrupt/cancel/stop -- notifications, responses and the stop error --
+routes through it, so no lifecycle path can echo a token.
+
+### How to verify
+
+`tests/test_workspace_handles.py::test_lifecycle_tools_never_echo_the_workspace_token`
+mints a token, drives reset/interrupt/cancel/stop with it, and asserts it appears
+in no `ctx.info`/`ctx.warning` message, no response `message`, and no error. The
+helper maps `wsk_…` to `the workspace` and a name to itself.
+
+### Status
+
+Fixed 2026-09-07; found by an external review (REVIEW_ACTIONS-style) at cc4a8ae.
+Note: reset/cancel do not revoke the token -- it stays valid, by design; this is
+about keeping it out of logs, not rotating it.

@@ -20,6 +20,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   clearing every floor with margin. This closes blocker (2) of the passagemath
   adoption plan (`docs/passagemath_evaluation.md`).
 
+### Changed
+
+- **README is a front door, not a manual.** Trimmed from ~1,680 lines to ~230:
+  what it is, one install-and-run path per audience (the GHCR image first, then
+  PyPI, then the passagemath extra), one client config, three example prompts, a
+  compact 40-tool index, a condensed architecture and security summary, and links
+  out. The full per-tool reference, the "how code is interpreted" notes and the
+  complete security model moved into `USAGE.md`, which is now the single manual;
+  the embedded changelog is dropped in favour of `CHANGELOG.md`. The doc-honesty
+  tests move with the content (every blocked module is now asserted against
+  `USAGE.md`), and the tool-count and badge invariants are unchanged.
+
 ### Fixed
 
 - **The security-artifact drift tests validate the runtime that is installed.**

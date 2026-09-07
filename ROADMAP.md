@@ -2,7 +2,7 @@
 
 This document tracks planned improvements to the SageMath MCP server, organized by priority and effort. The goal is to strengthen the server's position as a universal mathematics MCP server that enables LLMs to perform any symbolic or discrete mathematical operation.
 
-**Current state (last release v0.6.1; the work below is on `main`, unreleased):**
+**Current state (last release v0.7.0; the work below is on `main`, unreleased):**
 40 MCP tools (33 Sage-backed, 7 infrastructure) covering calculus, algebra,
 linear algebra, ODEs, number theory, combinatorics, graph theory, group theory,
 elliptic curves, coding theory, boolean algebra, polynomial rings, geometry,

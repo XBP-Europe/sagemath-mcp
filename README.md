@@ -1461,6 +1461,30 @@ sagemath-mcp/
 Every released version, newest first. [`CHANGELOG.md`](CHANGELOG.md) carries the
 full detail; this is the shape of each release.
 
+### v0.7.0 (2026-09-07)
+
+The 2026-08-24 field survey and three rounds of external review. All additive —
+no breaking changes.
+
+**Added**
+
+- **`verify_claim`** — re-checks a stated claim through a proof ladder (symbolic
+  prover, exact difference, exact algebraic arithmetic, certified intervals,
+  numeric sampling), reporting `proved`/`refuted`/`supported`/`undecided` with
+  evidence. Exactness is a prerequisite for a proof, and active assumptions are
+  named in the result.
+- **passagemath runtime** (`pip install "sagemath-mcp[passagemath]"`) — an
+  experimental ~1 GB pip alternative to the 3 GB Sage image; both runtimes work,
+  the security artifact set is chosen at import.
+- **MCP prompts, a pre-warmed worker pool, portable workspace handles, image
+  plot responses, mutation + property testing, and an outcome benchmark.**
+
+**Fixed**
+
+- Plots return MCP image content; non-finite results stay valid JSON; workspace
+  tokens are kept out of logs; the release validates the image it publishes; and
+  a run of verifier-soundness and warm-pool-lifecycle hardening from review.
+
 ### v0.6.1 (2026-08-16)
 
 A security patch on 0.6.0.

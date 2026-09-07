@@ -13,10 +13,20 @@ from sagemath_mcp import _artifacts
 from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES as MONOLITHIC_ALLOWLIST
 
 
-def test_dispatch_selects_the_monolithic_set_off_passagemath() -> None:
-    """The unit environment has no passagemath, so the monolithic set is loaded."""
-    assert _artifacts.IS_PASSAGEMATH is False
-    assert _artifacts.ALLOWED_CALLER_NAMES is MONOLITHIC_ALLOWLIST
+def test_dispatch_matches_the_installed_runtime() -> None:
+    """`_artifacts` loads the set for whatever runtime is installed.
+
+    Written to pass under BOTH runtimes so the suite can run under passagemath
+    (its CI lane) unchanged: off passagemath the monolithic set is loaded and is
+    the same object as `allowlist.ALLOWED_CALLER_NAMES`; under passagemath the
+    passagemath set is loaded instead.
+    """
+    if _artifacts.IS_PASSAGEMATH:
+        from sagemath_mcp import allowlist_passagemath
+
+        assert _artifacts.ALLOWED_CALLER_NAMES is allowlist_passagemath.ALLOWED_CALLER_NAMES
+    else:
+        assert _artifacts.ALLOWED_CALLER_NAMES is MONOLITHIC_ALLOWLIST
 
 
 def test_is_installed_true_and_false() -> None:

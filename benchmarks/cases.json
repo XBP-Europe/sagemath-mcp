@@ -1,0 +1,198 @@
+{
+  "description": "Fixed outcome-benchmark case set for the SageMath MCP server. Each case has a verified ground-truth answer (computed in the SageMath 10.9 container). Difficulty tiers: A = grade-school arithmetic (GSM8K-style), B = competition mathematics (MATH-style), C = advanced problems a CAS is built for. Answers are checked for mathematical equivalence in Sage, not string-matched.",
+  "seed": 20260907,
+  "cases": [
+    {
+      "id": "A1",
+      "tier": "arithmetic",
+      "problem": "A store sells pencils at 3 for $1.20. What is the cost, in dollars, of 17 pencils?",
+      "gold": "6.80",
+      "gold_sage": "34/5",
+      "check": "numeric"
+    },
+    {
+      "id": "A2",
+      "tier": "arithmetic",
+      "problem": "Maria reads 24 pages a day for 5 days, then 31 pages a day for 3 days. How many pages does she read in total?",
+      "gold": "213",
+      "gold_sage": "213",
+      "check": "numeric"
+    },
+    {
+      "id": "A3",
+      "tier": "arithmetic",
+      "problem": "A tank holds 480 liters. It is currently 5/8 full. If 90 liters are added, how many liters are in the tank?",
+      "gold": "390",
+      "gold_sage": "390",
+      "check": "numeric"
+    },
+    {
+      "id": "A4",
+      "tier": "arithmetic",
+      "problem": "Tom's age is 4 years more than twice Sam's age. If Tom is 34, how old is Sam?",
+      "gold": "15",
+      "gold_sage": "15",
+      "check": "numeric"
+    },
+    {
+      "id": "B1",
+      "tier": "competition",
+      "problem": "Find the sum of all positive divisors of 360.",
+      "gold": "1170",
+      "gold_sage": "1170",
+      "check": "numeric"
+    },
+    {
+      "id": "B2",
+      "tier": "competition",
+      "problem": "What is the remainder when 7^100 is divided by 13?",
+      "gold": "9",
+      "gold_sage": "9",
+      "check": "numeric"
+    },
+    {
+      "id": "B3",
+      "tier": "competition",
+      "problem": "Find the coefficient of x^7 in the expansion of (1 + x)^12.",
+      "gold": "792",
+      "gold_sage": "792",
+      "check": "numeric"
+    },
+    {
+      "id": "B4",
+      "tier": "competition",
+      "problem": "Evaluate the definite integral of x^2 * e^x from x = 0 to x = 1.",
+      "gold": "e - 2",
+      "gold_sage": "e - 2",
+      "check": "symbolic"
+    },
+    {
+      "id": "B5",
+      "tier": "competition",
+      "problem": "How many integers from 1 to 1000 inclusive are divisible by 6 or 10 but not by 15?",
+      "gold": "200",
+      "gold_sage": "200",
+      "check": "numeric"
+    },
+    {
+      "id": "C1",
+      "tier": "advanced",
+      "problem": "Find all eigenvalues of the matrix [[2, 1, 0], [1, 2, 1], [0, 1, 2]].",
+      "gold": "2, 2 - sqrt(2), 2 + sqrt(2)",
+      "gold_sage": "{2, 2 - sqrt(2), 2 + sqrt(2)}",
+      "check": "set"
+    },
+    {
+      "id": "C2",
+      "tier": "advanced",
+      "problem": "Evaluate the infinite sum of 1/n^4 for n from 1 to infinity.",
+      "gold": "pi^4/90",
+      "gold_sage": "pi^4/90",
+      "check": "symbolic"
+    },
+    {
+      "id": "C3",
+      "tier": "advanced",
+      "problem": "Factor x^4 - 5x^2 + 4 completely over the integers.",
+      "gold": "(x - 1)(x + 1)(x - 2)(x + 2)",
+      "gold_sage": "(x - 1)*(x + 1)*(x - 2)*(x + 2)",
+      "check": "symbolic"
+    },
+    {
+      "id": "C4",
+      "tier": "advanced",
+      "problem": "How many prime numbers are less than 10000?",
+      "gold": "1229",
+      "gold_sage": "1229",
+      "check": "numeric"
+    },
+    {
+      "id": "C5",
+      "tier": "advanced",
+      "problem": "Real numbers x, y, z satisfy x + y + z = 6, x^2 + y^2 + z^2 = 14, and x^3 + y^3 + z^3 = 36. Find the set {x, y, z}.",
+      "gold": "{1, 2, 3}",
+      "gold_sage": "{1, 2, 3}",
+      "check": "set"
+    },
+    {
+      "id": "D1",
+      "tier": "compute-heavy",
+      "problem": "How many integer partitions does the number 100 have?",
+      "gold": "190569292",
+      "gold_sage": "190569292",
+      "check": "numeric"
+    },
+    {
+      "id": "D2",
+      "tier": "compute-heavy",
+      "problem": "What is the sum of the decimal digits of 50! (50 factorial)?",
+      "gold": "216",
+      "gold_sage": "216",
+      "check": "numeric"
+    },
+    {
+      "id": "D3",
+      "tier": "compute-heavy",
+      "problem": "Compute the last 6 digits of 17^256, that is, 17^256 mod 1000000.",
+      "gold": "263681",
+      "gold_sage": "263681",
+      "check": "numeric"
+    },
+    {
+      "id": "D4",
+      "tier": "compute-heavy",
+      "problem": "Find the determinant of the integer matrix [[2,3,1,5,4],[1,4,2,3,6],[3,1,5,2,1],[4,2,3,6,2],[5,3,2,1,7]].",
+      "gold": "-23",
+      "gold_sage": "-23",
+      "check": "numeric"
+    },
+    {
+      "id": "D5",
+      "tier": "compute-heavy",
+      "problem": "What is the smallest prime number strictly greater than 10^12 (one trillion)?",
+      "gold": "1000000000039",
+      "gold_sage": "1000000000039",
+      "check": "numeric"
+    },
+    {
+      "id": "E1",
+      "tier": "infeasible",
+      "problem": "The number 121932631184363663946431 is a product of exactly two prime numbers. Find both prime factors.",
+      "gold": "123456789059 and 987654321109",
+      "gold_sage": "{123456789059, 987654321109}",
+      "check": "set"
+    },
+    {
+      "id": "E2",
+      "tier": "infeasible",
+      "problem": "Find the determinant of the 8x8 integer matrix with rows [9,-8,-3,-4,6,-4,7,-5], [3,-2,-2,3,8,7,-1,3], [7,-9,0,-2,-3,-8,-8,-6], [-4,-4,-4,-7,7,6,-3,-2], [6,6,-9,5,-2,-4,-1,-8], [7,1,8,-4,9,-8,-4,1], [-3,-6,-4,8,2,8,4,-6], [1,-6,-7,5,9,-5,0,1].",
+      "gold": "743706805",
+      "gold_sage": "743706805",
+      "check": "numeric"
+    },
+    {
+      "id": "E3",
+      "tier": "infeasible",
+      "problem": "How many integer partitions does the number 500 have?",
+      "gold": "2300165032574323995027",
+      "gold_sage": "2300165032574323995027",
+      "check": "numeric"
+    },
+    {
+      "id": "E4",
+      "tier": "infeasible",
+      "problem": "What is the 123456th prime number?",
+      "gold": "1632899",
+      "gold_sage": "1632899",
+      "check": "numeric"
+    },
+    {
+      "id": "E5",
+      "tier": "infeasible",
+      "problem": "Compute 123456789^987654321 mod 1000000007.",
+      "gold": "652541198",
+      "gold_sage": "652541198",
+      "check": "numeric"
+    }
+  ]
+}

@@ -1261,6 +1261,23 @@ uv run python scripts/run_mutation_tests.py --workers 1  # serial reference
 
 Each worker mutates its own copy of the tree with `PYTHONPATH` shadowing the editable install, turning a ~35-minute serial sweep into ~2 minutes. The result is written to `mutation-stats.md`; a weekly, non-gating CI job (`.github/workflows/mutation.yml`) regenerates and uploads it. The Hypothesis property tests in `tests/test_security_property.py` — every forbidden name in every referencing position, any attribute on any forbidden module, any import at all — are what kill the behavioural mutants. This is never a required check: the score measures test *quality*, not correctness, and `allowlist.py` is out of scope because it is generated data guarded by the Sage-agreement integration test.
 
+### Outcome benchmark
+
+The doctest corpus sweep proves the guardrails do not *refuse* mathematics. This is the other claim: does a model get more mathematics *right* when it can run Sage? `benchmarks/` holds a fixed, seeded case set (`cases.json`, 24 problems in five difficulty tiers, every gold answer verified in the Sage container) and a Workflow (`outcome_benchmark.workflow.js`) that runs it through the model twice — reasoning alone vs. with Sage compute — scoring every answer for *mathematical equivalence* in Sage, by an independent step, never string-matched.
+
+First run (subject model `haiku`, scoring judge `sonnet`, full detail in [`benchmark-stats.md`](benchmark-stats.md)):
+
+| Tier | Reasoning only | With Sage |
+| --- | ---: | ---: |
+| arithmetic (GSM8K-style) | 4/4 | 4/4 |
+| competition (MATH-style) | 5/5 | 5/5 |
+| advanced (CAS-suited) | 5/5 | 5/5 |
+| compute-heavy | 3/5 | 5/5 |
+| infeasible (factoring, 8×8 det, partitions) | 0/5 | 5/5 |
+| **Total** | **17/24 (71%)** | **24/24 (100%)** |
+
+The lift is entirely in the last two tiers — arbitrary computation a model cannot do in-context — where reasoning alone refused six problems and answered one *confidently wrong* (the failure mode [`verify_claim`](#verify_claim) exists for), while Sage got all ten. On problems the model already handles, the tool changes nothing: it does not help where it is not needed, and does not hurt. A stronger subject model closes the gap on its own, so this measures the model as much as the server; it is never CI-gated. The rigorous three-arm version (no-tools / `evaluate_sage`-only / full-catalogue, with real tool-gating) runs under the CLI nightlies.
+
 ### Linting
 
 Ruff with line-length 100, target Python 3.12. Rules: E, F, W, B, UP, ASYNC, RUF, I (import sorting). Run `make lint` before committing.

@@ -152,11 +152,18 @@ prioritised. Correctness first, then packaging/adoption.
       reconstruction accepts `inf`/`nan`, non-finite floats travel as strings.
       Everything else already sound (large ints → decimal strings, plots → image
       content, plain strings fine). `tests/test_codegen.py`.
-- [ ] **Optional HTTP auth.** The posture (SECURITY.md: no auth, the container
-      is the boundary, keep it loopback) is deliberate and stays the default,
-      but an optional bearer-token FastMCP auth provider — and making the
-      Dockerfile's `0.0.0.0` bind an explicit, loudly-noted opt-in — is a fair
-      refinement for anyone fronting it. Not a blocker; a deliberate opt-in.
+- [x] **Optional HTTP auth.** *Done, 2026-09-07.* No-auth stays the deliberate
+      default (SECURITY.md: the container is the boundary, keep it loopback). On
+      top of it, `SAGEMATH_MCP_HTTP_AUTH_TOKEN=<secret>` now requires
+      `Authorization: Bearer <secret>` on every MCP request over HTTP — a
+      constant-time-compared (`secrets.compare_digest`), never-logged shared
+      secret via a `TokenVerifier` provider (`auth.py`, wired through
+      `app.py`); `/health` and `/ready` stay open. Verified end-to-end against the
+      ASGI app (open probe 200; `/mcp` 401 without/with a wrong token, 200 with
+      the right one). The Dockerfile's container-internal `--host 0.0.0.0` is now
+      an explicit, noted choice: the server logs a loud warning when it binds a
+      non-loopback host with no token (`_exposure_warning`). `tests/test_auth.py`,
+      SECURITY.md, USAGE.md.
 - [x] **Mutation-test the security policy.** *Done, 2026-09-06.* `make mutation`
       (`scripts/run_mutation_tests.py`) runs cosmic-ray over `security.py`, plus
       Hypothesis property tests (`tests/test_security_property.py`) on top of the

@@ -228,3 +228,8 @@ prototypes/**/__pycache__/
 # below unreachable, because git will not descend into an excluded directory.
 .claude/*
 !.claude/settings.json
+
+# Mutation testing: the session DB and cosmic-ray scratch are regenerated;
+# the config (mutation/*.toml) and mutation-stats.md are committed.
+mutation/*.sqlite
+.cosmic-ray/

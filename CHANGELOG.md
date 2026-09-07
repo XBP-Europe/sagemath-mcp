@@ -79,6 +79,31 @@ here is a breaking change.
   `readOnlyHint`/`destructiveHint`/`idempotentHint`/`openWorldHint`, so a client
   can tell which calls discard state (`cancel`/`reset`/`stop`) from those that
   keep it (`interrupt`). An inventory test pins the memberships.
+- **Mutation testing of the security policy.** `make mutation`
+  (`scripts/run_mutation_tests.py`) drives cosmic-ray over
+  `src/sagemath_mcp/security.py`: it applies each deliberate weakening — a
+  flipped comparison, a dropped `not`, a relaxed `and` — and runs the security
+  suite, counting how many the tests *catch*. That is a claim line coverage
+  cannot make: `security.py` was already at 100% coverage and still let these
+  through. The run is parallelised across HTTP workers, each mutating its own
+  copy of the tree with `PYTHONPATH` shadowing the editable install, so a
+  ~35-minute serial sweep finishes in ~2 minutes (`--workers`, default 8; `1`
+  is the serial reference); a weekly, non-gating CI job publishes
+  `mutation-stats.md`. New Hypothesis property tests
+  (`tests/test_security_property.py`) assert the policy's invariants over
+  generated inputs — every forbidden name in every referencing position, any
+  attribute on any forbidden module, any import at all — which is what kills the
+  behavioural mutants. Nine of these tests were written directly against survivors
+  the first run surfaced, closing real gaps: `_is_dunder`'s length boundary and
+  its `and` (the shortest path out of the sandbox), the resource limits accepted
+  *at* the limit rather than only rejected past it, `forbid_global`/`forbid_nonlocal`
+  firing on the right node, and the attribute-chain exemption not shielding a
+  forbidden third segment (`operator.abs.os`). Score: **426/696 killed (61.2%)**;
+  excluding the 209 equivalent type-annotation mutants (an `X | None` hint is a
+  never-evaluated string under `from __future__ import annotations`, so no test
+  can kill it), the effective score is **87.5%**. The remaining survivors are
+  equivalent or near-equivalent (interned-string `==`/`is`, keyword-only `*`
+  markers, `index == last` where `index <= last`), tracked in TODO.
 
 ### Changed
 

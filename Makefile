@@ -77,4 +77,9 @@ cli-extended:
 
 all: test integration-test
 
-.PHONY: test sage-deps integration-test lint build sage-container allowlist denylist doctest-execution cli-integration cli-extended all
+# Mutation-test the security policy (slow; never CI-gated -- the number
+# measures test quality, not pass/fail). Writes mutation-stats.md.
+mutation:
+	uv run python scripts/run_mutation_tests.py
+
+.PHONY: test sage-deps integration-test lint build mutation sage-container allowlist denylist doctest-execution cli-integration cli-extended all

@@ -7,9 +7,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-07
+
 A survey of the other SageMath MCP servers (a feature comparison and a
-code-level read of each peer's source, 2026-08-24) drove this window. Nothing
-here is a breaking change.
+code-level read of each peer's source, 2026-08-24) drove this window, and four
+rounds of external review hardened it. Nothing here is a breaking change: the
+40-tool surface, the deny-by-default sandbox and the stdio/HTTP transports are
+unchanged; everything added is additive (the `verify_claim` tool, MCP prompts,
+the pre-warmed worker pool, portable workspace handles, image plot responses,
+mutation and property testing, an outcome benchmark, and the opt-in passagemath
+runtime). Highlights: `verify_claim` for checking the model's own algebra;
+`pip install "sagemath-mcp[passagemath]"` as a ~1 GB alternative to the 3 GB
+Sage image; and plots that render as images instead of a base64 wall.
 
 ### Added
 
@@ -255,6 +264,29 @@ here is a breaking change.
   `set_verbose` (installed into the worker namespace after the scrub); both are
   meant to be absent, and three tests enforce it. The generator now subtracts the
   shims.
+- **Workspace tokens no longer leak into logs** (2026-09-07 external review,
+  REVIEW_ACTIONS 70). `reset`/`interrupt`/`cancel`/`stop` interpolated the
+  caller's `session` argument — now a bearer `workspace_token` — into MCP
+  notifications and responses, contrary to the secrecy the handle promises. A
+  token is shown as the generic label `the workspace`; only names appear.
+- **`verify_claim` enforces exactness on every proof path** (2026-09-07
+  external review, REVIEW_ACTIONS 71, 73, 75). A rounded result wrapped in a
+  list, a symbolic expression, a dict key, a bare predicate
+  (`(RR(1)+RR(1)/10^20-RR(1)).is_zero()`), or that predicate wrapped in `== True`
+  or a lambda, was still reported `proved/exact`. Exactness is now judged from a
+  claim's inputs, not its collapsed value: every value-bearing sub-expression is
+  evaluated from its original source (so Python's bit-xor precedence for `^`, and
+  UTF-8-byte-vs-character offsets for non-ASCII like `α`, can neither corrupt nor
+  crash a claim) and any machine number among them blocks an exact rung. The
+  session's active assumptions are attached centrally — a structured
+  `assumptions` field and the evidence — so no branch can conceal them.
+- **Warm pool holds its ceiling and reclaims cancelled workers** (2026-09-07
+  external review, REVIEW_ACTIONS 72, 74, 76). Total-worker accounting (live
+  sessions + pool + in-flight refills) is shared, so a refill can no longer
+  overshoot `SAGEMATH_MCP_MAX_SESSIONS`; and a cancelled refill's worker is
+  reclaimed to completion by a manager-owned cleanup that survives cancellation
+  of the request that triggered it — rather than being dropped from tracking
+  while still alive — before its slot is reused.
 
 ### Removed
 

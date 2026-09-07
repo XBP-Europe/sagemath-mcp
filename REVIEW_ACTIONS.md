@@ -3774,3 +3774,85 @@ alive). Both use the pure-Python worker.
 
 Fixed 2026-09-07; found by an external review at cc4a8ae. `SAGEMATH_MCP_WARM_POOL_SIZE=0`
 was the interim mitigation and is no longer needed.
+
+## 73. Verifier: dict keys and bare predicates still earned exact verdicts — high — DONE
+
+### What
+
+Two proof paths still returned `proved/exact_comparison` for rounded results
+(external review, round 3):
+
+- **Dict keys.** `_is_inexact` recursed into a dict's values but not its keys,
+  so `{RR(1)+RR(1)/10^20: 0} == {RR(1): 0}` was proved exact.
+- **Bare predicates.** A claim with no top-level comparison
+  (`(RR(1)+RR(1)/10^20-RR(1)).is_zero()`) has no sides to inspect; operand
+  inspection never ran, and the resulting Boolean took the exact path.
+
+The comparison path also re-evaluated the operand *source* after evaluating the
+whole claim, rather than checking the values the comparison actually used.
+
+### Fix
+
+- `_is_inexact` now checks dict keys and values.
+- `_comparison_sides` returns the operator and slices the operands' ORIGINAL
+  substrings (not `ast.unparse`, whose bit-xor precedence would turn `x^2 - 1`
+  into `x^(2 - 1)`); the generated code evaluates each side ONCE, checks the
+  retained values' exactness, and builds the relation from them.
+- `_predicate_operand_sources` extracts a bare predicate's receiver and
+  arguments from the source; the generated code checks their exactness, and a
+  predicate whose inputs cannot be established is qualified, not proved.
+
+### How to verify
+
+`tests/test_verify.py`, real Sage: the dict-key and `is_zero()` claims are
+`supported/float_comparison`; `is_prime(7)` stays `proved`; and
+`x^2 - 2*x + 1 = (x - 1)^2` stays `proved/symbolic_prover` (the precedence trap
+would have refuted it). 34 verify tests pass; `_comparison_sides` /
+`_predicate_operand_sources` unit tests cover the operator, the `^` substring,
+and the membership/identity fall-through.
+
+### Status
+
+Fixed 2026-09-07; found by an external review at 356d520. Builds on items 71
+(round 2) and 65/68.
+
+## 74. Warm-pool reclamation releases a worker's slot before it exits — medium — DONE
+
+### What
+
+The capacity-reclamation path (external review, round 3) freed a slot before the
+worker holding it had exited: `get` cancelled a refill task and dropped its spare
+from `_warm_in_flight` *before* awaiting shutdown, then created the replacement
+immediately. With a refill in flight, that left three live processes for a
+ceiling of two. The root cause is that a cancelled task cannot reliably shut its
+own worker down -- `await spare.shutdown()` in the task's `except` gets a
+re-delivered `CancelledError` that `suppress` swallows mid-shutdown -- so even
+`manager.shutdown()` could return with an owned worker still alive.
+
+### Fix
+
+Ownership through cleanup, done by the canceller in an uncancelled context:
+
+- `_warm_tasks` is now `{task: spare}`, so whoever cancels a refill holds the
+  worker to reclaim.
+- On `CancelledError`, `_spawn_warm_worker` re-raises WITHOUT shutting down and
+  leaves the spare in `_warm_in_flight` -- the canceller owns it.
+- `_reclaim_refill(task, spare)` cancels the task, awaits it, shuts the spare
+  down in the caller's context, and only then drops it from `_warm_in_flight`.
+  `get` awaits reclamation before creating the replacement, so the slot is
+  genuinely free (worker exited), not merely signalled.
+- `shutdown` reclaims `_warm_pool` + `_warm_in_flight` in its own context, so a
+  cancelled refill's worker is always cleaned up.
+
+### How to verify
+
+`tests/test_warm_pool.py::test_reclaim_awaits_the_worker_exit_before_reusing_the_slot`
+holds a refill spare alive mid warm-up with a real worker subprocess, has a
+second client trigger reclamation, and asserts the reclaimed worker is no longer
+alive, `_warm_in_flight`/`_warm_tasks` are empty, and live workers stay within
+the ceiling. Plus the round-2 ceiling and cancelled-refill tests. 100% coverage.
+
+### Status
+
+Fixed 2026-09-07; found by an external review at 356d520. `SAGEMATH_MCP_WARM_POOL_SIZE=0`
+was the interim mitigation and is no longer needed.

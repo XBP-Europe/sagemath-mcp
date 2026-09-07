@@ -122,7 +122,7 @@ async def test_shutdown_cancels_a_pending_refill(monkeypatch):
 
     stuck = asyncio.Event()
 
-    async def never_finishes():
+    async def never_finishes(spare=None):
         await stuck.wait()  # never set -> the refill task stays pending
         return True
 
@@ -154,10 +154,10 @@ async def test_a_refill_never_pushes_the_total_over_the_ceiling(monkeypatch):
         release = asyncio.Event()
         real_spawn = manager._spawn_warm_worker
 
-        async def blocking_spawn():
+        async def blocking_spawn(spare=None):
             started.set()
             await release.wait()
-            return await real_spawn()
+            return await real_spawn(spare)
 
         monkeypatch.setattr(manager, "_spawn_warm_worker", blocking_spawn)
 
@@ -223,5 +223,44 @@ async def test_warm_up_respects_the_session_ceiling():
     try:
         await manager.warm_up()
         assert len(manager._warm_pool) == 1
+    finally:
+        await manager.shutdown()
+
+
+async def test_reclaim_awaits_the_worker_exit_before_reusing_the_slot(monkeypatch):
+    """Capacity reclamation must not release a slot until the spare's worker has
+    actually exited (external review, round 3). Previously get() cancelled the
+    refill and dropped the spare from tracking without awaiting its shutdown, so
+    the replacement could start while the cancelled worker was still alive --
+    three live processes for a ceiling of two.
+    """
+    manager = SageSessionManager(_settings(max_sessions=2, warm_pool_size=1))
+    await manager.warm_up()  # W0 pooled (unpatched, so its warm eval completed)
+
+    entered = asyncio.Event()
+    real_eval = SageSession.evaluate
+
+    async def blocking_eval(self, *args, **kwargs):
+        # Hold the *refill* spare alive, mid warm-up, when B arrives.
+        if self.session_id == _WARM_SPARE_ID and not entered.is_set():
+            entered.set()
+            await asyncio.Event().wait()  # until cancelled by the reclaim
+        return await real_eval(self, *args, **kwargs)
+
+    monkeypatch.setattr(SageSession, "evaluate", blocking_eval)
+    try:
+        await manager.get("A")  # adopts W0, schedules the refill for W1
+        await asyncio.wait_for(entered.wait(), 3)  # W1 spawned and alive, blocked
+        assert len(manager._warm_in_flight) == 1
+        spare = next(iter(manager._warm_in_flight))
+        assert spare.is_alive()
+
+        await manager.get("B")  # must reclaim W1 (await its exit) before creating B
+
+        assert not spare.is_alive(), "reclaimed worker still alive after the slot was reused"
+        assert not manager._warm_in_flight
+        assert not manager._warm_tasks
+        live = [s for s in manager._sessions.values() if s.is_alive()]
+        assert len(live) <= 2
     finally:
         await manager.shutdown()

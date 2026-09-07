@@ -751,7 +751,10 @@ class SageSessionManager:
         # warm_up() at server start and topped up in the background; the refill
         # tasks are tracked so shutdown can cancel them.
         self._warm_pool: list[SageSession] = []
-        self._warm_tasks: set[asyncio.Task[None]] = set()
+        # Refill task -> the spare it is warming, so whoever cancels a refill
+        # holds a reference to reclaim that worker in its own (uncancelled)
+        # context. A cancelled task cannot reliably shut its own worker down.
+        self._warm_tasks: dict[asyncio.Task[None], SageSession] = {}
         # Spares whose refill is still running -- tracked so a cancelled refill
         # (shutdown, or a real session reclaiming its slot) cannot leak the
         # worker it had already spawned, and so total-worker accounting can see
@@ -862,16 +865,21 @@ class SageSessionManager:
             if not await self._spawn_warm_worker():
                 break
 
-    async def _spawn_warm_worker(self) -> bool:
-        """Add one fully-warmed spare to the pool. Returns whether it landed.
+    async def _spawn_warm_worker(self, spare: SageSession | None = None) -> bool:
+        """Warm one spare and add it to the pool. Returns whether it landed.
 
         Spawning imports Sage, but the expensive part is the *first evaluation*
         -- Sage defers a second of lazy setup to it (~1.3s measured, then ~2ms).
         So the spare runs a throwaway `1+1` here, off any client's critical path,
         and its journal is wiped so it is pristine when adopted.
+
+        The spare is created by the caller when this runs as a cancellable refill
+        task (`_schedule_warm_refill`), so the canceller keeps a reference to it;
+        `warm_up` passes ``None`` and one is made here.
         """
-        spare = SageSession(_WARM_SPARE_ID, self.settings)
-        self._warm_in_flight.add(spare)
+        if spare is None:
+            spare = SageSession(_WARM_SPARE_ID, self.settings)
+            self._warm_in_flight.add(spare)
         try:
             await spare.ensure_started()
             await spare.evaluate(
@@ -881,23 +889,39 @@ class SageSessionManager:
                 timeout_seconds=min(_WARM_EVAL_TIMEOUT, self.settings.eval_timeout),
             )
             spare._code_journal.clear()
-        except BaseException as exc:
-            # `BaseException`, not `Exception`, on purpose: `CancelledError` (the
-            # refill task being cancelled at shutdown or to free a slot for a
-            # real session) does not derive from `Exception`, and the earlier
-            # `except Exception` let it skip cleanup -- leaving the spawned worker
-            # alive. Reclaim it either way; re-raise a cancellation so the task
-            # still counts as cancelled.
-            self._warm_in_flight.discard(spare)
-            with contextlib.suppress(BaseException):
+        except asyncio.CancelledError:
+            # Do NOT shut the worker down here. Awaiting a shutdown inside a
+            # cancelled task is unreliable -- a re-delivered cancellation is
+            # swallowed mid-way and the worker survives, which is exactly the
+            # leak the reviewer reproduced. The spare stays in `_warm_in_flight`;
+            # whoever cancelled this refill (get's reclaim, or shutdown) owns the
+            # cleanup and performs it in an uncancelled context.
+            raise
+        except Exception as exc:
+            with contextlib.suppress(Exception):
                 await spare.shutdown()
-            if isinstance(exc, asyncio.CancelledError):
-                raise
+            self._warm_in_flight.discard(spare)
             LOGGER.warning("Could not pre-warm a spare Sage worker: %s", exc)
             return False
         self._warm_in_flight.discard(spare)
         self._warm_pool.append(spare)
         return True
+
+    async def _reclaim_refill(self, task: asyncio.Task[None], spare: SageSession) -> None:
+        """Cancel a refill and release its worker before its slot is reused.
+
+        Awaits the cancelled task, then shuts its spare down here -- in the
+        caller's uncancelled context, where the shutdown actually completes --
+        and only then drops it from `_warm_in_flight`. So the capacity a
+        replacement takes is genuinely free: the worker has exited, not merely
+        been signalled.
+        """
+        task.cancel()
+        with contextlib.suppress(BaseException):
+            await asyncio.gather(task, return_exceptions=True)
+        with contextlib.suppress(Exception):
+            await spare.shutdown()
+        self._warm_in_flight.discard(spare)
 
     def _schedule_warm_refill(self) -> None:
         """Top the pool back up in the background after a spare is adopted.
@@ -913,9 +937,11 @@ class SageSessionManager:
             return
         if limit and committed >= limit:
             return
-        task = asyncio.create_task(self._spawn_warm_worker())
-        self._warm_tasks.add(task)
-        task.add_done_callback(self._warm_tasks.discard)
+        spare = SageSession(_WARM_SPARE_ID, self.settings)
+        self._warm_in_flight.add(spare)
+        task = asyncio.create_task(self._spawn_warm_worker(spare))
+        self._warm_tasks[task] = spare
+        task.add_done_callback(lambda t: self._warm_tasks.pop(t, None))
 
     async def get(self, session_id: str) -> SageSession:
         adopted = False
@@ -949,16 +975,18 @@ class SageSessionManager:
                     # refill's slot first. Without this, `get` counted only
                     # `_sessions` while the refill counted its own slot, so a
                     # spare and a new session could both take the last slot and
-                    # overshoot max_sessions (CAP 2 LIVE 2 SPARES 1).
-                    if limit:
-                        while (
-                            len(self._sessions) + len(self._warm_pool) + len(self._warm_tasks)
-                            >= limit
-                            and self._warm_tasks
-                        ):
-                            victim = next(iter(self._warm_tasks))
-                            self._warm_tasks.discard(victim)
-                            victim.cancel()
+                    # overshoot max_sessions (CAP 2 LIVE 2 SPARES 1). Reclamation
+                    # AWAITS the worker's exit before the slot is reused, so the
+                    # replacement does not start alongside a still-live spare.
+                    while (
+                        limit
+                        and len(self._sessions) + len(self._warm_pool) + len(self._warm_tasks)
+                        >= limit
+                        and self._warm_tasks
+                    ):
+                        victim, victim_spare = next(iter(self._warm_tasks.items()))
+                        del self._warm_tasks[victim]
+                        await self._reclaim_refill(victim, victim_spare)
                     session = SageSession(session_id, self.settings)
                     adopted = False
                 self._sessions[session_id] = session

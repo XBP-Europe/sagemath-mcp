@@ -447,7 +447,33 @@ def _dangerous_sage_names() -> frozenset[str]:
         interfaces = None
         failed.append(_EXTERNAL_INTERFACE_EXPORTS)
     if interfaces is not None:
-        names.update(n for n in vars(interfaces) if not n.startswith("_"))
+        # Every public name here is a CAS interface -- unless the runtime's layout
+        # re-exports ordinary mathematics through it. Monolithic Sage does not
+        # (74 names, all interfaces); passagemath's modularized `sage.interfaces.
+        # all` re-exports `Integer`, `parent`, `prod`, `Hom`, ..., and adding
+        # those unconditionally poisoned the danger set so nine star-export
+        # modules failed on a name like `parent`. Drop a name only when it
+        # *provably* resolves to a home outside `sage.interfaces`: a real
+        # interface either lives under `sage.interfaces` or fails to resolve (an
+        # optional interface absent from this runtime), and is kept either way,
+        # so this cannot weaken the danger set -- verified a no-op on monolithic.
+        for name, value in vars(interfaces).items():
+            if name.startswith("_"):
+                continue
+            try:
+                resolved = (
+                    value._get_object() if type(value).__name__ == "LazyImport" else value
+                )
+                home = getattr(resolved, "__module__", None)
+            except Exception:
+                names.add(name)  # absent under this runtime; keeping it costs nothing
+                continue
+            if not (
+                isinstance(home, str)
+                and home != "sage.interfaces"
+                and not home.startswith("sage.interfaces.")
+            ):
+                names.add(name)
 
     for module_name in _DANGEROUS_SAGE_MODULES:
         try:

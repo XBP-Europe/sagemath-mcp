@@ -83,6 +83,15 @@ out of date.
       shipped a broken core backend on Linux x86_64 (found in the evaluation, not
       their tracker), so pin + cold-install smoke gate in CI. File the
       `maxima_lib` regression upstream.
+      **Blocker (1) DONE 2026-09-07** (REVIEW_ACTIONS 69): the layout-aware
+      derivation fix landed — the `sage.interfaces.all` pass attributes by the
+      value's `__module__`, so passagemath's modular layout no longer poisons the
+      danger set; verified a no-op on monolithic (17 agreement tests, identical
+      artifacts) and 6/15 → 15/15 on passagemath. Remaining: runtime dispatch
+      (`importlib.metadata` probe) + the three passagemath artifact sets
+      (allowlist/star-exports/baked denylist) so both runtimes are selectable,
+      the `[passagemath]` pin, blocker (2) full-suite/corpus sweep, and blocker
+      (3) filing `maxima_lib` upstream.
 - [ ] Consider making `scripts/generate_allowlist.py` classify rather than accept.
       Four separate findings had one root cause: the allowlist is generated as
       *whatever survives the namespace scrub*, so it inherits every gap in that

@@ -3644,3 +3644,133 @@ being flagged.
 Fixed 2026-09-07. This is blocker #1 of the passagemath runtime extra; the
 remaining integration (runtime dispatch, the passagemath artifact set, the
 `[passagemath]` pin, and a passagemath CI lane) builds on it.
+## 70. Workspace token leaks into lifecycle logs and responses — high — DONE
+
+### What
+
+`start_sage_session` issues a `workspace_token` (bearer credential, `wsk_`
+prefix) and promises it is kept out of logs, listings and error messages. But
+`reset_sage_session`, `interrupt_sage_session` and `cancel_sage_session` take a
+`session` argument that now *carries that token* and interpolated it straight
+into MCP notifications -- `await ctx.info(f"Sage session '{session}' reset")`
+and the `ctx.warning` equivalents -- and `stop_sage_session` echoed the value it
+resolved into its response and log line. A reviewer's probes confirmed
+`TOKEN_IN_INFO_LOG` and `TOKEN_IN_WARNING_LOG` on a real HTTP client. Not a
+cross-client leak, but credential propagation into logging channels, contrary to
+the documented secrecy guarantee.
+
+### Fix
+
+A single `_loggable(session)` helper in `tools/session.py`: a value that starts
+with the workspace-token prefix is shown as the generic label `the workspace`;
+a plain name (not a secret) is shown as itself. Every user-facing string in
+reset/interrupt/cancel/stop -- notifications, responses and the stop error --
+routes through it, so no lifecycle path can echo a token.
+
+### How to verify
+
+`tests/test_workspace_handles.py::test_lifecycle_tools_never_echo_the_workspace_token`
+mints a token, drives reset/interrupt/cancel/stop with it, and asserts it appears
+in no `ctx.info`/`ctx.warning` message, no response `message`, and no error. The
+helper maps `wsk_…` to `the workspace` and a name to itself.
+
+### Status
+
+Fixed 2026-09-07; found by an external review (REVIEW_ACTIONS-style) at cc4a8ae.
+Note: reset/cancel do not revoke the token -- it stays valid, by design; this is
+about keeping it out of logs, not rotating it.
+
+## 71. Verifier: exactness not enforced on every path; assumptions concealed — high — DONE
+
+### What
+
+Two soundness gaps in `verify_claim` (`tools/verify.py`).
+
+*Exactness (defect 1).* `_is_inexact` established exactness only for scalar
+operands and exempted the symbolic ring, and the check gated only the Boolean
+path -- the symbolic/exact rungs ran regardless. So an approximate value
+wrapped in a container or in `SR` was proved:
+`[RR(1)+RR(1)/10^20] == [RR(1)]` → proved/exact_comparison, and
+`SR(RR(1)+RR(1)/10^20) == 1` → proved/symbolic_prover. The operand inspection
+also failed *open* on exception (treated as exact).
+
+*Assumptions (defect 2).* Under `assume(x, 'integer')`, `sin(pi*x) != 1` was
+`proved/exact_algebraic` with no mention of the integer assumption -- the
+algebraic branch omitted the assumptions note. Without the assumption the claim
+fails at x = 1/2. And the `prove_and_verify` prompt called any non-`proved`
+result "suspect", conflating an inconclusive CAS result with a refutation.
+
+### Fix
+
+- `_is_inexact` recurses into lists/tuples/sets/dicts and, for symbolic
+  expressions, walks the tree flagging any leaf carrying a machine number
+  (a `RealNumber`/float), while treating symbolic constants (`pi`, `e`) and
+  exact rationals/integers as exact.
+- Exactness is now a prerequisite for *every* proof path: if the operands are
+  inexact (or their exactness cannot be established -- the check fails *closed*),
+  the verdict is `supported`/`undecided` via `float_comparison`, never
+  proved/refuted. Operand inexactness is read from the claim's own `lhs()`/
+  `rhs()` where possible, not a second evaluation of the source.
+- Assumptions are attached centrally (a structured `assumptions` field on
+  `VerifyClaimResult`, and appended to the evidence once) so no branch can omit
+  them.
+- The `prove_and_verify` prompt now distinguishes `refuted` (argument is wrong)
+  from `supported`/`undecided` (inconclusive, not a refutation).
+
+### How to verify
+
+`tests/test_verify.py::test_verify_claim_ladder_against_real_sage`, against real
+Sage: the boxed and `SR(...)`-wrapped inexact claims are `supported/
+float_comparison`; `SR(1/2) == 1/2` and `cos(pi) == -1` stay `proved`;
+`sin(pi*x) != 1` under `assume(x,'integer')` is `proved/exact_algebraic` with
+`"x is integer"` in `.assumptions` and "integer" in the evidence. 34 verify
+tests pass; the exact rungs (symbolic_prover, exact_difference, exact_algebraic,
+certified_interval) are unchanged for exact operands.
+
+### Status
+
+Fixed 2026-09-07; found by an external review at cc4a8ae. Builds on items 65/68
+(the first-round float and integer-domain fixes).
+
+## 72. Warm pool can exceed its ceiling and leak a worker on cancellation — medium — DONE
+
+### What
+
+Two defects in the pre-warmed worker pool (`session.py`), both reproduced by the
+reviewer with real worker subprocesses.
+
+*Capacity race.* `get` enforced the ceiling on `len(self._sessions)` alone, while
+`_schedule_warm_refill` counted its own pending slot. With `max_sessions=2`,
+`warm_pool_size=1`: client A adopts the spare and schedules a refill; client B
+starts before the refill finishes; `get` sees only one live session and creates a
+second; the refill then completes -- three workers for a ceiling of two
+(`CAP 2 LIVE 2 SPARES 1`). Initial `warm_up()` also ignored the ceiling.
+
+*Cancellation leak.* When shutdown cancelled a refill after its subprocess had
+spawned, `_spawn_warm_worker`'s `except Exception` did not cover
+`CancelledError` (not an `Exception` subclass), so the spare was never shut down,
+and it had not yet entered `_warm_pool` for shutdown to find.
+
+### Fix
+
+- Total-worker accounting is shared: `get`, when it must create a real worker
+  (a real session takes priority over an opportunistic spare), reclaims a
+  pending refill's slot if live sessions + pool + in-flight refills would
+  otherwise exceed the ceiling; `warm_up` stops filling at the same bound.
+- `_spawn_warm_worker` catches `BaseException`, so a cancelled refill shuts down
+  the worker it spawned and re-raises the cancellation. In-flight spares are
+  tracked in `_warm_in_flight`, which `shutdown` also reclaims as a backstop.
+
+### How to verify
+
+`tests/test_warm_pool.py`:
+`test_a_refill_never_pushes_the_total_over_the_ceiling` (blocks a refill in
+flight, starts a second client, asserts sessions + pool + pending stays <=
+max_sessions) and `test_shutdown_reclaims_a_spare_whose_refill_is_cancelled`
+(holds a spare in flight, shuts down, asserts its worker was shut down and is not
+alive). Both use the pure-Python worker.
+
+### Status
+
+Fixed 2026-09-07; found by an external review at cc4a8ae. `SAGEMATH_MCP_WARM_POOL_SIZE=0`
+was the interim mitigation and is no longer needed.

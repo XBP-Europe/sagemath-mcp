@@ -1312,7 +1312,9 @@ First run (subject model `haiku`, scoring judge `sonnet`, full detail in [`bench
 | infeasible (factoring, 8×8 det, partitions) | 0/5 | 5/5 |
 | **Total** | **17/24 (71%)** | **24/24 (100%)** |
 
-The lift is entirely in the last two tiers — arbitrary computation a model cannot do in-context — where reasoning alone refused six problems and answered one *confidently wrong* (the failure mode [`verify_claim`](#verify_claim) exists for), while Sage got all ten. On problems the model already handles, the tool changes nothing: it does not help where it is not needed, and does not hurt. A stronger subject model closes the gap on its own, so this measures the model as much as the server; it is never CI-gated. The rigorous three-arm version (no-tools / `evaluate_sage`-only / full-catalogue, with real tool-gating) runs under the CLI nightlies.
+The lift is entirely in the last two tiers — arbitrary computation a model cannot do in-context — where reasoning alone refused six problems and answered one *confidently wrong* (the failure mode [`verify_claim`](#verify_claim) exists for), while Sage got all ten. On problems the model already handles, the tool changes nothing: it does not help where it is not needed, and does not hurt. A stronger subject model closes the gap on its own, so this measures the model as much as the server; it is never CI-gated.
+
+**What this does and does not show.** The compute arm runs Sage directly (`docker exec … sage -c`), so it establishes that *Sage computation helps this model on these cases* — not yet that *this server's design* (its tool selection, input validation, handles and verifier) improves outcomes, because that arm bypasses the server. Measuring through the actual MCP interface, with enforced tool permissions and the execution/scoring evidence retained, is the intended next step: a three-arm comparison (no-tools / `evaluate_sage`-only / full-catalogue) in the `tests/cli_integration` harness under the CLI nightlies. That harness is **not built yet** — it is tracked as a follow-up in TODO, not something that runs today.
 
 ### Linting
 

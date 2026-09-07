@@ -128,6 +128,12 @@ class VerifyClaimResult(BaseModel):
         description="What the deciding rung actually established, including the "
         "counterexample for a sampled refutation.",
     )
+    assumptions: list[str] = Field(
+        default_factory=list,
+        description="The session's active assumptions in force during the check "
+        "(e.g. \"x is integer\"). A verdict is only valid under these; they are "
+        "also named in the evidence so no branch can conceal them.",
+    )
     samples: int | None = Field(
         default=None,
         description="Number of sample points supporting a numeric-sampling verdict.",

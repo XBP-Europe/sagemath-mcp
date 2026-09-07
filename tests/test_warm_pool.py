@@ -136,3 +136,92 @@ async def test_shutdown_cancels_a_pending_refill(monkeypatch):
 def test_the_ceiling_and_pool_size_read_from_the_environment(monkeypatch):
     monkeypatch.setenv("SAGEMATH_MCP_WARM_POOL_SIZE", "3")
     assert SageSettings.from_env().warm_pool_size == 3
+
+
+async def test_a_refill_never_pushes_the_total_over_the_ceiling(monkeypatch):
+    """Capacity race (external review, round 2): with max_sessions=2 and
+    warm_pool_size=1, a client adopting the spare schedules a refill; a second
+    client starting before that refill finishes must not overshoot the ceiling.
+    The refill counted its slot but `get` counted only live sessions, so both
+    could take the last slot (CAP 2 LIVE 2 SPARES 1).
+    """
+    manager = SageSessionManager(_settings(max_sessions=2, warm_pool_size=1))
+    try:
+        await manager.warm_up()
+        assert len(manager._warm_pool) == 1
+
+        started = asyncio.Event()
+        release = asyncio.Event()
+        real_spawn = manager._spawn_warm_worker
+
+        async def blocking_spawn():
+            started.set()
+            await release.wait()
+            return await real_spawn()
+
+        monkeypatch.setattr(manager, "_spawn_warm_worker", blocking_spawn)
+
+        await manager.get("A")  # adopts the spare, schedules the (blocked) refill
+        await asyncio.wait_for(started.wait(), 2)  # refill is in flight
+        await manager.get("B")  # must reclaim the pending slot, not overshoot
+
+        total = len(manager._sessions) + len(manager._warm_pool) + len(manager._warm_tasks)
+        assert total <= 2, f"total workers overshoot the ceiling: {total}"
+        release.set()
+        await asyncio.sleep(0.05)
+        assert len(manager._sessions) + len(manager._warm_pool) + len(manager._warm_tasks) <= 2
+    finally:
+        release.set()
+        await manager.shutdown()
+
+
+async def test_shutdown_reclaims_a_spare_whose_refill_is_cancelled(monkeypatch):
+    """Cancellation leak (external review, round 2): when shutdown cancels a
+    refill after its worker has spawned, the worker must be reclaimed. The old
+    `except Exception` did not cover CancelledError, so the spare leaked.
+    """
+    manager = SageSessionManager(_settings(max_sessions=4, warm_pool_size=1))
+    entered = asyncio.Event()
+    release = asyncio.Event()
+    shut_down: list[SageSession] = []
+    real_shutdown = SageSession.shutdown
+
+    async def tracked_shutdown(self):
+        shut_down.append(self)
+        return await real_shutdown(self)
+
+    real_eval = SageSession.evaluate
+
+    async def blocking_eval(self, *args, **kwargs):
+        if self.session_id == _WARM_SPARE_ID and not entered.is_set():
+            entered.set()
+            await release.wait()  # hold the spare in flight, worker already spawned
+        return await real_eval(self, *args, **kwargs)
+
+    monkeypatch.setattr(SageSession, "shutdown", tracked_shutdown)
+    monkeypatch.setattr(SageSession, "evaluate", blocking_eval)
+    try:
+        manager._schedule_warm_refill()
+        await asyncio.wait_for(entered.wait(), 3)
+        assert len(manager._warm_in_flight) == 1
+        spare = next(iter(manager._warm_in_flight))
+
+        release.set()  # let cancellation win the race either way
+        await manager.shutdown()
+
+        assert spare in shut_down, "the in-flight spare's worker leaked on shutdown"
+        assert not spare.is_alive()
+    finally:
+        release.set()
+
+
+async def test_warm_up_respects_the_session_ceiling():
+    """warm_up never fills the pool past max_sessions, even when the configured
+    pool size is larger -- spares count against the same ceiling as live workers.
+    """
+    manager = SageSessionManager(_settings(max_sessions=1, warm_pool_size=3))
+    try:
+        await manager.warm_up()
+        assert len(manager._warm_pool) == 1
+    finally:
+        await manager.shutdown()

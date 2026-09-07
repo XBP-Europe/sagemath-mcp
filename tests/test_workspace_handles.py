@@ -170,3 +170,44 @@ async def test_a_handle_is_not_exposed_through_the_session_resource(manager):
     blob = await server.session_resource("all", ctx)
     assert token not in blob
     assert "visible" in blob  # listed by name, as intended
+
+
+async def test_lifecycle_tools_never_echo_the_workspace_token(manager):
+    """The token is a bearer credential; no lifecycle op may put it in a log
+    notification or a response. Names are not secret and may still appear.
+
+    Regression for an external review (REVIEW_ACTIONS 70): reset/interrupt/cancel
+    interpolated the caller's `session` argument -- which now carries the token --
+    straight into `ctx.info`/`ctx.warning`, and stop echoed it too.
+    """
+    ctx = FakeContext("client-a")
+    token = (await server.start_sage_session("scratch", ctx=ctx)).workspace_token
+    await server.evaluate_sage("a = 1", session=token, ctx=ctx)
+
+    def _assert_clean(context, response) -> None:
+        emitted = [
+            *context.info_messages,
+            *context.warning_messages,
+            getattr(response, "message", ""),
+        ]
+        leaked = [m for m in emitted if token in (m or "")]
+        assert not leaked, f"workspace token leaked: {leaked}"
+
+    for tool in (
+        server.reset_sage_session,
+        server.interrupt_sage_session,
+        server.cancel_sage_session,
+    ):
+        call_ctx = FakeContext("client-a")
+        response = await tool(session=token, ctx=call_ctx)
+        _assert_clean(call_ctx, response)
+
+    # stop resolves a token too; whether it stops the workspace or reports none,
+    # the token must not appear in the response, the logs, or an error.
+    stop_ctx = FakeContext("client-a")
+    try:
+        stop_response = await server.stop_sage_session(token, ctx=stop_ctx)
+    except server.ToolError as exc:
+        assert token not in str(exc)
+    else:
+        _assert_clean(stop_ctx, stop_response)

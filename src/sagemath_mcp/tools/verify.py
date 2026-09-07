@@ -258,21 +258,58 @@ async def verify_claim(
                 raise
             _claim = (sage_eval(_sides[0].strip(), locals=_locals)
                       == sage_eval(_sides[1].strip(), locals=_locals))
+        def _symbolic_is_inexact(_e):
+            # A symbolic expression is exact only if every numeric constant in it
+            # is exact. Walk the tree; a leaf that wraps a machine number
+            # (SR(RR(1)+...) carries a RealNumber) makes the whole expression
+            # inexact. Wrapping an approximate value in SR does not launder it.
+            try:
+                _ops = _e.operands()
+            except Exception:
+                _ops = []
+            if _ops:
+                return any(_symbolic_is_inexact(_o) for _o in _ops)
+            try:
+                _obj = _e.pyobject()
+            except (TypeError, AttributeError):
+                return False  # a symbol or structural leaf, not a number
+            if isinstance(_obj, (float, complex)):
+                return True
+            try:
+                return not _obj.parent().is_exact()
+            except AttributeError:
+                # A symbolic constant (pi, e, euler_gamma, ...) has no parent and
+                # is exact -- unlike the machine RealNumber that SR(1.0) carries.
+                return False
         def _is_inexact(_v):
-            # A concrete number living in an inexact field -- a machine float
-            # (RR/RDF/CC/RIF), never the symbolic ring (whose is_exact() is also
-            # False but whose claims the prover decides exactly) and never an
-            # exact field (ZZ/QQ/QQbar/AA). Python float/complex have no parent
-            # and are inexact; Python int/bool are exact.
+            # True when the value IS, or CONTAINS, a machine-precision number --
+            # a Python float/complex, a value in an inexact ring (RR/RDF/CC/RIF),
+            # an element of a list/tuple/set/dict that is, or a symbolic
+            # expression carrying an approximate constant. Exactness is a
+            # prerequisite for every proof path, so this is deliberately
+            # conservative: a value whose provenance cannot be established
+            # (no parent, not a container) is treated as inexact rather than
+            # assumed exact.
             if isinstance(_v, bool):
                 return False
             if isinstance(_v, (float, complex)):
                 return True
+            if isinstance(_v, int):
+                return False
+            if isinstance(_v, (list, tuple, set, frozenset)):
+                return any(_is_inexact(_e) for _e in _v)
+            if isinstance(_v, dict):
+                return any(_is_inexact(_e) for _e in _v.values())
             try:
                 _p = _v.parent()
             except AttributeError:
-                return False
-            return (_p is not SR) and (not _p.is_exact())
+                return True  # unknown provenance -> qualify, never prove
+            if _p is SR:
+                return _symbolic_is_inexact(_v)
+            try:
+                return not _p.is_exact()
+            except Exception:
+                return True
         def _domain_holds(_dom, _val):
             # Does a rational sample value lie in a declared domain?
             try:
@@ -326,14 +363,19 @@ async def verify_claim(
                     return False
             return True
         _inexact_operands = False
-        if _lhs_src is not None:
-            try:
+        try:
+            if hasattr(_claim, 'is_relational') and _claim.is_relational():
+                # Inspect the claim's OWN operands, not a second evaluation of
+                # the source: a function that returns different values on two
+                # calls could otherwise be judged exact and run exact.
+                _inexact_operands = _is_inexact(_claim.lhs()) or _is_inexact(_claim.rhs())
+            elif isinstance(_claim, bool) and _lhs_src is not None:
                 _inexact_operands = (
                     _is_inexact(sage_eval(_lhs_src, locals=_locals))
                     or _is_inexact(sage_eval(_rhs_src, locals=_locals))
                 )
-            except Exception:
-                _inexact_operands = False
+        except Exception:
+            _inexact_operands = True  # cannot establish exactness -> qualify, never prove
         _verdict = None
         _method = None
         _evidence = None
@@ -345,26 +387,42 @@ async def verify_claim(
         if _assumed:
             _anote = ("; under the session's active assumptions: "
                       + ', '.join(str(_a) for _a in _assumed))
-        if isinstance(_claim, bool) and _inexact_operands:
-            # The Boolean came out of a floating-point comparison, so it is a
-            # true observation about machine numbers but not the exact
-            # mathematical proof this tool advertises. Never proved/refuted
-            # here: a holding comparison is 'supported' (with the inexactness
-            # named), a failing one is 'undecided' -- rounding could have gone
-            # either way.
-            if _claim:
+        if _inexact_operands:
+            # Exactness is a prerequisite for a proof, and it fails: an operand
+            # is a machine-precision number, or contains one, or is an
+            # approximate constant wrapped in a list or in SR. NO path may return
+            # 'proved'/'refuted' here -- a floating-point comparison is a true
+            # observation about machine numbers, not the exact identity this tool
+            # advertises. A holding comparison is 'supported' (inexactness named),
+            # a failing or undecidable one is 'undecided' (rounding could decide
+            # it either way).
+            _method = 'float_comparison'
+            try:
+                if isinstance(_claim, bool):
+                    _decides = _claim
+                elif (hasattr(_claim, 'is_relational') and _claim.is_relational()
+                      and not _claim.variables()):
+                    _decides = bool(_claim)
+                else:
+                    _decides = None  # free variables: not decidable to a Boolean
+            except Exception:
+                _decides = None
+            if _decides is True:
                 _verdict = 'supported'
-                _method = 'float_comparison'
                 _evidence = ('holds under inexact machine-number (floating-point) '
                              'evaluation; not established as an exact identity. '
-                             'State it over exact numbers (ZZ/QQ/QQbar or symbolic) '
-                             'for an exact verdict' + _anote)
-            else:
+                             'State it over exact numbers (ZZ/QQ/QQbar or exact '
+                             'symbolic constants) for an exact verdict' + _anote)
+            elif _decides is False:
                 _verdict = 'undecided'
-                _method = 'float_comparison'
                 _evidence = ('does not hold under inexact machine-number evaluation, '
                              'which cannot exactly refute it -- rounding may have '
                              'decided the comparison' + _anote)
+            else:
+                _verdict = 'undecided'
+                _evidence = ('the claim carries inexact machine numbers, so no exact '
+                             'proof path applies; state it over exact numbers for a '
+                             'decisive verdict' + _anote)
         elif isinstance(_claim, bool):
             _verdict = 'proved' if _claim else 'refuted'
             _method = 'exact_comparison'
@@ -566,10 +624,18 @@ async def verify_claim(
             _evidence = ('neither proved nor refuted: the symbolic prover, the '
                          'exact difference, exact algebraic arithmetic and the '
                          'certified numeric rungs were all inconclusive')
+        # Attach the active assumptions centrally: a verdict that relied on them
+        # must name them, and doing it here -- not in each rung -- is what keeps
+        # a branch (the algebraic one did) from silently omitting them. Idempotent
+        # for the rungs that already appended _anote.
+        _assumption_list = [str(_a) for _a in _assumed]
+        if _bad is None and _anote and _evidence is not None and _anote not in _evidence:
+            _evidence = _evidence + _anote
         _payload = ({{'error': _bad}} if _bad is not None else {{
             'verdict': _verdict,
             'method': _method,
             'evidence': _evidence,
+            'assumptions': _assumption_list,
             'samples': _used_samples,
             'precision_bits': _used_prec,
         }})
@@ -590,6 +656,7 @@ async def verify_claim(
         verdict=verdict,
         method=payload.get("method"),
         evidence=payload.get("evidence"),
+        assumptions=payload.get("assumptions") or [],
         samples=payload.get("samples"),
         precision_bits=payload.get("precision_bits"),
     )

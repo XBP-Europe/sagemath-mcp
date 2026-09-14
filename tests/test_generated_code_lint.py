@@ -461,8 +461,13 @@ def test_the_dev_container_scripts_pin_the_dockerfile_sage() -> None:
     safe if a Sage bump updates all three together, which is what this asserts.
     """
     dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
-    image = re.search(r"^FROM\s+(\S+)", dockerfile, re.M).group(1)
-    assert ":latest" not in image and ":" in image, f"Dockerfile FROM is not pinned: {image}"
+    pinned = re.search(r"^FROM\s+(\S+)", dockerfile, re.M).group(1)
+    assert ":latest" not in pinned and ":" in pinned, f"Dockerfile FROM is not pinned: {pinned}"
+    # Tag plus digest: the digest freezes the exact index the release builds on
+    # (Dependabot refreshes it); the tag is what the scripts and the README badge
+    # must agree with, so compare on the tag and require the digest separately.
+    assert "@sha256:" in pinned, f"Dockerfile FROM is not pinned by digest: {pinned}"
+    image = pinned.split("@", 1)[0]
 
     for script in ("scripts/setup_sage_container.sh", "scripts/setup_sage_container.ps1"):
         text = (ROOT / script).read_text(encoding="utf-8")

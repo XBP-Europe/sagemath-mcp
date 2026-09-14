@@ -1,4 +1,9 @@
-FROM sagemath/sagemath:10.9
+# Tag AND digest: the tag says which Sage this is, the digest pins the exact
+# index so a re-pushed 10.9 cannot change what the release builds on (the
+# security allowlists are generated from this Sage and reviewed against it).
+# Dependabot's docker ecosystem refreshes the digest; a Sage bump moves the tag
+# here, in the setup scripts and in the README badge together (test-enforced).
+FROM sagemath/sagemath:10.9@sha256:e068670ae5863b54b2550e72437ec637b0283acb0dc712c8584c124dbf44e667
 
 WORKDIR /workspace
 

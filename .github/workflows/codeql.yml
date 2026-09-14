@@ -1,0 +1,52 @@
+name: CodeQL
+
+# Static analysis (SAST) on every push to main and every pull request, plus a
+# weekly pass so new query packs reach the code without a push. Two languages:
+# `python` for the server, `actions` for the workflows themselves -- the
+# release pipeline is code that publishes, so it is analysed like code. Results
+# land in the code scanning tab; this is also what the OpenSSF Scorecard's SAST
+# check looks for.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "41 5 * * 2"
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write   # upload the results to code scanning
+      contents: read
+      actions: read
+      packages: read           # CodeQL query packs from GHCR
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: python
+            build-mode: none
+          - language: actions
+            build-mode: none
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          # The default suite plus the security-extended queries; the security
+          # model here is an AST policy in front of code execution, so the
+          # lower-precision security queries are worth the review time.
+          queries: security-extended
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        with:
+          category: "/language:${{ matrix.language }}"

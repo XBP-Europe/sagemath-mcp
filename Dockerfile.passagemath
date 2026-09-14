@@ -23,7 +23,9 @@
 # no aarch64 wheel and pip fell back to its sdist, which needs a C compiler.
 # So the install runs in a stage that has one, into a venv the runtime stage
 # copies -- the compiler never reaches the published image.
-FROM python:3.12-slim-bookworm AS builder
+# Pinned by digest to the multi-arch index (amd64 + arm64 resolve from it);
+# Dependabot refreshes it. The same digest is used for both stages below.
+FROM python:3.12-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254 AS builder
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential \
@@ -40,7 +42,7 @@ RUN python -m venv /opt/venv \
     && /opt/venv/bin/pip install --no-cache-dir ".[passagemath]"
 
 # --- runtime stage -----------------------------------------------------------
-FROM python:3.12-slim-bookworm
+FROM python:3.12-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254
 
 # Same UID/GID as the `sage` user in sagemath/sagemath:10.9, so the Compose
 # file and the Helm chart (runAsUser/fsGroup 1001, tmpfs at /home/sage/.sage)

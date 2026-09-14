@@ -274,10 +274,40 @@ prioritised. Correctness first, then packaging/adoption.
       `uv.lock` dependency tree are release assets and the image SBOM plus SLSA
       provenance are attested to the GHCR digest; Scorecard publishes weekly.
       First real exercise is the next tag — the dry-run dispatch covers SBOM
-      generation but attests nothing by design. Scorecard will mark the
-      tag-pinned (not SHA-pinned) actions down; switching Dependabot to SHA pins
-      is the obvious follow-up if the score matters. The install paths
+      generation but attests nothing by design. The install paths
       (conda-forge, nix, `.mcpb`) remain open.
+      **Scorecard, first published score 5.7 (2026-09-14) — plan and status:**
+      - [x] *Pinned-Dependencies 0 → 8 locally.* Every `uses:` in all eight
+        workflows pinned to a commit SHA with a version comment (Dependabot
+        updates SHA pins); the three `FROM` lines pinned by index digest. What
+        stays unpinned, deliberately: the two `pip install` lines in
+        `Dockerfile.passagemath` (hash-locking them would mean installing from
+        an exported lock and would complicate the arm64 sdist fallback; the
+        image installs the exact pinned extra and is smoke-tested per arch) and
+        the three `npm install -g` lines in `cli-nightly.yml` (CLI clients for
+        a local-only harness). Those cap the check at ~8.
+      - [x] *Token-Permissions 0 → 10 locally.* Top-level `permissions:
+        contents: read` on every workflow; write scopes only at job level, only
+        where used (`issues: write` moved off the top level in `audit.yml` and
+        `cli-nightly.yml`).
+      - [x] *SAST 0.* `codeql.yml`: CodeQL for `python` and `actions`,
+        security-extended queries, on push/PR/weekly. The score updates once it
+        has run on a few commits.
+      - *Signed-Releases 0.* True of v0.7.0, which predates the provenance and
+        SBOM work; **resolves itself at the next tag**, nothing to do.
+      - *Branch-Protection −1 (internal error).* Scorecard's default token
+        cannot read protection settings; needs the owner to add a fine-grained
+        PAT (`administration: read`) as `SCORECARD_TOKEN` and pass it as
+        `repo_token`. Owner action, optional.
+      - *Code-Review 0, Contributors 3.* The single-maintainer reality
+        `SUPPORT.md` states plainly; not fixable by configuration. Would move
+        only with a second maintainer reviewing pull requests.
+      - *CII-Best-Practices 0.* A self-assessment questionnaire at
+        bestpractices.dev; owner action if wanted, most answers are already
+        documented here (SECURITY.md, CONTRIBUTING.md, tests, signed releases).
+      - *Fuzzing 0.* Not pursued: the AST validator is exercised by the
+        432,878-example doctest corpus and a Hypothesis property suite, which is
+        the fuzzing this project's shape actually benefits from.
 - [ ] **Measure the tool surface before defending it.** The roadmap argues 40
       tools is a differentiator; the reviewer argues `evaluate_sage` covers most
       of it and a 12-tool build might score the same. Use the CLI harness to

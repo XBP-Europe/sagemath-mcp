@@ -268,6 +268,16 @@ prioritised. Correctness first, then packaging/adoption.
       `.mcpb` bundle for one-click Claude Desktop install. Trust signals: PyPI
       Trusted Publishing PEP 740 attestations, an SBOM on releases, SLSA image
       provenance, an OpenSSF Scorecard badge.
+      **Trust signals DONE 2026-09-14** (`release.yml`, `scorecard.yml`,
+      `DISTRIBUTION.md`): PEP 740 was already live on the 0.7.0 files through
+      Trusted Publishing and is now explicit; SPDX SBOMs of the image and of the
+      `uv.lock` dependency tree are release assets and the image SBOM plus SLSA
+      provenance are attested to the GHCR digest; Scorecard publishes weekly.
+      First real exercise is the next tag — the dry-run dispatch covers SBOM
+      generation but attests nothing by design. Scorecard will mark the
+      tag-pinned (not SHA-pinned) actions down; switching Dependabot to SHA pins
+      is the obvious follow-up if the score matters. The install paths
+      (conda-forge, nix, `.mcpb`) remain open.
 - [ ] **Measure the tool surface before defending it.** The roadmap argues 40
       tools is a differentiator; the reviewer argues `evaluate_sage` covers most
       of it and a 12-tool build might score the same. Use the CLI harness to

@@ -737,6 +737,44 @@ async def test_the_caller_allowlist_matches_this_sage():
 
 
 @requires_sage
+def test_the_allowlist_generator_classifies_this_sage_cleanly():
+    """The generator's classify-don't-accept guard produces no false positives.
+
+    `scripts/generate_allowlist.py` fails generation on a surviving name it cannot
+    place as mathematics -- a module object from outside `sage`, or a value of
+    foreign provenance not in its reviewed exceptions. This asserts the reviewed
+    sets stay calibrated to the installed Sage: nothing legitimate is refused. The
+    complement -- a future Sage adding a *dangerous* name -- is what the guard is
+    for, and it surfaces here as this test naming the name, before it can be
+    baked in.
+    """
+    import importlib.util
+    from pathlib import Path
+
+    from sagemath_mcp._sage_worker import _build_namespace
+
+    root = Path(__file__).resolve().parents[1]
+    spec = importlib.util.spec_from_file_location(
+        "generate_allowlist", root / "scripts" / "generate_allowlist.py"
+    )
+    gen = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(gen)
+
+    namespace = _build_namespace()
+    rejected = {
+        name: reason
+        for name, value in namespace.items()
+        if not name.startswith("_") and name not in gen._CALLER_SHIMS
+        and (reason := gen._classification_failure(name, value)) is not None
+    }
+    assert not rejected, (
+        "the allowlist generator cannot classify these names as mathematics; "
+        "review each and add a safe one to _VETTED_FOREIGN/_SAFE_MODULE_NAMES or "
+        f"a dangerous one to _DANGEROUS_SAGE_MODULES: {rejected}"
+    )
+
+
+@requires_sage
 def test_the_star_exports_match_this_sage():
     """The vetted star-import lists are baked in; this keeps them honest.
 

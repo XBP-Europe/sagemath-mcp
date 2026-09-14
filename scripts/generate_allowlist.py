@@ -14,14 +14,24 @@ imports the worker, which imports the policy, which imports the allowlist. A
 shell redirect truncates the file before the import runs, and the generator then
 cannot start.
 
-Review the diff. A name that compiles, spawns a process, downloads or writes
-belongs in `_DANGEROUS_SAGE_MODULES` in `_sage_worker.py`, not here.
+**Classify, do not merely accept.** The first version of this emitted *whatever
+survived the namespace scrub*, so it inherited every gap in that scrub -- four
+separate findings had that one root cause. This version classifies each surviving
+name and **fails generation** on anything it cannot place as mathematics: a bare
+module object from outside `sage`, or a value whose provenance is neither `sage`
+nor one of a small, reviewed set of exceptions. A helper a future SageMath adds
+that reaches a shell, compiler or the filesystem now stops the generator with its
+name, instead of being allowlisted silently for a probe to find later. When it
+stops, review the name: a genuinely-safe one joins `_VETTED_FOREIGN` /
+`_SAFE_MODULE_NAMES` with a reason, a dangerous one joins `_DANGEROUS_SAGE_MODULES`
+in `_sage_worker.py`.
 """
 
 from __future__ import annotations
 
 import math
 import textwrap
+import types
 
 from sagemath_mcp._sage_worker import _CALLER_SHIMS, _build_namespace, _restricted_builtins
 
@@ -58,19 +68,117 @@ ALLOWED_CALLER_NAMES: frozenset[str] = frozenset({
 '''
 
 
+# Non-`sage` module objects the namespace legitimately binds as a bare name. Any
+# attribute access on them is still governed by the AST policy (e.g. `operator.*`
+# is refused wholesale), so holding the module itself is harmless. Listing them
+# by their own `__name__` means ANY OTHER module object -- `os`, `subprocess`, a
+# module a future import drags in -- fails generation rather than being
+# allowlisted silently.
+_SAFE_MODULE_NAMES = frozenset({"math", "operator"})
+
+# Provenance top-levels that are ordinary mathematical data. `builtins` is safe
+# here specifically because classification runs on the *scrubbed* namespace and
+# the curated `_restricted_builtins()`: the dangerous builtins (`eval`, `open`,
+# ...) are already gone, so what is left with builtins provenance is Sage's
+# constants and path strings (`SAGE_ROOT`, `true`, `false`), not a way out.
+_SAFE_PROVENANCE_TOPS = frozenset({"builtins", "math", "cmath", "statistics"})
+
+# Names whose value is defined outside `sage` but is ordinary, safe Python that
+# Sage re-exports. Each is here because it was reviewed, not because it survived a
+# scrub; a new foreign-provenance name fails generation until it is added here.
+_VETTED_FOREIGN = frozenset({
+    "reduce",                       # functools.reduce -- pure higher-order function
+    "copy", "deepcopy",             # copy -- value copying, no I/O
+    "PariError", "pari_gen",        # cypari2 -- PARI's own exception and integer type
+    "python_help",                  # Sage's pydoc-backed help(): prints documentation
+    "sleep",                        # time.sleep -- bounded by the evaluation timeout
+    # cysignals: Sage's interruptible-computation primitives (the alarm machinery
+    # behind interrupt_sage_session), not an escape route.
+    "alarm", "cancel_alarm", "AlarmInterrupt", "SignalError", "sig_on_count",
+})
+
+
+def _resolve(value: object) -> object | None:
+    """A Sage lazy import's object, or None if it will not resolve here.
+
+    Reading provenance off a `LazyImport` resolves it, and some optional features
+    (giac without its wheel) raise on resolution. Those are kept by name -- they
+    are absent mathematics, not a danger -- so None means "cannot classify
+    further, accept".
+    """
+    if type(value).__name__ == "LazyImport":
+        try:
+            return value._get_object()
+        except Exception:
+            return None
+    return value
+
+
+def _classification_failure(name: str, value: object) -> str | None:
+    """None if `value` is acceptable mathematics for the allowlist, else why not.
+
+    A returned reason fails generation: `name` is something the old generator
+    would have allowlisted silently -- a module object from outside `sage`, or a
+    value whose provenance is neither `sage` nor a vetted exception.
+    """
+    resolved = _resolve(value)
+    if resolved is None:
+        return None  # unresolved optional Sage feature; accept by name
+    if isinstance(resolved, types.ModuleType):
+        home = getattr(resolved, "__name__", "") or ""
+        if home == "sage" or home.startswith("sage.") or home in _SAFE_MODULE_NAMES:
+            return None
+        return f"module object {home!r}"
+    home = getattr(resolved, "__module__", None)
+    if home is None:
+        home = type(resolved).__module__
+    if isinstance(home, str) and (home == "sage" or home.startswith("sage.")):
+        return None
+    top = home.split(".")[0] if isinstance(home, str) else None
+    if top in _SAFE_PROVENANCE_TOPS or name in _VETTED_FOREIGN:
+        return None
+    return f"foreign provenance {home!r}"
+
+
 def main() -> int:
     namespace = _build_namespace()
-    names = {name for name in namespace if not name.startswith("_")}
+    # The caller shims (`attrcall`, `set_verbose`) sit in the namespace, installed
+    # after the scrub, but are deliberately not baked into the allowlist: `attrcall`
+    # is refused bare and permitted only as a screened literal call, and
+    # `set_verbose` is offered per-evaluation through `_OFFERED_SHIM_NAMES` so its
+    # baked refusal can name the streaming tool. They are excluded here before
+    # classification too -- their provenance is this package, not `sage`, so the
+    # guard would otherwise flag the very names it is meant to keep out.
+    caller_names = {
+        name: value
+        for name, value in namespace.items()
+        if not name.startswith("_") and name not in _CALLER_SHIMS
+    }
+
+    rejected = {
+        name: reason
+        for name, value in sorted(caller_names.items())
+        if (reason := _classification_failure(name, value)) is not None
+    }
+    if rejected:
+        listing = "\n".join(f"  {name}: {reason}" for name, reason in rejected.items())
+        raise SystemExit(
+            "generate_allowlist refused to allowlist names it cannot classify as "
+            "mathematics. Each is a module object from outside `sage` or a value of "
+            "foreign provenance -- exactly the silent gap this generator exists to "
+            "surface. Review each: add a genuinely-safe one to `_VETTED_FOREIGN` / "
+            "`_SAFE_MODULE_NAMES` here with a reason, or a dangerous one to "
+            "`_DANGEROUS_SAGE_MODULES` in `_sage_worker.py`.\n" + listing
+        )
+
+    names = set(caller_names)
     names |= {name for name in _restricted_builtins() if not name.startswith("_")}
     # The pure-Python worker used by the unit suite preloads `from math import *`,
     # so log10, comb and friends are legitimate names there. Including them keeps
     # one allowlist valid for both runtimes; they are ordinary maths either way.
     names |= {name for name in vars(math) if not name.startswith("_")}
-    # The caller shims sit in the namespace (installed after the scrub), but they
-    # are deliberately not baked in here: `attrcall` is refused bare and permitted
-    # only as a screened literal call, and `set_verbose` is offered per-evaluation
-    # through `_OFFERED_SHIM_NAMES` so its baked refusal can name the streaming
-    # tool. Three tests fail when either one lands in the allowlist.
+    # The caller shims were already excluded above, before classification; three
+    # tests fail if either `attrcall` or `set_verbose` lands in the allowlist.
     names -= set(_CALLER_SHIMS)
     body = textwrap.fill(
         ", ".join(f'"{name}"' for name in sorted(names)),

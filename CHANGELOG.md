@@ -7,6 +7,20 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- **The allowlist generator classifies rather than accepts.**
+  `scripts/generate_allowlist.py` used to bake in whatever survived the namespace
+  scrub, inheriting every gap in it — the root cause shared by four past findings.
+  It now classifies each surviving name and **fails generation** on anything it
+  cannot place as mathematics: a module object from outside `sage`, or a value of
+  foreign provenance not in a small reviewed set. A dangerous helper a future
+  SageMath adds now stops the generator with its name, instead of being
+  allowlisted silently for a probe to find later. Calibrated against real Sage so
+  it is output-neutral — byte-identical output on monolithic 10.9 and passagemath
+  10.8.9 — so no allowlist regeneration and no new refusals. Guarded by
+  synthetic unit tests and a real-Sage integration test.
+
 ### Added
 
 - **Optional HTTP bearer-token authentication (opt-in).** Set

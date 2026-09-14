@@ -60,7 +60,14 @@ jobs:
         # it). The runtime inventory -- Sage and everything the image carries --
         # is the image SBOM in the docker job. Both are attached to the GitHub
         # release; this one is generated on dry runs too, so the path is tested.
-        uses: anchore/sbom-action@v0.24.2
+        # The action opens output-file without creating its directory, hence
+        # the mkdir; the SYFT_SOURCE_* variables name the SBOM's root package
+        # (syft otherwise derives one from the scan path, which it warns about).
+        run: mkdir -p sbom
+      - uses: anchore/sbom-action@v0.24.2
+        env:
+          SYFT_SOURCE_NAME: sagemath-mcp
+          SYFT_SOURCE_VERSION: ${{ github.ref_name }}
         with:
           path: .
           format: spdx-json
@@ -186,7 +193,8 @@ jobs:
         # runtime, its Python packages and the OS layer. Read from the local
         # daemon, so it runs on dry runs too and the path is exercised on every
         # dispatch; only the attestation below is gated on a real push.
-        uses: anchore/sbom-action@v0.24.2
+        run: mkdir -p sbom
+      - uses: anchore/sbom-action@v0.24.2
         with:
           image: sagemath-mcp-candidate:smoke
           format: spdx-json

@@ -9,6 +9,21 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **Workflows pinned by commit SHA, tokens least-privilege, CodeQL added.**
+  The first published OpenSSF Scorecard (5.7) scored Pinned-Dependencies and
+  Token-Permissions at zero. Every `uses:` in all eight workflows (73
+  references) is now pinned to a commit SHA with a version comment — Dependabot
+  keeps SHA pins updated — and the three Dockerfile `FROM` lines are pinned by
+  index digest (tag kept for the tests that compare it with the setup scripts
+  and README badge). Every workflow declares `permissions: contents: read` at
+  the top; write scopes live at job level only where a step uses them
+  (`issues: write` left the top level of `audit.yml` and `cli-nightly.yml`).
+  A new `codeql.yml` runs CodeQL (`python` + `actions`, security-extended) on
+  push, pull request and weekly. Verified with the Scorecard CLI on the tree:
+  Token-Permissions 10, Pinned-Dependencies 8 (the remainder is the two `pip`
+  lines in `Dockerfile.passagemath` and three `npm -g` lines in the local-only
+  CLI nightly, left unpinned by hash deliberately; see TODO.md for the full
+  Scorecard plan).
 - **The allowlist generator classifies rather than accepts.**
   `scripts/generate_allowlist.py` used to bake in whatever survived the namespace
   scrub, inheriting every gap in it — the root cause shared by four past findings.

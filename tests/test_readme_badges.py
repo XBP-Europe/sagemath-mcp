@@ -52,7 +52,8 @@ def test_python_badge_matches_requires_python() -> None:
 def test_sagemath_badge_matches_the_container_base_image() -> None:
     """The runtime the project is actually built and tested against."""
     dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
-    image = re.search(r"^FROM\s+sagemath/sagemath:(\S+)", dockerfile, re.M)
+    # The FROM line carries tag@digest; the badge states the tag.
+    image = re.search(r"^FROM\s+sagemath/sagemath:([^@\s]+)", dockerfile, re.M)
     assert image, "the Dockerfile no longer starts from a pinned sagemath image"
     assert _badge_value("SageMath") == image.group(1), (
         f"README advertises SageMath {_badge_value('SageMath')} but the image is "

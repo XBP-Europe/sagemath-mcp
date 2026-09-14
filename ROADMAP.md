@@ -167,9 +167,12 @@ The adjacent market is roughly five times larger and is where attention actually
 4. **Install friction.** `uvx mcp-sage` runs with no install via PEP 723 inline
    dependencies. This project needed a local SageMath or a ~3 GB image. Narrowed
    2026-09-07 by the passagemath runtime extra (below): `pip install
-   "sagemath-mcp[passagemath]"` is a ~1 GB, no-Docker install. What remains of
-   the gap is that a Sage runtime is still a gigabyte, and that the extra is
-   pinned and optional rather than the primary path.
+   "sagemath-mcp[passagemath]"` is a ~1 GB, no-Docker install. Narrowed again
+   2026-09-14 by the `-passagemath` container image, the first native
+   `linux/arm64` container this project ships (the monolithic base is amd64
+   only). What remains of the gap is that a Sage runtime is still a gigabyte,
+   and that the extra and its image are pinned and optional rather than the
+   primary path.
 5. **Academic anchor.** Their server is cited in a NeSy 2026 paper. This project has no
    equivalent reference.
 

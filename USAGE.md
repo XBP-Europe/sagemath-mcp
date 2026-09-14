@@ -965,10 +965,21 @@ checkout and opening outbound sockets. If the server is exposed to untrusted
 callers, also consider `network_mode: none` where the workload allows it, and
 avoid passing secrets in the environment of this container.
 
+Two images take these settings unchanged. The primary image
+(`ghcr.io/xbp-europe/sagemath-mcp:<tag>`) is built on the monolithic
+`sagemath/sagemath` base, which is `linux/amd64` only. The passagemath image
+(`<tag>-passagemath`, from `Dockerfile.passagemath`) is the same server on the
+pip-installable fork, built natively for `linux/amd64` and `linux/arm64`, with
+the same `sage` user (UID/GID 1001), the same two writable paths and the same
+security policy — the server selects the passagemath allowlist at import. Pick it
+on arm64 hosts; on amd64 the monolithic image stays primary. Compose builds the
+primary image by default; `dockerfile: Dockerfile.passagemath` switches it.
+
 The Helm chart applies `runAsNonRoot`, `allowPrivilegeEscalation: false`,
 `capabilities.drop: [ALL]` and `readOnlyRootFilesystem: true`, with `emptyDir`
 volumes for the same two writable paths and default CPU/memory requests and
-limits. It is close but not identical: compose's `pids_limit` has no direct
+limits. Set `image.tag` to a `-passagemath` tag for arm64 nodes; nothing else in
+the chart changes. It is close but not identical: compose's `pids_limit` has no direct
 chart equivalent (pod PID limits are a kubelet setting), so set one on the node
 if you need it.
 

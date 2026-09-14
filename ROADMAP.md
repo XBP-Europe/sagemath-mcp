@@ -229,7 +229,7 @@ documentation rather than surface:
       the server picks the matching generated artifact set at import
       (`_artifacts.py`); a `passagemath` CI lane cold-installs the exact pin and
       runs the whole suite plus the doctest corpus sweep against it (99.03%
-      acceptance on 10.8.11, versus 98.86% on monolithic 10.9). The pin is exact
+      acceptance on 10.8.11, versus 98.95% on monolithic 10.9). The pin is exact
       on purpose: 10.8.10/10.8.11 shipped a broken Maxima backend as first
       released (found here, filed as passagemath#2836, fixed upstream by a
       `.post1` reissue), so every bump goes through that lane, never Dependabot

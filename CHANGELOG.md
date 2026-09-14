@@ -27,9 +27,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   built on `sagemath/sagemath`, which is published for `linux/amd64` only, so
   Apple-silicon and Graviton hosts ran it under emulation. `Dockerfile.passagemath`
   builds the same server on the pip-installable passagemath runtime from the
-  pinned `[passagemath]` extra (wheels only, no compiler, `python:3.12-slim`
-  base, the same `sage` UID/GID 1001 and writable paths, so the Compose file and
-  Helm chart apply unchanged). The release builds and smoke-tests it **natively
+  pinned `[passagemath]` extra (`python:3.12-slim` base; a builder stage with a
+  C toolchain installs into a venv the runtime stage copies, because not every
+  dependency has a wheel on every architecture -- cysignals 1.12.6 shipped none
+  for aarch64; the same `sage` UID/GID 1001 and writable paths, so the Compose
+  file and Helm chart apply unchanged). The release builds and smoke-tests it **natively
   per architecture** (`ubuntu-latest` and `ubuntu-24.04-arm`, with Maxima and
   GAP probes on top of the stateful assign-and-read), pushes the tested images
   under `<tag>-passagemath-{amd64,arm64}`, assembles the `<tag>-passagemath`

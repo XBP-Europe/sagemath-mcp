@@ -57,8 +57,9 @@ temp directory, because `/workspace` is read-only for the container user);
 `make integration-test` sets it, copies the file out to
 `doctest-corpus-stats.md` in the repository root, bundles it into
 `integration-artifacts.tar.gz`, and CI uploads it with the integration
-artifacts. It is gitignored: a run artifact, not a committed baseline — the
-committed baselines stay in the test module, where a drop fails the build.
+artifacts. The file is tracked, so the refusal-by-rule breakdown is reviewable
+in a pull request diff — but the *asserted* baselines stay in the test module,
+where a drop fails the build; the markdown is a report, not a gate.
 
 ## Licensing and provenance
 

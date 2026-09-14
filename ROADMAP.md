@@ -83,10 +83,14 @@ posture in `SECURITY.md`. `smithery.yaml` was removed as dead config.
 ## Letting more legitimate mathematics through (measured 2026-08-15)
 
 Running SageMath's own doctests through the validator — 432,878 examples,
-`tests/test_sage_doctest_corpus.py` — accepts 98.59% of what is in scope. The
-5,266 refusals were categorised by whether the security justification holds
-(REVIEW_ACTIONS.md items 45 and 46), and everything that failed that test has
-been fixed.
+`tests/test_sage_doctest_corpus.py` — accepted 98.59% of what is in scope when
+this was measured. The 5,266 refusals were categorised by whether the security
+justification holds (REVIEW_ACTIONS.md items 45 and 46), and everything that
+failed that test has been fixed. **Re-measured 2026-09-14 on `main`:** 98.95%
+(370,492 accepted, 3,936 refused, 58,268 out of scope by design) on SageMath
+10.9, and 99.03% of 433,289 examples on passagemath 10.8.11; the enforced floor
+is 98.50%. The ledger of what each step cost or won back is in
+[docs/sage_doctest_corpus.md](docs/sage_doctest_corpus.md).
 
 What remains is that breakdown read the other way round: not *is this refusal
 justified* but *what would it take for this mathematics to work?* Five items

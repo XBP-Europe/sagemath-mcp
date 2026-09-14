@@ -307,7 +307,8 @@ Blocking the extra (all actionable now):
    `ci.yml` cold-installs the exact pin and runs the whole suite against it as
    the pin-bump smoke gate. Measured on 10.8.9: **1184 passed / 1 skipped**, and
    the corpus sweep is **433,201 examples over 3,232 files at 99.02% acceptance**
-   — comparable to monolithic 10.9 (432,878 at 98.86%) and clearing every floor
+   (on 10.8.11, 2026-09-14: 1,215 passed, 433,289 examples at 99.03%)
+   — comparable to monolithic 10.9 (432,878 at 98.95%) and clearing every floor
    with margin, so no re-baseline. Three artifact-drift tests were made
    runtime-aware and `sage_library()` was taught passagemath's namespace-package
    layout (`sage.__file__` is None; the sources are `sage.__path__[0]`). The one

@@ -47,6 +47,14 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Doctest-corpus figures refreshed to what CI measures today.** The README,
+  ROADMAP, TESTING and `docs/sage_doctest_corpus.md` quoted three different
+  stale acceptance rates (98.6%, 98.59%, 98.86%) for SageMath's 432,878
+  documented examples. They now all say what `main` measures: **98.95%**
+  (370,492 accepted, 3,936 refused, 58,268 out of scope) on SageMath 10.9 and
+  **99.03%** of 433,289 on passagemath 10.8.11, with the ledger of what each
+  review item cost or won back completed through items 64–65. The committed
+  `doctest-corpus-stats.md` is the report from the 2026-09-14 CI run.
 - **passagemath pin moved from 10.8.9 to 10.8.11.** The Maxima regression that
   kept the `[passagemath]` extra on 10.8.9 (passagemath/passagemath#2836) is
   fixed upstream: the broken 10.8.10/10.8.11 `passagemath-ecl` wheels were yanked

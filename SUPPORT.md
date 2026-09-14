@@ -65,10 +65,12 @@ output breaks either way. Tool names, parameters and descriptions are snapshotte
 in the test suite and change only deliberately.
 
 Every release publishes the same artefacts from one workflow: the wheel and
-sdist on PyPI, a Cosign-signed image on GHCR, a GitHub release whose notes are
-the [CHANGELOG.md](CHANGELOG.md) section for that version, and an updated entry
-in the official MCP registry. **A PyPI version is never reused**; a bad release
-is followed by a new one, not replaced.
+sdist on PyPI with PEP 740 attestations, a Cosign-signed image on GHCR carrying
+SLSA provenance and an SPDX SBOM as attestations, a GitHub release whose notes
+are the [CHANGELOG.md](CHANGELOG.md) section for that version with the SBOMs
+attached, and an updated entry in the official MCP registry.
+[DISTRIBUTION.md](DISTRIBUTION.md) shows how to verify each. **A PyPI version is
+never reused**; a bad release is followed by a new one, not replaced.
 
 ## Response expectations
 

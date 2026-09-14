@@ -23,6 +23,21 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Release trust signals: SBOMs, SLSA provenance, explicit PEP 740, Scorecard.**
+  The release workflow now generates an SPDX SBOM of the container image (from the
+  exact image the smoke test ran against) and of the package's own dependency
+  tree (from `uv.lock`), attaches both to the GitHub release, and attests the
+  image's build provenance (SLSA, via `actions/attest-build-provenance`) and SBOM
+  (`actions/attest-sbom`) to its digest on GHCR next to the Cosign signature.
+  The wheel and sdist attached to the release get SLSA provenance too; PyPI's
+  PEP 740 attestations, already present on 0.7.0, are now switched on explicitly.
+  A new `scorecard.yml` runs the OpenSSF Scorecard weekly and on every push to
+  `main`, publishing to scorecard.dev and code scanning. README gained
+  Provenance, PyPI-attestations and Scorecard badges, each backed by a test that
+  the workflow actually does what the badge says; `DISTRIBUTION.md` documents
+  how to verify every artefact (`cosign verify`, `gh attestation verify`,
+  `pypi-attestations`). Dry-run dispatches still publish and attest nothing but
+  now exercise SBOM generation and check both files parse.
 - **Citability and support files.** `CITATION.cff` (GitHub's *Cite this
   repository* box; what Zenodo reads to mint a release DOI) and `SUPPORT.md`
   (what "supported" means: latest release only, Python 3.12/3.13, the two Sage

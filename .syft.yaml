@@ -1,0 +1,8 @@
+# Syft configuration, picked up automatically by the SBOM steps in
+# .github/workflows/release.yml. The source SBOM scans the checkout; without
+# these exclusions it would also inventory the build venv (the `build` tool and
+# its dependencies, which never ship) and the freshly built dist/ archives.
+exclude:
+  - "./.venv/**"
+  - "./dist/**"
+  - "./sbom/**"

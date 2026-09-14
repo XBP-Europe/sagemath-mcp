@@ -135,8 +135,10 @@ directly. The flow is:
    git tag vX.Y.Z && git push origin vX.Y.Z
    ```
 
-Pushing the tag triggers `release.yml`, which publishes to PyPI, pushes a Cosign-signed
-image to GHCR, and creates the GitHub release. **A PyPI version number can never be
+Pushing the tag triggers `release.yml`, which publishes to PyPI (with PEP 740
+attestations), pushes a Cosign-signed image to GHCR with SLSA provenance and an SPDX
+SBOM attested to its digest, and creates the GitHub release with the SBOMs attached
+(`DISTRIBUTION.md` shows how each is verified). **A PyPI version number can never be
 reused**, so treat the tag push as the point of no return; if something is wrong the only
 remedy is another version.
 

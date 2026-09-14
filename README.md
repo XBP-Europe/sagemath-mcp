@@ -17,6 +17,9 @@
 [![Downloads](https://img.shields.io/pypi/dm/sagemath-mcp.svg)](https://pypi.org/project/sagemath-mcp/)
 [![MCP Registry](https://img.shields.io/badge/MCP%20Registry-listed-purple)](https://registry.modelcontextprotocol.io/)
 [![Signed](https://img.shields.io/badge/images-cosign%20signed-blueviolet?logo=sigstore)](https://github.com/XBP-Europe/sagemath-mcp/blob/main/.github/workflows/release.yml)
+[![Provenance](https://img.shields.io/badge/provenance-SLSA%20%2B%20SBOM%20attested-blueviolet?logo=github)](https://github.com/XBP-Europe/sagemath-mcp/attestations)
+[![PyPI attestations](https://img.shields.io/badge/PyPI-PEP%20740%20attested-blue?logo=pypi)](https://github.com/XBP-Europe/sagemath-mcp/blob/main/.github/workflows/release.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/XBP-Europe/sagemath-mcp/badge)](https://scorecard.dev/viewer/?uri=github.com/XBP-Europe/sagemath-mcp)
 [![Dependabot](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot)](https://github.com/XBP-Europe/sagemath-mcp/blob/main/.github/dependabot.yml)
 [![Last commit](https://img.shields.io/github/last-commit/XBP-Europe/sagemath-mcp.svg)](https://github.com/XBP-Europe/sagemath-mcp/commits/main)
 
@@ -54,7 +57,10 @@ docker run --rm \
 Those flags are the hardening the server expects; the port is published on
 loopback deliberately — the server executes code and authenticates nobody.
 `docker compose up --build` applies the same hardening from one reviewed file.
-Released images are signed with Cosign.
+Released images are signed with Cosign and carry SLSA provenance and an SPDX
+SBOM as registry attestations; the PyPI files carry PEP 740 attestations.
+[DISTRIBUTION.md](DISTRIBUTION.md#verifying-signatures-provenance-and-sboms)
+shows how to verify each.
 
 **From PyPI (bring your own Sage runtime):**
 

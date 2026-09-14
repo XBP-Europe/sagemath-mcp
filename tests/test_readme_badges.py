@@ -77,6 +77,8 @@ def test_coverage_badge_is_backed_by_a_ci_gate() -> None:
     [
         ("Dependabot", ".github/dependabot.yml"),
         ("Signed", ".github/workflows/release.yml"),
+        ("PyPI attestations", ".github/workflows/release.yml"),
+        ("OpenSSF Scorecard", ".github/workflows/scorecard.yml"),
     ],
 )
 def test_badges_that_point_at_a_file_point_at_one_that_exists(label: str, path: str) -> None:
@@ -86,6 +88,39 @@ def test_badges_that_point_at_a_file_point_at_one_that_exists(label: str, path: 
 def test_the_signed_badge_means_the_release_actually_signs() -> None:
     release = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
     assert "cosign sign" in release, "the badge claims signed images but nothing signs them"
+
+
+def test_the_provenance_badges_mean_the_release_actually_attests() -> None:
+    """Each supply-chain claim on the README must have a step behind it.
+
+    The Signed badge got its test after the registry badge was caught claiming
+    a listing that did not exist; these badges are the same shape of claim.
+    """
+    release = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+    assert "actions/attest-build-provenance@" in release, (
+        "the Provenance badge claims SLSA provenance but nothing attests it"
+    )
+    assert "actions/attest-sbom@" in release, (
+        "the Provenance badge claims an attested SBOM but nothing attests one"
+    )
+    assert "anchore/sbom-action@" in release, "no step generates an SBOM to attest"
+    assert re.search(r"^\s*attestations:\s*true\s*$", release, re.M), (
+        "the PyPI badge claims PEP 740 attestations but the publish step does not "
+        "switch them on"
+    )
+
+
+def test_the_scorecard_badge_reads_a_published_result() -> None:
+    """The badge is served by scorecard.dev, which only has data to serve if the
+    workflow publishes its results there."""
+    badge = "https://api.scorecard.dev/projects/github.com/XBP-Europe/sagemath-mcp/badge"
+    assert badge in README, "no Scorecard badge in the README"
+    workflow = (ROOT / ".github" / "workflows" / "scorecard.yml").read_text(encoding="utf-8")
+    assert "ossf/scorecard-action@" in workflow
+    assert re.search(r"^\s*publish_results:\s*true\s*$", workflow, re.M), (
+        "the Scorecard badge reads from scorecard.dev, but the workflow does not "
+        "publish its results there"
+    )
 
 
 def test_the_registry_badge_matches_a_real_listing() -> None:

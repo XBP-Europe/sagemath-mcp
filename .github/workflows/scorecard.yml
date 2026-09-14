@@ -1,0 +1,47 @@
+name: OpenSSF Scorecard
+
+# Supply-chain hygiene, measured by someone else's checklist and published where
+# an evaluator can read it: https://scorecard.dev/viewer/?uri=github.com/XBP-Europe/sagemath-mcp
+# The README badge reads from that published result, so `publish_results` must
+# stay true (a test asserts it). Findings also land in the repository's code
+# scanning tab as SARIF. Runs on every push to main and weekly, so a score that
+# drops shows up within the week even when nothing was pushed.
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "37 6 * * 1"
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write   # upload the SARIF to code scanning
+      id-token: write          # publish_results signs the upload with OIDC
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Run analysis
+        uses: ossf/scorecard-action@v2.4.4
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+      - name: Upload the raw results
+        uses: actions/upload-artifact@v7
+        with:
+          name: scorecard-sarif
+          path: results.sarif
+          retention-days: 5
+      - name: Upload to code scanning
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: results.sarif

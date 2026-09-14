@@ -38,6 +38,10 @@ jobs:
   build:
     needs: test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write       # Sigstore signing of the provenance, via OIDC
+      attestations: write   # store it under the repository's attestations
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.1.0
@@ -50,10 +54,38 @@ jobs:
         run: uv pip install build
       - name: Build artifacts
         run: uv run python -m build --sdist --wheel --outdir dist
+      - name: Source SBOM (SPDX)
+        # The dependency inventory of what the wheel pulls in, read from
+        # uv.lock and pyproject (.syft.yaml keeps the build venv and dist out of
+        # it). The runtime inventory -- Sage and everything the image carries --
+        # is the image SBOM in the docker job. Both are attached to the GitHub
+        # release; this one is generated on dry runs too, so the path is tested.
+        uses: anchore/sbom-action@v0.24.2
+        with:
+          path: .
+          format: spdx-json
+          output-file: sbom/sagemath-mcp-source.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+      - name: Attest build provenance for the Python artifacts
+        # SLSA provenance for the wheel and sdist, signed through Sigstore and
+        # stored with the repository (`gh attestation verify <file> --owner
+        # XBP-Europe`). PyPI gets its own PEP 740 attestation for the same files
+        # in the publish job; this one covers the copies attached to the GitHub
+        # release. Tag push only: a dry run must not attest artifacts that are
+        # never published.
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        uses: actions/attest-build-provenance@v4.2.2
+        with:
+          subject-path: dist/*
       - uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/*
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sbom-source
+          path: sbom/*
 
   docker:
     needs: build
@@ -62,6 +94,7 @@ jobs:
       contents: read
       packages: write
       id-token: write
+      attestations: write   # provenance and SBOM attestations for the image
     env:
       # One publish policy, shared by every destination below: publish ONLY on a
       # tag push. A workflow_dispatch can target a tag ref, so gating on the ref
@@ -135,6 +168,8 @@ jobs:
           DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$FIRST_TAG" | cut -d@ -f2)
           test -n "$DIGEST"
           echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          # OCI names are lowercase; github.repository is not.
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
       - name: Install Cosign
         if: env.DO_PUSH == 'true'
         uses: sigstore/cosign-installer@v4.1.2
@@ -146,6 +181,43 @@ jobs:
           IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
           DIGEST="${{ steps.push.outputs.digest }}"
           cosign sign "${IMAGE}@${DIGEST}"
+      - name: Image SBOM (SPDX)
+        # Inventory of the exact image the smoke test ran against -- the Sage
+        # runtime, its Python packages and the OS layer. Read from the local
+        # daemon, so it runs on dry runs too and the path is exercised on every
+        # dispatch; only the attestation below is gated on a real push.
+        uses: anchore/sbom-action@v0.24.2
+        with:
+          image: sagemath-mcp-candidate:smoke
+          format: spdx-json
+          output-file: sbom/sagemath-mcp-image.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sbom-image
+          path: sbom/*
+      - name: Attest image build provenance (SLSA)
+        # SLSA provenance for the pushed digest, signed through Sigstore, stored
+        # with the repository and pushed to GHCR next to the Cosign signature.
+        # Verify with `gh attestation verify oci://<image>:<tag> --owner XBP-Europe`.
+        if: env.DO_PUSH == 'true'
+        uses: actions/attest-build-provenance@v4.2.2
+        with:
+          subject-name: ${{ steps.push.outputs.image }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+      - name: Attest image SBOM
+        # The SBOM above, bound to the same digest as an SPDX attestation, so a
+        # consumer can fetch the inventory of a running image from the registry
+        # rather than trusting a file attached to a release page.
+        if: env.DO_PUSH == 'true'
+        uses: actions/attest-sbom@v4.1.0
+        with:
+          subject-name: ${{ steps.push.outputs.image }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          sbom-path: sbom/sagemath-mcp-image.spdx.json
+          push-to-registry: true
 
   helm:
     needs: test
@@ -181,6 +253,11 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist
+          # PEP 740: a Sigstore attestation per file, tying the wheel and sdist
+          # to this workflow run through Trusted Publishing. The action's
+          # default, made explicit because the README advertises it; verified
+          # present on the 0.7.0 files at pypi.org/integrity/.
+          attestations: true
 
   # The registry verifies ownership by looking for an "mcp-name:" marker in the
   # published PyPI description, so this can only run once the package is live.
@@ -249,6 +326,14 @@ jobs:
         with:
           name: dist
           path: dist
+      - name: Collect the SBOMs
+        # Both SBOMs ride along as release assets, next to the wheel and sdist,
+        # for consumers who want a file rather than a registry attestation.
+        uses: actions/download-artifact@v8
+        with:
+          pattern: sbom-*
+          path: sbom
+          merge-multiple: true
       - name: Extract release notes from the changelog
         id: notes
         run: |
@@ -275,6 +360,14 @@ jobs:
         run: |
           echo "Would create a release with these notes:"
           head -40 release-notes.md || echo "(no changelog entry; generated notes would be used)"
+          echo "Would attach these assets:"
+          ls -l dist sbom
+          # Both SBOMs must exist and parse, or the release would ship without
+          # the inventory the README advertises.
+          for f in sbom/sagemath-mcp-source.spdx.json sbom/sagemath-mcp-image.spdx.json; do
+            python3 -c "import json,sys; d=json.load(open('$f')); \
+              print('$f:', d['spdxVersion'], len(d.get('packages', [])), 'packages')"
+          done
       - name: Create the GitHub release
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         env:
@@ -289,11 +382,11 @@ jobs:
               --title "${GITHUB_REF_NAME}" \
               --verify-tag \
               --notes-file release-notes.md \
-              dist/*
+              dist/* sbom/*
           else
             gh release create "${GITHUB_REF_NAME}" \
               --title "${GITHUB_REF_NAME}" \
               --verify-tag \
               --generate-notes \
-              dist/*
+              dist/* sbom/*
           fi

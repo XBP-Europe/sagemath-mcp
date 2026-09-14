@@ -76,7 +76,7 @@ sagemath-mcp
 A pip-installable, modularized fork of SageMath. `from sage.all import *` and the
 worker run unmodified; the server detects the runtime at import and loads the
 matching security artifacts, so the deny-by-default policy is equivalent on both.
-It is pinned exactly (`passagemath-standard==10.8.9`) and exercised by its own CI
+It is pinned exactly (`passagemath-standard==10.8.11`) and exercised by its own CI
 lane — the whole suite plus the doctest-corpus sweep against the pin — because
 passagemath's release QA has shipped broken backends
 ([docs/passagemath_evaluation.md](docs/passagemath_evaluation.md)). It is the

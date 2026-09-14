@@ -48,11 +48,13 @@ passagemath = [
     # A pip-installed alternative runtime to the monolithic SageMath Docker image
     # (~1 GB download vs a 3 GB image pull; `sage.all` and the worker run
     # unmodified). Pinned EXACTLY, never a range: passagemath's own release QA
-    # shipped a broken Maxima backend in 10.8.10/10.8.11 (docs/
-    # passagemath_evaluation.md §4), so a bump goes through the cold-install smoke
-    # gate, not automatically. The security artifacts dispatch to the passagemath
-    # set at import (src/sagemath_mcp/_artifacts.py) when this is installed.
-    "passagemath-standard==10.8.9",
+    # shipped a broken Maxima backend in 10.8.10/10.8.11 as first released (docs/
+    # passagemath_evaluation.md §4; fixed upstream by the 10.8.11.post1 ecl/maxima
+    # wheels, which is what this pin resolves to), so a bump goes through the
+    # cold-install smoke gate (the `passagemath` CI lane), not automatically. The
+    # security artifacts dispatch to the passagemath set at import
+    # (src/sagemath_mcp/_artifacts.py) when this is installed.
+    "passagemath-standard==10.8.11",
 ]
 dev = [
     "pytest>=9.1.1",

@@ -50,7 +50,7 @@ def test_passagemath_allowlist_excludes_the_denylisted_interfaces() -> None:
     from sagemath_mcp import allowlist_passagemath
 
     names = allowlist_passagemath.ALLOWED_CALLER_NAMES
-    for forbidden in ("Maxima", "Mathics3", "mathics3", "commence_startup"):
+    for forbidden in ("Maxima", "Mathics3", "mathics3", "commence_startup", "inline_plots"):
         assert forbidden not in names, f"{forbidden} leaked into the passagemath allowlist"
 
 

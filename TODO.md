@@ -113,8 +113,14 @@ out of date.
       MACSYMA-QUIT is undefined` at `maxima_lib.py:361`; 10.8.9 unaffected).
       **All three blockers are now closed.** Move from pinned extra to primary
       install story only after two consecutive passagemath stable releases pass
-      the smoke gate on first try — 10.8.10 and 10.8.11 both failed it (#2836),
-      so the counter is at zero (§ evaluation blockers).
+      the smoke gate on first try — 10.8.10 and 10.8.11 both failed it as first
+      released (#2836), so the counter is at zero (§ evaluation blockers).
+      **Pin bumped to 10.8.11 on 2026-09-14** after upstream fixed #2836 with the
+      yanked-and-reissued `10.8.11.post1` ecl/maxima wheels: the lane passes, the
+      allowlist regenerates byte-identical, `inline_plots` (new, from
+      `sage.repl.interpreter`) joined `commence_startup` in
+      `_DANGEROUS_BARE_NAMES`. A post-release fix is not a first-try pass, so the
+      counter still reads zero; 10.8.12 is the first release that can count.
 - [x] **`scripts/generate_allowlist.py` classifies rather than accepts.**
       *Done, 2026-09-07.* Four findings had one root cause: the allowlist was
       *whatever survived the namespace scrub*, inheriting every gap in it. The

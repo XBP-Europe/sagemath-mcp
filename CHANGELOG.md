@@ -47,6 +47,24 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **passagemath pin moved from 10.8.9 to 10.8.11.** The Maxima regression that
+  kept the `[passagemath]` extra on 10.8.9 (passagemath/passagemath#2836) is
+  fixed upstream: the broken 10.8.10/10.8.11 `passagemath-ecl` wheels were yanked
+  and `10.8.11.post1` ships the fix, which is what `passagemath-standard==10.8.11`
+  now resolves to. `solve`/`integrate`/`limit` answer again and `passagemath-gap`
+  has its Linux x86_64 wheels, so the pin passes the cold-install smoke gate (the
+  `passagemath` CI lane). The passagemath artifact set was regenerated against
+  it and reviewed: the allowlist is byte-identical; the
+  `sage.rings.polynomial.pbori.pbori` star-export list follows what the module's
+  `import *` now binds (gains `ClasscallMetaclass`/`typecall`, loses
+  `UniqueRepresentation`), still screened clean by `_star_export_screen`.
+  10.8.11 also exports `inline_plots` from `sage.repl.interpreter`, a
+  dangerous-provenance module, so it joins `commence_startup` in
+  `_DANGEROUS_BARE_NAMES`: the worker strips it on passagemath, it never reaches
+  the allowlist, and the entry is a no-op on monolithic Sage. The
+  `make allowlist-passagemath`/`star-exports-passagemath` targets now pin Python
+  3.12 like the CI lane -- on 3.13 the generator picked up the `fma` and
+  `PythonFinalizationError` builtins, which the drift test on 3.12 would reject.
 - **README is a front door, not a manual.** Trimmed from ~1,680 lines to ~230:
   what it is, one install-and-run path per audience (the GHCR image first, then
   PyPI, then the passagemath extra), one client config, three example prompts, a

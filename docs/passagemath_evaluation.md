@@ -146,13 +146,23 @@ ECL (`passagemath-maxima` 31 MB + `passagemath-ecl` 88 MB), matplotlib via
   (searched `MACSYMA-QUIT`, `maxima_lib`); verified on one host only
   (Debian-family glibc, tmpfs venv, gcc available), so a platform-specific
   component cannot be excluded. Worth filing upstream either way.
+  **Resolved upstream 2026-09-09** (filed as passagemath/passagemath#2836):
+  the Maxima/ECL merge was reverted, the 10.8.10 and 10.8.11 `passagemath-ecl`
+  and `passagemath-standard` 10.8.10 wheels were yanked, and
+  `passagemath-ecl`/`passagemath-maxima` `10.8.11.post1` carry the fix.
+  `passagemath-standard==10.8.11` resolves to the `.post1` wheels; verified
+  2026-09-14 on Python 3.12 x86_64: `maxima_lib` imports, `solve`/`integrate`
+  answer at once, and the whole suite passes the smoke gate. The pin moved to
+  10.8.11 the same day.
 - **10.8.11: `passagemath-gap` is missing manylinux x86_64 wheels for
   cp311–cp313** (*measured* from PyPI: 20 files vs 31 for 10.8.10; cp314
   x86_64 and all aarch64/macOS wheels are present). Since the metapackage pins
   `~=10.8.11.0`, installing 10.8.11 on Python 3.12/x86_64 forces an sdist
   build of GAP. Possibly a still-uploading artifact — the release was cut
   2026-09-05 — but rc3 had the same gap, and it is exactly the failure mode an
-  exact-pin-plus-smoke-gate protects against.
+  exact-pin-plus-smoke-gate protects against. **Resolved:** re-checked
+  2026-09-14, `passagemath-gap` 10.8.11 has 31 files with manylinux x86_64
+  wheels for cp311–cp314; it was a still-uploading artifact.
 
 ### Structural differences from monolithic Sage (measured, 10.8.10 vs 10.9)
 
@@ -310,11 +320,16 @@ Blocking the extra (all actionable now):
    at `maxima_lib.py:361`, compiling `mring.lisp` under Maxima 5.49.0 / ECL
    26.5.5; 10.8.9 unaffected). The answer it records determines whether 10.8.10+
    is ever pinnable or the pin waits for their Maxima 5.50 work
-   (<https://github.com/passagemath/passagemath/issues/2632>).
+   (<https://github.com/passagemath/passagemath/issues/2632>). **Answered
+   2026-09-09:** upstream reverted the merge, yanked the broken wheels and
+   reissued `10.8.11.post1`; the pin moved to `passagemath-standard==10.8.11`
+   on 2026-09-14 through the smoke gate (§4).
 
 Not blocking, but gating any move from "pinned extra" to "recommended install
 path": two consecutive passagemath stable releases passing this project's
 cold-install smoke gate on first try. The two most recent did not (§4); the
-release *before* them did. If that record holds for a couple of cycles, the
+release *before* them did. 10.8.11 passes now, but only after a `.post1`
+reissue, and a post-release fix is not a first-try pass — the counter stays at
+zero and 10.8.12 is the first release that can count. If that record holds for a couple of cycles, the
 pin can track stable with a one-release lag and this becomes the primary
 distribution story the field survey asked for.

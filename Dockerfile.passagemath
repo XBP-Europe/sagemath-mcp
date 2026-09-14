@@ -1,0 +1,69 @@
+# The passagemath image: the same server on the pip-installable SageMath fork.
+#
+# Why it exists: the monolithic sagemath/sagemath image is published for
+# linux/amd64 only, so Apple-silicon and Graviton hosts run it under emulation.
+# passagemath ships aarch64 wheels for every backend the tools need (GAP, PARI,
+# Singular, Maxima/ECL, FLINT), so this image is built natively for linux/amd64
+# and linux/arm64 by release.yml and published with a `-passagemath` tag suffix
+# (ghcr.io/xbp-europe/sagemath-mcp:<tag>-passagemath). The pull is ~1 GB of
+# wheels instead of a 3 GB image; on disk it is larger, not smaller (4.4 GB
+# against 3.1 GB, measured 2026-09-14) -- the case for it is architecture, not
+# size.
+#
+# It is the optional image. The monolithic one stays primary and is what the
+# release is smoke-tested and signed against first; docs/passagemath_evaluation.md
+# records why and when that changes. The security policy is identical on both:
+# _artifacts.py selects the passagemath allowlist at import because
+# passagemath-standard is installed, and the passagemath CI lane runs the whole
+# suite against the exact pin below before it moves.
+
+# --- build stage -------------------------------------------------------------
+# Everything that matters arrives as a wheel, but not quite everything on every
+# architecture: the first arm64 build failed because cysignals 1.12.6 shipped
+# no aarch64 wheel and pip fell back to its sdist, which needs a C compiler.
+# So the install runs in a stage that has one, into a venv the runtime stage
+# copies -- the compiler never reaches the published image.
+FROM python:3.12-slim-bookworm AS builder
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+COPY pyproject.toml README.md LICENSE ./
+COPY src ./src
+
+# The pin lives in pyproject's [passagemath] extra -- one place, moved only
+# through the passagemath CI lane.
+RUN python -m venv /opt/venv \
+    && /opt/venv/bin/pip install --no-cache-dir --upgrade pip \
+    && /opt/venv/bin/pip install --no-cache-dir ".[passagemath]"
+
+# --- runtime stage -----------------------------------------------------------
+FROM python:3.12-slim-bookworm
+
+# Same UID/GID as the `sage` user in sagemath/sagemath:10.9, so the Compose
+# file and the Helm chart (runAsUser/fsGroup 1001, tmpfs at /home/sage/.sage)
+# apply unchanged to either image.
+RUN groupadd --gid 1001 sage \
+    && useradd --uid 1001 --gid 1001 --create-home --home-dir /home/sage \
+       --shell /bin/bash sage
+
+COPY --from=builder --chown=sage:sage /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:${PATH}"
+
+WORKDIR /workspace
+COPY --chown=sage:sage README.md LICENSE ./
+
+USER sage
+ENV HOME=/home/sage
+# The hardened run has a read-only root filesystem with tmpfs only at /tmp and
+# /home/sage/.sage; matplotlib's default config dir under ~/.config is neither.
+ENV MPLCONFIGDIR=/tmp/matplotlib
+
+EXPOSE 8314
+# passagemath-environment ships the `sage` wrapper (it accepts -python), so the
+# entrypoint and the worker's launch path are the same as in the monolithic
+# image and nothing in the server knows which image it is in.
+ENTRYPOINT ["sage", "-python", "-m", "sagemath_mcp.server"]
+CMD ["--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8314"]

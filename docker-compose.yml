@@ -2,6 +2,8 @@ services:
   sage-mcp:
     build:
       context: .
+      # Dockerfile.passagemath builds the same server on the passagemath runtime
+      # (native arm64; see README). Everything below applies to either image.
       dockerfile: Dockerfile
     image: sagemath-mcp:local
     container_name: sage-mcp

@@ -418,6 +418,40 @@ def test_readme_docker_examples_do_not_publish_on_every_interface() -> None:
         )
 
 
+def test_the_passagemath_image_is_built_natively_for_both_architectures() -> None:
+    """The second image exists for arm64; the workflow must actually build it there.
+
+    The monolithic base image is linux/amd64 only, so the passagemath image is
+    the only native container for Apple-silicon and Graviton hosts. It has to
+    install the *pinned extra* (one place for the pin, moved only through the
+    passagemath CI lane), keep the `sage` UID the Compose file and Helm chart
+    assume, and be built and smoke-tested on a native runner per architecture
+    rather than assembled from an emulated build nobody ran.
+    """
+    dockerfile = (ROOT / "Dockerfile.passagemath").read_text(encoding="utf-8")
+    base = re.search(r"^FROM\s+(\S+)", dockerfile, re.M).group(1)
+    assert base.startswith("python:3.12-slim"), f"unexpected base image {base}"
+    assert '".[passagemath]"' in dockerfile, (
+        "the image must install the pyproject [passagemath] extra, not a copied pin"
+    )
+    assert "--uid 1001 --gid 1001" in dockerfile, (
+        "the sage user must be UID/GID 1001 to match the Helm chart and Compose file"
+    )
+    assert 'ENTRYPOINT ["sage", "-python", "-m", "sagemath_mcp.server"]' in dockerfile
+
+    release = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+    assert "file: Dockerfile.passagemath" in release
+    for arch, runner in (("amd64", "ubuntu-latest"), ("arm64", "ubuntu-24.04-arm")):
+        assert re.search(rf"arch:\s*{arch}\s+runner:\s*{runner}", release), (
+            f"release.yml does not build the passagemath image natively on {runner}"
+        )
+    assert "suffix=-passagemath" in release, "the passagemath tags must carry the suffix"
+    assert "docker-passagemath-manifest" in release
+    assert "docker buildx imagetools create" in release, (
+        "the multi-arch index must be assembled from the tested per-arch images"
+    )
+
+
 def test_the_dev_container_scripts_pin_the_dockerfile_sage() -> None:
     """The dev/test container must run the same Sage the runtime image does.
 

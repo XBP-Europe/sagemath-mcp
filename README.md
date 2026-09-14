@@ -91,6 +91,25 @@ optional runtime; the monolithic image stays primary, and for untrusted or
 multi-tenant use run the container regardless of runtime — a pip install has your
 user's privileges, the container adds OS-level isolation.
 
+**On arm64 (Apple silicon, Graviton): the passagemath image.** The monolithic
+image above is published for `linux/amd64` only, so on arm64 it runs under
+emulation. The same server on the passagemath runtime ships as a native
+`linux/amd64` + `linux/arm64` image, with the same hardening flags, UID and
+security policy:
+
+```bash
+docker run --rm \
+  --read-only --tmpfs /tmp:rw,size=512m --tmpfs /home/sage/.sage:rw,size=256m \
+  --cap-drop ALL --security-opt no-new-privileges --pids-limit 256 --memory 4g \
+  -p 127.0.0.1:8314:8314 \
+  ghcr.io/xbp-europe/sagemath-mcp:latest-passagemath
+```
+
+Every release tag has a `-passagemath` twin (`vX.Y.Z-passagemath`), each
+architecture is smoke-tested natively before it is published, and the index is
+signed and attested like the primary image. It is the optional image on amd64,
+where the monolithic one stays primary.
+
 Source install, Docker Compose, and the Kubernetes Helm chart are in
 **[USAGE.md](USAGE.md)**.
 

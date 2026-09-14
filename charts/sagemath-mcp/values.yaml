@@ -2,6 +2,11 @@ replicaCount: 1
 
 image:
   repository: ghcr.io/xbp-europe/sagemath-mcp
+  # Prefer a release tag over `latest` in anything you deploy. For arm64 nodes
+  # use the `-passagemath` twin of the tag (e.g. `v0.8.0-passagemath`): the
+  # primary image is linux/amd64 only, the passagemath image is amd64 + arm64,
+  # and both run as UID/GID 1001 with the same writable paths, so nothing else
+  # in this chart changes.
   tag: latest
   pullPolicy: IfNotPresent
 

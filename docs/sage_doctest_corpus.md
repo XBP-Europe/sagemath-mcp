@@ -57,8 +57,9 @@ temp directory, because `/workspace` is read-only for the container user);
 `make integration-test` sets it, copies the file out to
 `doctest-corpus-stats.md` in the repository root, bundles it into
 `integration-artifacts.tar.gz`, and CI uploads it with the integration
-artifacts. It is gitignored: a run artifact, not a committed baseline — the
-committed baselines stay in the test module, where a drop fails the build.
+artifacts. The file is tracked, so the refusal-by-rule breakdown is reviewable
+in a pull request diff — but the *asserted* baselines stay in the test module,
+where a drop fails the build; the markdown is a report, not a gate.
 
 ## Licensing and provenance
 
@@ -77,13 +78,21 @@ why a failing assertion prints its examples instead of storing them.
 A Sage upgrade moves the baselines. A *drop* in acceptance is the signal; refresh
 by reading the report a failing assertion prints.
 
-## What it measured (SageMath 10.9, 2026-08-16)
+## What it measured (SageMath 10.9, re-measured 2026-09-14 on `main`)
 
 ```
 3,168 files, 60,094 docstrings, 432,878 examples
-accepted 370,151   refused 4,277   out of scope 58,268
-acceptance among in-scope examples: 98.86%
+accepted 370,492   refused 3,936   out of scope 58,268   unparsed 182
+acceptance among in-scope examples: 98.95%   (enforced floor: 98.50%)
 ```
+
+The same sweep on the passagemath runtime (`passagemath-standard==10.8.11`,
+its own CI lane) reads 3,232 files, 433,289 examples, 362,728 accepted,
+3,566 refused, 66,815 out of scope — 99.03%. The two runtimes differ in what
+is *out of scope* (passagemath's modular layout tags more examples
+`# needs`), not in what is refused. The committed
+[`doctest-corpus-stats.md`](../doctest-corpus-stats.md) is the monolithic
+report as CI last produced it, with the refusals broken down by rule.
 
 The first measurement was 97.81%, with 8,218 refusals. Categorising those
 (below) found that a third had no security justification; fixing them removed
@@ -96,7 +105,11 @@ records and a per-example sweep now models) and `attrcall` with a screened
 literal attribute name. Item 60 won back a further 617 by permitting
 `from <vetted> import *` for the curated clean internal modules in
 `star_exports.py` — a reviewed exception to the import ban, expanded to its
-screened names before validation.
+screened names before validation. Items 64–65 won back the last 341 (4,277 →
+3,936 refusals, 98.86% → 98.95%) by offering `set_verbose` as a no-op and
+auto-declaring undeclared symbols in `evaluate_sage`. The number has held there
+through the deny-by-default allowlist generator rewrite and the passagemath
+work, which were designed to be output-neutral and measured as such.
 
 The acceptance ratio is **blind to the import rewrite by construction**: any
 example containing an import is skipped before validation, so an import that is

@@ -161,9 +161,11 @@ The adjacent market is roughly five times larger and is where attention actually
 2. ~~**Interrupt versus restart.**~~ Closed by `interrupt_sage_session`.
 3. ~~**One session per client.**~~ Closed by `start` / `list` / `stop_sage_session`.
 4. **Install friction.** `uvx mcp-sage` runs with no install via PEP 723 inline
-   dependencies. This project needs a local SageMath or a ~3 GB image. A route is
-   now on the roadmap (the passagemath runtime extra, below); the gap is real
-   until it ships.
+   dependencies. This project needed a local SageMath or a ~3 GB image. Narrowed
+   2026-09-07 by the passagemath runtime extra (below): `pip install
+   "sagemath-mcp[passagemath]"` is a ~1 GB, no-Docker install. What remains of
+   the gap is that a Sage runtime is still a gigabyte, and that the extra is
+   pinned and optional rather than the primary path.
 5. **Academic anchor.** Their server is cited in a NeSy 2026 paper. This project has no
    equivalent reference.
 
@@ -213,23 +215,28 @@ documentation rather than surface:
       control into `tests/cli_integration` for the rigorous three-arm
       (no-tools / `evaluate_sage`-only / full-catalogue) version under the CLI
       nightlies, where real tool-gating and per-client keys live.
-- [ ] **Passagemath runtime for install footprint.** "Where this project is
-      behind" item 4 above. **Evaluated 2026-09-06**
+- [x] **Passagemath runtime for install footprint.** *Done, 2026-09-07; pin
+      moved to 10.8.11 on 2026-09-14.* "Where this project is behind" item 4
+      above. Evaluated 2026-09-06
       ([docs/passagemath_evaluation.md](docs/passagemath_evaluation.md), verified
       empirically): verdict **adopt, pinned to a verified release**, and the fit
-      is better than this sketch assumed — `pip install passagemath-standard`
+      was better than this sketch assumed — `pip install "sagemath-mcp[passagemath]"`
       yields a runtime where `from sage.all import *` works, `_sage_worker.py`
-      runs unmodified, and all 33 Sage-backed tool domains pass on 10.8.9, at
-      ~1 GB download / 3.8 GB disk / ~1 min versus the ~3 GB image. Two blockers
-      before it ships: (1) the star-exports/denylist derivation is layout-
-      sensitive and over-fires under the modular layout — the real engineering,
-      ~1–2 days, and it overlaps the "classify rather than accept" allowlist item
-      in TODO.md; (2) the full suite and doctest corpus sweep run against the pin.
-      Don't track their latest release: 10.8.10/10.8.11 each shipped a broken core
-      backend on Linux x86_64 (found in the evaluation, not their tracker), so an
-      exact pin plus a cold-install smoke gate in CI, which folds their release
-      risk into this project's existing engine-bump discipline. The priced-in cost
-      is still the two artifact sets to review on every engine bump.
+      runs unmodified, and all 33 Sage-backed tool domains pass, at ~1 GB
+      download / 3.8 GB disk / ~1 min versus the ~3 GB image. Both blockers
+      closed (REVIEW_ACTIONS 69): the star-exports/denylist derivation attributes
+      names by value provenance, so the modular layout no longer over-fires, and
+      the server picks the matching generated artifact set at import
+      (`_artifacts.py`); a `passagemath` CI lane cold-installs the exact pin and
+      runs the whole suite plus the doctest corpus sweep against it (99.03%
+      acceptance on 10.8.11, versus 98.86% on monolithic 10.9). The pin is exact
+      on purpose: 10.8.10/10.8.11 shipped a broken Maxima backend as first
+      released (found here, filed as passagemath#2836, fixed upstream by a
+      `.post1` reissue), so every bump goes through that lane, never Dependabot
+      alone. It stays the *optional* runtime — the monolithic image is primary —
+      until two consecutive passagemath releases pass the gate on first try; the
+      counter is at zero. The priced-in cost is the second artifact set to review
+      on every engine bump.
 - [x] **Manifolds and GR: document, don't build.** *Done, 2026-08-24.* sympy-mcp's
       tensor/GR tools (Schwarzschild/Kerr metrics, Ricci/Einstein tensors) are its
       one breadth advantage, and Sage has the stronger machinery underneath

@@ -70,7 +70,9 @@ out of date.
       review) still wants folding into the `tests/cli_integration` nightlies,
       where the per-client keys live. `verify_claim` shipped 2026-09-06
       (`tools/verify.py`).
-- [ ] Passagemath runtime extra to cut install footprint. Evaluated 2026-09-06
+- [x] Passagemath runtime extra to cut install footprint. *Done, 2026-09-07;
+      all three blockers closed below, pin moved to 10.8.11 on 2026-09-14.*
+      Evaluated 2026-09-06
       (`docs/passagemath_evaluation.md`): verdict **adopt, pinned to a verified
       release**, technical fit better than the roadmap sketch assumed — `pip
       install passagemath-standard` gives a working `from sage.all import *`,

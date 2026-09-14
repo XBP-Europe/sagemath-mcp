@@ -362,6 +362,14 @@ _DANGEROUS_BARE_NAMES = (
     # auto-regenerated baked list) so `make denylist` cannot drop it, and it is a
     # no-op on monolithic where the name is absent.
     "commence_startup",
+    # passagemath 10.8.11 exports `inline_plots` from `sage.repl.interpreter`
+    # (a dangerous-provenance module: it is the interactive shell), so the
+    # derivation flags it. It toggles kitty-terminal image rendering on the
+    # running IPython shell -- nothing a worker has -- but the rule is the module,
+    # not the body. Same shape as `commence_startup`: a bare-name entry so
+    # `make denylist` cannot drop it, and a no-op on monolithic Sage, which does
+    # not define it.
+    "inline_plots",
 )
 
 # Sage's interfaces to other computer algebra systems. Each one spawns the real

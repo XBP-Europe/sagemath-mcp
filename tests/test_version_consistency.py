@@ -8,6 +8,7 @@ stayed stale and disagreed with the package it describes.
 
 from __future__ import annotations
 
+import datetime
 import json
 import re
 import shutil
@@ -34,6 +35,11 @@ def _declared_versions(root: Path) -> dict[str, str]:
     found["server.json"] = manifest["version"]
     found["server.json.package"] = manifest["packages"][0]["version"]
 
+    # CITATION.cff is what GitHub's "Cite this repository" box and Zenodo read;
+    # a stale version there is a citation to a release that does not exist.
+    citation = (root / "CITATION.cff").read_text(encoding="utf-8")
+    found["CITATION.cff"] = re.search(r"^version:\s*(\S+)", citation, re.M).group(1)
+
     # uv.lock records this project as a package. The v0.5.0 release bumped every
     # other file and left the lock saying 0.4.0, so `uv lock --check` failed and
     # anyone installing with `uv sync` got metadata for a version that was never
@@ -52,18 +58,31 @@ def test_all_declared_versions_agree() -> None:
     assert len(set(versions.values())) == 1, f"version files disagree: {versions}"
 
 
-def test_bump_script_updates_every_version_file(tmp_path) -> None:
-    """Run the real script against a copy and assert nothing is left behind."""
-    for relative in (
-        "pyproject.toml",
-        "src/sagemath_mcp/__init__.py",
-        "charts/sagemath-mcp/Chart.yaml",
-        "server.json",
-        "scripts/bump_version.py",
-    ):
+VERSIONED_FILES = (
+    "pyproject.toml",
+    "src/sagemath_mcp/__init__.py",
+    "charts/sagemath-mcp/Chart.yaml",
+    "server.json",
+    "CITATION.cff",
+    "scripts/bump_version.py",
+)
+
+
+def _copy_versioned_files(tmp_path: Path) -> None:
+    for relative in VERSIONED_FILES:
         target = tmp_path / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(ROOT / relative, target)
+
+
+def _release_date(root: Path) -> str:
+    citation = (root / "CITATION.cff").read_text(encoding="utf-8")
+    return re.search(r"^date-released:\s*(\S+)", citation, re.M).group(1)
+
+
+def test_bump_script_updates_every_version_file(tmp_path) -> None:
+    """Run the real script against a copy and assert nothing is left behind."""
+    _copy_versioned_files(tmp_path)
 
     before = _declared_versions(tmp_path)
     subprocess.run(
@@ -76,14 +95,15 @@ def test_bump_script_updates_every_version_file(tmp_path) -> None:
     stale = [name for name, value in after.items() if value == before[name]]
     assert not stale, f"bump did not update: {stale}"
 
+    # The citation's release date must move with the version, or the DOI record
+    # says the new version was released on the old date.
+    released = _release_date(tmp_path)
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", released), released
+    assert released == datetime.datetime.now(datetime.UTC).date().isoformat()
+
 
 def test_dry_run_changes_nothing(tmp_path) -> None:
-    for relative in ("pyproject.toml", "src/sagemath_mcp/__init__.py",
-                     "charts/sagemath-mcp/Chart.yaml", "server.json",
-                     "scripts/bump_version.py"):
-        target = tmp_path / relative
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy(ROOT / relative, target)
+    _copy_versioned_files(tmp_path)
 
     before = _declared_versions(tmp_path)
     subprocess.run(

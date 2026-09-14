@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime as _dt
 import json
 import re
 import subprocess
@@ -16,6 +17,7 @@ PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"
 INIT_PATH = PROJECT_ROOT / "src" / "sagemath_mcp" / "__init__.py"
 CHART_PATH = PROJECT_ROOT / "charts" / "sagemath-mcp" / "Chart.yaml"
 SERVER_JSON_PATH = PROJECT_ROOT / "server.json"
+CITATION_PATH = PROJECT_ROOT / "CITATION.cff"
 
 PYPROJECT_VERSION_PATTERN: Pattern[str] = re.compile(
     r'^(version\s*=\s*)"(?P<version>\d+\.\d+\.\d+)"\s*$', re.MULTILINE
@@ -30,6 +32,15 @@ CHART_VERSION_PATTERN: Pattern[str] = re.compile(
 )
 CHART_APP_VERSION_PATTERN: Pattern[str] = re.compile(
     r'^(appVersion:\s*)"(?P<version>\d+\.\d+\.\d+)"\s*$', re.MULTILINE
+)
+# The citation file carries the version and the release date. Both go stale
+# the same way the chart did unless the bump rewrites them; Zenodo and GitHub's
+# "Cite this repository" box would then name a version that was never released.
+CITATION_VERSION_PATTERN: Pattern[str] = re.compile(
+    r"^(version:\s*)(?P<version>\d+\.\d+\.\d+)\s*$", re.MULTILINE
+)
+CITATION_DATE_PATTERN: Pattern[str] = re.compile(
+    r"^(date-released:\s*)(?P<version>\d{4}-\d{2}-\d{2})\s*$", re.MULTILINE
 )
 
 
@@ -109,6 +120,21 @@ def _write_all(new_version: str) -> None:
     _write_version(CHART_PATH, CHART_VERSION_PATTERN, new_version, quoted=False)
     _write_version(CHART_PATH, CHART_APP_VERSION_PATTERN, new_version)
     _write_server_json(new_version)
+    _write_citation(new_version)
+
+
+def _write_citation(new_version: str) -> None:
+    """Update CITATION.cff's version and release date.
+
+    The date is the day of the bump: the tag is pushed right after the bump pull
+    request merges, and a day's slack matters less than a date from the previous
+    release, which is what an untouched field would carry.
+    """
+    if not CITATION_PATH.exists():
+        return
+    _write_version(CITATION_PATH, CITATION_VERSION_PATTERN, new_version, quoted=False)
+    today = _dt.datetime.now(_dt.UTC).date().isoformat()
+    _write_version(CITATION_PATH, CITATION_DATE_PATTERN, today, quoted=False)
 
 
 def bump_version(segment: str) -> Version:

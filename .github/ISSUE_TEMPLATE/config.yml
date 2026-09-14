@@ -1,5 +1,11 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Question or how-to
+    url: https://github.com/XBP-Europe/sagemath-mcp/discussions
+    about: Ask in Discussions (Q&A). Issues are for bugs and feature requests.
+  - name: What is supported
+    url: https://github.com/XBP-Europe/sagemath-mcp/blob/main/SUPPORT.md
+    about: Supported versions and runtimes, release cadence, response expectations.
   - name: Security issue
     url: mailto:sagemath-mcp-maintainers@proton.me
     about: Please report security vulnerabilities privately via email.

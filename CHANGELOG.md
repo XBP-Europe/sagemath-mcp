@@ -23,6 +23,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Citability and support files.** `CITATION.cff` (GitHub's *Cite this
+  repository* box; what Zenodo reads to mint a release DOI) and `SUPPORT.md`
+  (what "supported" means: latest release only, Python 3.12/3.13, the two Sage
+  runtimes and their guarantees, tag-driven release cadence, the output-change
+  minor-bump rule, and honest single-maintainer response expectations). The
+  version-bump script now rewrites the citation's `version` and `date-released`,
+  and `tests/test_version_consistency.py` includes the file, so a citation can
+  never name an unreleased version. GitHub Discussions is enabled for questions;
+  the issue-template chooser, README and CONTRIBUTING point there, and the
+  README gained a *Citing* section.
 - **Optional HTTP bearer-token authentication (opt-in).** Set
   `SAGEMATH_MCP_HTTP_AUTH_TOKEN=<secret>` and every MCP request over the HTTP
   transports must carry `Authorization: Bearer <secret>`; the `/health` and

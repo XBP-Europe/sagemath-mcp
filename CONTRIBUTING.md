@@ -124,8 +124,10 @@ preparser behaviour. Run both.
 directly. The flow is:
 
 1. Run the **Version bump** workflow (`workflow_dispatch`) with the segment to bump. It
-   updates `pyproject.toml`, `src/sagemath_mcp/__init__.py` and
-   `charts/sagemath-mcp/Chart.yaml`, then opens a pull request.
+   updates `pyproject.toml`, `src/sagemath_mcp/__init__.py`,
+   `charts/sagemath-mcp/Chart.yaml`, `server.json` and `CITATION.cff` (version and
+   release date), then opens a pull request. `tests/test_version_consistency.py`
+   fails if any of them disagree.
 2. Merge that pull request once CI passes.
 3. Push the tag to publish:
 
@@ -154,4 +156,8 @@ Participation in this project is governed by our [Code of Conduct](CODE_OF_CONDU
 
 ## Questions?
 
-Open a discussion or issue on GitHub, or reach out to the maintainers at sagemath-mcp-maintainers@proton.me. We’re happy to help!
+Ask in [GitHub Discussions](https://github.com/XBP-Europe/sagemath-mcp/discussions)
+(Q&A), or reach the maintainers at sagemath-mcp-maintainers@proton.me.
+[SUPPORT.md](SUPPORT.md) says what is supported, how releases are cut and what
+response to expect. Security problems go by email only, per
+[SECURITY.md](SECURITY.md).

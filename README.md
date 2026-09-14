@@ -209,7 +209,9 @@ Full threat model and the complete blocked / allowed tables:
   interpreted, deployment, and the security model.
 - **[docs/mcp_quickstart.md](docs/mcp_quickstart.md)** — a first-session walk-through.
 - **[CHANGELOG.md](CHANGELOG.md)** · **[ROADMAP.md](ROADMAP.md)** ·
-  **[CONTRIBUTING.md](CONTRIBUTING.md)** · **[SECURITY.md](SECURITY.md)**
+  **[CONTRIBUTING.md](CONTRIBUTING.md)** · **[SECURITY.md](SECURITY.md)** ·
+  **[SUPPORT.md](SUPPORT.md)** — what "supported" means, release cadence,
+  where to ask.
 
 ## Requirements
 
@@ -222,6 +224,15 @@ otherwise `sage` on `PATH`, or the `[passagemath]` extra). Built on
 Issues and pull requests welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Run
 `make lint` and `make test` before pushing (`git config core.hooksPath .githooks`
 wires the pre-push check). Roadmap and open work: [ROADMAP.md](ROADMAP.md).
+Questions go to [GitHub Discussions](https://github.com/XBP-Europe/sagemath-mcp/discussions);
+[SUPPORT.md](SUPPORT.md) says what to expect.
+
+## Citing
+
+If this server is part of published work, cite it via
+[CITATION.cff](CITATION.cff) — GitHub renders it as *Cite this repository* in the
+sidebar, with APA and BibTeX. Cite SageMath itself as well; it does the
+mathematics.
 
 ## License
 

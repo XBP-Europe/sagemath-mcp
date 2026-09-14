@@ -249,6 +249,18 @@ prioritised. Correctness first, then packaging/adoption.
       `SUPPORT.md` (release cadence / what "supported" means), enable GitHub
       Discussions, label good-first-issues. The bus factor (CODEOWNERS names one
       person) is what an enterprise evaluator notices.
+      **Partly done, 2026-09-14:** `CITATION.cff` (version-bumped and
+      consistency-tested with the other version files), `SUPPORT.md` (states the
+      single-maintainer bus factor plainly rather than hiding it), Discussions
+      enabled and linked from the issue chooser, README and CONTRIBUTING.
+      Still open: (a) **Zenodo DOI** — needs the repository owner to enable the
+      GitHub integration at zenodo.org for `XBP-Europe/sagemath-mcp`, after which
+      the next tag mints a DOI; then add the concept DOI to `CITATION.cff` (the
+      file says where) and a DOI badge to the README; (b) **good-first-issue
+      candidates** — the tracker has no open issues to label, so seed it from
+      the small self-contained TODO items (fetch the Sage reference HTML at
+      generation time; `CITATION.cff` DOI wiring; conda-forge recipe scaffold);
+      (c) the **JOSS paper**, a separate piece of writing once the DOI exists.
 - [ ] Extra install paths worth their weekend: a conda-forge recipe (where Sage
       users actually live), a nix flake (`nix run github:…` incl. Sage), and an
       `.mcpb` bundle for one-click Claude Desktop install. Trust signals: PyPI

@@ -34,6 +34,7 @@ an image for it, not before.
 | --- | --- | --- |
 | The published container image (monolithic SageMath 10.9, `ghcr.io/xbp-europe/sagemath-mcp`) | **Primary.** The release is built on it, smoke-tested against it and signed | Integration suite + doctest-corpus sweep on every push |
 | The `[passagemath]` pip extra (`passagemath-standard`, pinned exactly) | **Optional.** Same policy, second generated artifact set | Its own CI lane cold-installs the pin and runs the whole suite; the pin moves only through that lane |
+| The passagemath container image (`ghcr.io/xbp-europe/sagemath-mcp:<tag>-passagemath`, linux/amd64 + linux/arm64) | **Optional on amd64; the native choice on arm64**, where the primary image runs only under emulation | Built from the same pinned extra, smoke-tested natively per architecture in the release, signed and attested like the primary image |
 | A locally installed `sage` on `PATH` | Best effort | Not tested in CI. Should work on 10.9; other versions may refuse names or lack helpers |
 
 The version pins are deliberate. A Sage upgrade regenerates and re-reviews the

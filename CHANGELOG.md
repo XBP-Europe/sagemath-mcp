@@ -23,6 +23,20 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A native arm64 container: the passagemath image.** The primary image is
+  built on `sagemath/sagemath`, which is published for `linux/amd64` only, so
+  Apple-silicon and Graviton hosts ran it under emulation. `Dockerfile.passagemath`
+  builds the same server on the pip-installable passagemath runtime from the
+  pinned `[passagemath]` extra (wheels only, no compiler, `python:3.12-slim`
+  base, the same `sage` UID/GID 1001 and writable paths, so the Compose file and
+  Helm chart apply unchanged). The release builds and smoke-tests it **natively
+  per architecture** (`ubuntu-latest` and `ubuntu-24.04-arm`, with Maxima and
+  GAP probes on top of the stateful assign-and-read), pushes the tested images
+  under `<tag>-passagemath-{amd64,arm64}`, assembles the `<tag>-passagemath`
+  multi-arch index from exactly those, and signs and attests it like the
+  primary image; PyPI publishes only if it succeeded too. It is the optional
+  image on amd64, where the monolithic one stays primary, and the native choice
+  on arm64. README, USAGE, DISTRIBUTION and SUPPORT say which to pick.
 - **Release trust signals: SBOMs, SLSA provenance, explicit PEP 740, Scorecard.**
   The release workflow now generates an SPDX SBOM of the container image (from the
   exact image the smoke test ran against) and of the package's own dependency

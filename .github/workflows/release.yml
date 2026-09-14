@@ -227,6 +227,191 @@ jobs:
           sbom-path: sbom/sagemath-mcp-image.spdx.json
           push-to-registry: true
 
+  # The optional passagemath image (Dockerfile.passagemath): the same server on
+  # the pip-installable SageMath fork, built NATIVELY per architecture -- the
+  # monolithic sagemath/sagemath base is linux/amd64 only, and this image exists
+  # so arm64 hosts (Apple silicon, Graviton) get a native container. Each
+  # architecture is smoke-tested on its own runner before anything is pushed;
+  # the manifest job below then assembles the multi-arch index from the two
+  # tested images and signs it. Same push-only policy as the primary image.
+  docker-passagemath:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    env:
+      DO_PUSH: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Build candidate image (native ${{ matrix.arch }})
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.passagemath
+          load: true
+          tags: sagemath-mcp-passagemath-candidate:smoke
+      - name: Stateful smoke test of the built image
+        # Same assign-then-read as the primary image, plus the two things that
+        # are specific to this runtime: the passagemath artifact set must be the
+        # one selected, and the Maxima (solve) and GAP (group order) backends
+        # must answer -- the two that passagemath releases have broken before.
+        run: |
+          docker run --rm -i --entrypoint sage sagemath-mcp-passagemath-candidate:smoke -python - <<'PY'
+          import asyncio
+          from fastmcp import Client
+          from sagemath_mcp import _artifacts, server
+
+          assert _artifacts.IS_PASSAGEMATH, "the passagemath artifact set was not selected"
+
+          def text_of(result):
+              return "".join(b.text for b in result.content if getattr(b, "text", None))
+
+          async def main() -> None:
+              async with Client(server.mcp) as client:
+                  first = await client.call_tool("evaluate_sage", {"code": "smoke = 41"})
+                  assert not first.is_error, first
+                  second = await client.call_tool("evaluate_sage", {"code": "smoke + 1"})
+                  assert not second.is_error, second
+                  assert "42" in text_of(second), f"stateful read returned {text_of(second)!r}"
+                  maxima = await client.call_tool("evaluate_sage", {"code": "solve(x^2 - 4, x)"})
+                  assert not maxima.is_error and "2" in text_of(maxima), maxima
+                  gap = await client.call_tool("evaluate_sage", {"code": "SymmetricGroup(4).order()"})
+                  assert not gap.is_error and "24" in text_of(gap), gap
+                  print("passagemath stateful smoke: OK ->", text_of(second), text_of(maxima), text_of(gap))
+
+          asyncio.run(main())
+          PY
+      - name: Log in to GHCR
+        if: env.DO_PUSH == 'true'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push the tested image under its architecture tag
+        # The exact image the smoke test ran against, pushed as
+        # <tag>-passagemath-<arch>; the manifest job joins the two into the
+        # multi-arch <tag>-passagemath index. The arch tags stay visible, which
+        # is how a consumer pins one architecture deliberately.
+        if: env.DO_PUSH == 'true'
+        id: push
+        run: |
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
+          ARCH_TAG="${IMAGE}:${GITHUB_REF_NAME}-passagemath-${{ matrix.arch }}"
+          docker tag sagemath-mcp-passagemath-candidate:smoke "$ARCH_TAG"
+          docker push "$ARCH_TAG"
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$ARCH_TAG" | cut -d@ -f2)
+          test -n "$DIGEST"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+      - name: Image SBOM (SPDX)
+        run: mkdir -p sbom
+      - uses: anchore/sbom-action@v0.24.2
+        with:
+          image: sagemath-mcp-passagemath-candidate:smoke
+          format: spdx-json
+          output-file: sbom/sagemath-mcp-image-passagemath-${{ matrix.arch }}.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sbom-image-passagemath-${{ matrix.arch }}
+          path: sbom/*
+      - name: Attest image build provenance (SLSA)
+        if: env.DO_PUSH == 'true'
+        uses: actions/attest-build-provenance@v4.2.2
+        with:
+          subject-name: ${{ steps.push.outputs.image }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+      - name: Attest image SBOM
+        if: env.DO_PUSH == 'true'
+        uses: actions/attest-sbom@v4.1.0
+        with:
+          subject-name: ${{ steps.push.outputs.image }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          sbom-path: sbom/sagemath-mcp-image-passagemath-${{ matrix.arch }}.spdx.json
+          push-to-registry: true
+
+  docker-passagemath-manifest:
+    needs: docker-passagemath
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    env:
+      DO_PUSH: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+    steps:
+      - name: Extract metadata (tags with the -passagemath suffix)
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository }}
+          flavor: |
+            suffix=-passagemath,onlatest=true
+      - name: Log in to GHCR
+        if: env.DO_PUSH == 'true'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Assemble the multi-arch index from the two tested images
+        # No rebuild: the index references the per-arch manifests the smoke
+        # tests ran against, so what a consumer pulls is what was tested.
+        if: env.DO_PUSH == 'true'
+        id: index
+        run: |
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
+          SOURCES=("${IMAGE}:${GITHUB_REF_NAME}-passagemath-amd64" "${IMAGE}:${GITHUB_REF_NAME}-passagemath-arm64")
+          TAG_ARGS=()
+          while IFS= read -r tag; do
+            [ -z "$tag" ] && continue
+            TAG_ARGS+=(-t "$tag")
+          done <<< "${{ steps.meta.outputs.tags }}"
+          docker buildx imagetools create "${TAG_ARGS[@]}" "${SOURCES[@]}"
+          FIRST_TAG=$(printf '%s\n' "${{ steps.meta.outputs.tags }}" | head -n1)
+          DIGEST=$(docker buildx imagetools inspect "$FIRST_TAG" --format '{{json .Manifest.Digest}}' | tr -d '"')
+          test -n "$DIGEST"
+          docker buildx imagetools inspect "$FIRST_TAG"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+      - name: Dry run - show the index that would be assembled
+        if: env.DO_PUSH != 'true'
+        run: |
+          echo "Would assemble a linux/amd64 + linux/arm64 index tagged:"
+          printf '  %s\n' ${{ steps.meta.outputs.tags }}
+      - name: Install Cosign
+        if: env.DO_PUSH == 'true'
+        uses: sigstore/cosign-installer@v4.1.2
+      - name: Sign the index
+        if: env.DO_PUSH == 'true'
+        env:
+          COSIGN_YES: "true"
+        run: cosign sign "${{ steps.index.outputs.image }}@${{ steps.index.outputs.digest }}"
+      - name: Attest index build provenance (SLSA)
+        if: env.DO_PUSH == 'true'
+        uses: actions/attest-build-provenance@v4.2.2
+        with:
+          subject-name: ${{ steps.index.outputs.image }}
+          subject-digest: ${{ steps.index.outputs.digest }}
+          push-to-registry: true
+
   helm:
     needs: test
     runs-on: ubuntu-latest
@@ -240,7 +425,10 @@ jobs:
         run: helm template sagemath charts/sagemath-mcp --debug
 
   publish:
-    needs: [build, docker, helm]
+    # Every image is a release artefact: PyPI does not publish if the optional
+    # passagemath image failed to build, test or assemble, so a release is
+    # always all of its artefacts or none.
+    needs: [build, docker, docker-passagemath-manifest, helm]
     # PyPI is irreversible; publish only on a tag PUSH. A workflow_dispatch can
     # target a tag ref, so `startsWith(github.ref, ...)` alone was reachable from
     # a dispatch (even a dry-run one) -- the push-event gate is what actually
@@ -372,7 +560,9 @@ jobs:
           ls -l dist sbom
           # Both SBOMs must exist and parse, or the release would ship without
           # the inventory the README advertises.
-          for f in sbom/sagemath-mcp-source.spdx.json sbom/sagemath-mcp-image.spdx.json; do
+          for f in sbom/sagemath-mcp-source.spdx.json sbom/sagemath-mcp-image.spdx.json \
+                   sbom/sagemath-mcp-image-passagemath-amd64.spdx.json \
+                   sbom/sagemath-mcp-image-passagemath-arm64.spdx.json; do
             python3 -c "import json,sys; d=json.load(open('$f')); \
               print('$f:', d['spdxVersion'], len(d.get('packages', [])), 'packages')"
           done

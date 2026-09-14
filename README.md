@@ -84,8 +84,8 @@ A pip-installable, modularized fork of SageMath. `from sage.all import *` and th
 worker run unmodified; the server detects the runtime at import and loads the
 matching security artifacts, so the deny-by-default policy is equivalent on both.
 It is pinned exactly (`passagemath-standard==10.8.11`) and exercised by its own CI
-lane — the whole suite plus the doctest-corpus sweep against the pin — because
-passagemath's release QA has shipped broken backends
+lane — the whole suite plus the doctest-corpus sweep against the pin — so a pin
+bump is verified end to end before it ships
 ([docs/passagemath_evaluation.md](docs/passagemath_evaluation.md)). It is the
 optional runtime; the monolithic image stays primary, and for untrusted or
 multi-tenant use run the container regardless of runtime — a pip install has your

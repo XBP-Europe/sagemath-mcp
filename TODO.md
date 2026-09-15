@@ -225,7 +225,10 @@ prioritised. Correctness first, then packaging/adoption.
       `test_hardcoded_tool_counts_match_the_inventory` fails if any stated count
       drifts from `tests/fixtures/tool_inventory.json`, the source of truth.
 - [ ] **`external_docs/reference_html`** vendors Sage's own HTML (102 KB) into an
-      MIT repo — fetch at generation time instead of committing it.
+      MIT repo — fetch at generation time instead of committing it. **Checked
+      2026-09-15:** nothing reads it (`lookup_sage_doc` and the docs resource
+      link to doc.sagemath.org directly), so the change is a deletion. Open as
+      #91, `good first issue`.
 - [ ] **Clear the `sagemath-*` PyPI namespace question** with sage-devel now —
       Sage upstream owns `sagemath-standard`/`sagemath-symbolics`/… and this is a
       third-party package in that namespace. A friendly ask today, a forced
@@ -258,10 +261,12 @@ prioritised. Correctness first, then packaging/adoption.
       Still open: (a) **Zenodo DOI** — needs the repository owner to enable the
       GitHub integration at zenodo.org for `XBP-Europe/sagemath-mcp`, after which
       the next tag mints a DOI; then add the concept DOI to `CITATION.cff` (the
-      file says where) and a DOI badge to the README; (b) **good-first-issue
-      candidates** — the tracker has no open issues to label, so seed it from
-      the small self-contained TODO items (fetch the Sage reference HTML at
-      generation time; `CITATION.cff` DOI wiring; conda-forge recipe scaffold);
+      file says where) and a DOI badge to the README — tracked as #92, opened
+      blocked so a contributor can take it the day the DOI exists;
+      (b) ~~**good-first-issue candidates**~~ **seeded 2026-09-15:** #91
+      (remove the vendored Sage HTML) and #92 (DOI wiring) carry `good first
+      issue`; #93 (conda-forge recipe) and #94 (hash-lock the passagemath
+      image's pip installs) carry `help wanted`;
       (c) the **JOSS paper**, a separate piece of writing once the DOI exists.
 - [ ] Extra install paths worth their weekend: a conda-forge recipe (where Sage
       users actually live), a nix flake (`nix run github:…` incl. Sage), and an
@@ -275,7 +280,8 @@ prioritised. Correctness first, then packaging/adoption.
       provenance are attested to the GHCR digest; Scorecard publishes weekly.
       First real exercise is the next tag — the dry-run dispatch covers SBOM
       generation but attests nothing by design. The install paths
-      (conda-forge, nix, `.mcpb`) remain open.
+      (conda-forge, nix, `.mcpb`) remain open; conda-forge is #93 (`help
+      wanted`).
       **Scorecard, first published score 5.7 (2026-09-14) — plan and status:**
       - [x] *Pinned-Dependencies 0 → 8 locally.* Every `uses:` in all eight
         workflows pinned to a commit SHA with a version comment (Dependabot
@@ -285,7 +291,8 @@ prioritised. Correctness first, then packaging/adoption.
         an exported lock and would complicate the arm64 sdist fallback; the
         image installs the exact pinned extra and is smoke-tested per arch) and
         the three `npm install -g` lines in `cli-nightly.yml` (CLI clients for
-        a local-only harness). Those cap the check at ~8.
+        a local-only harness). Those cap the check at ~8. Hash-locking the pip
+        lines is #94 (`help wanted`) if someone wants the last two points.
       - [x] *Token-Permissions 0 → 10 locally.* Top-level `permissions:
         contents: read` on every workflow; write scopes only at job level, only
         where used (`issues: write` moved off the top level in `audit.yml` and

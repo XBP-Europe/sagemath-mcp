@@ -68,6 +68,16 @@ star-exports-passagemath:
 	mv /tmp/star_exports_passagemath_new.py src/sagemath_mcp/star_exports_passagemath.py
 	@git --no-pager diff --stat src/sagemath_mcp/star_exports_passagemath.py
 
+# The hash-locked requirements Dockerfile.passagemath installs with
+# `pip install --require-hashes`, exported from uv.lock (every wheel and sdist
+# hash the lock knows, so both architectures resolve). Regenerate after ANY
+# change to uv.lock -- a pin bump, a Dependabot update, `uv lock --upgrade` --
+# or tests/test_passagemath_lock.py fails, which is the point: the image must
+# install exactly what the lock says, never a resolution of its own.
+passagemath-lock:
+	uv export --frozen --extra passagemath --no-dev --no-emit-project --format requirements.txt --output-file requirements-passagemath.txt
+	@git --no-pager diff --stat requirements-passagemath.txt
+
 # No `docker compose up` here: the runner's ensure_docker_container() already
 # starts the container when it is not running, and it uses `docker-compose`
 # (v1). This target used the v2 spelling, so on a host with only v1 installed

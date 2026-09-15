@@ -431,8 +431,18 @@ def test_the_passagemath_image_is_built_natively_for_both_architectures() -> Non
     dockerfile = (ROOT / "Dockerfile.passagemath").read_text(encoding="utf-8")
     base = re.search(r"^FROM\s+(\S+)", dockerfile, re.M).group(1)
     assert base.startswith("python:3.12-slim"), f"unexpected base image {base}"
-    assert '".[passagemath]"' in dockerfile, (
-        "the image must install the pyproject [passagemath] extra, not a copied pin"
+    # The runtime comes from the lock, hash-checked: the export of uv.lock's
+    # [passagemath] resolution (tests/test_passagemath_lock.py keeps it in
+    # sync), never a copied pin or a resolution pip makes on its own. The
+    # project itself is then installed from the checkout without dependencies.
+    assert "--require-hashes -r requirements-passagemath.txt" in dockerfile, (
+        "the image must install the hash-locked export of uv.lock"
+    )
+    assert "pip install --no-cache-dir --no-deps ." in dockerfile, (
+        "the project must be installed with --no-deps; its dependencies come from the lock"
+    )
+    assert "requirements-passagemath.txt" in re.search(r"^COPY .*$", dockerfile, re.M).group(0), (
+        "the export must be copied into the builder stage"
     )
     assert "--uid 1001 --gid 1001" in dockerfile, (
         "the sage user must be UID/GID 1001 to match the Helm chart and Compose file"

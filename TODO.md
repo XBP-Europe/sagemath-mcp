@@ -224,8 +224,11 @@ prioritised. Correctness first, then packaging/adoption.
       `server.json` now says 40 (was "34"), and
       `test_hardcoded_tool_counts_match_the_inventory` fails if any stated count
       drifts from `tests/fixtures/tool_inventory.json`, the source of truth.
-- [ ] **`external_docs/reference_html`** vendors Sage's own HTML (102 KB) into an
-      MIT repo — fetch at generation time instead of committing it.
+- [x] **`external_docs/reference_html`** vendors Sage's own HTML (102 KB) into an
+      MIT repo — fetch at generation time instead of committing it. *Done,
+      2026-09-15 (#91).* Nothing read the files (`lookup_sage_doc` and the docs
+      resource link to doc.sagemath.org directly), so the change was a deletion
+      rather than a generation step.
 - [ ] **Clear the `sagemath-*` PyPI namespace question** with sage-devel now —
       Sage upstream owns `sagemath-standard`/`sagemath-symbolics`/… and this is a
       third-party package in that namespace. A friendly ask today, a forced

@@ -6,3 +6,6 @@ exclude:
   - "./.venv/**"
   - "./dist/**"
   - "./sbom/**"
+  # Derived from uv.lock (make passagemath-lock); cataloguing it too listed
+  # every passagemath package twice in the source SBOM (274 -> 468 entries).
+  - "./requirements-passagemath.txt"

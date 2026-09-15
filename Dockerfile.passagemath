@@ -32,14 +32,22 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
-COPY pyproject.toml README.md LICENSE ./
+COPY pyproject.toml README.md LICENSE requirements-passagemath.txt ./
 COPY src ./src
 
-# The pin lives in pyproject's [passagemath] extra -- one place, moved only
-# through the passagemath CI lane.
+# Hash-checking install. requirements-passagemath.txt is exported from uv.lock
+# (`make passagemath-lock`) with every wheel and sdist hash the lock knows, so
+# pip installs exactly the locked set on either architecture and refuses
+# anything else: a re-uploaded wheel, a substituted index, a resolution of its
+# own. The pin itself still lives in pyproject's [passagemath] extra, moved only
+# through the passagemath CI lane; tests/test_passagemath_lock.py fails when the
+# export and the lock disagree. Two limits, stated rather than hidden: pip does
+# not hash-check the *build* dependencies it fetches for an sdist fallback (the
+# arm64 cysignals build), and the project itself is installed from the checkout
+# with --no-deps, its dependencies already satisfied from the lock.
 RUN python -m venv /opt/venv \
-    && /opt/venv/bin/pip install --no-cache-dir --upgrade pip \
-    && /opt/venv/bin/pip install --no-cache-dir ".[passagemath]"
+    && /opt/venv/bin/pip install --no-cache-dir --require-hashes -r requirements-passagemath.txt \
+    && /opt/venv/bin/pip install --no-cache-dir --no-deps .
 
 # --- runtime stage -----------------------------------------------------------
 FROM python:3.12-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254

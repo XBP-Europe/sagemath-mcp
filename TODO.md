@@ -277,15 +277,17 @@ prioritised. Correctness first, then packaging/adoption.
       generation but attests nothing by design. The install paths
       (conda-forge, nix, `.mcpb`) remain open.
       **Scorecard, first published score 5.7 (2026-09-14) — plan and status:**
-      - [x] *Pinned-Dependencies 0 → 8 locally.* Every `uses:` in all eight
-        workflows pinned to a commit SHA with a version comment (Dependabot
-        updates SHA pins); the three `FROM` lines pinned by index digest. What
-        stays unpinned, deliberately: the two `pip install` lines in
-        `Dockerfile.passagemath` (hash-locking them would mean installing from
-        an exported lock and would complicate the arm64 sdist fallback; the
-        image installs the exact pinned extra and is smoke-tested per arch) and
-        the three `npm install -g` lines in `cli-nightly.yml` (CLI clients for
-        a local-only harness). Those cap the check at ~8.
+      - [x] *Pinned-Dependencies 0 → 8 locally, then the pip lines too
+        (2026-09-15, #94).* Every `uses:` in all eight workflows pinned to a
+        commit SHA with a version comment (Dependabot updates SHA pins); the
+        three `FROM` lines pinned by index digest; `Dockerfile.passagemath`
+        installs `requirements-passagemath.txt` (exported from `uv.lock` by
+        `make passagemath-lock`) with `--require-hashes`, guarded by
+        `tests/test_passagemath_lock.py`. **Pin-bump recipe now has one more
+        step:** after `uv.lock` changes, run `make passagemath-lock` and commit
+        the export, or that test fails. What stays unpinned, deliberately: the
+        three `npm install -g` lines in `cli-nightly.yml` (CLI clients for a
+        local-only harness).
       - [x] *Token-Permissions 0 → 10 locally.* Top-level `permissions:
         contents: read` on every workflow; write scopes only at job level, only
         where used (`issues: write` moved off the top level in `audit.yml` and

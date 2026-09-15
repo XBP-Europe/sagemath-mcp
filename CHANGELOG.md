@@ -9,6 +9,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **The passagemath image installs with `--require-hashes`.**
+  `Dockerfile.passagemath` used a plain `pip install ".[passagemath]"`, the last
+  unhashed dependency install in the repository (Scorecard's Pinned-Dependencies
+  remainder, #94). It now installs `requirements-passagemath.txt`, exported from
+  `uv.lock` by `make passagemath-lock` with every wheel and sdist hash the lock
+  knows, so pip installs exactly the locked set on amd64 and arm64 and refuses
+  anything else; the project is then installed from the checkout with
+  `--no-deps`. `tests/test_passagemath_lock.py` fails whenever the export and
+  the lock disagree, so a pin bump or Dependabot update that forgets
+  `make passagemath-lock` fails in CI, not in the image. Stated limit: pip does
+  not hash-check the build dependencies it fetches for an sdist fallback (the
+  arm64 `cysignals` build).
 - **Workflows pinned by commit SHA, tokens least-privilege, CodeQL added.**
   The first published OpenSSF Scorecard (5.7) scored Pinned-Dependencies and
   Token-Permissions at zero. Every `uses:` in all eight workflows (73

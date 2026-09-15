@@ -140,7 +140,14 @@ The adjacent market is roughly five times larger and is where attention actually
   defence in depth against accidental misuse, but review items 1-3 show that it
   is not currently an adversarial sandbox. Do not treat sandboxing as a competitive
   differentiator until the bypass tests and container hardening are complete.
-- **Tool surface.** 37 against 3, 5 and 10 for the SageMath peers.
+- **Tool surface.** 37 against 3, 5 and 10 for the SageMath peers. *Measured
+  2026-09-15 (`tool-surface-stats.md`): not an outcome differentiator.* Frontier
+  CLI clients answer the tool-forcing case set from recall without any server
+  (60/63); the full catalogue beats an `evaluate_sage`-only server by a few
+  cases, by absorbing the friction a model hits when it writes Sage by hand, not
+  by making anything answerable that was not. The defensible claims are that
+  friction absorption, `verify_claim` against wrong-confident answers (Gemini:
+  3 in 21 without a server), and the session model.
 - **Verification.** 496 unit and 575 real-runtime tests (2026-08-14); peer test coverage is largely
   invisible.
 - **Documentation.** 1218 README lines against 481, 284, 187 and 89.

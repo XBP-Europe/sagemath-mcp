@@ -308,10 +308,49 @@ prioritised. Correctness first, then packaging/adoption.
       - *Fuzzing 0.* Not pursued: the AST validator is exercised by the
         432,878-example doctest corpus and a Hypothesis property suite, which is
         the fuzzing this project's shape actually benefits from.
-- [ ] **Measure the tool surface before defending it.** The roadmap argues 40
+- [x] **Measure the tool surface before defending it.** The roadmap argues 40
       tools is a differentiator; the reviewer argues `evaluate_sage` covers most
       of it and a 12-tool build might score the same. Use the CLI harness to
       test a reduced set vs the full catalogue on pass rate before deciding.
+      *Measured 2026-09-15* — `make tool-surface`, `tool-surface-stats.md`. The
+      23 tool-forcing cases ran through Claude Code, Gemini CLI and Codex in
+      three arms: no server (enforced: Claude `--tools ""`, Gemini without
+      `--yolo` with its tool stats read, Codex `--json` scanned for command
+      executions — all read 0), the server narrowed **on the wire** to
+      `evaluate_sage` + session/diagnostic tools (the proxy's `--allow-tools`
+      hides the rest from `tools/list` and refuses `tools/call`), and the full
+      catalogue. Findings:
+      1. **The "tool-forcing" cases no longer force tools for 2026 frontier
+         clients.** Without any server: Claude 21/21, Codex 21/21, Gemini 18/21
+         — from recall and reasoning, zero tool use observed. Only Gemini shows
+         the wrong-confident failure (3: `next_prime(10^30)`, `50! mod 1000003`,
+         Bell(25) — all plausible-looking, exactly what `verify_claim` is for).
+         The case set needs a harder tier before it can discriminate arms on
+         *correctness* (the outcome benchmark's `infeasible` tier is the model;
+         its subject was `haiku` for the same reason).
+      2. **Full catalogue vs core tools, on client-cases measured in both: full
+         is ahead by a few cases, not by a class.** Claude 21/23 → 22/23,
+         Gemini 15/23 → 19/23. Where the helpers won, they won by keeping the
+         model out of `evaluate_sage` code that tripped friction — Gemini's
+         `import` statements (refused), `bessel_J_zeros` (not a Sage name),
+         `partitions` (not offered), `'float' object has no attribute 'n'`,
+         `unable to convert '6.62607015e-34' to a rational`. That is the real
+         value of a dedicated tool: it writes the Sage the model would have
+         written wrong. It is also a list of friction to fix in `evaluate_sage`
+         itself (each is a "reduce refusals" item).
+      3. **Codex could not be measured on the full catalogue**: its workspace
+         ran out of credits at the start of that arm (23 ⛔, relabelled after
+         verifying the provider error; the runner now classifies
+         `out of credits`/`spend limit`/`rate limit` as QUOTA so it cannot pose
+         as a wrong answer again). In the core arm Codex ignored the server on
+         5 cases and answered from recall.
+      **Decision:** keep the catalogue — it does not cost correctness and it
+      absorbs the friction a model hits writing Sage by hand — but stop calling
+      40 tools a differentiator on *outcomes*; the defensible claims are the
+      friction absorption, `verify_claim` against wrong-confident answers, and
+      the session model. Follow-ups: a harder case tier; the friction list in
+      (2); re-run Codex/full when credits exist (`make tool-surface
+      TOOL_SURFACE_CLIS=codex`).
 
 Smithery is **not pursued** (decided 2026-08-24). Since its Arcade.dev
 acquisition, `smithery.ai/new` publishes only a public HTTPS endpoint — the

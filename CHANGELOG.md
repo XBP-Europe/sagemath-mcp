@@ -38,6 +38,24 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Tool-surface measurement (`make tool-surface`, `tool-surface-stats.md`).**
+  The roadmap asserted that 40 tools are a differentiator and a reviewer
+  doubted it; now it is measured. The CLI harness's 23 tool-forcing cases run
+  through Claude Code, Gemini CLI and Codex in three arms: no server (enforced
+  per client and observed: Claude `--tools ""`, Gemini's tool statistics, Codex's
+  `--json` command-execution events), the server narrowed **on the wire** to
+  `evaluate_sage` plus the session and diagnostic tools (`mcp_proxy.py
+  --allow-tools` hides the rest from `tools/list` and refuses them on
+  `tools/call`; unit-tested), and the full catalogue. `run_extended.py --tools
+  {full,core,none} --json-out` produces the per-case results,
+  `tool_surface_report.py` lays the arms side by side, comparing only
+  client-cases both arms measured; a `QUOTA` status keeps a provider cut-off
+  (spend limit, out of credits) from posing as a wrong answer. First result:
+  frontier clients answer the set from recall without any server (60/63, Gemini
+  wrong-confident 3 times), and the full catalogue is ahead of core tools by a
+  few cases because dedicated tools spare the model the Sage-writing friction it
+  otherwise hits — a conclusion, and a friction list, recorded in TODO.md and
+  ROADMAP.md. Codex's full arm could not be measured (out of credits).
 - **A native arm64 container: the passagemath image.** The primary image is
   built on `sagemath/sagemath`, which is published for `linux/amd64` only, so
   Apple-silicon and Graviton hosts ran it under emulation. `Dockerfile.passagemath`

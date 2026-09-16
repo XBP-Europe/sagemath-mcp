@@ -50,6 +50,20 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A conda-forge recipe, written and verified but not submitted** (#93).
+  `packaging/conda/meta.yaml` packages the project for conda-forge, where Sage
+  users already live: `noarch: python`, the PyPI sdist pinned by hash, the
+  console script as an entry point, and a test section that runs the one command
+  which works without a Sage runtime. It deliberately **does not depend on
+  `sage`** — the server takes `sage` from `PATH`, the `[passagemath]` extra or
+  the container, and a hard dependency would force a multi-gigabyte install on
+  everyone. Buildable today: every runtime dependency is on conda-forge,
+  including `fastmcp 3.4.7`, the only version satisfying the `<4` cap.
+  `tests/test_conda_recipe.py` keeps it from drifting — dependencies, Python
+  floor and entry point against `pyproject.toml`, and the sdist hash against
+  PyPI when the network is up. Submitting it to `conda-forge/staged-recipes`
+  names a maintainer publicly and is left to the repository owner;
+  `packaging/conda/README.md` has the steps.
 - **Tool-surface measurement (`make tool-surface`, `tool-surface-stats.md`).**
   The roadmap asserted that 40 tools are a differentiator and a reviewer
   doubted it; now it is measured. The CLI harness's 23 tool-forcing cases run

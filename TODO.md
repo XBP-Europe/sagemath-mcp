@@ -261,11 +261,15 @@ prioritised. Correctness first, then packaging/adoption.
       Still open: (a) **Zenodo DOI** — needs the repository owner to enable the
       GitHub integration at zenodo.org for `XBP-Europe/sagemath-mcp`, after which
       the next tag mints a DOI; then add the concept DOI to `CITATION.cff` (the
-      file says where) and a DOI badge to the README; (b) **good-first-issue
-      candidates** — the tracker has no open issues to label, so seed it from
-      the small self-contained TODO items (fetch the Sage reference HTML at
-      generation time; `CITATION.cff` DOI wiring; conda-forge recipe scaffold);
-      (c) the **JOSS paper**, a separate piece of writing once the DOI exists.
+      file says where) and a DOI badge to the README. Tracked as **#92**, opened
+      blocked; re-checked 2026-09-16 — Zenodo has no record for this repository
+      and no integration webhook is installed, so there is nothing to add yet;
+      (b) ~~**good-first-issue candidates**~~ **seeded 2026-09-15:** #91 (remove
+      the vendored Sage HTML, `good first issue`) and #94 (hash-lock the
+      passagemath image, `help wanted`) are both done and closed; #92 (DOI
+      wiring, `good first issue`) and #93 (conda-forge recipe, `help wanted`)
+      stay open on owner action; (c) the **JOSS paper**, a separate piece of
+      writing once the DOI exists.
 - [ ] Extra install paths worth their weekend: a conda-forge recipe (where Sage
       users actually live), a nix flake (`nix run github:…` incl. Sage), and an
       `.mcpb` bundle for one-click Claude Desktop install. Trust signals: PyPI
@@ -277,8 +281,14 @@ prioritised. Correctness first, then packaging/adoption.
       `uv.lock` dependency tree are release assets and the image SBOM plus SLSA
       provenance are attested to the GHCR digest; Scorecard publishes weekly.
       First real exercise is the next tag — the dry-run dispatch covers SBOM
-      generation but attests nothing by design. The install paths
-      (conda-forge, nix, `.mcpb`) remain open.
+      generation but attests nothing by design. The install paths remain open:
+      **conda-forge is written and verified but not submitted** (#93 —
+      `packaging/conda/meta.yaml`, kept in step with `pyproject.toml` by
+      `tests/test_conda_recipe.py`, including the sdist hash against PyPI).
+      Every runtime dependency is on conda-forge, `fastmcp 3.4.7` included, so
+      it resolves under the `<4` cap today; submitting means a pull request to
+      `conda-forge/staged-recipes` that lists a maintainer by handle, which is
+      the owner's call. The nix flake and `.mcpb` bundle are untouched.
       **Scorecard, first published score 5.7 (2026-09-14) — plan and status:**
       - [x] *Pinned-Dependencies 0 → 8 locally, then the pip lines too
         (2026-09-15, #94).* Every `uses:` in all eight workflows pinned to a

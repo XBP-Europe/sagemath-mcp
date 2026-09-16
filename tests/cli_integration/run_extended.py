@@ -13,6 +13,19 @@ algebra system.
 
     python -m tests.cli_integration.run_extended --cli all
     python -m tests.cli_integration.run_extended --cli codex --case ext-nt-next-prime
+
+The same cases double as the **tool-surface measurement** (`--tools`): does the
+40-tool catalogue earn its keep against `evaluate_sage` plus the session
+plumbing, or against no server at all? Three arms over the same prompts:
+
+    --tools full   the whole catalogue (the default; what the nightlies run)
+    --tools core   evaluate_sage + session/diagnostic tools only, enforced on
+                   the wire by the proxy's --allow-tools (hidden tools are
+                   absent from tools/list and refused on tools/call)
+    --tools none   no MCP server registered at all: the model's own reasoning
+
+`--json-out` writes every case result so tool_surface_report.py can lay the
+arms side by side. `make tool-surface` runs all three for every CLI.
 """
 
 from __future__ import annotations
@@ -22,11 +35,18 @@ import json
 import subprocess
 import sys
 import tempfile
-from dataclasses import dataclass
+import time
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from .extended_cases import EXTENDED_CASES, ToolForcingCase
-from .runner import run_claude, run_codex, run_gemini
+from .extended_cases import _SUFFIX, EXTENDED_CASES, ToolForcingCase
+from .runner import (
+    run_claude,
+    run_codex,
+    run_codex_observed,
+    run_gemini,
+    run_gemini_observed,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 PROXY = PROJECT_ROOT / "tests" / "cli_integration" / "mcp_proxy.py"
@@ -35,26 +55,71 @@ SERVER_NAME = "sagemath-clitest"
 # The real server, reached through the dev container so Sage is genuine.
 REAL_SERVER = ["docker", "exec", "-i", "sage-mcp", "sage", "-python", "-m", "sagemath_mcp.server"]
 
+# The arms of the tool-surface measurement. `core` is the server with every
+# domain helper removed: what a "12-tool build" of this project would offer --
+# code execution, the session lifecycle and the two diagnostics. verify_claim
+# is deliberately not in it: it is a distinct capability, not a helper that
+# evaluate_sage subsumes, and the question is about the helpers.
+ARMS = ("full", "core", "none")
+CORE_TOOLS: frozenset[str] = frozenset({
+    "evaluate_sage",
+    "evaluate_sage_streaming",
+    "reset_sage_session",
+    "cancel_sage_session",
+    "interrupt_sage_session",
+    "start_sage_session",
+    "list_sage_sessions",
+    "stop_sage_session",
+    "check_sage_health",
+    "lookup_sage_doc",
+})
+
+# For the no-server arm the cases' "use the sagemath MCP server" instruction is
+# replaced by this: the model is told not to reach for anything. It is also
+# enforced or observed per CLI, because an instruction alone is not a
+# measurement: Claude Code runs with `--tools ""` (no built-in tools -- the
+# harness's settings.local.json pre-approves Bash(python3:*), so without this a
+# "reasoning only" run could compute in a shell); Gemini runs without --yolo and
+# its JSON statistics report every tool it attempted; Codex cannot be denied a
+# shell, so it runs with --json and every command_execution event is recorded.
+# Anything observed lands in the wire log as `<cli>:<tool>` and the report shows
+# it as unexpected tool traffic next to the answer.
+_NONE_SUFFIX = (
+    " Do not use any tools, run any code or call any server; answer from your own"
+    " knowledge and reasoning. Reply with ONLY the result, no prose."
+)
+
 
 @dataclass
 class CaseResult:
     cli: str
     case_id: str
     status: str  # PASS | WRONG_ANSWER | DODGED | NO_TOOL_CALL | TOOL_ERROR | TIMEOUT | ERROR
+    #             | QUOTA (cut off by the provider)
     detail: str
     tools_called: list[str]
     elapsed: float
+    arm: str = "full"
+    domain: str = ""
+    # Whether the *answer* matched, independent of tool use. In the server arms
+    # `status` is PASS only with a successful qualifying tool call, so a model
+    # that ignored the server and answered correctly is NO_TOOL_CALL with
+    # answer_correct=True -- a distinction the tool-surface report needs.
+    answer_correct: bool | None = None
 
 
-def proxy_command(log_path: Path) -> list[str]:
-    return [sys.executable, str(PROXY), "--log", str(log_path), "--", *REAL_SERVER]
+def proxy_command(log_path: Path, allowed: frozenset[str] | None = None) -> list[str]:
+    cmd = [sys.executable, str(PROXY), "--log", str(log_path)]
+    if allowed is not None:
+        cmd += ["--allow-tools", ",".join(sorted(allowed))]
+    return [*cmd, "--", *REAL_SERVER]
 
 
 # --------------------------------------------------------------------------
 # Per-CLI registration. Each CLI has its own syntax; none of them is hard.
 # --------------------------------------------------------------------------
-def register(cli: str, log_path: Path) -> None:
-    cmd = proxy_command(log_path)
+def register(cli: str, log_path: Path, allowed: frozenset[str] | None = None) -> None:
+    cmd = proxy_command(log_path, allowed)
     unregister(cli)
     if cli == "claude":
         args = ["claude", "mcp", "add", SERVER_NAME, "--", *cmd]
@@ -191,54 +256,131 @@ def normalise(text: str) -> str:
     return text.replace(",", "").replace(" ", "").replace("_", "").lower()
 
 
-def evaluate(case: ToolForcingCase, output: str, log_path: Path, elapsed: float,
-             cli: str) -> CaseResult:
-    tools, errored, succeeded, tolerated = read_wire_log(log_path)
-    relevant = [t for t in tools if t in case.accepted_tools]
-    # An accepted tool that was CALLED proves nothing; one that answered does.
-    relevant_ok = [t for t in succeeded if t in case.accepted_tools]
+# A CLI that was cut off by its provider says so instead of answering. That is
+# neither the model's nor the server's doing, and counting it as a wrong answer
+# or a missing tool call poisons every arm it touches (a Claude spend limit hit
+# mid-run once turned the last nine cases of an arm into "no tool call").
+_QUOTA_MARKERS = (
+    "spend limit",
+    "usage limit",
+    "usage-credits",
+    "credit balance",
+    "out of credits",       # Codex: "Your workspace is out of credits."
+    "rate limit",
+    "quota exceeded",
+    "resource_exhausted",
+    "429",
+)
 
-    if not tools:
-        return CaseResult(cli, case.id, "NO_TOOL_CALL",
-                          "the CLI answered without calling any MCP tool", tools, elapsed)
-    if not relevant:
-        return CaseResult(cli, case.id, "NO_TOOL_CALL",
-                          f"called {sorted(set(tools))}, none of {case.accepted_tools}",
-                          tools, elapsed)
-    if errored:
-        first = next(iter(errored.values())).replace("\\n", " ")[:240]
-        return CaseResult(cli, case.id, "TOOL_ERROR",
-                          f"the server returned isError: {first}", tools, elapsed)
-    if not relevant_ok:
-        return CaseResult(
-            cli, case.id, "NO_TOOL_CALL",
-            f"every call to {sorted(set(relevant))} failed; no tool actually answered",
-            tools, elapsed)
 
+def _is_quota_failure(output: str) -> bool:
+    lowered = output.lower()
+    return any(marker in lowered for marker in _QUOTA_MARKERS)
+
+
+def _answer_status(case: ToolForcingCase, output: str) -> tuple[str, str]:
+    """PASS / DODGED / WRONG_ANSWER from the answer text alone, with a detail."""
     flat = normalise(output)
     for answer in case.expected_answers:
         if normalise(answer) in flat:
-            detail = f"matched {answer!r}"
-            if tolerated:
-                detail += f" ({len(tolerated)} tolerated: {tolerated[0]!r})"
-            return CaseResult(cli, case.id, "PASS", detail, tools, elapsed)
-
+            return "PASS", f"matched {answer!r}"
     tail = output.strip()[-160:].replace("\n", " ")
     # Same failure, different diagnosis: a model that refused is not a model that
     # computed the wrong number, and the two want different fixes -- one is a
     # prompt or a permission, the other is the server.
     lowered = output.lower()
     if any(marker.lower() in lowered for marker in case.forbidden):
-        return CaseResult(cli, case.id, "DODGED",
-                          f"answer declined rather than computed; tail: {tail!r}",
-                          tools, elapsed)
-    return CaseResult(cli, case.id, "WRONG_ANSWER",
-                      f"expected one of {case.expected_answers}; tail: {tail!r}",
-                      tools, elapsed)
+        return "DODGED", f"answer declined rather than computed; tail: {tail!r}"
+    return "WRONG_ANSWER", f"expected one of {case.expected_answers}; tail: {tail!r}"
 
 
-def _invoke(cli: str, prompt: str, timeout: int) -> tuple[str, float]:
-    """Call one CLI with the flags it needs to actually use MCP tools."""
+def accepted_tools_for(case: ToolForcingCase, arm: str) -> list[str]:
+    """Which tools count as 'the right tool' in an arm.
+
+    In the core arm the helpers a case lists are hidden, so the only legitimate
+    route is evaluate_sage (or its streaming twin) -- every case accepts at
+    least one of those, which is what makes the arm answerable at all.
+    """
+    if arm == "core":
+        return sorted((set(case.accepted_tools) | {"evaluate_sage", "evaluate_sage_streaming"})
+                      & CORE_TOOLS)
+    return list(case.accepted_tools)
+
+
+def evaluate(case: ToolForcingCase, output: str, log_path: Path, elapsed: float,
+             cli: str, arm: str = "full") -> CaseResult:
+    flat = normalise(output)
+    answered = any(normalise(a) in flat for a in case.expected_answers)
+
+    def result(status: str, detail: str, tools: list[str]) -> CaseResult:
+        return CaseResult(cli, case.id, status, detail, tools, elapsed, arm, case.domain,
+                          answer_correct=answered)
+
+    if not answered and _is_quota_failure(output):
+        tail = output.strip()[-160:].replace("\n", " ")
+        return result("QUOTA", f"the CLI was cut off by its provider; tail: {tail!r}", [])
+
+    if arm == "none":
+        # No server was registered, so there is nothing on the wire to assert;
+        # the answer is all there is. A tool call here would mean the CLI found
+        # another server, which the report should surface rather than hide.
+        tools, *_ = read_wire_log(log_path)
+        status, detail = _answer_status(case, output)
+        if tools:
+            detail += f" (unexpected tool traffic: {sorted(set(tools))})"
+        return result(status, detail, tools)
+
+    tools, errored, succeeded, tolerated = read_wire_log(log_path)
+    accepted = accepted_tools_for(case, arm)
+    relevant = [t for t in tools if t in accepted]
+    # An accepted tool that was CALLED proves nothing; one that answered does.
+    relevant_ok = [t for t in succeeded if t in accepted]
+
+    if not tools:
+        return result("NO_TOOL_CALL", "the CLI answered without calling any MCP tool", tools)
+    if not relevant:
+        return result("NO_TOOL_CALL", f"called {sorted(set(tools))}, none of {accepted}", tools)
+    if errored:
+        first = next(iter(errored.values())).replace("\\n", " ")[:240]
+        return result("TOOL_ERROR", f"the server returned isError: {first}", tools)
+    if not relevant_ok:
+        return result(
+            "NO_TOOL_CALL",
+            f"every call to {sorted(set(relevant))} failed; no tool actually answered",
+            tools)
+
+    status, detail = _answer_status(case, output)
+    if status == "PASS" and tolerated:
+        detail += f" ({len(tolerated)} tolerated: {tolerated[0]!r})"
+    return result(status, detail, tools)
+
+
+def _record_local_tools(log_path: Path, names: list[str]) -> None:
+    """Write the CLI's *own* tool use into the wire log, so the no-server arm's
+    evaluation sees it the way it sees MCP traffic in the other arms."""
+    if not names:
+        return
+    with log_path.open("a", encoding="utf-8") as handle:
+        for name in names:
+            handle.write(json.dumps({"kind": "tool_call", "tool": name, "id": None}) + "\n")
+
+
+def _invoke(cli: str, prompt: str, timeout: int, arm: str = "full",
+            log_path: Path | None = None) -> tuple[str, float]:
+    """Call one CLI with the flags it needs to actually use MCP tools -- or, in
+    the no-server arm, with the flags that keep it from using anything."""
+    if arm == "none":
+        if cli == "claude":
+            return run_claude(prompt, timeout, no_tools=True)
+        if cli == "gemini":
+            output, elapsed, calls = run_gemini_observed(prompt, timeout)
+            if log_path is not None:
+                _record_local_tools(log_path, [f"gemini:{name}" for name in calls])
+            return output, elapsed
+        output, elapsed, commands = run_codex_observed(prompt, timeout)
+        if log_path is not None:
+            _record_local_tools(log_path, ["codex:shell"] * len(commands))
+        return output, elapsed
     if cli == "claude":
         return run_claude(prompt, timeout, allowed_tools=f"mcp__{SERVER_NAME}")
     if cli == "gemini":
@@ -246,18 +388,36 @@ def _invoke(cli: str, prompt: str, timeout: int) -> tuple[str, float]:
     return run_codex(prompt, timeout)
 
 
-def run_case(cli: str, case: ToolForcingCase, log_path: Path) -> CaseResult:
+def prompt_for(case: ToolForcingCase, arm: str) -> str:
+    if arm == "none" and case.prompt.endswith(_SUFFIX):
+        return case.prompt[: -len(_SUFFIX)] + _NONE_SUFFIX
+    return case.prompt
+
+
+def cases_for_arm(cases: list[ToolForcingCase], arm: str) -> list[ToolForcingCase]:
+    """The `session` cases test that state persists across two calls to the
+    server; without a server there is nothing for them to measure, so the
+    no-server arm leaves them out rather than scoring a meaningless failure."""
+    if arm == "none":
+        return [c for c in cases if c.domain != "session"]
+    return list(cases)
+
+
+def run_case(cli: str, case: ToolForcingCase, log_path: Path, arm: str = "full") -> CaseResult:
     log_path.write_text("", encoding="utf-8")  # isolate this case's traffic
     try:
-        output, elapsed = _invoke(cli, case.prompt, case.timeout_seconds)
+        output, elapsed = _invoke(cli, prompt_for(case, arm), case.timeout_seconds, arm,
+                                  log_path)
     except subprocess.TimeoutExpired:
         return CaseResult(
             cli, case.id, "TIMEOUT",
             f"no answer within {case.timeout_seconds}s", [], float(case.timeout_seconds),
+            arm, case.domain, answer_correct=False,
         )
     except Exception as exc:  # report and continue with the next case
-        return CaseResult(cli, case.id, "ERROR", f"{type(exc).__name__}: {exc}", [], 0.0)
-    return evaluate(case, output, log_path, elapsed, cli)
+        return CaseResult(cli, case.id, "ERROR", f"{type(exc).__name__}: {exc}", [], 0.0,
+                          arm, case.domain, answer_correct=False)
+    return evaluate(case, output, log_path, elapsed, cli, arm)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -266,6 +426,10 @@ def main(argv: list[str] | None = None) -> int:
                         choices=["claude", "gemini", "codex", "all"])
     parser.add_argument("--case", action="append", help="case id (repeatable)")
     parser.add_argument("--domain", help="comma-separated domains")
+    parser.add_argument("--tools", default="full", choices=ARMS,
+                        help="tool-surface arm: full catalogue, core tools only, or no server")
+    parser.add_argument("--json-out", type=Path,
+                        help="write every case result (with arm, domain, tools, timing) here")
     args = parser.parse_args(argv)
 
     cases = list(EXTENDED_CASES)
@@ -279,21 +443,35 @@ def main(argv: list[str] | None = None) -> int:
         print("no cases selected", file=sys.stderr)
         return 2
 
+    arm = args.tools
+    allowed = CORE_TOOLS if arm == "core" else None
+    cases = cases_for_arm(cases, arm)
+    if not cases:
+        print("no cases apply to this arm", file=sys.stderr)
+        return 2
     clis = ["claude", "gemini", "codex"] if args.cli == "all" else [args.cli]
     results: list[CaseResult] = []
+    started = time.time()
 
     with tempfile.TemporaryDirectory(prefix="sagemath-clitest-") as tmp:
         log_path = Path(tmp) / "wire.jsonl"
         for cli in clis:
-            print(f"\n=== {cli} ===", flush=True)
-            try:
-                register(cli, log_path)
-            except subprocess.CalledProcessError as exc:
-                print(f"  could not register with {cli}: {exc.stderr.strip()[:120]}")
-                continue
+            print(f"\n=== {cli} (tools: {arm}) ===", flush=True)
+            if arm == "none":
+                # Make sure no earlier run left the server registered.
+                unregister(cli)
+            else:
+                try:
+                    if allowed is None:
+                        register(cli, log_path)
+                    else:
+                        register(cli, log_path, allowed)
+                except subprocess.CalledProcessError as exc:
+                    print(f"  could not register with {cli}: {exc.stderr.strip()[:120]}")
+                    continue
             try:
                 for case in cases:
-                    result = run_case(cli, case, log_path)
+                    result = run_case(cli, case, log_path, arm)
                     results.append(result)
                     mark = "PASS" if result.status == "PASS" else result.status
                     print(f"  [{mark:>13}] {case.id:<24} {result.elapsed:6.1f}s  "
@@ -301,7 +479,20 @@ def main(argv: list[str] | None = None) -> int:
                     if result.status != "PASS":
                         print(f"                  {result.detail}", flush=True)
             finally:
-                unregister(cli)
+                if arm != "none":
+                    unregister(cli)
+
+    if args.json_out:
+        args.json_out.parent.mkdir(parents=True, exist_ok=True)
+        args.json_out.write_text(json.dumps({
+            "arm": arm,
+            "clis": clis,
+            "cases": [c.id for c in cases],
+            "started": started,
+            "finished": time.time(),
+            "results": [asdict(r) for r in results],
+        }, indent=2), encoding="utf-8")
+        print(f"\nwrote {args.json_out}")
 
     print("\n=== summary ===")
     ran_nothing = []
@@ -322,6 +513,10 @@ def main(argv: list[str] | None = None) -> int:
               "-- registration failed, so nothing was actually tested")
         return 1
 
+    if arm == "none":
+        # A measurement, not a check: the no-server arm is expected to fail the
+        # cases -- that is what the cases were built for.
+        return 0
     failures = [r for r in results if r.status != "PASS"]
     return 1 if failures else 0
 

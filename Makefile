@@ -93,6 +93,22 @@ doctest-execution:
 cli-extended:
 	uv run python -m tests.cli_integration.run_extended --cli all
 
+# The tool-surface measurement: the same cases in three arms (no server, core
+# tools only, full catalogue) for every CLI, then tool-surface-stats.md. Runs
+# the CLIs in parallel (each registers its own MCP server config) and the arms
+# sequentially within a CLI. Needs the three CLIs authenticated locally and the
+# sage-mcp container running; ~1 hour. Never CI-gated.
+TOOL_SURFACE_CLIS ?= claude gemini codex
+tool-surface:
+	@mkdir -p tests/cli_integration/results
+	@for cli in $(TOOL_SURFACE_CLIS); do ( \
+	  for arm in none core full; do \
+	    uv run python -m tests.cli_integration.run_extended --cli $$cli --tools $$arm \
+	      --json-out tests/cli_integration/results/tool_surface_$${cli}_$${arm}.json \
+	      > tests/cli_integration/results/tool_surface_$${cli}_$${arm}.log 2>&1 || true; \
+	  done ) & done; wait
+	uv run python -m tests.cli_integration.tool_surface_report tests/cli_integration/results/tool_surface_*.json
+
 all: test integration-test
 
 # Mutation-test the security policy (slow; never CI-gated -- the number
@@ -100,4 +116,4 @@ all: test integration-test
 mutation:
 	uv run python scripts/run_mutation_tests.py
 
-.PHONY: test sage-deps integration-test lint build mutation sage-container allowlist allowlist-passagemath star-exports-passagemath denylist doctest-execution cli-integration cli-extended all
+.PHONY: test sage-deps integration-test lint build mutation sage-container allowlist allowlist-passagemath star-exports-passagemath denylist doctest-execution cli-integration cli-extended tool-surface all

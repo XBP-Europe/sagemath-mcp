@@ -80,6 +80,23 @@ jobs:
           output-file: sbom/sagemath-mcp-source.spdx.json
           upload-artifact: false
           upload-release-assets: false
+      - name: Keep the SBOM under the attestation limit
+        # GitHub refuses an attestation predicate over 16 MiB. v0.8.0's first
+        # attempt discovered that the hard way, at the last step of the job,
+        # after the image was already pushed and signed. Checking here fails
+        # early and names the fix.
+        run: |
+          limit=16777216
+          for file in sbom/*.json; do
+            size=$(stat -c%s "$file")
+            printf '%s: %s bytes\n' "$file" "$size"
+            if [ "$size" -ge "$limit" ]; then
+              echo "::error::$file is $size bytes, at or over GitHub's ${limit}-byte"\
+                   "attestation limit. The usual cause is syft file-ownership"\
+                   "relationships; see .syft.yaml."
+              exit 1
+            fi
+          done
       - name: Attest build provenance for the Python artifacts
         # SLSA provenance for the wheel and sdist, signed through Sigstore and
         # stored with the repository (`gh attestation verify <file> --owner
@@ -207,6 +224,23 @@ jobs:
           output-file: sbom/sagemath-mcp-image.spdx.json
           upload-artifact: false
           upload-release-assets: false
+      - name: Keep the SBOM under the attestation limit
+        # GitHub refuses an attestation predicate over 16 MiB. v0.8.0's first
+        # attempt discovered that the hard way, at the last step of the job,
+        # after the image was already pushed and signed. Checking here fails
+        # early and names the fix.
+        run: |
+          limit=16777216
+          for file in sbom/*.json; do
+            size=$(stat -c%s "$file")
+            printf '%s: %s bytes\n' "$file" "$size"
+            if [ "$size" -ge "$limit" ]; then
+              echo "::error::$file is $size bytes, at or over GitHub's ${limit}-byte"\
+                   "attestation limit. The usual cause is syft file-ownership"\
+                   "relationships; see .syft.yaml."
+              exit 1
+            fi
+          done
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: sbom-image
@@ -332,6 +366,23 @@ jobs:
           output-file: sbom/sagemath-mcp-image-passagemath-${{ matrix.arch }}.spdx.json
           upload-artifact: false
           upload-release-assets: false
+      - name: Keep the SBOM under the attestation limit
+        # GitHub refuses an attestation predicate over 16 MiB. v0.8.0's first
+        # attempt discovered that the hard way, at the last step of the job,
+        # after the image was already pushed and signed. Checking here fails
+        # early and names the fix.
+        run: |
+          limit=16777216
+          for file in sbom/*.json; do
+            size=$(stat -c%s "$file")
+            printf '%s: %s bytes\n' "$file" "$size"
+            if [ "$size" -ge "$limit" ]; then
+              echo "::error::$file is $size bytes, at or over GitHub's ${limit}-byte"\
+                   "attestation limit. The usual cause is syft file-ownership"\
+                   "relationships; see .syft.yaml."
+              exit 1
+            fi
+          done
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: sbom-image-passagemath-${{ matrix.arch }}

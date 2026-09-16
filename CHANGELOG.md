@@ -7,6 +7,21 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **SBOM attestation no longer exceeds GitHub's 16 MiB limit.** The v0.8.0 tag's
+  first run pushed and signed the container image, attested its provenance, and
+  then failed at `Attest image SBOM`: the SPDX document was 21.8 MB, of which
+  26,120 per-file entries were 15.1 MB and their package-to-file relationships
+  another 5.5 MB. Because every publish depends on that job, PyPI, the MCP
+  registry and the GitHub release were skipped — the all-artefacts-or-none rule
+  working as designed, on a failure that only a real tag could reveal (the
+  attestation steps are gated on a push, so no dry run reaches them).
+  `.syft.yaml` now turns off package-file-ownership relationships, which takes
+  the same image to 4.07 MB with all 493 packages intact, and each SBOM step in
+  `release.yml` checks the size before attesting so a future overflow fails
+  early with a message that names the cause.
+
 ## [0.8.0] - 2026-09-16
 
 ### Security

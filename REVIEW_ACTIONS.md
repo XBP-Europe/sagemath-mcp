@@ -3976,3 +3976,106 @@ on an in-flight reclamation. 15 warm-pool tests pass; 100% coverage.
 Fixed 2026-09-07; found by an external review at a3c6459. Completes item 74.
 `SAGEMATH_MCP_WARM_POOL_SIZE=0` remains the interim mitigation for conservative
 deployments and is not otherwise needed.
+
+## 77. Clean-as-a-whole cost three modules their mathematics for one re-exported helper — usability — DONE
+
+### Symptom
+
+The largest remaining block of corpus refusals was `'X' is not a name this
+server offers`: 1,642 in-scope examples over 367 distinct names. Ranked by the
+star import the block had already written --
+`scripts/analyse_corpus_refusals.py`, added here -- three modules accounted for
+399 of them:
+
+| refusals | module |
+| ---: | --- |
+| 217 | `sage.matroids.advanced` |
+| 146 | `sage.combinat.matrices.latin` |
+| 36 | `sage.graphs.generators.distance_regular` |
+
+All three are Sage's own public entry point for their area; `from
+sage.matroids.advanced import *` is how the SageMath documentation reaches
+`BasisMatroid`, `MinorMatroid` and the rest. None was admitted, because each
+screened dirty -- and each for exactly one or two names that are not
+mathematics at all:
+
+- `sage.matroids.advanced` re-exports `lazy_import`
+- `sage.combinat.matrices.latin` re-exports `libgap`
+- `sage.graphs.generators.distance_regular` re-exports `LazyImport` and `libgap`
+
+Clean-modules-only (item 60) then failed the module whole, so a caller lost
+every matroid class to an import helper sitting next to them.
+
+### Cause
+
+`_star_export_screen` had one carve-out -- a re-exported *module object* is
+dropped rather than failing the module (item 63) -- and nothing else. The
+justification for that carve-out was that a module is the only pivot, so
+dropping it is safe while everything else stays clean-as-a-whole. The same
+argument covers a re-exported name that is *already refused on every other
+path*: the namespace scrub deletes `lazy_import` and `libgap` from the
+namespace at worker start, and the validator refuses both by name. Dropping one
+from a star expansion takes away nothing the caller had.
+
+### Fix
+
+`_star_export_screen` gained `expected_drops`: a *permission*, per module,
+declared in the generator's curated `CANDIDATE_MODULES`.
+
+- A dangerous name **in** the set is dropped from the expansion.
+- A dangerous name **outside** it still fails the module whole. This is the
+  property that matters: a future Sage adding a different dangerous export to a
+  listed module stops the generator with the new name rather than dropping it
+  silently.
+- A listed name the module does not export simply goes unused, and the
+  generator says so on stderr. Exact matching was tried first and is wrong for a
+  curated list shared by two runtimes: passagemath's `sage.matroids.advanced`
+  re-exports no `lazy_import` at all and is clean as a whole there, so
+  exactness would have thrown the module away for being *cleaner* than expected.
+  Requiring it buys no safety either, since dropping a name can only remove
+  something a caller might have had, never add one.
+- What each runtime actually dropped is written into its own generated file as
+  `STAR_EXPORT_DROPS`, and the drift test re-screens each module permitting
+  exactly that. The artifact is exact even though the input is shared.
+
+### Measured
+
+Doctest corpus sweep, SageMath 10.9, before and after:
+
+| | before | after |
+| --- | ---: | ---: |
+| accepted | 370,492 | 370,837 |
+| refused | 3,936 | 3,591 |
+| `not a name this server offers` | 1,642 | 1,296 |
+| acceptance (in-scope) | 98.9488% | **99.0409%** |
+
+345 more of SageMath's own documented examples run, and the target bucket falls
+by 346.
+
+### How to verify
+
+Against real Sage, in the container:
+
+- `tests/test_math_coverage.py::test_a_star_import_with_a_reviewed_drop_computes`
+  star-imports each of the three and computes with it -- a matroid's rank, a
+  back-circulant Latin square, an isotopism's order, and that the Gosset graph is
+  distance-regular. Validation alone would not catch a screened name that is a
+  lazy stub; these evaluate.
+- `tests/test_math_coverage.py::test_a_dropped_name_is_still_refused_after_its_star_import`
+  runs the star imports and then asserts `lazy_import`, `libgap`,
+  `lazy_import(...)` and `libgap.eval(...)` are all still refused. If either
+  stopped being refused the drop would be a hole.
+- `tests/test_sage_worker.py` covers the screen itself: a permitted drop keeps
+  the mathematics and reports what it dropped; a *second*, unlisted danger fails
+  the module whole; an unused permission changes nothing; and the drop works on
+  all three failure branches (name, write-prefix, home module).
+- `tests/test_integration.py::test_the_star_exports_match_this_sage` re-screens
+  every listed module with its recorded drops.
+- Full integration suite in the Sage container: 1,273 passed. Unit suite at 100%
+  coverage.
+
+### Status
+
+Fixed 2026-09-16. `sage.libs.ecl` remains excluded by curation despite screening
+clean -- `EclObject` evaluates Lisp, which no screen can see -- and this change
+does not alter that: curation, not the screen, is what keeps it out.

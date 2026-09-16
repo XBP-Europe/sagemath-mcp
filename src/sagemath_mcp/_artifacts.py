@@ -41,9 +41,14 @@ IS_PASSAGEMATH = _is_installed("passagemath-standard")
 # monolithic coverage-gated suite, so it is exempt from coverage.
 if IS_PASSAGEMATH:  # pragma: no cover
     from .allowlist_passagemath import ALLOWED_CALLER_NAMES
-    from .star_exports_passagemath import STAR_EXPORTS
+    from .star_exports_passagemath import STAR_EXPORT_DROPS, STAR_EXPORTS
 else:
     from .allowlist import ALLOWED_CALLER_NAMES
-    from .star_exports import STAR_EXPORTS
+    from .star_exports import STAR_EXPORT_DROPS, STAR_EXPORTS
 
-__all__ = ["ALLOWED_CALLER_NAMES", "IS_PASSAGEMATH", "STAR_EXPORTS"]
+__all__ = [
+    "ALLOWED_CALLER_NAMES",
+    "IS_PASSAGEMATH",
+    "STAR_EXPORTS",
+    "STAR_EXPORT_DROPS",
+]

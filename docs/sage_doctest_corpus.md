@@ -78,12 +78,12 @@ why a failing assertion prints its examples instead of storing them.
 A Sage upgrade moves the baselines. A *drop* in acceptance is the signal; refresh
 by reading the report a failing assertion prints.
 
-## What it measured (SageMath 10.9, re-measured 2026-09-14 on `main`)
+## What it measured (SageMath 10.9, re-measured 2026-09-16 on `main`)
 
 ```
 3,168 files, 60,094 docstrings, 432,878 examples
-accepted 370,492   refused 3,936   out of scope 58,268   unparsed 182
-acceptance among in-scope examples: 98.95%   (enforced floor: 98.50%)
+accepted 370,837   refused 3,591   out of scope 58,268   unparsed 182
+acceptance among in-scope examples: 99.04%   (enforced floor: 98.50%)
 ```
 
 The same sweep on the passagemath runtime (`passagemath-standard==10.8.11`,
@@ -107,9 +107,15 @@ literal attribute name. Item 60 won back a further 617 by permitting
 `star_exports.py` — a reviewed exception to the import ban, expanded to its
 screened names before validation. Items 64–65 won back the last 341 (4,277 →
 3,936 refusals, 98.86% → 98.95%) by offering `set_verbose` as a no-op and
-auto-declaring undeclared symbols in `evaluate_sage`. The number has held there
+auto-declaring undeclared symbols in `evaluate_sage`. The number then held
 through the deny-by-default allowlist generator rewrite and the passagemath
-work, which were designed to be output-neutral and measured as such.
+work, which were designed to be output-neutral and measured as such. Item 77 won
+back 345 more (3,936 → 3,591 refusals, 98.95% → 99.04%) by admitting three
+modules that had screened dirty for a re-exported `lazy_import` or `libgap`
+alone: `sage.matroids.advanced`, `sage.combinat.matrices.latin` and
+`sage.graphs.generators.distance_regular`, each Sage's own public entry point
+for its area. The helper is dropped from the expansion by a per-module,
+reviewed permission and stays refused everywhere else.
 
 The acceptance ratio is **blind to the import rewrite by construction**: any
 example containing an import is skipped before validation, so an import that is

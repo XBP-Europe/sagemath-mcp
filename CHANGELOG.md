@@ -65,6 +65,24 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Three more internal modules are star-importable, and the corpus acceptance
+  rises to 99.04%.** `sage.matroids.advanced`, `sage.combinat.matrices.latin`
+  and `sage.graphs.generators.distance_regular` are Sage's own public entry
+  points for their areas, and each was refused whole because it re-exports one
+  piece of import machinery — `lazy_import`, `libgap` — next to the
+  mathematics. Between them they accounted for 399 of the 1,642 corpus
+  refusals reading *is not a name this server offers*. The screen now takes a
+  per-module, reviewed permission naming exactly which helper may be dropped
+  from the expansion; a *different* dangerous export still fails the module
+  whole, so a future Sage stops the generator with the new name instead of
+  dropping it quietly. Dropping costs the caller nothing: the namespace scrub
+  deletes those names at worker start and the validator refuses them by name,
+  which an integration test asserts after the star import. Measured on
+  SageMath 10.9: 370,492 → 370,837 accepted, 3,936 → 3,591 refused, 98.9488%
+  → **99.0409%**. `scripts/analyse_corpus_refusals.py` is the analysis that
+  ranked the candidates and is kept for the next pass. See REVIEW_ACTIONS 77.
+
+
 - **The conda-forge recipe packages 0.8.0.** `packaging/conda/meta.yaml` now
   pins the 0.8.0 sdist and its hash, which exist on PyPI as of this release. The
   declared metadata is unchanged from 0.7.0 — same `requires-python` and the same

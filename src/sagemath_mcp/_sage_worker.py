@@ -563,7 +563,10 @@ def _dangerous_sage_names() -> frozenset[str]:
 
 
 def _star_export_screen(
-    module_name: str, policy: Any = SECURITY_POLICY
+    module_name: str,
+    policy: Any = SECURITY_POLICY,
+    expected_drops: frozenset[str] = frozenset(),
+    dropped_out: set[str] | None = None,
 ) -> frozenset[str] | None:
     """The public names of *module_name* safe to expose via a star import, or
     None if any of them is not.
@@ -581,6 +584,30 @@ def _star_export_screen(
     module of the *value*, so a re-export like ``from sage.matroids.advanced
     import *`` handing back ``lazy_import`` is caught by where lazy_import lives.
     Runs offline, in the generator and the drift test, never at worker start.
+
+    ``expected_drops`` is the *reviewed* exception to clean-as-a-whole, and it
+    is deliberately narrow (item 77). Sage's documented public entry points
+    re-export import machinery: ``sage.matroids.advanced`` ends its imports with
+    ``lazy_import``, ``sage.combinat.matrices.latin`` with ``libgap``. Failing
+    those modules whole costs their mathematics -- 345 corpus examples -- for a
+    name the caller could never have used anyway, since the scrub deletes it
+    from the namespace and the validator refuses it by name.
+
+    It is a permission, not a prediction: a dangerous name *in* the set is
+    dropped, a dangerous name *outside* it still fails the module whole, and a
+    listed name the module does not export changes nothing. That asymmetry is
+    the point. The property worth keeping is that a future Sage adding a
+    different dangerous export to a listed module stops the generator with its
+    name rather than dropping it silently, and that holds. Requiring the set to
+    match exactly would not add safety -- dropping a name can only remove
+    something a caller might have had, never add one -- and it breaks across
+    runtimes, since passagemath's ``sage.matroids.advanced`` re-exports no
+    ``lazy_import`` at all and is clean as a whole there. The generator writes
+    out what it actually dropped per runtime, so the artifact stays exact even
+    though the curated input is shared. An empty set, the default, is the
+    original clean-as-a-whole rule exactly. ``dropped_out``, when given, is
+    filled with the names actually dropped, which is what the generator writes
+    into the artifact.
     """
     try:
         module = importlib.import_module(module_name)
@@ -598,6 +625,15 @@ def _star_export_screen(
         | set(policy.forbidden_attribute_parents)
     )
     screened: set[str] = set()
+    dropped: set[str] = set()
+
+    def reject(name: str) -> bool:
+        """True when the module fails; False when *name* is a reviewed drop."""
+        if name not in expected_drops:
+            return True
+        dropped.add(name)
+        return False
+
     for name in exported:
         if not isinstance(name, str) or name.startswith("_") or not name.isidentifier():
             return None
@@ -619,15 +655,24 @@ def _star_export_screen(
         if isinstance(value, ModuleType):
             continue
         if name in dangerous or name in forbidden:
-            return None
+            if reject(name):
+                return None
+            continue
         if any(name.startswith(prefix) for prefix in policy.forbidden_attribute_prefixes):
-            return None
+            if reject(name):
+                return None
+            continue
         home = getattr(value, "__module__", "") or ""
         if isinstance(home, str) and any(
             home == bad or home.startswith(bad + ".") for bad in _DANGEROUS_SAGE_MODULES
         ):
-            return None
+            if reject(name):
+                return None
+            continue
         screened.add(name)
+    if dropped_out is not None:
+        dropped_out.clear()
+        dropped_out.update(dropped)
     return frozenset(screened) if screened else None
 
 

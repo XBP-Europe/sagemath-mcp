@@ -59,8 +59,27 @@ def test_passagemath_star_exports_shape() -> None:
 
     star = star_exports_passagemath.STAR_EXPORTS
     assert isinstance(star, dict)
-    assert len(star) == 15
+    assert len(star) == 18
     for module, exported in star.items():
         assert module.startswith("sage.")
         assert isinstance(exported, frozenset)
         assert exported and all(isinstance(n, str) for n in exported)
+
+
+def test_passagemath_star_export_drops_are_recorded() -> None:
+    """Every drop is a name the module exported and the screen refused.
+
+    The drops are runtime-specific -- passagemath's `sage.matroids.advanced`
+    re-exports no `lazy_import`, so that module is clean as a whole there and
+    absent from this map -- which is why each generated file carries its own.
+    """
+    from sagemath_mcp import star_exports_passagemath
+
+    drops = star_exports_passagemath.STAR_EXPORT_DROPS
+    assert isinstance(drops, dict)
+    star = star_exports_passagemath.STAR_EXPORTS
+    for module, dropped in drops.items():
+        assert module in star, f"{module} records drops but exports nothing"
+        assert dropped and all(isinstance(n, str) for n in dropped)
+        # A dropped name is dropped, not exported. That is the whole point.
+        assert not (dropped & star[module])

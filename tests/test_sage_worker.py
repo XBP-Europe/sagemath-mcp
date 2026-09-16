@@ -1228,3 +1228,147 @@ def test_an_error_nobody_has_a_hint_for_is_reported_unchanged(pure_python_worker
     assert response["error"]["message"] == "division by zero"
     assert "Hint" not in response["error"]["message"]
     assert _sage_worker._hint_for(ValueError("something else")) is None
+
+
+def test_star_export_screen_drops_only_the_names_the_review_listed(monkeypatch):
+    """A reviewed drop keeps the module's mathematics without opening the gate.
+
+    `sage.matroids.advanced` is Sage's own public entry point for the advanced
+    matroid classes, and it re-exports `lazy_import` next to them. Failing it
+    whole cost 217 corpus examples for a name the caller could never have used:
+    the namespace scrub deletes it and the validator refuses it by name. Naming
+    the drop is what keeps the exception reviewed rather than a filter.
+    """
+    import sys
+    import types
+
+    from sagemath_mcp import _sage_worker
+
+    mod = types.ModuleType("fake.reviewed")
+    mod.__all__ = ["Matroid", "save_thing"]  # save* is a write prefix: dangerous
+    mod.Matroid = type("Matroid", (), {})
+    mod.Matroid.__module__ = "fake.reviewed"
+    mod.save_thing = lambda: None
+    mod.save_thing.__module__ = "fake.reviewed"
+    monkeypatch.setitem(sys.modules, "fake.reviewed", mod)
+
+    # Unlisted, the danger still fails the module whole.
+    assert _sage_worker._star_export_screen("fake.reviewed") is None
+    # Listed, it is dropped and the mathematics survives.
+    dropped: set[str] = set()
+    screened = _sage_worker._star_export_screen(
+        "fake.reviewed", expected_drops=frozenset({"save_thing"}), dropped_out=dropped
+    )
+    assert screened == frozenset({"Matroid"})
+    # What was dropped is reported back, because that -- not the permission -- is
+    # what the generator writes into the artifact.
+    assert dropped == {"save_thing"}
+
+
+def test_star_export_screen_fails_when_a_different_danger_appears(monkeypatch):
+    """The drop list is per name, not a blanket waiver.
+
+    This is the case that matters on a Sage upgrade: a listed module gains a
+    second dangerous export. The recorded drop covers the first one only, so the
+    module fails and the generator stops with the new name instead of dropping
+    it silently.
+    """
+    import sys
+    import types
+
+    from sagemath_mcp import _sage_worker
+
+    mod = types.ModuleType("fake.regressed")
+    mod.__all__ = ["Matroid", "save_thing", "gap_thing"]
+    mod.Matroid = type("Matroid", (), {})
+    mod.Matroid.__module__ = "fake.regressed"
+    mod.save_thing = lambda: None                 # dangerous: write prefix
+    mod.save_thing.__module__ = "fake.regressed"
+    mod.gap_thing = type("GapThing", (), {})      # dangerous: home module
+    mod.gap_thing.__module__ = next(iter(_sage_worker._DANGEROUS_SAGE_MODULES))
+    monkeypatch.setitem(sys.modules, "fake.regressed", mod)
+
+    assert (
+        _sage_worker._star_export_screen(
+            "fake.regressed", expected_drops=frozenset({"save_thing"})
+        )
+        is None
+    )
+
+
+def test_a_permitted_drop_that_is_not_needed_changes_nothing(monkeypatch):
+    """The drop list is a permission, not a prediction.
+
+    The curated input is shared by both runtimes, and they disagree:
+    passagemath's `sage.matroids.advanced` re-exports no `lazy_import` and is
+    clean as a whole there. Requiring the permission to be used would throw that
+    module away on passagemath for being *cleaner* than expected. Dropping a
+    name can only take something away from a caller, never add one, so an unused
+    permission is harmless -- the generator reports it instead, and records what
+    was really dropped.
+    """
+    import sys
+    import types
+
+    from sagemath_mcp import _sage_worker
+
+    mod = types.ModuleType("fake.stale")
+    mod.__all__ = ["Matroid"]
+    mod.Matroid = type("Matroid", (), {})
+    mod.Matroid.__module__ = "fake.stale"
+    monkeypatch.setitem(sys.modules, "fake.stale", mod)
+
+    dropped: set[str] = set()
+    assert _sage_worker._star_export_screen(
+        "fake.stale", expected_drops=frozenset({"gone_away"}), dropped_out=dropped
+    ) == frozenset({"Matroid"})
+    assert dropped == set(), "nothing was dangerous, so nothing was dropped"
+
+
+def test_star_export_screen_drops_a_dangerous_name_by_home_module(monkeypatch):
+    """`libgap` fails on where its value lives, not on its name, so the reviewed
+    drop has to cover the home-module branch too -- that is the branch
+    `sage.combinat.matrices.latin` and the distance-regular graphs hit."""
+    import sys
+    import types
+
+    from sagemath_mcp import _sage_worker
+
+    mod = types.ModuleType("fake.homed")
+    mod.__all__ = ["LatinSquare", "libgap_like"]
+    mod.LatinSquare = type("LatinSquare", (), {})
+    mod.LatinSquare.__module__ = "fake.homed"
+    mod.libgap_like = type("GapLike", (), {})
+    mod.libgap_like.__module__ = next(iter(_sage_worker._DANGEROUS_SAGE_MODULES))
+    monkeypatch.setitem(sys.modules, "fake.homed", mod)
+
+    assert _sage_worker._star_export_screen("fake.homed") is None
+    assert _sage_worker._star_export_screen(
+        "fake.homed", expected_drops=frozenset({"libgap_like"})
+    ) == frozenset({"LatinSquare"})
+
+
+def test_star_export_screen_drops_a_dangerous_name_by_name(monkeypatch):
+    """The real case: `lazy_import` and `libgap` fail on the NAME screen, being
+    on the baked denylist the worker's namespace scrub deletes. That is the
+    branch `sage.matroids.advanced` and `sage.combinat.matrices.latin` hit, and
+    dropping such a name takes nothing from the caller -- the scrub removed it
+    from the namespace and the validator refuses it by name regardless."""
+    import sys
+    import types
+
+    from sagemath_mcp import _sage_worker
+
+    denied = sorted(_sage_worker._DANGEROUS_BARE_NAMES)[0]
+    mod = types.ModuleType("fake.named")
+    mod.__all__ = ["Matroid", denied]
+    mod.Matroid = type("Matroid", (), {})
+    mod.Matroid.__module__ = "fake.named"
+    setattr(mod, denied, lambda: None)
+    getattr(mod, denied).__module__ = "fake.named"
+    monkeypatch.setitem(sys.modules, "fake.named", mod)
+
+    assert _sage_worker._star_export_screen("fake.named") is None
+    assert _sage_worker._star_export_screen(
+        "fake.named", expected_drops=frozenset({denied})
+    ) == frozenset({"Matroid"})

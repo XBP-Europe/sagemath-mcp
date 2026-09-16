@@ -210,8 +210,8 @@ were both forms nobody had. `test_sage_doctest_corpus.py` closes that by running
 432,878 of them, through `preparse` + `validate_module`, grouped by docstring so
 names bound early in a block authorise reads later, exactly as a session does.
 It takes 48 seconds and answers one question at scale — *would this server
-refuse the mathematics SageMath itself documents?* Measured against 10.9: 98.95%
-of in-scope examples accepted as of 2026-09-14 (the first measurement read
+refuse the mathematics SageMath itself documents?* Measured against 10.9: 99.04%
+of in-scope examples accepted as of 2026-09-16 (the first measurement read
 97.81%; `docs/sage_doctest_corpus.md` keeps the ledger), every refusal
 attributable to a rule that is named and capped in the file, and no allowlist
 gap in any mathematical name. The passagemath CI lane runs the same sweep on

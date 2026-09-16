@@ -89,3 +89,66 @@ def test_the_no_server_prompt_stops_asking_for_the_server() -> None:
         assert "Do not use any tools" in prompt
         assert prompt_for(case, "full") == case.prompt
     assert any(c.prompt.endswith(_SUFFIX) for c in EXTENDED_CASES)
+
+
+# --- the hard tier -----------------------------------------------------------
+
+
+def test_the_hard_tier_is_selectable_and_separate() -> None:
+    """`make cli-extended` must keep checking exactly the integration contract
+    it always did; the hard tier is a measurement opted into with --tier."""
+    from tests.cli_integration.extended_cases import (
+        ALL_CASES,
+        EXTENDED_CASES,
+        HARD_CASES,
+        cases_for_tier,
+    )
+
+    assert cases_for_tier("standard") == list(EXTENDED_CASES)
+    assert cases_for_tier("hard") == list(HARD_CASES)
+    assert cases_for_tier("all") == list(ALL_CASES)
+    assert all(case.tier == "standard" for case in EXTENDED_CASES)
+    assert all(case.tier == "hard" for case in HARD_CASES)
+    assert len({case.id for case in ALL_CASES}) == len(ALL_CASES), "duplicate case id"
+
+
+def test_every_hard_case_resists_recall_and_guessing() -> None:
+    """The tier exists because the standard one stopped forcing tools. These
+    properties are what make it harder, and each is cheap to lose in an edit."""
+    from tests.cli_integration.extended_cases import HARD_CASES
+
+    for case in HARD_CASES:
+        assert case.verify_code, f"{case.id} has no verify_code to re-derive its answer"
+        assert case.prompt.endswith(_SUFFIX), case.id
+        # Answerable in the core arm, or the arm comparison is unfair.
+        assert set(accepted_tools_for(case, "core")) <= CORE_TOOLS, case.id
+        assert accepted_tools_for(case, "core"), case.id
+        for answer in case.expected_answers:
+            digits = "".join(ch for ch in answer if ch.isdigit())
+            # A three-digit answer can be guessed; these cannot. The two
+            # shortest here are a class number and a conductor, at 3 and 5
+            # digits, and they earn their place by being unguessable in kind
+            # rather than in length -- so the floor is deliberately low and the
+            # median is what carries the tier.
+            assert len(digits) >= 3, f"{case.id}: {answer!r} is too short to be evidence"
+        assert len(case.expected_answers) >= 1
+
+
+def test_the_hard_tier_covers_the_tools_worth_comparing() -> None:
+    """The point of the measurement is full-catalogue against evaluate_sage, so
+    the tier has to exercise domains where a dedicated tool exists."""
+    from tests.cli_integration.extended_cases import HARD_CASES
+
+    dedicated = {
+        tool
+        for case in HARD_CASES
+        for tool in case.accepted_tools
+        if tool not in CORE_TOOLS
+    }
+    assert {
+        "matrix_operation",
+        "elliptic_curve_operation",
+        "group_operation",
+        "combinatorics_operation",
+        "number_theory_operation",
+    } <= dedicated, sorted(dedicated)

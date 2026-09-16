@@ -7,6 +7,26 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **A hard tier for the tool-surface measurement** (`--tier hard`, 14 cases).
+  The 2026-09-15 measurement found its own case set no longer forced tools:
+  frontier clients answered 60 of 63 with no MCP server at all, from recall, so
+  the arms could not be compared on correctness. The new cases resist that by
+  construction — long arbitrary answers (a 22-digit determinant, a 69-digit
+  partition count), inputs deliberately off round numbers (`nth_prime(9999991)`,
+  not `10^7`), every answer deterministic and every computation inside the
+  worker's timeout. Each case carries the SageMath expression that produces its
+  answer, and `test_every_hard_case_answer_is_what_sage_computes` re-derives all
+  fourteen against the installed Sage, so a Sage upgrade that moves one fails
+  with the case id instead of quietly scoring every model wrong.
+  `EXTENDED_CASES` is unchanged, so `make cli-extended` still checks exactly the
+  integration contract it always did; the tier is opted into with `--tier`, and
+  `make tool-surface` now runs both. First result, against Claude Code: 4/14
+  with no server, 14/14 with core tools, 14/14 with the full catalogue — the
+  tier separates server from no server by +10, and shows the full catalogue
+  buying nothing over `evaluate_sage` on hard mathematics.
+
 ### Changed
 
 - **The conda-forge recipe packages 0.8.0.** `packaging/conda/meta.yaml` now
@@ -16,6 +36,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `tests/test_conda_recipe.py` verifies the hash against PyPI.
 
 ### Fixed
+
+- **Restored the tool-surface findings dropped from `TODO.md`.** Merging the
+  vendored-HTML removal resolved a rebase conflict by taking one side of a hunk
+  that also held the measurement write-up, so the item read as unstarted. The
+  text is back, with the hard-tier result appended.
 
 - **SBOM attestation no longer exceeds GitHub's 16 MiB limit.** The v0.8.0 tag's
   first run pushed and signed the container image, attested its provenance, and

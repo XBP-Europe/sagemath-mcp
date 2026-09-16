@@ -110,22 +110,54 @@ architecture is smoke-tested natively before it is published, and the index is
 signed and attested like the primary image. It is the optional image on amd64,
 where the monolithic one stays primary.
 
+**One click in a desktop MCP host (Claude Desktop and friends):** download
+`sagemath-mcp-<version>.mcpb` from the
+[latest release](https://github.com/XBP-Europe/sagemath-mcp/releases/latest) and
+open it. The bundle is a couple of kilobytes; your host installs the server *and*
+a Sage runtime with uv on first launch, which is roughly a 1 GB download once.
+macOS and Linux — native Windows is excluded because passagemath's Windows
+support is partial. A bundle is a local install with your own privileges; for
+untrusted or multi-tenant use run the container instead.
+
 Source install, Docker Compose, and the Kubernetes Helm chart are in
 **[USAGE.md](USAGE.md)**.
 
 ## Connect an MCP client
 
-**Claude Desktop** — add to `claude_desktop_config.json`:
+One command each. All four routes install a Sage runtime alongside the server,
+so there is nothing else to set up.
 
-```json
-{
-  "mcpServers": {
-    "sagemath": { "command": "uv", "args": ["run", "sagemath-mcp"] }
-  }
-}
+**Claude Desktop** — download `sagemath-mcp-<version>.mcpb` from the
+[latest release](https://github.com/XBP-Europe/sagemath-mcp/releases/latest) and
+open it. One click, no config file.
+
+**Claude Code**
+
+```bash
+claude mcp add sagemath -- uvx --from "sagemath-mcp[passagemath]" sagemath-mcp
 ```
 
-Claude Code, Codex CLI, Gemini CLI, and HTTP-transport setup are in
+**Gemini CLI** — the repository is itself an extension:
+
+```bash
+gemini extensions install https://github.com/XBP-Europe/sagemath-mcp
+```
+
+**Codex CLI**
+
+```bash
+codex mcp add sagemath -- uvx --from "sagemath-mcp[passagemath]" sagemath-mcp
+```
+
+Then ask for some mathematics — the [examples below](#try-it) are a good start.
+
+Three things worth knowing. These need [uv](https://docs.astral.sh/uv/) on your
+PATH, and the first launch downloads about 1 GB of Sage wheels, cached
+afterwards. Already have `sage`? Drop `[passagemath]` from the specification and
+it will use yours. And an install of any of these runs with your own privileges;
+for untrusted or shared use, run the container and point the client at it.
+
+Pinning a release, HTTP transport and the full client reference are in
 [USAGE.md](USAGE.md#integrating-with-mcp-clients).
 
 ## Try it

@@ -9,6 +9,42 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **README quick-start for all four clients.** *Connect an MCP client* now
+  gives one command each for Claude Desktop (the bundle), Claude Code, Gemini
+  CLI and Codex CLI, verified by running each `mcp add` against the real CLI.
+  The commands carry no version literal, so they cannot go stale; pinning is
+  documented in `USAGE.md`. It also states the three things that surprise
+  people once, in one place: `uv` is required, the first launch pulls about
+  1 GB of Sage wheels, and a local install has your own privileges.
+- **A Gemini CLI extension (`gemini-extension.json`).** The repository is now
+  installable as one: `gemini extensions install
+  https://github.com/XBP-Europe/sagemath-mcp --ref vX.Y.Z`. The manifest lives
+  at the root because that is where `gemini extensions install` reads it from a
+  git ref, and it pins `sagemath-mcp[passagemath]==<release>` through `uvx`, so
+  the extension brings a Sage runtime with the server for the same reason the
+  MCPB bundle does. Validated with `gemini extensions validate`, and the `uvx
+  --from … sagemath-mcp` invocation was run against the published release.
+  Codex CLI has no extension or bundle format — only `codex mcp add` — so
+  `USAGE.md` documents the equivalent one-liner instead of pretending otherwise.
+  `scripts/bump_version.py` moves the manifest version and its pin, checked by
+  `tests/test_version_consistency.py` and `tests/test_gemini_extension.py`.
+- **A one-click desktop bundle (`packaging/mcpb`).** `sagemath-mcp-<version>.mcpb`
+  is now built and attached to every release, so a desktop MCP host can install
+  the server by opening a file. It uses the MCPB **`uv` server type**, which
+  keeps the bundle at about 2 KB — three files, no vendored dependencies — and
+  lets the host resolve one pin, `sagemath-mcp[passagemath]==<release>`, at first
+  launch. That pin is the point: it brings a **Sage runtime** as well as the
+  server, where a bundle installing only the server would start cleanly and then
+  refuse every evaluation. The cost is stated in the manifest the host shows the
+  user: roughly 1 GB on first launch. Platforms are macOS and Linux, excluding
+  native Windows on the evidence in `docs/passagemath_evaluation.md`, where
+  passagemath's Windows support is partial. `make mcpb` builds it locally;
+  `mcpb pack` validates the manifest against the published schema as it packs,
+  and it runs in the release's `build` job so a bad manifest fails before
+  anything is published. `tests/test_mcpb_bundle.py` covers what a schema
+  cannot, and `scripts/bump_version.py` moves the manifest version and the pin
+  so a release cannot ship a bundle that installs the previous one.
+
 - **A hard tier for the tool-surface measurement** (`--tier hard`, 14 cases).
   The 2026-09-15 measurement found its own case set no longer forced tools:
   frontier clients answered 60 of 63 with no MCP server at all, from recall, so

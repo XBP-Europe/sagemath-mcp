@@ -124,6 +124,13 @@ tool-surface:
 	  done ) & done; wait
 	uv run python -m tests.cli_integration.tool_surface_report tests/cli_integration/results/tool_surface_*.json
 
+# The one-click desktop bundle (packaging/mcpb). `mcpb pack` validates the
+# manifest against the published schema as it packs, so this is also the check;
+# tests/test_mcpb_bundle.py covers the parts a schema cannot express.
+mcpb:
+	@mkdir -p dist
+	npx --yes @anthropic-ai/mcpb@latest pack packaging/mcpb dist/sagemath-mcp-$(shell grep -m1 '^version' pyproject.toml | cut -d'"' -f2).mcpb
+
 all: test integration-test
 
 # Mutation-test the security policy (slow; never CI-gated -- the number
@@ -131,4 +138,4 @@ all: test integration-test
 mutation:
 	uv run python scripts/run_mutation_tests.py
 
-.PHONY: test sage-deps integration-test lint build mutation sage-container allowlist allowlist-passagemath star-exports-passagemath denylist doctest-execution cli-integration cli-extended tool-surface all
+.PHONY: test sage-deps integration-test lint build mutation sage-container allowlist allowlist-passagemath star-exports-passagemath denylist doctest-execution cli-integration cli-extended tool-surface mcpb all

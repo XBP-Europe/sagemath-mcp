@@ -300,8 +300,32 @@ prioritised. Correctness first, then packaging/adoption.
       included, so it resolves under the `<4` cap today. **Submitting it to
       `conda-forge/staged-recipes` is #101** — it starts an external review and
       names a maintainer publicly, so it is the owner's call, and the README /
-      USAGE / DISTRIBUTION lines wait on it. The nix flake and `.mcpb` bundle
-      are untouched.
+      USAGE / DISTRIBUTION lines wait on it. The **`.mcpb` bundle is done**
+      (2026-09-16, `packaging/mcpb`): MCPB `uv` server type, ~2 KB, pinning
+      `sagemath-mcp[passagemath]` so the host installs a Sage runtime with it;
+      built and attached by every release, schema-validated as it packs, version
+      kept in step by the bump script. A **Gemini CLI extension** landed with
+      it (`gemini-extension.json` at the root, where `gemini extensions install`
+      reads it from a git ref), and `USAGE.md` documents the `codex mcp add`
+      one-liner — Codex has no extension or bundle format, only `codex mcp
+      add/list/get/remove`, so there is nothing to package for it.
+      The **nix flake is deferred** (decided 2026-09-16), and the reason is a
+      version mismatch rather than effort: nixpkgs ships `sage` **10.7**, this
+      project pins **10.9**, and the caller allowlist is generated from that
+      exact namespace — `test_the_caller_allowlist_matches_this_sage` fails
+      against a Sage whose namespace differs. So `nix run …` "including Sage"
+      would ship a runtime combination nothing here tests and whose own
+      guardrails reject it. The three ways round it, none worth taking yet:
+      package **only the server** and let the user bring Sage (correct, but
+      drops the part of the idea that made it attractive); generate and review
+      a **third artifact set** for 10.7 plus a CI lane to keep it honest (the
+      passagemath evaluation already priced the *second* set as the recurring
+      cost of a second runtime, and this one would trail ours by two releases);
+      or wrap the **passagemath** route with uv2nix-style machinery, which is
+      real nix work duplicating a path that already works without nix.
+      Revisit when nixpkgs' `sage` reaches the version pinned here, or when
+      someone actually asks for it — at which point option one is the cheap
+      start. `nixpkgs` also has no passagemath package, checked the same day.
       **Scorecard, first published score 5.7 (2026-09-14) — plan and status:**
       - [x] *Pinned-Dependencies 0 → 8 locally, then the pip lines too
         (2026-09-15, #94).* Every `uses:` in all eight workflows pinned to a

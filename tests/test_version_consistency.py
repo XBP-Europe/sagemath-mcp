@@ -40,6 +40,30 @@ def _declared_versions(root: Path) -> dict[str, str]:
     citation = (root / "CITATION.cff").read_text(encoding="utf-8")
     found["CITATION.cff"] = re.search(r"^version:\s*(\S+)", citation, re.M).group(1)
 
+    # The MCPB bundle pins the release it installs, so a stale version here is a
+    # desktop one-click install of the *previous* release.
+    manifest_path = root / "packaging" / "mcpb" / "manifest.json"
+    if manifest_path.exists():       # absent in the copied tree the bump test uses
+        found["mcpb.manifest"] = json.loads(
+            manifest_path.read_text(encoding="utf-8")
+        )["version"]
+        bundle = (root / "packaging" / "mcpb" / "pyproject.toml").read_text(encoding="utf-8")
+        found["mcpb.pyproject"] = re.search(
+            r'^version = "([^"]+)"$', bundle, re.M
+        ).group(1)
+        found["mcpb.dependency"] = re.search(
+            r'"sagemath-mcp\[passagemath\]==([^"]+)"', bundle
+        ).group(1)
+
+    # The Gemini CLI extension is installed straight from a git ref, so its pin
+    # must be the version at that ref.
+    gemini_path = root / "gemini-extension.json"
+    if gemini_path.exists():
+        gemini = json.loads(gemini_path.read_text(encoding="utf-8"))
+        found["gemini.manifest"] = gemini["version"]
+        args = gemini["mcpServers"]["sagemath"]["args"]
+        found["gemini.pin"] = args[args.index("--from") + 1].split("==")[-1]
+
     # uv.lock records this project as a package. The v0.5.0 release bumped every
     # other file and left the lock saying 0.4.0, so `uv lock --check` failed and
     # anyone installing with `uv sync` got metadata for a version that was never
@@ -64,6 +88,9 @@ VERSIONED_FILES = (
     "charts/sagemath-mcp/Chart.yaml",
     "server.json",
     "CITATION.cff",
+    "packaging/mcpb/manifest.json",
+    "packaging/mcpb/pyproject.toml",
+    "gemini-extension.json",
     "scripts/bump_version.py",
 )
 

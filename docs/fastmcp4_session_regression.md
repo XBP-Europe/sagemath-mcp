@@ -4,6 +4,8 @@ Investigated 2026-09-16 against fastmcp **4.0.4** (and 4.0.3, which CI hit
 first), with **3.4.7** as the working comparison. This is why
 `pyproject.toml` still says `fastmcp>=3.4.7,<4`.
 
+Reported upstream as **PrefectHQ/fastmcp#5134**.
+
 ## Summary
 
 Under fastmcp 4, `Context.session_id` returns a **fresh UUID on every tool

@@ -3609,6 +3609,7 @@ discarded before the next call.
 
 The full investigation, a minimal reproduction and the conditions for lifting
 the cap are in [`docs/fastmcp4_session_regression.md`](docs/fastmcp4_session_regression.md).
+Reported upstream as PrefectHQ/fastmcp#5134.
 Two consequences worth keeping in mind:
 
 * the other three tests in `tests/test_cache_isolation.py` pass under 4.x for

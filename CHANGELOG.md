@@ -79,7 +79,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   deletes those names at worker start and the validator refuses them by name,
   which an integration test asserts after the star import. Measured on
   SageMath 10.9: 370,492 → 370,837 accepted, 3,936 → 3,591 refused, 98.9488%
-  → **99.0409%**. `scripts/analyse_corpus_refusals.py` is the analysis that
+  → **99.0409%**; on passagemath 10.8.11 the same 345 examples, 99.03% →
+  **99.12%**. `scripts/analyse_corpus_refusals.py` is the analysis that
   ranked the candidates and is kept for the next pass. See REVIEW_ACTIONS 77.
 
 

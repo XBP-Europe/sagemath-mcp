@@ -87,8 +87,8 @@ acceptance among in-scope examples: 99.04%   (enforced floor: 98.50%)
 ```
 
 The same sweep on the passagemath runtime (`passagemath-standard==10.8.11`,
-its own CI lane) reads 3,232 files, 433,289 examples, 362,728 accepted,
-3,566 refused, 66,815 out of scope — 99.03%. The two runtimes differ in what
+its own CI lane) reads 3,232 files, 433,289 examples, 363,073 accepted,
+3,221 refused, 66,815 out of scope — 99.12%. The two runtimes differ in what
 is *out of scope* (passagemath's modular layout tags more examples
 `# needs`), not in what is refused. The committed
 [`doctest-corpus-stats.md`](../doctest-corpus-stats.md) is the monolithic

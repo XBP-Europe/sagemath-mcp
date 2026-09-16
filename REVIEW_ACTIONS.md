@@ -4050,7 +4050,11 @@ Doctest corpus sweep, SageMath 10.9, before and after:
 | acceptance (in-scope) | 98.9488% | **99.0409%** |
 
 345 more of SageMath's own documented examples run, and the target bucket falls
-by 346.
+by 346. The passagemath lane measures the same gain on its own corpus: 362,728
+→ 363,073 accepted, 3,566 → 3,221 refused, 99.03% → **99.1207%**. It reaches the
+same place by a slightly different route -- `sage.matroids.advanced` re-exports
+no `lazy_import` there and is clean as a whole, so its permission goes unused
+and the generator says so.
 
 ### How to verify
 

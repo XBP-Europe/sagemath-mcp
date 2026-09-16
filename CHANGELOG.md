@@ -9,6 +9,13 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **README quick-start for all four clients.** *Connect an MCP client* now
+  gives one command each for Claude Desktop (the bundle), Claude Code, Gemini
+  CLI and Codex CLI, verified by running each `mcp add` against the real CLI.
+  The commands carry no version literal, so they cannot go stale; pinning is
+  documented in `USAGE.md`. It also states the three things that surprise
+  people once, in one place: `uv` is required, the first launch pulls about
+  1 GB of Sage wheels, and a local install has your own privileges.
 - **A Gemini CLI extension (`gemini-extension.json`).** The repository is now
   installable as one: `gemini extensions install
   https://github.com/XBP-Europe/sagemath-mcp --ref vX.Y.Z`. The manifest lives

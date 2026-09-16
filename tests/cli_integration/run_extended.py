@@ -39,7 +39,7 @@ import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from .extended_cases import _SUFFIX, EXTENDED_CASES, ToolForcingCase
+from .extended_cases import _SUFFIX, ToolForcingCase, cases_for_tier
 from .runner import (
     run_claude,
     run_codex,
@@ -106,6 +106,7 @@ class CaseResult:
     # that ignored the server and answered correctly is NO_TOOL_CALL with
     # answer_correct=True -- a distinction the tool-surface report needs.
     answer_correct: bool | None = None
+    tier: str = "standard"
 
 
 def proxy_command(log_path: Path, allowed: frozenset[str] | None = None) -> list[str]:
@@ -314,7 +315,7 @@ def evaluate(case: ToolForcingCase, output: str, log_path: Path, elapsed: float,
 
     def result(status: str, detail: str, tools: list[str]) -> CaseResult:
         return CaseResult(cli, case.id, status, detail, tools, elapsed, arm, case.domain,
-                          answer_correct=answered)
+                          answer_correct=answered, tier=case.tier)
 
     if not answered and _is_quota_failure(output):
         tail = output.strip()[-160:].replace("\n", " ")
@@ -412,11 +413,11 @@ def run_case(cli: str, case: ToolForcingCase, log_path: Path, arm: str = "full")
         return CaseResult(
             cli, case.id, "TIMEOUT",
             f"no answer within {case.timeout_seconds}s", [], float(case.timeout_seconds),
-            arm, case.domain, answer_correct=False,
+            arm, case.domain, answer_correct=False, tier=case.tier,
         )
     except Exception as exc:  # report and continue with the next case
         return CaseResult(cli, case.id, "ERROR", f"{type(exc).__name__}: {exc}", [], 0.0,
-                          arm, case.domain, answer_correct=False)
+                          arm, case.domain, answer_correct=False, tier=case.tier)
     return evaluate(case, output, log_path, elapsed, cli, arm)
 
 
@@ -428,11 +429,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--domain", help="comma-separated domains")
     parser.add_argument("--tools", default="full", choices=ARMS,
                         help="tool-surface arm: full catalogue, core tools only, or no server")
+    parser.add_argument("--tier", default="standard", choices=("standard", "hard", "all"),
+                        help="which case tier to run; the default keeps `make cli-extended` "
+                             "checking exactly the integration contract it always has")
     parser.add_argument("--json-out", type=Path,
                         help="write every case result (with arm, domain, tools, timing) here")
     args = parser.parse_args(argv)
 
-    cases = list(EXTENDED_CASES)
+    cases = cases_for_tier(args.tier)
     if args.case:
         wanted = set(args.case)
         cases = [c for c in cases if c.id in wanted]
@@ -486,6 +490,7 @@ def main(argv: list[str] | None = None) -> int:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(json.dumps({
             "arm": arm,
+            "tier": args.tier,
             "clis": clis,
             "cases": [c.id for c in cases],
             "started": started,

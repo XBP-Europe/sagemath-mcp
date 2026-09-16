@@ -894,3 +894,39 @@ async def test_runtime_hints_fire_on_real_sage():
         assert ok.result == "3.1415926535897932385"
     finally:
         await session.shutdown()
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_every_hard_case_answer_is_what_sage_computes():
+    """The hard tool-surface tier is only evidence if its answers are right.
+
+    Each case carries the SageMath expression that produces its expected
+    answer. Computing them here turns the case file from "numbers someone
+    pasted once" into something a Sage upgrade re-checks: if a future release
+    changes `multiplicative_generator()`, or a conductor, or the class number
+    of Q(sqrt(-99991)), this fails with the case id rather than quietly
+    scoring every model wrong.
+
+    It also guards the property the tier depends on -- that the work finishes
+    inside the worker's timeout, so a model failing one of these means the
+    model, not a timeout.
+    """
+    from tests.cli_integration.extended_cases import HARD_CASES
+    from tests.cli_integration.run_extended import normalise
+
+    session = SageSession(
+        "hard-tier", SageSettings(force_python_worker=False, eval_timeout=60.0)
+    )
+    try:
+        for case in HARD_CASES:
+            result = await session.evaluate(
+                case.verify_code, want_latex=False, capture_stdout=False
+            )
+            computed = normalise(result.result or "")
+            assert any(normalise(answer) in computed for answer in case.expected_answers), (
+                f"{case.id}: Sage computed {result.result!r}, which does not contain any "
+                f"of {case.expected_answers}"
+            )
+    finally:
+        await session.shutdown()

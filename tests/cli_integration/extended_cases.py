@@ -51,6 +51,17 @@ class ToolForcingCase:
     timeout_seconds: int = 300
     # Substrings that mean the model dodged rather than computed.
     forbidden: list[str] = field(default_factory=lambda: ["cannot", "unable to"])
+    # "standard" or "hard". The 2026-09-15 tool-surface measurement found the
+    # standard tier no longer forces tools: Claude and Codex answered 21/21 of
+    # it with no server at all, from recall. The hard tier exists so the arms
+    # can be separated on correctness again -- see the note above HARD_CASES.
+    tier: str = "standard"
+    # For the hard tier: the SageMath expression that produces
+    # `expected_answers`. It is not sent to the model -- it exists so
+    # `test_every_hard_case_answer_is_what_sage_computes` can re-derive every
+    # answer against the installed Sage, which turns this file from "numbers
+    # someone pasted once" into something a Sage upgrade can re-check.
+    verify_code: str = ""
 
 
 _SUFFIX = " Use the sagemath MCP server. Reply with ONLY the result, no prose."
@@ -328,7 +339,220 @@ EXTENDED_CASES: list[ToolForcingCase] = [
 ]
 
 
-def by_domain(domains: set[str] | None) -> list[ToolForcingCase]:
-    if not domains:
-        return list(EXTENDED_CASES)
-    return [case for case in EXTENDED_CASES if case.domain in domains]
+# --- the hard tier ------------------------------------------------------------
+#
+# The 2026-09-15 tool-surface measurement (`tool-surface-stats.md`) found that
+# the cases above no longer force a tool: with no MCP server at all, Claude
+# answered 21/21 and Codex 21/21 from recall, Gemini 18/21. Questions chosen in
+# 2025 to be "impractical without a CAS" -- next_prime(10^30), Bell(25), a 5x5
+# determinant -- are now inside a frontier model's memory or mental reach, so
+# the arms of that measurement cannot be separated on correctness.
+#
+# These are built to resist that, and each one was checked against SageMath 10.9
+# in the container before it was written down:
+#
+#   * the answer is long and arbitrary (a 22-digit determinant, a 69-digit
+#     partition count) or the input is, so there is nothing to recall and
+#     nothing to arrive at by estimation;
+#   * the inputs are nowhere near round -- `nth_prime(9999991)`, not
+#     `nth_prime(10^7)`, whose value is quotable;
+#   * every answer is deterministic, verified by computing it twice; and
+#   * every computation finishes well inside the worker's 30-second timeout,
+#     the slowest at about a second, so a failure means the model, not a
+#     timeout. Candidates that did not meet this were dropped: a BCH minimum
+#     distance that ran for minutes, and a numerical series whose value was
+#     only stable to 16 digits.
+#
+# Answers that a model could plausibly *guess* were also dropped -- a rank of 5,
+# a minimum distance of 7 -- because a lucky guess is indistinguishable from a
+# computation, which is the very confusion this tier exists to remove.
+HARD_CASES: list[ToolForcingCase] = [
+    # ---- number theory -----------------------------------------------------
+    ToolForcingCase(
+        id="hard-nt-semiprime",
+        domain="number_theory",
+        tier="hard",
+        prompt=(
+            "Factor the integer next_prime(10^20) * next_prime(3*10^21) into its "
+            "two prime factors. Give both primes." + _SUFFIX
+        ),
+        expected_answers=["3000000000000000000053"],
+        verify_code="factor(next_prime(10^20) * next_prime(3*10^21))",
+        accepted_tools=["number_theory_operation", "factor_expression", "evaluate_sage",
+                        "calculate_expression"],
+    ),
+    ToolForcingCase(
+        id="hard-nt-nth-prime",
+        domain="number_theory",
+        tier="hard",
+        # Not 10^7: the ten-millionth prime is a quotable number.
+        prompt="What is the 9999991st prime number?" + _SUFFIX,
+        expected_answers=["179424551"],
+        verify_code="nth_prime(9999991)",
+        accepted_tools=["number_theory_operation", "evaluate_sage", "calculate_expression"],
+    ),
+    ToolForcingCase(
+        id="hard-nt-discrete-log",
+        domain="number_theory",
+        tier="hard",
+        prompt=(
+            "Let p = next_prime(10^9) and let g be the finite field GF(p)'s "
+            "multiplicative_generator() as SageMath defines it. What is the discrete "
+            "logarithm of 123456789 to base g in GF(p)?" + _SUFFIX
+        ),
+        expected_answers=["981640996"],
+        verify_code="GF(next_prime(10^9))(123456789).log(GF(next_prime(10^9)).multiplicative_generator())",
+        accepted_tools=["evaluate_sage", "number_theory_operation"],
+    ),
+    ToolForcingCase(
+        id="hard-nt-sigma",
+        domain="number_theory",
+        tier="hard",
+        prompt=(
+            "Let s be the sum of the divisors of 30 factorial. What is s modulo "
+            "10^15?" + _SUFFIX
+        ),
+        expected_answers=["2970027596800"],
+        verify_code="sigma(factorial(30), 1) % 10^15",
+        accepted_tools=["evaluate_sage", "number_theory_operation", "calculate_expression"],
+    ),
+    ToolForcingCase(
+        id="hard-nt-bernoulli",
+        domain="number_theory",
+        tier="hard",
+        prompt=(
+            "Take the 200th Bernoulli number as a reduced fraction. What is its "
+            "numerator modulo 10^12?" + _SUFFIX
+        ),
+        expected_answers=["444106328849"],
+        verify_code="bernoulli(200).numerator() % 10^12",
+        accepted_tools=["evaluate_sage", "number_theory_operation", "calculate_expression"],
+    ),
+    ToolForcingCase(
+        id="hard-nt-fibonacci",
+        domain="number_theory",
+        tier="hard",
+        prompt="What is the millionth Fibonacci number modulo 10^15?" + _SUFFIX,
+        expected_answers=["526838242546875"],
+        verify_code="fibonacci(10^6) % 10^15",
+        accepted_tools=["evaluate_sage", "number_theory_operation", "calculate_expression"],
+    ),
+    # ---- combinatorics -----------------------------------------------------
+    ToolForcingCase(
+        id="hard-comb-partitions",
+        domain="combinatorics",
+        tier="hard",
+        prompt="How many integer partitions does 4321 have?" + _SUFFIX,
+        expected_answers=[
+            "561636776448132718375664996443974402323560531045725721399857456187134"
+        ],
+        verify_code="number_of_partitions(4321)",
+        accepted_tools=["combinatorics_operation", "evaluate_sage", "calculate_expression"],
+    ),
+    # ---- linear algebra ----------------------------------------------------
+    ToolForcingCase(
+        id="hard-la-determinant",
+        domain="linear_algebra",
+        tier="hard",
+        prompt=(
+            "Let M be the 10 by 10 integer matrix whose entry in row i and column j "
+            "is (3*i^2 + 5*j^2 + 7*i*j + 13) mod 211, with i and j each running from "
+            "0 to 9. What is the determinant of M?" + _SUFFIX
+        ),
+        expected_answers=["5927270622255626726430"],
+        verify_code="matrix(ZZ, 10, 10, lambda i, j: (3*i^2 + 5*j^2 + 7*i*j + 13) % 211).det()",
+        accepted_tools=["matrix_operation", "evaluate_sage"],
+    ),
+    ToolForcingCase(
+        id="hard-la-hilbert",
+        domain="linear_algebra",
+        tier="hard",
+        prompt=(
+            "Let H be the 9 by 9 Hilbert matrix over the rationals, with entry "
+            "1/(i+j+1) in row i and column j for i and j from 0 to 8. Take the "
+            "determinant of H as a reduced fraction. What is its denominator "
+            "modulo 10^15?" + _SUFFIX
+        ),
+        expected_answers=["909388800000000"],
+        verify_code="matrix(QQ, 9, 9, lambda i, j: 1/(i+j+1)).det().denominator() % 10^15",
+        accepted_tools=["matrix_operation", "evaluate_sage"],
+    ),
+    # ---- elliptic curves ---------------------------------------------------
+    ToolForcingCase(
+        id="hard-ec-order",
+        domain="elliptic_curves",
+        tier="hard",
+        prompt=(
+            "Let p = next_prime(10^12). How many points does the elliptic curve "
+            "y^2 = x^3 + 3*x + 17 have over GF(p), counting the point at infinity?"
+            + _SUFFIX
+        ),
+        expected_answers=["1000000107054"],
+        verify_code="EllipticCurve(GF(next_prime(10^12)), [3, 17]).cardinality()",
+        accepted_tools=["elliptic_curve_operation", "evaluate_sage"],
+    ),
+    ToolForcingCase(
+        id="hard-ec-conductor",
+        domain="elliptic_curves",
+        tier="hard",
+        prompt=(
+            "What is the conductor of the elliptic curve with Weierstrass "
+            "coefficients [1, -3, 5, -7, 11]?" + _SUFFIX
+        ),
+        expected_answers=["35826"],
+        verify_code="EllipticCurve([1, -3, 5, -7, 11]).conductor()",
+        accepted_tools=["elliptic_curve_operation", "evaluate_sage"],
+    ),
+    # ---- group theory ------------------------------------------------------
+    ToolForcingCase(
+        id="hard-group-order",
+        domain="group_theory",
+        tier="hard",
+        prompt=(
+            "What is the order of the permutation group generated by the 11-cycle "
+            "(1,2,3,4,5,6,7,8,9,10,11) and the 5-cycle (1,3,9,5,4)?" + _SUFFIX
+        ),
+        expected_answers=["19958400"],
+        verify_code="PermutationGroup([[(1,2,3,4,5,6,7,8,9,10,11)],[(1,3,9,5,4)]]).order()",
+        accepted_tools=["group_operation", "evaluate_sage"],
+    ),
+    # ---- number fields and numerics ---------------------------------------
+    ToolForcingCase(
+        id="hard-nf-class-number",
+        domain="number_theory",
+        tier="hard",
+        prompt=(
+            "What is the class number of the imaginary quadratic field "
+            "Q(sqrt(-99991))?" + _SUFFIX
+        ),
+        expected_answers=["205"],
+        verify_code="QuadraticField(-99991).class_number()",
+        accepted_tools=["evaluate_sage", "number_theory_operation"],
+    ),
+    ToolForcingCase(
+        id="hard-num-convergent",
+        domain="numerics",
+        tier="hard",
+        prompt=(
+            "Expand the fifth root of 3 as a continued fraction. What is the "
+            "numerator of its 12th convergent, counting the convergents from 0?"
+            + _SUFFIX
+        ),
+        expected_answers=["2316271"],
+        verify_code="continued_fraction(QQbar(3^(1/5))).convergent(12).numerator()",
+        accepted_tools=["evaluate_sage", "calculate_expression"],
+    ),
+]
+
+# Everything the runner can select from. `EXTENDED_CASES` stays exactly what it
+# was so `make cli-extended` keeps checking the same integration contract; the
+# hard tier is a measurement, where a model failing is a result rather than a
+# regression, and is opted into with `--tier`.
+ALL_CASES: list[ToolForcingCase] = [*EXTENDED_CASES, *HARD_CASES]
+
+
+def cases_for_tier(tier: str) -> list[ToolForcingCase]:
+    if tier == "all":
+        return list(ALL_CASES)
+    return [case for case in ALL_CASES if case.tier == tier]
+

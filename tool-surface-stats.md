@@ -9,9 +9,15 @@ refuses it on `tools/call`), and the full catalogue. Produced by
 `make tool-surface`; never CI-gated -- it measures the clients as much as
 the server.
 
-- Generated: 2026-09-15
-- Cases: 23 across domains: coding_theory, combinatorics, elliptic_curves, linear_algebra, number_theory, numerics, open_problems, physics, session
+- Generated: 2026-09-16
+- Cases: 37 across domains: coding_theory, combinatorics, elliptic_curves, group_theory, linear_algebra, number_theory, numerics, open_problems, physics, session
 - Clients: claude, codex, gemini
+- Two tiers. The **standard** tier (23 cases) was written in 2025 to be
+  impractical without a CAS and is kept as the historical baseline; the **hard**
+  tier (14 cases) was added 2026-09-16 because frontier clients now answer the
+  standard one from recall. Only the hard tier separates the arms on
+  correctness. The hard-tier numbers below are Claude only — Codex had no
+  credits and Gemini was not re-run — so read them as one client, not three.
 - Statuses: ✓ correct · ⚠ wrong-confident · ∅ declined · ○ answered without a
   qualifying tool call · ✗ server error · ⏱ timeout · ⛔ cut off by the
   provider (spend/usage limit), which is counted under *Other*, not against
@@ -26,36 +32,46 @@ the server.
 
 | Arm | Client | Correct | Wrong-confident | Declined | No tool call | Other | Tool calls | Median s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| No server (reasoning only) | claude | **21/21 (100%)** | 0 | 0 | 0 | 0 | 0 | 9 |
+| No server (reasoning only) | claude | **25/35 (71%)** | 9 | 0 | 0 | 1 | 0 | 10 |
 | No server (reasoning only) | codex | **21/21 (100%)** | 0 | 0 | 0 | 0 | 0 | 14 |
 | No server (reasoning only) | gemini | **18/21 (85%)** | 3 | 0 | 0 | 0 | 0 | 41 |
-| No server (reasoning only) | **all** | **60/63 (95%)** | 3 | 0 | 0 | 0 | 0 | 19 |
-| Core tools (evaluate_sage + session) | claude | **21/23 (91%)** | 0 | 0 | 0 | 2 | 30 | 20 |
+| No server (reasoning only) | **all** | **64/77 (83%)** | 12 | 0 | 0 | 1 | 0 | 19 |
+| Core tools (evaluate_sage + session) | claude | **35/37 (94%)** | 0 | 0 | 0 | 2 | 44 | 19 |
 | Core tools (evaluate_sage + session) | codex | **17/23 (73%)** | 0 | 0 | 5 | 1 | 20 | 29 |
 | Core tools (evaluate_sage + session) | gemini | **15/23 (65%)** | 0 | 0 | 0 | 8 | 61 | 22 |
-| Core tools (evaluate_sage + session) | **all** | **53/69 (76%)** | 0 | 0 | 5 | 11 | 111 | 23 |
-| Full catalogue (40 tools) | claude | **22/23 (95%)** | 0 | 0 | 0 | 1 | 30 | 21 |
+| Core tools (evaluate_sage + session) | **all** | **67/83 (80%)** | 0 | 0 | 5 | 11 | 125 | 21 |
+| Full catalogue (40 tools) | claude | **36/37 (97%)** | 0 | 0 | 0 | 1 | 44 | 18 |
 | Full catalogue (40 tools) | codex | **0/23 (0%)** | 0 | 0 | 0 | 23 | 0 | 10 |
 | Full catalogue (40 tools) | gemini | **19/23 (82%)** | 0 | 0 | 0 | 4 | 53 | 24 |
-| Full catalogue (40 tools) | **all** | **41/69 (59%)** | 0 | 0 | 0 | 28 | 83 | 18 |
+| Full catalogue (40 tools) | **all** | **55/83 (66%)** | 0 | 0 | 0 | 28 | 97 | 15 |
 
 Arms with provider cut-offs (⛔): full/codex. They stay in the table above but are **excluded from every comparison below**, which only counts client-cases both arms actually measured.
 
-**Full catalogue minus core tools: +5 correct** over 46 client-cases measured in both (36/46 (78%) → 41/46 (89%)).
-**Core tools (evaluate_sage + session) minus no server: -11 correct** over 63 client-cases measured in both (60/63 (95%) → 49/63 (77%)). In the server arms a correct answer only counts with a successful qualifying tool call, so this delta measures integration friction as much as mathematics.
-**Full catalogue (40 tools) minus no server: -2 correct** over 42 client-cases measured in both (39/42 (92%) → 37/42 (88%)). In the server arms a correct answer only counts with a successful qualifying tool call, so this delta measures integration friction as much as mathematics.
-The no-server arm was wrong-confident **3** times and declined 0 times in 63 client-cases.
+**Full catalogue minus core tools: +5 correct** over 60 client-cases measured in both (50/60 (83%) → 55/60 (91%)).
+**Core tools (evaluate_sage + session) minus no server: -1 correct** over 77 client-cases measured in both (64/77 (83%) → 63/77 (81%)). In the server arms a correct answer only counts with a successful qualifying tool call, so this delta measures integration friction as much as mathematics.
+**Full catalogue (40 tools) minus no server: +8 correct** over 56 client-cases measured in both (43/56 (76%) → 51/56 (91%)). In the server arms a correct answer only counts with a successful qualifying tool call, so this delta measures integration friction as much as mathematics.
+The no-server arm was wrong-confident **12** times and declined 0 times in 77 client-cases.
+
+## By tier (all clients)
+
+The standard tier was written in 2025 to be impractical without a CAS; the hard tier exists because frontier clients now answer it from recall. A tier that separates the arms is one where the no-server column is low.
+
+| Tier | No server (reasoning only) | Core tools (evaluate_sage + session) | Full catalogue (40 tools) |
+| --- | ---: | ---: | ---: |
+| hard | 4/14 (28%) | 14/14 (100%) | 14/14 (100%) |
+| standard | 60/63 (95%) | 53/69 (76%) | 41/69 (59%) |
 
 ## By domain (all clients)
 
 | Domain | No server (reasoning only) | Core tools (evaluate_sage + session) | Full catalogue (40 tools) |
 | --- | ---: | ---: | ---: |
 | coding_theory | 3/3 (100%) | 3/3 (100%) | 2/3 (66%) |
-| combinatorics | 5/6 (83%) | 5/6 (83%) | 4/6 (66%) |
-| elliptic_curves | 3/3 (100%) | 3/3 (100%) | 2/3 (66%) |
-| linear_algebra | 3/3 (100%) | 3/3 (100%) | 2/3 (66%) |
-| number_theory | 4/6 (66%) | 6/6 (100%) | 4/6 (66%) |
-| numerics | 12/12 (100%) | 8/12 (66%) | 5/12 (41%) |
+| combinatorics | 5/7 (71%) | 6/7 (85%) | 5/7 (71%) |
+| elliptic_curves | 4/5 (80%) | 5/5 (100%) | 4/5 (80%) |
+| group_theory | 1/1 (100%) | 1/1 (100%) | 1/1 (100%) |
+| linear_algebra | 4/5 (80%) | 5/5 (100%) | 4/5 (80%) |
+| number_theory | 5/13 (38%) | 13/13 (100%) | 11/13 (84%) |
+| numerics | 12/13 (92%) | 9/13 (69%) | 6/13 (46%) |
 | open_problems | 15/15 (100%) | 15/15 (100%) | 10/15 (66%) |
 | physics | 15/15 (100%) | 6/15 (40%) | 8/15 (53%) |
 | session | n/a | 4/6 (66%) | 4/6 (66%) |
@@ -91,4 +107,18 @@ a dedicated tool added.
 | `ext-phys-wien-peak` | physics | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ | ⛔ | ✓ |
 | `ext-session-named` | session |  |  |  | ✓ | ○ | ✓ | ✓ | ⛔ | ✓ |
 | `ext-session-state` | session |  |  |  | ✓ | ○ | ✓ | ✓ | ⛔ | ✓ |
+| `hard-comb-partitions` | combinatorics | ⚠ |  |  | ✓ |  |  | ✓ |  |  |
+| `hard-ec-conductor` | elliptic_curves | ✓ |  |  | ✓ |  |  | ✓ |  |  |
+| `hard-ec-order` | elliptic_curves | ⚠ |  |  | ✓ |  |  | ✓ |  |  |
+| `hard-group-order` | group_theory | ✓ |  |  | ✓ |  |  | ✓ |  |  |
+| `hard-la-determinant` | linear_algebra | ⚠ |  |  | ✓ |  |  | ✓ |  |  |
+| `hard-la-hilbert` | linear_algebra | ✓ |  |  | ✓ |  |  | ✓ |  |  |
+| `hard-nf-class-number` | number_theory | ⚠ |  |  | ✓ |  |  | ✓ |  |  |
+| `hard-nt-bernoulli` | number_theory | ⚠ |  |  | ✓ |  |  | ✓ |  |  |
+| `hard-nt-discrete-log` | number_theory | ⚠ |  |  | ✓ |  |  | ✓ |  |  |
+| `hard-nt-fibonacci` | number_theory | ⚠ |  |  | ✓ |  |  | ✓ |  |  |
+| `hard-nt-nth-prime` | number_theory | ⚠ |  |  | ✓ |  |  | ✓ |  |  |
+| `hard-nt-semiprime` | number_theory | ⚠ |  |  | ✓ |  |  | ✓ |  |  |
+| `hard-nt-sigma` | number_theory | ✓ |  |  | ✓ |  |  | ✓ |  |  |
+| `hard-num-convergent` | numerics | ⏱ |  |  | ✓ |  |  | ✓ |  |  |
 

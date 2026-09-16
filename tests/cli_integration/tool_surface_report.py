@@ -178,6 +178,28 @@ def render(results: list[dict]) -> str:
         )
     out.append("")
 
+    tiers = sorted({r.get("tier", "standard") for r in results})
+    if len(tiers) > 1:
+        out.append("## By tier (all clients)")
+        out.append("")
+        out.append(
+            "The standard tier was written in 2025 to be impractical without a CAS; "
+            "the hard tier exists because frontier clients now answer it from recall. "
+            "A tier that separates the arms is one where the no-server column is low."
+        )
+        out.append("")
+        out.append("| Tier | " + " | ".join(ARM_LABEL[a] for a in arms) + " |")
+        out.append("| --- |" + " ---: |" * len(arms))
+        for tier in tiers:
+            cells = []
+            for arm in arms:
+                rows = [r for r in results
+                        if r["arm"] == arm and r.get("tier", "standard") == tier]
+                summary = _summary(rows)
+                cells.append(_pct(summary["correct"], summary["n"]))
+            out.append(f"| {tier} | " + " | ".join(cells) + " |")
+        out.append("")
+
     out.append("## By domain (all clients)")
     out.append("")
     out.append("| Domain | " + " | ".join(ARM_LABEL[a] for a in arms) + " |")

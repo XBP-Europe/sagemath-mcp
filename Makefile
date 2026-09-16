@@ -109,11 +109,16 @@ cli-extended:
 # sequentially within a CLI. Needs the three CLIs authenticated locally and the
 # sage-mcp container running; ~1 hour. Never CI-gated.
 TOOL_SURFACE_CLIS ?= claude gemini codex
+# Both tiers by default: the standard one is the historical baseline and the
+# hard one is what can still separate the arms. `TOOL_SURFACE_TIER=hard` runs
+# only the new cases, which is the quick way to re-measure.
+TOOL_SURFACE_TIER ?= all
 tool-surface:
 	@mkdir -p tests/cli_integration/results
 	@for cli in $(TOOL_SURFACE_CLIS); do ( \
 	  for arm in none core full; do \
 	    uv run python -m tests.cli_integration.run_extended --cli $$cli --tools $$arm \
+	      --tier $(TOOL_SURFACE_TIER) \
 	      --json-out tests/cli_integration/results/tool_surface_$${cli}_$${arm}.json \
 	      > tests/cli_integration/results/tool_surface_$${cli}_$${arm}.log 2>&1 || true; \
 	  done ) & done; wait

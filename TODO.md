@@ -355,6 +355,17 @@ prioritised. Correctness first, then packaging/adoption.
       job refuses anything in `dist/` that is not a wheel or an sdist, and
       `tests/test_mcpb_bundle.py` holds both.
 
+      **The dry run earns its keep (2026-09-16).** Re-running
+      `release.yml` by dispatch on the fix branch failed immediately: the bundle
+      step derived its version by stripping `v` from `GITHUB_REF_NAME`, which on
+      a dispatch is the branch name, so a branch with a slash produced a nested
+      path and the `ls` after it failed. Fixed by reading `GITHUB_REF_TYPE`. The
+      second dispatch went green end to end — build, both images, the arm64
+      lane, the manifest, and the dry-run release listing `bundle/` and a clean
+      `dist/`. Worth remembering when adding a step to this workflow: a step
+      that only a tag reaches is a step nothing tests, and the dispatch is how
+      that gets cheap.
+
       **Scorecard, first published score 5.7 (2026-09-14) — plan and status:**
       - [x] *Pinned-Dependencies 0 → 8 locally, then the pip lines too
         (2026-09-15, #94).* Every `uses:` in all eight workflows pinned to a

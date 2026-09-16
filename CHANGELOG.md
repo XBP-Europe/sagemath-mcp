@@ -86,6 +86,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The bundle step broke every dry run.** It named the output by stripping a
+  leading `v` from `GITHUB_REF_NAME`, which on a `workflow_dispatch` is the
+  branch: a branch with a slash in it made the path
+  `bundle/sagemath-mcp-some/branch.mcpb`, a nested directory, and the `ls` on
+  the next line failed the job. The `${VERSION:-0.0.0-dryrun}` fallback never
+  applied, because a branch name is not empty. The version now comes from
+  `GITHUB_REF_TYPE`. Found by running the dry run, which is the only thing that
+  reaches this step before a tag.
+
 - **The desktop bundle would have broken the next PyPI publish.** `mcpb pack`
   wrote `sagemath-mcp-<version>.mcpb` into `dist/`, which the publish job
   uploads with `packages-dir: dist`; twine reads the whole directory and rejects

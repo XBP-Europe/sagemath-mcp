@@ -6,6 +6,16 @@ reproduction and regression test in [REVIEW_ACTIONS.md](REVIEW_ACTIONS.md). This
 file carried 31 ticked boxes duplicating both, several of them years of context
 out of date.
 
+- [ ] **Lift the `fastmcp<4` cap — blocked upstream, 2026-09-16.** Investigated
+      against 4.0.4: `Context.session_id` is a fresh UUID on every tool call, on
+      every transport, so no stateful fastmcp server keeps a client's state
+      between calls (it breaks fastmcp's own `set_state`/`get_state` too). The
+      recorded diagnosis in REVIEW_ACTIONS 68 — a response-cache leak — was
+      wrong and is corrected there. Reproduction, cause and the conditions for
+      lifting the cap: `docs/fastmcp4_session_regression.md`. Reported upstream
+      as PrefectHQ/fastmcp#5134 (2026-09-16); the cap stays until a release
+      reports one session id per connection and `tests/test_cache_isolation.py`
+      passes against it in the Sage container.
 - [ ] From the 2026-09-06 external review, in its recommended order (foundations
       before features; the fastmcp<4 cap and the verifier's exactness fixes from
       the same review already landed — REVIEW_ACTIONS 68, `tools/verify.py`):

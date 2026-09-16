@@ -3588,6 +3588,37 @@ Reproduced on an unmodified checkout of main, SageMath 10.9.
 Fixed 2026-09-06; found by the integration suite on a freshly provisioned
 container, before any release shipped with the open bound.
 
+### Correction, 2026-09-16 — the diagnosis above was wrong
+
+The cap is right; the reason given for it is not. This server disables tool,
+resource and prompt caching explicitly (`ResponseCachingMiddleware` with
+`enabled=False` for all three in `app.py`), and the failure reproduces with that
+caching off. It is not a cache leak.
+
+The actual cause is that fastmcp 4 returns a **fresh `Context.session_id` on
+every tool call**, on every transport, so the second client's assignment and its
+read land in different workers. Measured on 4.0.4: over stdio, 3.4.7 reports one
+session id for the life of the connection and 4.0.4 reports three different ids
+for three calls. It breaks fastmcp's own `ctx.set_state`/`get_state` the same
+way, which is how it is best demonstrated upstream.
+
+Upstream's intent is visible in the code — `session_id` caches an id on the
+connection, "which persists for the whole client session" — but the connection
+object is reconstructed per request, so the cache is written to something
+discarded before the next call.
+
+The full investigation, a minimal reproduction and the conditions for lifting
+the cap are in [`docs/fastmcp4_session_regression.md`](docs/fastmcp4_session_regression.md).
+Reported upstream as PrefectHQ/fastmcp#5134.
+Two consequences worth keeping in mind:
+
+* the other three tests in `tests/test_cache_isolation.py` pass under 4.x for
+  the wrong reason — they assert reads *fail* after a reset, which an unstable
+  session satisfies by accident;
+* a process-wide identity would repair stdio but merge every HTTP client into
+  one shared session, which is the confidentiality failure that file exists to
+  prevent, so it is not a safe workaround.
+
 ## 69. Denylist derivation over-fires under a modularized Sage layout — medium — DONE
 
 ### What

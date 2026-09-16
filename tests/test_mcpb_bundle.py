@@ -99,6 +99,51 @@ def test_the_release_builds_and_attaches_the_bundle() -> None:
     assert "mcpb@latest pack packaging/mcpb" in release, (
         "release.yml no longer builds the bundle"
     )
-    # dist/ is what the release job uploads and later attaches to the release,
-    # so writing the bundle there is what puts it on the release page.
-    assert 'dist/sagemath-mcp-${VERSION}.mcpb' in release
+    assert 'bundle/sagemath-mcp-${VERSION}.mcpb' in release
+    # Packed in one job, attached in another, so it needs to travel as an
+    # artifact; without this the release page has no bundle on it.
+    assert "name: mcpb" in release, "the bundle is not uploaded as an artifact"
+    assert "dist/* bundle/* sbom/* provenance/*" in release, (
+        "the release no longer attaches the bundle and the provenance"
+    )
+
+
+def test_the_bundle_is_not_in_the_directory_pypi_publishes() -> None:
+    """dist/ is uploaded to PyPI, and twine reads the whole directory.
+
+    A .mcpb there fails the upload with `InvalidDistribution: Unknown
+    distribution format`, and it fails it in the publish job -- after the
+    container images have been pushed and signed. That is why the bundle is
+    packed into bundle/ and why the build job refuses anything else in dist/.
+    """
+    release = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+    assert "packages-dir: dist" in release, (
+        "the publish job no longer uploads dist/; re-check where the bundle may live"
+    )
+    assert "dist/sagemath-mcp-" not in release, "the bundle is being packed into dist/ again"
+    assert "Keep dist/ to what PyPI accepts" in release, (
+        "the guard that keeps non-distributions out of dist/ is gone"
+    )
+    # The Makefile has to agree, or `make mcpb` reintroduces locally what the
+    # release forbids.
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    assert "pack packaging/mcpb bundle/" in makefile
+
+
+def test_the_release_attaches_signed_provenance() -> None:
+    """Provenance in GitHub's attestation store is verifiable but invisible.
+
+    A `.intoto.jsonl` on the release is the same Sigstore bundle in the place a
+    consumer -- or a scanner reading release assets, which is how OpenSSF
+    Scorecard's Signed-Releases check works -- actually looks. The bundle is one
+    of its subjects, and the release-page copy is the only provenance it has.
+    """
+    release = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+    assert "attest-build-provenance" in release
+    assert "bundle/*.mcpb" in release, "the desktop bundle is no longer attested"
+    assert "steps.attest.outputs.bundle-path" in release, (
+        "the attestation bundle is no longer copied out of the action's output"
+    )
+    assert '.intoto.jsonl' in release, (
+        "Scorecard's Signed-Releases probe matches on this exact suffix"
+    )

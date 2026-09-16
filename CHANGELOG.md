@@ -9,6 +9,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Release provenance as a file on the release page.** Every release now
+  attaches `sagemath-mcp-<version>.intoto.jsonl`: the Sigstore bundle naming
+  the wheel, the sdist and the `.mcpb` as its subjects, copied from the
+  attestation step that already signed them and checked to cover all three. It verifies an artefact offline —
+  `gh attestation verify <file> --owner XBP-Europe --bundle <this file>` makes
+  no API call — and it is the only provenance the desktop bundle has, which is
+  now attested alongside the Python artefacts. It also gives OpenSSF
+  Scorecard's *Signed-Releases* check something to read: that check inspects
+  release assets only, so the Cosign signatures on the GHCR digest and the PEP
+  740 attestations on PyPI were invisible to it and v0.8.0 scored 0. The score
+  averages the last five releases, so it climbs as releases ship rather than
+  jumping.
+
 - **README quick-start for all four clients.** *Connect an MCP client* now
   gives one command each for Claude Desktop (the bundle), Claude Code, Gemini
   CLI and Codex CLI, verified by running each `mcp add` against the real CLI.
@@ -72,6 +85,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `tests/test_conda_recipe.py` verifies the hash against PyPI.
 
 ### Fixed
+
+- **The desktop bundle would have broken the next PyPI publish.** `mcpb pack`
+  wrote `sagemath-mcp-<version>.mcpb` into `dist/`, which the publish job
+  uploads with `packages-dir: dist`; twine reads the whole directory and rejects
+  anything that is not a distribution (`InvalidDistribution: Unknown
+  distribution format`, reproduced locally). The failure would have landed in
+  the publish job — after the container images were pushed and signed — and only
+  on a real tag, since a dry run skips publishing entirely. The bundle now packs
+  into `bundle/` (so does `make mcpb`), the build job fails if anything but a
+  wheel or an sdist is in `dist/`, and `tests/test_mcpb_bundle.py` holds both.
 
 - **Restored the tool-surface findings dropped from `TODO.md`.** Merging the
   vendored-HTML removal resolved a rebase conflict by taking one side of a hunk

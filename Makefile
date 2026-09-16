@@ -127,9 +127,12 @@ tool-surface:
 # The one-click desktop bundle (packaging/mcpb). `mcpb pack` validates the
 # manifest against the published schema as it packs, so this is also the check;
 # tests/test_mcpb_bundle.py covers the parts a schema cannot express.
+#
+# It lands in bundle/, not dist/: dist/ is what the release uploads to PyPI, and
+# twine refuses a directory holding anything that is not a wheel or an sdist.
 mcpb:
-	@mkdir -p dist
-	npx --yes @anthropic-ai/mcpb@latest pack packaging/mcpb dist/sagemath-mcp-$(shell grep -m1 '^version' pyproject.toml | cut -d'"' -f2).mcpb
+	@mkdir -p bundle
+	npx --yes @anthropic-ai/mcpb@latest pack packaging/mcpb bundle/sagemath-mcp-$(shell grep -m1 '^version' pyproject.toml | cut -d'"' -f2).mcpb
 
 all: test integration-test
 

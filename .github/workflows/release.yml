@@ -65,12 +65,36 @@ jobs:
         # packs, so a bad manifest fails here -- in the job every publish
         # depends on -- rather than inside someone's desktop app after a
         # one-click install.
+        #
+        # It is packed into bundle/, NOT dist/, and that is not cosmetic: the
+        # publish job uploads `packages-dir: dist` to PyPI, and twine refuses a
+        # directory holding anything it does not recognise as a distribution
+        # ("InvalidDistribution: Unknown distribution format"). A .mcpb in dist/
+        # would therefore fail the release at the PyPI step, after the images
+        # were already pushed and signed. dist/ is wheel and sdist only.
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           VERSION="${VERSION:-0.0.0-dryrun}"
+          mkdir -p bundle
           npx --yes @anthropic-ai/mcpb@latest pack packaging/mcpb \
-            "dist/sagemath-mcp-${VERSION}.mcpb"
-          ls -l dist/*.mcpb
+            "bundle/sagemath-mcp-${VERSION}.mcpb"
+          ls -l bundle/*.mcpb
+      - name: Keep dist/ to what PyPI accepts
+        # The publish job uploads this directory, and twine reads all of it. A
+        # stray file here fails the release at the PyPI step -- after the images
+        # are pushed and signed -- so it is caught in the job that creates the
+        # directory, on dry runs too.
+        run: |
+          for file in dist/*; do
+            case "$file" in
+              *.whl|*.tar.gz) ;;
+              *) echo "::error::$file is in dist/, which the publish job uploads"\
+                      "to PyPI; twine accepts only wheels and sdists there."\
+                      "Release-only assets belong in bundle/ or provenance/."
+                 exit 1 ;;
+            esac
+          done
+          ls -l dist
       - name: Source SBOM (SPDX)
         # The dependency inventory of what the wheel pulls in, read from
         # uv.lock and pyproject (.syft.yaml keeps the build venv and dist out of
@@ -108,21 +132,56 @@ jobs:
               exit 1
             fi
           done
-      - name: Attest build provenance for the Python artifacts
-        # SLSA provenance for the wheel and sdist, signed through Sigstore and
-        # stored with the repository (`gh attestation verify <file> --owner
-        # XBP-Europe`). PyPI gets its own PEP 740 attestation for the same files
-        # in the publish job; this one covers the copies attached to the GitHub
-        # release. Tag push only: a dry run must not attest artifacts that are
-        # never published.
+      - name: Attest build provenance for the release artifacts
+        # SLSA provenance for the wheel, the sdist and the desktop bundle,
+        # signed through Sigstore and stored with the repository (`gh
+        # attestation verify <file> --owner XBP-Europe`). PyPI gets its own PEP
+        # 740 attestation for the wheel and sdist in the publish job; this one
+        # covers the copies attached to the GitHub release, and is the only
+        # provenance the .mcpb has. Tag push only: a dry run must not attest
+        # artifacts that are never published.
+        id: attest
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-path: dist/*
+          subject-path: |
+            dist/*
+            bundle/*.mcpb
+      - name: Keep the provenance as a release asset
+        # The attestation above lives in GitHub's attestation store, which is
+        # the right place to verify against but not somewhere a consumer -- or a
+        # scanner -- finds by looking at the release. The action writes the
+        # Sigstore bundle it just created to `bundle-path`: one bundle whose
+        # in-toto statement names every subject it attested (wheel, sdist,
+        # .mcpb), written as a single JSON line. Copying it out under the
+        # conventional `.intoto.jsonl` name puts the same provenance on the
+        # release itself, where `gh attestation verify <artifact> --owner
+        # XBP-Europe --bundle <this file>` checks an artifact offline, with no
+        # call to GitHub. The script then reads the bundle back and fails if any
+        # of the three artefacts is missing from it, because provenance that
+        # silently covers less than the release ships is worse than none.
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        env:
+          BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p provenance
+          cp "${BUNDLE_PATH}" "provenance/sagemath-mcp-${VERSION}.intoto.jsonl"
+          python3 scripts/check_provenance_bundle.py \
+            "provenance/sagemath-mcp-${VERSION}.intoto.jsonl"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dist
           path: dist/*
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mcpb
+          path: bundle/*
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        with:
+          name: provenance
+          path: provenance/*
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: sbom-source
@@ -590,6 +649,21 @@ jobs:
         with:
           name: dist
           path: dist
+      - name: Collect the desktop bundle
+        # Packed in the build job, kept out of dist/ so twine never sees it.
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: mcpb
+          path: bundle
+      - name: Collect the provenance
+        # Only exists on a tag push -- the attestation step that produces it is
+        # gated the same way -- so a dry run skips this and attaches no
+        # provenance, which is correct: it has nothing signed to attach.
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: provenance
+          path: provenance
       - name: Collect the SBOMs
         # Both SBOMs ride along as release assets, next to the wheel and sdist,
         # for consumers who want a file rather than a registry attestation.
@@ -625,7 +699,7 @@ jobs:
           echo "Would create a release with these notes:"
           head -40 release-notes.md || echo "(no changelog entry; generated notes would be used)"
           echo "Would attach these assets:"
-          ls -l dist sbom
+          ls -l dist bundle sbom
           # Both SBOMs must exist and parse, or the release would ship without
           # the inventory the README advertises.
           for f in sbom/sagemath-mcp-source.spdx.json sbom/sagemath-mcp-image.spdx.json \
@@ -648,11 +722,11 @@ jobs:
               --title "${GITHUB_REF_NAME}" \
               --verify-tag \
               --notes-file release-notes.md \
-              dist/* sbom/*
+              dist/* bundle/* sbom/* provenance/*
           else
             gh release create "${GITHUB_REF_NAME}" \
               --title "${GITHUB_REF_NAME}" \
               --verify-tag \
               --generate-notes \
-              dist/* sbom/*
+              dist/* bundle/* sbom/* provenance/*
           fi

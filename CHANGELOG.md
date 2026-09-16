@@ -7,6 +7,14 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **The conda-forge recipe packages 0.8.0.** `packaging/conda/meta.yaml` now
+  pins the 0.8.0 sdist and its hash, which exist on PyPI as of this release. The
+  declared metadata is unchanged from 0.7.0 — same `requires-python` and the same
+  three runtime dependencies — so only the version and `sha256` moved.
+  `tests/test_conda_recipe.py` verifies the hash against PyPI.
+
 ### Fixed
 
 - **SBOM attestation no longer exceeds GitHub's 16 MiB limit.** The v0.8.0 tag's

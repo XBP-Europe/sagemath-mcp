@@ -312,7 +312,9 @@ prioritised. Correctness first, then packaging/adoption.
         security-extended queries, on push/PR/weekly. The score updates once it
         has run on a few commits.
       - *Signed-Releases 0.* True of v0.7.0, which predates the provenance and
-        SBOM work; **resolves itself at the next tag**, nothing to do.
+        SBOM work. **v0.8.0 is the first release built by the pipeline that
+        signs, attests and attaches SBOMs**, so the next Scorecard run after it
+        should pick it up; nothing to do but check.
       - *Branch-Protection −1 (internal error).* Scorecard's default token
         cannot read protection settings; needs the owner to add a fine-grained
         PAT (`administration: read`) as `SCORECARD_TOKEN` and pass it as

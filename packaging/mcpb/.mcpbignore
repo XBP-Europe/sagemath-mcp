@@ -1,0 +1,11 @@
+# The host installs dependencies with uv at launch; shipping an environment
+# would defeat the point of the uv server type and break cross-platform use.
+.venv/
+server/lib/
+__pycache__/
+*.pyc
+
+# Maintainer notes, not something a desktop user installs. What they need
+# to know -- the first-launch download and the security posture -- is in the
+# manifest's long_description, which the host shows them.
+README.md

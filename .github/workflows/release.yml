@@ -60,6 +60,17 @@ jobs:
         run: uv pip install build
       - name: Build artifacts
         run: uv run python -m build --sdist --wheel --outdir dist
+      - name: Build the MCPB desktop bundle
+        # `mcpb pack` validates the manifest against the published schema as it
+        # packs, so a bad manifest fails here -- in the job every publish
+        # depends on -- rather than inside someone's desktop app after a
+        # one-click install.
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${VERSION:-0.0.0-dryrun}"
+          npx --yes @anthropic-ai/mcpb@latest pack packaging/mcpb \
+            "dist/sagemath-mcp-${VERSION}.mcpb"
+          ls -l dist/*.mcpb
       - name: Source SBOM (SPDX)
         # The dependency inventory of what the wheel pulls in, read from
         # uv.lock and pyproject (.syft.yaml keeps the build venv and dist out of

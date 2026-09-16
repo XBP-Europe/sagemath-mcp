@@ -300,8 +300,11 @@ prioritised. Correctness first, then packaging/adoption.
       included, so it resolves under the `<4` cap today. **Submitting it to
       `conda-forge/staged-recipes` is #101** — it starts an external review and
       names a maintainer publicly, so it is the owner's call, and the README /
-      USAGE / DISTRIBUTION lines wait on it. The nix flake and `.mcpb` bundle
-      are untouched.
+      USAGE / DISTRIBUTION lines wait on it. The **`.mcpb` bundle is done**
+      (2026-09-16, `packaging/mcpb`): MCPB `uv` server type, ~2 KB, pinning
+      `sagemath-mcp[passagemath]` so the host installs a Sage runtime with it;
+      built and attached by every release, schema-validated as it packs, version
+      kept in step by the bump script. The **nix flake** is untouched.
       **Scorecard, first published score 5.7 (2026-09-14) — plan and status:**
       - [x] *Pinned-Dependencies 0 → 8 locally, then the pip lines too
         (2026-09-15, #94).* Every `uses:` in all eight workflows pinned to a

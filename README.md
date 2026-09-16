@@ -110,6 +110,15 @@ architecture is smoke-tested natively before it is published, and the index is
 signed and attested like the primary image. It is the optional image on amd64,
 where the monolithic one stays primary.
 
+**One click in a desktop MCP host (Claude Desktop and friends):** download
+`sagemath-mcp-<version>.mcpb` from the
+[latest release](https://github.com/XBP-Europe/sagemath-mcp/releases/latest) and
+open it. The bundle is a couple of kilobytes; your host installs the server *and*
+a Sage runtime with uv on first launch, which is roughly a 1 GB download once.
+macOS and Linux — native Windows is excluded because passagemath's Windows
+support is partial. A bundle is a local install with your own privileges; for
+untrusted or multi-tenant use run the container instead.
+
 Source install, Docker Compose, and the Kubernetes Helm chart are in
 **[USAGE.md](USAGE.md)**.
 

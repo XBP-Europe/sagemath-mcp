@@ -68,6 +68,7 @@ the container image, and then publishes every artefact from that one run (see
 | container image | GHCR, `ghcr.io/xbp-europe/sagemath-mcp:<tag>` (linux/amd64) | a **Cosign signature**, plus **SLSA provenance** and an **SPDX SBOM** pushed to the registry as attestations on the image digest |
 | passagemath image | GHCR, `ghcr.io/xbp-europe/sagemath-mcp:<tag>-passagemath` (linux/amd64 + linux/arm64 index; per-arch `-amd64`/`-arm64` tags too) | a **Cosign signature** and **SLSA provenance** on the index digest; **SLSA provenance** and an **SPDX SBOM** attested to each per-arch digest. Each architecture is smoke-tested natively before the index is assembled from exactly those images |
 | `sagemath-mcp-source.spdx.json`, `sagemath-mcp-image.spdx.json`, `sagemath-mcp-image-passagemath-{amd64,arm64}.spdx.json` | assets on the GitHub release | the same SBOMs as files, for consumers who do not read registry attestations |
+| `sagemath-mcp-<version>.mcpb` | asset on the GitHub release | the one-click desktop bundle, packed (and schema-validated) in the same job that builds the wheel, so a bad manifest fails before anything publishes |
 | registry entry | the official MCP registry | published with GitHub OIDC after PyPI succeeds |
 
 A manual `twine upload` would work but would ship files with no attestation, so it

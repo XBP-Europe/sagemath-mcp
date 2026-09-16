@@ -9,6 +9,23 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A one-click desktop bundle (`packaging/mcpb`).** `sagemath-mcp-<version>.mcpb`
+  is now built and attached to every release, so a desktop MCP host can install
+  the server by opening a file. It uses the MCPB **`uv` server type**, which
+  keeps the bundle at about 2 KB — three files, no vendored dependencies — and
+  lets the host resolve one pin, `sagemath-mcp[passagemath]==<release>`, at first
+  launch. That pin is the point: it brings a **Sage runtime** as well as the
+  server, where a bundle installing only the server would start cleanly and then
+  refuse every evaluation. The cost is stated in the manifest the host shows the
+  user: roughly 1 GB on first launch. Platforms are macOS and Linux, excluding
+  native Windows on the evidence in `docs/passagemath_evaluation.md`, where
+  passagemath's Windows support is partial. `make mcpb` builds it locally;
+  `mcpb pack` validates the manifest against the published schema as it packs,
+  and it runs in the release's `build` job so a bad manifest fails before
+  anything is published. `tests/test_mcpb_bundle.py` covers what a schema
+  cannot, and `scripts/bump_version.py` moves the manifest version and the pin
+  so a release cannot ship a bundle that installs the previous one.
+
 - **A hard tier for the tool-surface measurement** (`--tier hard`, 14 cases).
   The 2026-09-15 measurement found its own case set no longer forced tools:
   frontier clients answered 60 of 63 with no MCP server at all, from recall, so

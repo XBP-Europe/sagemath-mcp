@@ -417,6 +417,13 @@ _IMPORT_ALTERNATIVES: tuple[tuple[str, str], ...] = (
     ("decimal", "RealField(precision) is already available"),
     ("statistics", "mean, median, variance, std are already available"),
     ("itertools", "product, permutations and combinations of Sage's own"),
+    # Both found by the 2026-09-15 tool-surface measurement: Gemini reached for
+    # mpmath in the high-precision physics cases and lost four of them to a
+    # refusal that named no alternative.
+    ("mpmath", "RealField(prec) and RealBallField(prec) for high precision, "
+               "numerical_integral, find_root, and N(expr, digits=...) on an "
+               "exact expression"),
+    ("functools", "reduce is already available"),
 )
 
 
@@ -562,6 +569,53 @@ def _screened_attrcall(node: ast.AST, policy: SecurityPolicy) -> bool:
 
 def _native_equivalent(name: str) -> str | None:
     return _NATIVE_EQUIVALENTS.get(name)
+
+
+# Names a model writes that SageMath does not have, and how Sage spells them.
+# Distinct from _NATIVE_EQUIVALENTS: nothing here is withheld -- these names do
+# not exist in Sage at all (a NameError at the REPL), so the refusal that stops
+# them is the deny-by-default "not a name this server offers", and the fix is a
+# spelling, not a policy. They come from watching models work: the 2026-09-15
+# tool-surface measurement lost `partitions` three times and `bessel_J_zeros`
+# twice, each to a refusal that suggested checking for a typo; the rest are the
+# SymPy, NumPy and SciPy spellings a model reaches for first.
+#
+# Every entry is verified against real Sage by
+# `test_every_sage_spelling_hint_computes`: the key must be absent from the
+# worker namespace (if a Sage release adds it, the entry must go) and the
+# spelling must compute. Names recommended here must be on the allowlist --
+# advising a refused spelling would be worse than none.
+_SAGE_SPELLINGS: dict[str, str] = {
+    "partitions": "Partitions(n).cardinality() or number_of_partitions(n)",
+    "npartitions": "number_of_partitions(n)",
+    "bessel_J_zeros": "find_root(bessel_J(0, x), a, b) with a bracket [a, b] around the "
+                      "zero (the first zero of J_0 lies in [2, 3])",
+    "besseljzero": "find_root(bessel_J(0, x), a, b) with a bracket [a, b] around the zero",
+    "jn_zeros": "find_root(bessel_J(0, x), a, b) with a bracket [a, b] around the zero",
+    "isprime": "is_prime(n)",
+    "is_prime_number": "is_prime(n)",
+    "nextprime": "next_prime(n)",
+    "primerange": "prime_range(a, b)",
+    "primefactors": "prime_divisors(n), or factor(n) for the factorisation",
+    "factorint": "factor(n)",
+    "totient": "euler_phi(n)",
+    "divisor_count": "number_of_divisors(n)",
+    "gcdex": "xgcd(a, b)",
+    "nCr": "binomial(n, k)",
+    "bell": "bell_number(n)",
+    "stirling": "stirling_number1(n, k) or stirling_number2(n, k)",
+    "symbols": "var('a b c')",
+    "Symbol": "var('a')",
+    "Poly": "PolynomialRing(QQ, 't'), or R.<t> = QQ[]",
+    "summation": "sum(f, k, a, b) for a symbolic sum, sum(list) for a finite one",
+    "Sum": "sum(f, k, a, b) for a symbolic sum, sum(list) for a finite one",
+    "nsolve": "find_root(f, a, b), or solve(f == 0, x) for an exact answer",
+    "linspace": "srange(a, b, step), or [a + (b - a)*i/n for i in range(n + 1)]",
+}
+
+
+def _sage_spelling(name: str) -> str | None:
+    return _SAGE_SPELLINGS.get(name)
 
 
 def _import_alternative(module: str) -> str | None:
@@ -1164,10 +1218,17 @@ def validate_module(
                     code=code,
                     policy=policy,
                 )
+            # The first sentence is the rule the corpus sweep keys on; what
+            # follows it is advice, and the best advice is the spelling that
+            # works. A name Sage never had gets that; anything else gets the
+            # two honest possibilities.
+            spelling = _sage_spelling(node.id)
             _raise_violation(
-                f"'{node.id}' is not a name this server offers. If it is a typo, "
-                "check the spelling; if it is a SageMath function that should be "
-                "available, it needs to be added to the allowlist",
+                f"'{node.id}' is not a name this server offers. "
+                + (f"SageMath spells it {spelling}." if spelling else
+                   "If it is a typo, check the spelling; if it is a SageMath "
+                   "function that should be available, it needs to be added to "
+                   "the allowlist"),
                 code=code,
                 policy=policy,
             )

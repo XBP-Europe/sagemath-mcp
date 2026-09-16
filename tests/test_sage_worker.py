@@ -1137,3 +1137,92 @@ def test_shield_moves_the_protocol_off_descriptor_one():
     finally:
         os.close(proto_r)
         os.close(noise_r)
+
+
+# --- runtime hints -----------------------------------------------------------
+#
+# Errors with a Sage-specific cause a model does not know. The hint rides on the
+# message the model reads; the type and traceback are unchanged, and an error
+# nobody has a hint for is reported exactly as before.
+
+
+def test_a_python_float_without_n_gets_a_hint():
+    from sagemath_mcp import _sage_worker
+
+    response = _sage_worker._execute("v = float(1.5)\nv.n()", False, False, {})
+    assert response["ok"] is False
+    assert response["error"]["type"] == "AttributeError"
+    assert response["error"]["message"].startswith("'float' object has no attribute 'n'")
+    assert "Hint: this is a Python float" in response["error"]["message"]
+    assert "N(value) or RR(value)" in response["error"]["message"]
+    assert "AttributeError" in response["error"]["traceback"]
+
+
+def test_a_python_int_without_n_gets_its_own_hint():
+    from sagemath_mcp import _sage_worker
+
+    response = _sage_worker._execute("len([1, 2]).n()", False, False, {})
+    assert "Hint: this is a Python int" in response["error"]["message"]
+    assert "Integer(value)" in response["error"]["message"]
+
+
+def test_calling_a_number_gets_the_multiplication_hint():
+    from sagemath_mcp import _sage_worker
+
+    # Bound first: a literal `(2)(3)` also draws a compile-time SyntaxWarning,
+    # which is noise here -- the runtime TypeError is what carries the hint.
+    response = _sage_worker._execute("n = 2\nn(3)", False, False, {})
+    assert response["error"]["type"] == "TypeError"
+    assert "Hint: a number is not a function" in response["error"]["message"]
+    assert "2*x, not 2(x)" in response["error"]["message"]
+
+
+def test_a_stray_backslash_gets_the_double_escape_hint():
+    from sagemath_mcp import _sage_worker
+
+    # The source contains a literal backslash before the newline the client
+    # meant to send: `a = 1 \n b = 2` with a real backslash-n pair.
+    response = _sage_worker._execute("a = 1 \\n b = 2", False, False, {})
+    assert response["error"]["type"] == "SyntaxError"
+    assert "Hint: a stray backslash" in response["error"]["message"]
+    assert "send real newlines" in response["error"]["message"]
+
+
+def test_sage_only_errors_are_hinted_by_message_text():
+    """The rational-conversion and precision errors only arise in Sage; the
+    table matches on text, so the pure-Python suite can still pin them."""
+    from sagemath_mcp import _sage_worker
+
+    hint = _sage_worker._hint_for(TypeError("unable to convert '6.62607015e-34' to a rational"))
+    assert "RR('6.62607015e-34')" in hint
+    hint = _sage_worker._hint_for(
+        TypeError("cannot approximate to a precision of 70 bits, use at most 53 bits")
+    )
+    assert "N(exact_expression, digits=...)" in hint
+    hint = _sage_worker._hint_for(
+        TypeError("'sage.rings.real_mpfr.RealLiteral' object is not callable")
+    )
+    assert hint == _sage_worker._NUMBER_CALLED_HINT
+
+
+def test_every_runtime_hint_row_is_reachable():
+    from sagemath_mcp import _sage_worker
+
+    for exc_type, needle, hint in _sage_worker._RUNTIME_HINTS:
+        exc = {"AttributeError": AttributeError, "TypeError": TypeError,
+               "SyntaxError": SyntaxError}[exc_type](f"prefix {needle} suffix")
+        resolved = _sage_worker._hint_for(exc)
+        assert resolved == (_sage_worker._NUMBER_CALLED_HINT if hint == "NUMBER_CALLED" else hint)
+        # The same text under another exception type is not the same error.
+        assert _sage_worker._hint_for(ValueError(f"prefix {needle} suffix")) is None
+
+
+def test_an_error_nobody_has_a_hint_for_is_reported_unchanged():
+    from sagemath_mcp import _sage_worker
+
+    response = _sage_worker._execute("1/0", False, False, {})
+    assert response["ok"] is False
+    assert response["error"]["type"] == "ZeroDivisionError"
+    assert response["error"]["message"] == "division by zero"
+    assert "Hint" not in response["error"]["message"]
+    assert _sage_worker._hint_for(ValueError("something else")) is None

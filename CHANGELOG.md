@@ -141,6 +141,25 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Refusals and runtime errors name the spelling that works.** The 2026-09-15
+  tool-surface measurement lost cases to a handful of exchanges in which the
+  server was right and unhelpful: `partitions` and `bessel_J_zeros` refused with
+  "check the spelling" (Sage never had them), `import mpmath` refused with no
+  alternative named, and Sage runtime errors a model does not know how to read —
+  `'float' object has no attribute 'n'` on a `numerical_integral` result,
+  `unable to convert '6.62607015e-34' to a rational` from `QQ('...')`, `cannot
+  approximate to a precision of 70 bits` from `.n(digits=20)` on an `RDF`, a
+  `RealLiteral` "not callable" from `2.0(x)`, and the double-escaped-newline
+  `SyntaxError`. Three changes: a `_SAGE_SPELLINGS` table (25 names models
+  invent — the SymPy/NumPy/SciPy spellings and the two above — each answered
+  with the Sage spelling, verified against real Sage by
+  `test_every_sage_spelling_hint_computes`, which also fails if a future Sage
+  adds one of the names); `mpmath` and `functools` in the import-alternatives
+  table; and a `_RUNTIME_HINTS` table in the worker that appends a hint to the
+  message of those five error shapes (type and traceback untouched, nothing
+  substituted, unit-tested in pure Python and against real Sage). The first
+  sentence of every refusal is unchanged, so the doctest-corpus rule table and
+  its ceilings are unaffected.
 - **The security-artifact drift tests validate the runtime that is installed.**
   `test_the_caller_allowlist_matches_this_sage` and
   `test_the_star_exports_match_this_sage` imported the monolithic

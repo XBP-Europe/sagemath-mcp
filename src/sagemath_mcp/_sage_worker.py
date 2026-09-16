@@ -799,6 +799,82 @@ def _restricted_builtins() -> dict[str, Any]:
     return {name: value for name, value in source.items() if name not in _DENIED_BUILTINS}
 
 
+# Runtime errors with a Sage-specific cause a model does not know, and the fix.
+#
+# Each row is (exception type, a substring of its message, the hint). They were
+# collected by watching models fail: the 2026-09-15 tool-surface measurement
+# lost cases to every one of them, and a model that reads "'float' object has no
+# attribute 'n'" retries with another `.n()` because it does not know that a
+# `numerical_integral` result is a Python float. The hint is appended to the
+# message the model reads; the type and traceback are untouched. Matching is on
+# the message text and the type only, so the same table serves the real worker
+# and the pure-Python one. Nothing here can hide an error: a hint is added,
+# never substituted.
+_RUNTIME_HINTS: tuple[tuple[str, str, str], ...] = (
+    ("AttributeError", "'float' object has no attribute 'n'",
+     "this is a Python float (numerical_integral results, float(...) and RDF "
+     "arithmetic produce them) and has no .n(); wrap it: N(value) or RR(value)"),
+    ("AttributeError", "'int' object has no attribute 'n'",
+     "this is a Python int (len(), range() and indices produce them) and has no "
+     ".n(); wrap it: N(value) or Integer(value)"),
+    ("TypeError", "to a rational",
+     "QQ('...') and Rational('...') do not parse decimal or scientific notation; "
+     "use RR('6.62607015e-34') or RealField(200)('...') for more digits, then "
+     "QQ(...) if a rational is wanted"),
+    ("TypeError", "cannot approximate to a precision of",
+     "the value is a 53-bit machine float (RDF, float, or a numerical_integral "
+     "result) and more digits cannot be recovered from it; compute at the "
+     "precision you need from the start: N(exact_expression, digits=...) or "
+     "RealField(200)(...)"),
+    ("TypeError", "RealNumber' object is not callable", "NUMBER_CALLED"),
+    ("TypeError", "RealLiteral' object is not callable", "NUMBER_CALLED"),
+    ("TypeError", "RealDoubleElement_gsl' object is not callable", "NUMBER_CALLED"),
+    ("TypeError", "Integer' object is not callable", "NUMBER_CALLED"),
+    ("TypeError", "Rational' object is not callable", "NUMBER_CALLED"),
+    ("TypeError", "'float' object is not callable", "NUMBER_CALLED"),
+    ("TypeError", "'int' object is not callable", "NUMBER_CALLED"),
+    ("SyntaxError", "unexpected character after line continuation character",
+     "a stray backslash: usually a newline that arrived as the two characters "
+     "backslash and n (double-escaped by the client), or a shell-style line "
+     "continuation; send real newlines"),
+)
+
+# One hint shared by every "a number is not a function" row above.
+_NUMBER_CALLED_HINT = (
+    "a number is not a function: write multiplication explicitly (2*x, not 2(x)), "
+    "and check that a variable has not shadowed the function you meant (a "
+    "session that ran `sum = 0` has no sum() until reset)"
+)
+
+
+def _hint_for(exc: BaseException) -> str | None:
+    """The hint for *exc*, or None when the error is not one of the known ones."""
+    kind = exc.__class__.__name__
+    text = str(exc)
+    for exc_type, needle, hint in _RUNTIME_HINTS:
+        if kind == exc_type and needle in text:
+            return _NUMBER_CALLED_HINT if hint == "NUMBER_CALLED" else hint
+    return None
+
+
+def _error_payload(exc: BaseException, stdout_value: str) -> dict[str, Any]:
+    """The failure response for *exc*: type, message (with a hint when one is
+    known), traceback and whatever stdout was produced before it."""
+    message = str(exc)
+    hint = _hint_for(exc)
+    if hint:
+        message = f"{message}. Hint: {hint}."
+    return {
+        "ok": False,
+        "stdout": stdout_value,
+        "error": {
+            "type": exc.__class__.__name__,
+            "message": message,
+            "traceback": traceback.format_exc(),
+        },
+    }
+
+
 def _format_result(value: Any) -> str:
     """Render a result the way the Sage REPL renders it.
 
@@ -1114,15 +1190,7 @@ def _execute(
             withheld=_WITHHELD_NAMES,
         )
     except Exception as exc:
-        return {
-            "ok": False,
-            "stdout": stdout_buffer.getvalue() if stdout_buffer else "",
-            "error": {
-                "type": exc.__class__.__name__,
-                "message": str(exc),
-                "traceback": traceback.format_exc(),
-            },
-        }
+        return _error_payload(exc, stdout_buffer.getvalue() if stdout_buffer else "")
 
     before_trusted = frozenset(namespace) if trusted else frozenset()
     before_execution = set(namespace) if compiled.injects and not trusted else set()
@@ -1185,17 +1253,8 @@ def _execute(
                 "traceback": "",
             },
         }
-    except Exception as exc:  # pragma: no cover - error path
-        stdout_value = stdout_buffer.getvalue() if stdout_buffer else ""
-        return {
-            "ok": False,
-            "stdout": stdout_value,
-            "error": {
-                "type": exc.__class__.__name__,
-                "message": str(exc),
-                "traceback": traceback.format_exc(),
-            },
-        }
+    except Exception as exc:
+        return _error_payload(exc, stdout_buffer.getvalue() if stdout_buffer else "")
 
 
     finally:

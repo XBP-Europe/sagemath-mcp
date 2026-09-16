@@ -157,6 +157,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   tests move with the content (every blocked module is now asserted against
   `USAGE.md`), and the tool-count and badge invariants are unchanged.
 
+### Removed
+
+- **The vendored Sage reference HTML (`external_docs/reference_html`).** Seven
+  pages copied from doc.sagemath.org (102 KB), added early as offline reference
+  material. SageMath's documentation is GPL-2.0-or-later and this repository is
+  MIT and says no SageMath source is redistributed here; and nothing read the
+  files — `lookup_sage_doc` and the `sagemath/docs/{scope}` resource link to
+  doc.sagemath.org directly, and the directory was already kept out of the
+  container image. Deleted, no replacement needed (#91).
+
 ### Fixed
 
 - **Refusals and runtime errors name the spelling that works.** The 2026-09-15

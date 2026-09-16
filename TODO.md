@@ -224,11 +224,11 @@ prioritised. Correctness first, then packaging/adoption.
       `server.json` now says 40 (was "34"), and
       `test_hardcoded_tool_counts_match_the_inventory` fails if any stated count
       drifts from `tests/fixtures/tool_inventory.json`, the source of truth.
-- [ ] **`external_docs/reference_html`** vendors Sage's own HTML (102 KB) into an
-      MIT repo — fetch at generation time instead of committing it. **Checked
-      2026-09-15:** nothing reads it (`lookup_sage_doc` and the docs resource
-      link to doc.sagemath.org directly), so the change is a deletion. Open as
-      #91, `good first issue`.
+- [x] **`external_docs/reference_html`** vendors Sage's own HTML (102 KB) into an
+      MIT repo — fetch at generation time instead of committing it. *Done,
+      2026-09-15 (#91).* Nothing read the files (`lookup_sage_doc` and the docs
+      resource link to doc.sagemath.org directly), so the change was a deletion
+      rather than a generation step.
 - [ ] **Clear the `sagemath-*` PyPI namespace question** with sage-devel now —
       Sage upstream owns `sagemath-standard`/`sagemath-symbolics`/… and this is a
       third-party package in that namespace. A friendly ask today, a forced
@@ -261,12 +261,10 @@ prioritised. Correctness first, then packaging/adoption.
       Still open: (a) **Zenodo DOI** — needs the repository owner to enable the
       GitHub integration at zenodo.org for `XBP-Europe/sagemath-mcp`, after which
       the next tag mints a DOI; then add the concept DOI to `CITATION.cff` (the
-      file says where) and a DOI badge to the README — tracked as #92, opened
-      blocked so a contributor can take it the day the DOI exists;
-      (b) ~~**good-first-issue candidates**~~ **seeded 2026-09-15:** #91
-      (remove the vendored Sage HTML) and #92 (DOI wiring) carry `good first
-      issue`; #93 (conda-forge recipe) and #94 (hash-lock the passagemath
-      image's pip installs) carry `help wanted`;
+      file says where) and a DOI badge to the README; (b) **good-first-issue
+      candidates** — the tracker has no open issues to label, so seed it from
+      the small self-contained TODO items (fetch the Sage reference HTML at
+      generation time; `CITATION.cff` DOI wiring; conda-forge recipe scaffold);
       (c) the **JOSS paper**, a separate piece of writing once the DOI exists.
 - [ ] Extra install paths worth their weekend: a conda-forge recipe (where Sage
       users actually live), a nix flake (`nix run github:…` incl. Sage), and an
@@ -280,8 +278,7 @@ prioritised. Correctness first, then packaging/adoption.
       provenance are attested to the GHCR digest; Scorecard publishes weekly.
       First real exercise is the next tag — the dry-run dispatch covers SBOM
       generation but attests nothing by design. The install paths
-      (conda-forge, nix, `.mcpb`) remain open; conda-forge is #93 (`help
-      wanted`).
+      (conda-forge, nix, `.mcpb`) remain open.
       **Scorecard, first published score 5.7 (2026-09-14) — plan and status:**
       - [x] *Pinned-Dependencies 0 → 8 locally.* Every `uses:` in all eight
         workflows pinned to a commit SHA with a version comment (Dependabot
@@ -291,8 +288,7 @@ prioritised. Correctness first, then packaging/adoption.
         an exported lock and would complicate the arm64 sdist fallback; the
         image installs the exact pinned extra and is smoke-tested per arch) and
         the three `npm install -g` lines in `cli-nightly.yml` (CLI clients for
-        a local-only harness). Those cap the check at ~8. Hash-locking the pip
-        lines is #94 (`help wanted`) if someone wants the last two points.
+        a local-only harness). Those cap the check at ~8.
       - [x] *Token-Permissions 0 → 10 locally.* Top-level `permissions:
         contents: read` on every workflow; write scopes only at job level, only
         where used (`issues: write` moved off the top level in `audit.yml` and
@@ -315,49 +311,10 @@ prioritised. Correctness first, then packaging/adoption.
       - *Fuzzing 0.* Not pursued: the AST validator is exercised by the
         432,878-example doctest corpus and a Hypothesis property suite, which is
         the fuzzing this project's shape actually benefits from.
-- [x] **Measure the tool surface before defending it.** The roadmap argues 40
+- [ ] **Measure the tool surface before defending it.** The roadmap argues 40
       tools is a differentiator; the reviewer argues `evaluate_sage` covers most
       of it and a 12-tool build might score the same. Use the CLI harness to
       test a reduced set vs the full catalogue on pass rate before deciding.
-      *Measured 2026-09-15* — `make tool-surface`, `tool-surface-stats.md`. The
-      23 tool-forcing cases ran through Claude Code, Gemini CLI and Codex in
-      three arms: no server (enforced: Claude `--tools ""`, Gemini without
-      `--yolo` with its tool stats read, Codex `--json` scanned for command
-      executions — all read 0), the server narrowed **on the wire** to
-      `evaluate_sage` + session/diagnostic tools (the proxy's `--allow-tools`
-      hides the rest from `tools/list` and refuses `tools/call`), and the full
-      catalogue. Findings:
-      1. **The "tool-forcing" cases no longer force tools for 2026 frontier
-         clients.** Without any server: Claude 21/21, Codex 21/21, Gemini 18/21
-         — from recall and reasoning, zero tool use observed. Only Gemini shows
-         the wrong-confident failure (3: `next_prime(10^30)`, `50! mod 1000003`,
-         Bell(25) — all plausible-looking, exactly what `verify_claim` is for).
-         The case set needs a harder tier before it can discriminate arms on
-         *correctness* (the outcome benchmark's `infeasible` tier is the model;
-         its subject was `haiku` for the same reason).
-      2. **Full catalogue vs core tools, on client-cases measured in both: full
-         is ahead by a few cases, not by a class.** Claude 21/23 → 22/23,
-         Gemini 15/23 → 19/23. Where the helpers won, they won by keeping the
-         model out of `evaluate_sage` code that tripped friction — Gemini's
-         `import` statements (refused), `bessel_J_zeros` (not a Sage name),
-         `partitions` (not offered), `'float' object has no attribute 'n'`,
-         `unable to convert '6.62607015e-34' to a rational`. That is the real
-         value of a dedicated tool: it writes the Sage the model would have
-         written wrong. It is also a list of friction to fix in `evaluate_sage`
-         itself (each is a "reduce refusals" item).
-      3. **Codex could not be measured on the full catalogue**: its workspace
-         ran out of credits at the start of that arm (23 ⛔, relabelled after
-         verifying the provider error; the runner now classifies
-         `out of credits`/`spend limit`/`rate limit` as QUOTA so it cannot pose
-         as a wrong answer again). In the core arm Codex ignored the server on
-         5 cases and answered from recall.
-      **Decision:** keep the catalogue — it does not cost correctness and it
-      absorbs the friction a model hits writing Sage by hand — but stop calling
-      40 tools a differentiator on *outcomes*; the defensible claims are the
-      friction absorption, `verify_claim` against wrong-confident answers, and
-      the session model. Follow-ups: a harder case tier; the friction list in
-      (2); re-run Codex/full when credits exist (`make tool-surface
-      TOOL_SURFACE_CLIS=codex`).
 
 Smithery is **not pursued** (decided 2026-08-24). Since its Arcade.dev
 acquisition, `smithery.ai/new` publishes only a public HTTPS endpoint — the

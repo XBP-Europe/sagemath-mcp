@@ -805,3 +805,92 @@ def test_the_star_exports_match_this_sage():
         f"the baked star-export lists disagree with this SageMath: {drift}. "
         "Regenerate with scripts/generate_star_exports.py and review the diff."
     )
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_every_sage_spelling_hint_computes():
+    """A spelling hint is only worth giving if the name is really absent and
+    the spelling really works -- both against the installed Sage.
+
+    The first half is the guard against a future Sage: if a release adds
+    `isprime`, the validator will accept it, this test fails, and the entry
+    must be removed rather than shadow a real function. The second half is
+    the same discipline `test_the_blocked_interfaces_do_not_block_the_mathematics`
+    applies to the equivalents table: the advice is computed, not asserted.
+    """
+    from sagemath_mcp.security import _SAGE_SPELLINGS
+
+    session = SageSession("spellings", SageSettings(force_python_worker=False, eval_timeout=120.0))
+
+    async def value(code: str) -> str:
+        result = await session.evaluate(code, want_latex=False, capture_stdout=False)
+        return (result.result or "").strip()
+
+    try:
+        for name in _SAGE_SPELLINGS:
+            with pytest.raises(SageEvaluationError) as excinfo:
+                await session.evaluate(f"{name}(25)", want_latex=False, capture_stdout=False)
+            assert "SageMath spells it" in str(excinfo.value), name
+
+        # One computation per spelling the table recommends.
+        assert await value("Partitions(25).cardinality()") == "1958"
+        assert await value("number_of_partitions(25)") == "1958"
+        assert (await value("find_root(bessel_J(0, x), 2, 3)")).startswith("2.40482555769")
+        assert await value("is_prime(7)") == "True"
+        assert await value("next_prime(10^30)") == "1000000000000000000000000000057"
+        assert await value("prime_range(10, 20)") == "[11, 13, 17, 19]"
+        assert await value("prime_divisors(360)") == "[2, 3, 5]"
+        assert await value("factor(360)") == "2^3 * 3^2 * 5"
+        assert await value("euler_phi(10)") == "4"
+        assert await value("number_of_divisors(360)") == "24"
+        assert await value("xgcd(12, 18)") == "(6, -1, 1)"
+        assert await value("binomial(10, 3)") == "120"
+        assert await value("bell_number(25)") == "4638590332229999353"
+        assert await value("stirling_number1(5, 2)") == "50"
+        assert await value("stirling_number2(5, 2)") == "15"
+        assert await value("var('a b c')") == "(a, b, c)"
+        assert "Univariate Polynomial Ring in t" in await value("PolynomialRing(QQ, 't')")
+        await value("R.<t> = QQ[]")
+        assert await value("(t^2 - 1).factor()") == "(t - 1) * (t + 1)"
+        assert await value("sum(1/x^2, x, 1, oo)") == "1/6*pi^2"
+        assert await value("sum([1, 2, 3])") == "6"
+        assert (await value("find_root(x^2 - 2, 1, 2)")).startswith("1.41421356237")
+        assert "x == sqrt(2)" in await value("solve(x^2 - 2 == 0, x)")
+        assert (await value("srange(0, 1, 0.25)")).startswith("[0.000000000000000, 0.250")
+    finally:
+        await session.shutdown()
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_runtime_hints_fire_on_real_sage():
+    """The four Sage-specific error texts the hints match must be what this
+    Sage actually says, or the hints never fire."""
+    session = SageSession("hints", SageSettings(force_python_worker=False, eval_timeout=120.0))
+
+    async def failure(code: str) -> str:
+        with pytest.raises(SageEvaluationError) as excinfo:
+            await session.evaluate(code, want_latex=False, capture_stdout=False)
+        return str(excinfo.value)
+
+    try:
+        message = await failure("numerical_integral(sin(x), 0, pi)[0].n()")
+        assert "Hint: this is a Python float" in message
+        message = await failure("QQ('6.62607015e-34')")
+        assert "Hint: QQ('...') and Rational('...') do not parse" in message
+        message = await failure("RDF(pi).n(digits=20)")
+        assert "Hint: the value is a 53-bit machine float" in message
+        message = await failure("c = 299792458.0\nc(2)")
+        assert "Hint: a number is not a function" in message
+        # And the spellings the hints recommend work here.
+        ok = await session.evaluate("N(numerical_integral(sin(x), 0, pi)[0])",
+                                    want_latex=False, capture_stdout=False)
+        assert (ok.result or "").startswith("2.0000000000000")
+        ok = await session.evaluate("QQ(RR('6.62607015e-34')) > 0",
+                                    want_latex=False, capture_stdout=False)
+        assert ok.result == "True"
+        ok = await session.evaluate("N(pi, digits=20)", want_latex=False, capture_stdout=False)
+        assert ok.result == "3.1415926535897932385"
+    finally:
+        await session.shutdown()

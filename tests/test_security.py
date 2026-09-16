@@ -663,3 +663,44 @@ def test_an_allowed_pair_does_not_exempt_a_longer_chain():
     """
     with pytest.raises(SecurityViolation, match="Access through 'operator'"):
         validate_code("operator.abs.os")
+
+
+# --- spellings for names a model invents ------------------------------------
+#
+# The tool-surface measurement (2026-09-15) lost `partitions` three times and
+# `bessel_J_zeros` twice to a refusal that suggested checking for a typo. Those
+# names never existed in Sage; the useful answer is the spelling that does.
+
+
+def test_an_invented_name_is_answered_with_the_sage_spelling():
+    from sagemath_mcp.security import _SAGE_SPELLINGS
+
+    for name, spelling in _SAGE_SPELLINGS.items():
+        with pytest.raises(SecurityViolation) as excinfo:
+            validate_code(f"{name}(25)")
+        message = str(excinfo.value)
+        # The first sentence is the rule the corpus sweep keys refusals on; it
+        # must not move when advice is added after it.
+        assert message.startswith(f"'{name}' is not a name this server offers. "), message
+        assert f"SageMath spells it {spelling}." in message, message
+        assert "typo" not in message, message
+
+
+def test_a_genuinely_unknown_name_keeps_the_two_honest_possibilities():
+    with pytest.raises(SecurityViolation) as excinfo:
+        validate_code("frobnicate_quux(3)")
+    message = str(excinfo.value)
+    assert message.startswith("'frobnicate_quux' is not a name this server offers. ")
+    assert "If it is a typo" in message
+    assert "SageMath spells it" not in message
+
+
+def test_mpmath_and_functools_imports_name_an_alternative():
+    from sagemath_mcp.security import _import_alternative
+
+    assert "RealField" in _import_alternative("mpmath")
+    assert "RealField" in _import_alternative("mpmath.mp")
+    assert "reduce" in _import_alternative("functools")
+    assert _import_alternative("no_such_module") is None
+    with pytest.raises(SecurityViolation, match="RealField"):
+        validate_code("import mpmath\nmpmath.mp.dps = 50\nmpmath.pi")

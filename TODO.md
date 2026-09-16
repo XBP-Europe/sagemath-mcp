@@ -304,7 +304,12 @@ prioritised. Correctness first, then packaging/adoption.
       (2026-09-16, `packaging/mcpb`): MCPB `uv` server type, ~2 KB, pinning
       `sagemath-mcp[passagemath]` so the host installs a Sage runtime with it;
       built and attached by every release, schema-validated as it packs, version
-      kept in step by the bump script. The **nix flake** is untouched.
+      kept in step by the bump script. A **Gemini CLI extension** landed with
+      it (`gemini-extension.json` at the root, where `gemini extensions install`
+      reads it from a git ref), and `USAGE.md` documents the `codex mcp add`
+      one-liner — Codex has no extension or bundle format, only `codex mcp
+      add/list/get/remove`, so there is nothing to package for it. The **nix
+      flake** is the one install path still untouched.
       **Scorecard, first published score 5.7 (2026-09-14) — plan and status:**
       - [x] *Pinned-Dependencies 0 → 8 locally, then the pip lines too
         (2026-09-15, #94).* Every `uses:` in all eight workflows pinned to a

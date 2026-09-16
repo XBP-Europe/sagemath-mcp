@@ -20,6 +20,7 @@ SERVER_JSON_PATH = PROJECT_ROOT / "server.json"
 CITATION_PATH = PROJECT_ROOT / "CITATION.cff"
 MCPB_MANIFEST_PATH = PROJECT_ROOT / "packaging" / "mcpb" / "manifest.json"
 MCPB_PYPROJECT_PATH = PROJECT_ROOT / "packaging" / "mcpb" / "pyproject.toml"
+GEMINI_EXTENSION_PATH = PROJECT_ROOT / "gemini-extension.json"
 
 PYPROJECT_VERSION_PATTERN: Pattern[str] = re.compile(
     r'^(version\s*=\s*)"(?P<version>\d+\.\d+\.\d+)"\s*$', re.MULTILINE
@@ -124,6 +125,7 @@ def _write_all(new_version: str) -> None:
     _write_server_json(new_version)
     _write_citation(new_version)
     _write_mcpb(new_version)
+    _write_gemini_extension(new_version)
 
 
 def _write_mcpb(new_version: str) -> None:
@@ -148,6 +150,28 @@ def _write_mcpb(new_version: str) -> None:
         text = re.sub(r'"sagemath-mcp\[passagemath\]==\d+\.\d+\.\d+"',
                       f'"sagemath-mcp[passagemath]=={new_version}"', text)
         MCPB_PYPROJECT_PATH.write_text(text, encoding="utf-8")
+
+
+def _write_gemini_extension(new_version: str) -> None:
+    """Update the Gemini CLI extension's version and its pinned install spec.
+
+    `gemini extensions install <url>` reads this from the repository root at a
+    git ref, so the pin has to be the version at that ref -- otherwise the
+    extension installs a different release than the one it claims to be.
+    """
+    if not GEMINI_EXTENSION_PATH.exists():
+        return
+    manifest = json.loads(GEMINI_EXTENSION_PATH.read_text(encoding="utf-8"))
+    manifest["version"] = new_version
+    for server in manifest.get("mcpServers", {}).values():
+        server["args"] = [
+            re.sub(r"^(sagemath-mcp\[passagemath\]==)\d+\.\d+\.\d+$",
+                   rf"\g<1>{new_version}", arg)
+            for arg in server.get("args", [])
+        ]
+    GEMINI_EXTENSION_PATH.write_text(
+        json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+    )
 
 
 def _write_citation(new_version: str) -> None:

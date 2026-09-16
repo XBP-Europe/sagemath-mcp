@@ -134,7 +134,13 @@ Source install, Docker Compose, and the Kubernetes Helm chart are in
 }
 ```
 
-Claude Code, Codex CLI, Gemini CLI, and HTTP-transport setup are in
+**Gemini CLI** installs the repository as an extension:
+
+```bash
+gemini extensions install https://github.com/XBP-Europe/sagemath-mcp --ref v0.8.0
+```
+
+Claude Code, Codex CLI, and HTTP-transport setup are in
 [USAGE.md](USAGE.md#integrating-with-mcp-clients).
 
 ## Try it

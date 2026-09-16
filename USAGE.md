@@ -1011,6 +1011,38 @@ When running via Docker Compose, the same script can target `http://127.0.0.1:83
 use `kubectl port-forward` (see chart `NOTES.txt`) or expose an ingress to reach the MCP endpoint.
 
 ## Integrating with MCP Clients
+
+Three clients have a one-command install; everything else takes the JSON below.
+
+**Claude Desktop and other MCPB hosts.** Download
+`sagemath-mcp-<version>.mcpb` from the
+[latest release](https://github.com/XBP-Europe/sagemath-mcp/releases/latest) and
+open it. See [`packaging/mcpb/README.md`](packaging/mcpb/README.md).
+
+**Gemini CLI.** The repository is itself an extension:
+
+```bash
+gemini extensions install https://github.com/XBP-Europe/sagemath-mcp --ref v0.8.0
+```
+
+Pass the release tag you want as `--ref`; without it you get whatever `main`
+currently pins. `gemini extensions list` shows it afterwards, `uninstall`
+removes it.
+
+**Codex CLI.** Codex has no extension or bundle format, so it is one command
+rather than a package:
+
+```bash
+codex mcp add sagemath -- uvx --from "sagemath-mcp[passagemath]==0.8.0" sagemath-mcp
+```
+
+All three routes install a Sage runtime along with the server through the
+`[passagemath]` extra, which is roughly a 1 GB download the first time and
+cached afterwards. They need `uv` on your PATH. If you would rather bring your
+own Sage, drop `[passagemath]` from the specification and make sure `sage` is on
+the PATH instead; if you want the process isolation, run the container and point
+the client at it.
+
 Sample Claude Desktop snippet:
 ```json
 {

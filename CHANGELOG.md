@@ -9,6 +9,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **A Gemini CLI extension (`gemini-extension.json`).** The repository is now
+  installable as one: `gemini extensions install
+  https://github.com/XBP-Europe/sagemath-mcp --ref vX.Y.Z`. The manifest lives
+  at the root because that is where `gemini extensions install` reads it from a
+  git ref, and it pins `sagemath-mcp[passagemath]==<release>` through `uvx`, so
+  the extension brings a Sage runtime with the server for the same reason the
+  MCPB bundle does. Validated with `gemini extensions validate`, and the `uvx
+  --from … sagemath-mcp` invocation was run against the published release.
+  Codex CLI has no extension or bundle format — only `codex mcp add` — so
+  `USAGE.md` documents the equivalent one-liner instead of pretending otherwise.
+  `scripts/bump_version.py` moves the manifest version and its pin, checked by
+  `tests/test_version_consistency.py` and `tests/test_gemini_extension.py`.
 - **A one-click desktop bundle (`packaging/mcpb`).** `sagemath-mcp-<version>.mcpb`
   is now built and attached to every release, so a desktop MCP host can install
   the server by opening a file. It uses the MCPB **`uv` server type**, which

@@ -9,3 +9,21 @@ exclude:
   # Derived from uv.lock (make passagemath-lock); cataloguing it too listed
   # every passagemath package twice in the source SBOM (274 -> 468 entries).
   - "./requirements-passagemath.txt"
+
+# Package inventory only, no per-file entries.
+#
+# GitHub refuses an attestation predicate over 16 MiB, and the v0.8.0 release
+# failed on exactly that: the monolithic image's SBOM was 21.8 MB, of which
+# 26,120 file entries were 15.1 MB and their package-to-file relationships
+# another 5.5 MB. The image was pushed, signed and given provenance, and then
+# `Attest image SBOM` died -- which, under the all-artefacts-or-none rule, took
+# PyPI, the MCP registry and the GitHub release down with it.
+#
+# Dropping the file-ownership relationships takes the same image to 4.07 MB with
+# all 493 packages intact (measured against `sagemath-mcp:local`, syft 1.51.1).
+# What is lost is "which package owns /usr/lib/...", which no consumer of these
+# SBOMs was using; what is kept is the inventory every consumer reads. The
+# release workflow also checks the size before attesting, so a future growth
+# spurt fails with a message that names this file instead of a 16 MiB error.
+relationships:
+  package-file-ownership: false

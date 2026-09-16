@@ -151,8 +151,12 @@ gh attestation verify sagemath_mcp-X.Y.Z-py3-none-any.whl --owner XBP-Europe
 
 **The SBOM files** on the release page (`sagemath-mcp-image.spdx.json` for the
 container, `sagemath-mcp-source.spdx.json` for the package's own dependency tree
-from `uv.lock`) are plain SPDX 2.3 JSON, readable by any SBOM tooling; the image
-one is byte-identical to the attested one.
+from `uv.lock`, and one per architecture for the passagemath image) are plain
+SPDX 2.3 JSON, readable by any SBOM tooling; each is byte-identical to the
+attested one. They are **package inventories**: per-file entries and
+package-to-file ownership are switched off in `.syft.yaml`, because they made
+the container SBOM 21.8 MB and GitHub refuses an attestation predicate over
+16 MiB. Every package stays; only "which package owns which path" is dropped.
 
 **Scorecard.** The [OpenSSF Scorecard](https://scorecard.dev/viewer/?uri=github.com/XBP-Europe/sagemath-mcp)
 runs weekly and on every push to `main`, and its result is the badge on the README.

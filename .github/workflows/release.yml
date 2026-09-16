@@ -72,9 +72,19 @@ jobs:
         # ("InvalidDistribution: Unknown distribution format"). A .mcpb in dist/
         # would therefore fail the release at the PyPI step, after the images
         # were already pushed and signed. dist/ is wheel and sdist only.
+        #
+        # The version has to come from the ref TYPE, not from stripping a `v`
+        # off the ref name: on a `workflow_dispatch` the ref name is the branch,
+        # and a branch name with a slash in it turned the output into
+        # `bundle/sagemath-mcp-fix/some-branch.mcpb` -- a nested directory, and a
+        # dry run that failed on the `ls` right after. Found by running the dry
+        # run, which is what it is for.
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          VERSION="${VERSION:-0.0.0-dryrun}"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="0.0.0-dryrun"
+          fi
           mkdir -p bundle
           npx --yes @anthropic-ai/mcpb@latest pack packaging/mcpb \
             "bundle/sagemath-mcp-${VERSION}.mcpb"

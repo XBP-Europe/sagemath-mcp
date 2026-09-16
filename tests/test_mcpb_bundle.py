@@ -100,6 +100,15 @@ def test_the_release_builds_and_attaches_the_bundle() -> None:
         "release.yml no longer builds the bundle"
     )
     assert 'bundle/sagemath-mcp-${VERSION}.mcpb' in release
+    # The version comes from the ref TYPE. Stripping a leading `v` off the ref
+    # NAME gives the branch name on a workflow_dispatch, and a branch with a
+    # slash in it made the output a nested directory -- which failed the dry
+    # run on the very next line. The dry run is the only thing that exercises
+    # this step before a tag, so it has to survive one.
+    assert '"${GITHUB_REF_TYPE}" = "tag"' in release, (
+        "the bundle's version is derived from the ref name again; a branch "
+        "dispatch will produce a nested path"
+    )
     # Packed in one job, attached in another, so it needs to travel as an
     # artifact; without this the release page has no bundle on it.
     assert "name: mcpb" in release, "the bundle is not uploaded as an artifact"

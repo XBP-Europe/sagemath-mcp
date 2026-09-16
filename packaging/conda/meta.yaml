@@ -1,5 +1,5 @@
 {% set name = "sagemath-mcp" %}
-{% set version = "0.7.0" %}
+{% set version = "0.8.0" %}
 
 package:
   name: {{ name|lower }}
@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://pypi.org/packages/source/{{ name[0] }}/{{ name }}/sagemath_mcp-{{ version }}.tar.gz
-  sha256: 0faeccb990b2e2a3a1c4bca826ca77184cd1ebe21a445abbb68c31ee71a207e3
+  sha256: 5c0758f231fe37868e02e6e31de3b82ee481edaeac9066dd174baf5a85390d63
 
 build:
   noarch: python

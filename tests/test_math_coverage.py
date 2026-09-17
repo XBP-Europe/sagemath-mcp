@@ -1180,3 +1180,40 @@ async def test_a_dropped_name_is_still_refused_after_its_star_import() -> None:
                 await _value(session, code)
     finally:
         await session.shutdown()
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_the_second_pass_star_imports_compute() -> None:
+    """Item 78 admitted eighteen more modules, none individually large.
+
+    A sample across the areas they cover, evaluated rather than merely
+    validated: a screened name that is a lazy stub, or a module whose star
+    expands to names Sage cannot actually resolve, would pass the validator and
+    then raise. These are also the shapes a caller writes -- a vector calculus
+    operator, a species, a superpartition -- not the doctest's own setup.
+    """
+    session = await _session("starimport-second-pass")
+    try:
+        # Vector calculus operators, which live in a module `sage.all` does not
+        # re-export even though `grad`/`div`/`curl` are what a caller reaches for.
+        await _value(session, "from sage.manifolds.operators import *")
+        await _value(session, "E = EuclideanSpace(3)")
+        await _value(session, "f = E.scalar_field(function('g')(*E.default_chart()[:]))")
+        assert await _value(session, "grad(f).parent() is E.vector_field_module()") == "True"
+
+        await _value(session, "from sage.combinat.species.library import *")
+        assert await _value(session, "CycleSpecies().generating_series()[3]") == "1/3"
+
+        await _value(session, "from sage.combinat.superpartition import *")
+        # [1; 2, 1]: fermionic degree 1, bosonic degree 4, as Sage computes them.
+        assert await _value(session, "SuperPartition([[1], [2, 1]]).bosonic_degree()") == "4"
+        assert await _value(session, "SuperPartition([[1], [2, 1]]).fermionic_degree()") == "1"
+
+        await _value(session, "from sage.matroids.gammoid import *")
+        assert await _value(
+            session,
+            "Gammoid(DiGraph({0: [1], 1: [2]}), roots=[2]).rank()",
+        ) == "1"
+    finally:
+        await session.shutdown()

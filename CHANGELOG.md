@@ -7,6 +7,28 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **Eighteen more internal modules are star-importable, and corpus acceptance
+  reaches 99.08%.** A second pass over the same ranking item 77 used, now that
+  the three big entries are gone. None of these is individually large — the
+  biggest is 31 corpus examples — but together they are most of what the
+  mechanism can still reach: vector calculus operators (`grad`, `div`, `curl`,
+  `laplacian`), generalised quadrangles, set factories, combinatorial species,
+  toric varieties and Chow groups, superpartitions, transversal matroids and
+  gammoids, spinor genera, and more. Each screens clean as a whole, with no
+  drop needed. Measured on SageMath 10.9: 370,837 → 370,966 accepted, 3,591 →
+  3,462 refused, 99.0409% → **99.0754%**.
+
+  Three modules that screen clean are excluded anyway, by curation:
+  `sage.misc.sageinspect` reads source files and returns filesystem paths,
+  `sage.misc.nested_class` exports pickle helpers, and
+  `sage.symbolic.random_tests` and friends are Sage's own test scaffolding,
+  which would raise the number without giving a caller anything to compute
+  with. The reasoning is recorded in the candidate list rather than left to be
+  rediscovered. See REVIEW_ACTIONS 78.
+
+
 ## [0.8.1] - 2026-09-17
 
 The first release that carries the one-click desktop bundle, and the first whose

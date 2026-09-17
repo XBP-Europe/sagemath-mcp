@@ -411,7 +411,7 @@ def corpus() -> Harvest:
 # 3,168 sources, 60,094 docstrings, 432,878 examples, of which 370,966 accepted,
 # 3,462 refused and 58,268 out of scope -- 99.08% acceptance among in-scope
 # examples, in about a minute. On passagemath 10.8.11 the same sweep reads
-# 433,289 examples at 99.12%. The ledger since 2026-08-15's 98.60%: the
+# 433,289 examples at 99.16%. The ledger since 2026-08-15's 98.60%: the
 # hardening of items 49-58 cost ~365 examples (libgap and the Pari family,
 # priced deliberately); item 59 won back 702 by modelling session injection and
 # screening `attrcall` literals; item 60 won back 617 more by permitting

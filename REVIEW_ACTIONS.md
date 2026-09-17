@@ -4141,7 +4141,9 @@ Doctest corpus sweep, SageMath 10.9:
 | acceptance (in-scope) | 99.0409% | **99.0754%** |
 
 129 rather than the 157 the ranking suggested, because a block that
-star-imports one of these often refuses for a second, unrelated reason too.
+star-imports one of these often refuses for a second, unrelated reason too. The
+passagemath lane measures the same gain on its own corpus: 363,073 → 363,202
+accepted, 3,221 → 3,092 refused, 99.1207% → **99.1559%**.
 
 ### How to verify
 

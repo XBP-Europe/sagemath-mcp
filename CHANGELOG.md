@@ -18,7 +18,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   toric varieties and Chow groups, superpartitions, transversal matroids and
   gammoids, spinor genera, and more. Each screens clean as a whole, with no
   drop needed. Measured on SageMath 10.9: 370,837 → 370,966 accepted, 3,591 →
-  3,462 refused, 99.0409% → **99.0754%**.
+  3,462 refused, 99.0409% → **99.0754%**; on passagemath 10.8.11, 99.12% →
+  **99.16%**.
 
   Three modules that screen clean are excluded anyway, by curation:
   `sage.misc.sageinspect` reads source files and returns filesystem paths,

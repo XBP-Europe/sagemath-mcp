@@ -68,7 +68,8 @@ the container image, and then publishes every artefact from that one run (see
 | container image | GHCR, `ghcr.io/xbp-europe/sagemath-mcp:<tag>` (linux/amd64) | a **Cosign signature**, plus **SLSA provenance** and an **SPDX SBOM** pushed to the registry as attestations on the image digest |
 | passagemath image | GHCR, `ghcr.io/xbp-europe/sagemath-mcp:<tag>-passagemath` (linux/amd64 + linux/arm64 index; per-arch `-amd64`/`-arm64` tags too) | a **Cosign signature** and **SLSA provenance** on the index digest; **SLSA provenance** and an **SPDX SBOM** attested to each per-arch digest. Each architecture is smoke-tested natively before the index is assembled from exactly those images |
 | `sagemath-mcp-source.spdx.json`, `sagemath-mcp-image.spdx.json`, `sagemath-mcp-image-passagemath-{amd64,arm64}.spdx.json` | assets on the GitHub release | the same SBOMs as files, for consumers who do not read registry attestations |
-| `sagemath-mcp-<version>.mcpb` | asset on the GitHub release | the one-click desktop bundle, packed (and schema-validated) in the same job that builds the wheel, so a bad manifest fails before anything publishes |
+| `sagemath-mcp-<version>.mcpb` | asset on the GitHub release | the one-click desktop bundle, packed (and schema-validated) in the same job that builds the wheel, so a bad manifest fails before anything publishes. It is **SLSA-attested** like the wheel |
+| `sagemath-mcp-<version>.intoto.jsonl` | asset on the GitHub release | the Sigstore bundle naming the wheel, sdist and desktop bundle as its subjects — the same provenance as above, as a file, so an artefact can be verified offline and a scanner reading release assets can see it |
 | registry entry | the official MCP registry | published with GitHub OIDC after PyPI succeeds |
 
 A manual `twine upload` would work but would ship files with no attestation, so it
@@ -148,6 +149,20 @@ The copies attached to the GitHub release carry SLSA provenance as well:
 ```bash
 gh release download vX.Y.Z --repo XBP-Europe/sagemath-mcp --pattern '*.whl'
 gh attestation verify sagemath_mcp-X.Y.Z-py3-none-any.whl --owner XBP-Europe
+```
+
+**The desktop bundle, and verifying without calling GitHub.** The release also
+carries `sagemath-mcp-<version>.intoto.jsonl`: the Sigstore bundle whose
+in-toto statement names the wheel, the sdist and the `.mcpb` as its subjects.
+Passing it as `--bundle` checks an artefact against the file you already
+downloaded, with no API call, which is what an air-gapped or offline check
+needs:
+
+```bash
+gh release download vX.Y.Z --repo XBP-Europe/sagemath-mcp \
+  --pattern '*.mcpb' --pattern '*.intoto.jsonl'
+gh attestation verify sagemath-mcp-X.Y.Z.mcpb --owner XBP-Europe \
+  --bundle sagemath-mcp-X.Y.Z.intoto.jsonl
 ```
 
 **The SBOM files** on the release page (`sagemath-mcp-image.spdx.json` for the

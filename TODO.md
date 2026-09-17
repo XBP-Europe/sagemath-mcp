@@ -326,6 +326,46 @@ prioritised. Correctness first, then packaging/adoption.
       Revisit when nixpkgs' `sage` reaches the version pinned here, or when
       someone actually asks for it — at which point option one is the cheap
       start. `nixpkgs` also has no passagemath package, checked the same day.
+      **Post-release trust check, v0.8.0 (2026-09-16).** Every published
+      signal was verified from a clean machine, and two defects came out of it.
+      What holds: the Cosign signature on both images (`v0.8.0` and the
+      multi-arch `v0.8.0-passagemath` index) verifies against
+      `release.yml@refs/tags/v0.8.0`; SLSA provenance verifies on both image
+      digests, on the released wheel and on the sdist; the SPDX SBOM is attested
+      to the primary image digest; and PyPI carries a PEP 740 attestation for
+      both files, naming this repository's `release.yml` as publisher. Open
+      code-scanning alerts are the eight Scorecard findings already reasoned
+      about here, nothing else — the remaining unpinned pip line is
+      `pip install --no-deps .`, installing the project itself from the
+      checkout, which has no hash to pin. The **`.mcpb` bundle was run the way a
+      desktop host runs it**: packed, unzipped, `uv run --directory <dir>
+      src/server.py`, then a real MCP handshake — `initialize` returns
+      `sagemath-mcp 0.8.0`, `tools/list` returns all 40 tools, and
+      `evaluate_sage` on `factor(2^61 - 1)` returns the Mersenne prime in 2 ms
+      after the roughly 1 GB first-launch install. The two defects are below
+      (dist/ purity, and Signed-Releases), both fixed the same day.
+
+      **The bundle was packed into `dist/`, which would have failed the next
+      release (found and fixed 2026-09-16).** The publish job uploads
+      `packages-dir: dist`, and twine reads the whole directory: a `.mcpb` there
+      raises `InvalidDistribution: Unknown distribution format`, reproduced
+      locally with `twine check`. It would have failed in the publish job —
+      after the images were pushed and signed — and only on a real tag, since a
+      dry run skips publishing. The bundle now packs into `bundle/`, the build
+      job refuses anything in `dist/` that is not a wheel or an sdist, and
+      `tests/test_mcpb_bundle.py` holds both.
+
+      **The dry run earns its keep (2026-09-16).** Re-running
+      `release.yml` by dispatch on the fix branch failed immediately: the bundle
+      step derived its version by stripping `v` from `GITHUB_REF_NAME`, which on
+      a dispatch is the branch name, so a branch with a slash produced a nested
+      path and the `ls` after it failed. Fixed by reading `GITHUB_REF_TYPE`. The
+      second dispatch went green end to end — build, both images, the arm64
+      lane, the manifest, and the dry-run release listing `bundle/` and a clean
+      `dist/`. Worth remembering when adding a step to this workflow: a step
+      that only a tag reaches is a step nothing tests, and the dispatch is how
+      that gets cheap.
+
       **Scorecard, first published score 5.7 (2026-09-14) — plan and status:**
       - [x] *Pinned-Dependencies 0 → 8 locally, then the pip lines too
         (2026-09-15, #94).* Every `uses:` in all eight workflows pinned to a
@@ -345,10 +385,24 @@ prioritised. Correctness first, then packaging/adoption.
       - [x] *SAST 0.* `codeql.yml`: CodeQL for `python` and `actions`,
         security-extended queries, on push/PR/weekly. The score updates once it
         has run on a few commits.
-      - *Signed-Releases 0.* True of v0.7.0, which predates the provenance and
-        SBOM work. **v0.8.0 is the first release built by the pipeline that
-        signs, attests and attaches SBOMs**, so the next Scorecard run after it
-        should pick it up; nothing to do but check.
+      - *Signed-Releases 0 — the expectation was wrong, and the cause is now
+        fixed (2026-09-16).* v0.8.0 was the first release built by the signing
+        pipeline, and the Scorecard run ten hours after it still scored 0. The
+        reason: the check reads **GitHub release assets only**, matching
+        `.asc`/`.minisig`/`.sig`/`.sign`/`.sigstore`/`.sigstore.json` for a
+        signature and `.intoto.jsonl` for provenance (`probes/releasesAreSigned`,
+        `probes/releasesHaveProvenance`). Everything this project signs lives
+        somewhere else — Cosign signatures and SLSA/SBOM attestations on the
+        GHCR digest, PEP 740 attestations on PyPI, and the wheel's provenance in
+        GitHub's attestation store — so the release page had no file the probe
+        could match. The release now attaches
+        `sagemath-mcp-<version>.intoto.jsonl`, the Sigstore bundles for the
+        wheel, sdist and `.mcpb` that the attestation step already produced.
+        **What to expect:** the score is the average over the last five
+        releases (10 with provenance, 8 signed-only, 0 otherwise, floored), so
+        one release with provenance gives `floor(10/5) = 2` and it reaches 10
+        only once five such releases are in the window. Nothing further to do
+        but ship.
       - *Branch-Protection −1 (internal error).* Scorecard's default token
         cannot read protection settings; needs the owner to add a fine-grained
         PAT (`administration: read`) as `SCORECARD_TOKEN` and pass it as

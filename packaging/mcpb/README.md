@@ -45,7 +45,7 @@ provides does not. For untrusted or multi-tenant use, run the container instead;
 ## Building it
 
 ```bash
-make mcpb          # writes dist/sagemath-mcp-<version>.mcpb
+make mcpb          # writes bundle/sagemath-mcp-<version>.mcpb
 ```
 
 That runs `npx @anthropic-ai/mcpb pack`, which validates the manifest against

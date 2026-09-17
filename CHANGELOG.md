@@ -7,12 +7,20 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-09-17
+
+The first release that carries the one-click desktop bundle, and the first whose
+provenance is a file on the release page rather than only a record in GitHub's
+attestation store. It also accepts more of SageMath's own mathematics than any
+release before it.
+
 ### Added
 
 - **Release provenance as a file on the release page.** Every release now
   attaches `sagemath-mcp-<version>.intoto.jsonl`: the Sigstore bundle naming
   the wheel, the sdist and the `.mcpb` as its subjects, copied from the
-  attestation step that already signed them and checked to cover all three. It verifies an artefact offline —
+  attestation step that already signed them and checked to cover all three. It
+  verifies an artefact offline —
   `gh attestation verify <file> --owner XBP-Europe --bundle <this file>` makes
   no API call — and it is the only provenance the desktop bundle has, which is
   now attested alongside the Python artefacts. It also gives OpenSSF

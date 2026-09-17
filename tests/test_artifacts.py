@@ -59,7 +59,7 @@ def test_passagemath_star_exports_shape() -> None:
 
     star = star_exports_passagemath.STAR_EXPORTS
     assert isinstance(star, dict)
-    assert len(star) == 18
+    assert len(star) == 37
     for module, exported in star.items():
         assert module.startswith("sage.")
         assert isinstance(exported, frozenset)

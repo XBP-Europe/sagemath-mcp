@@ -80,6 +80,42 @@ CANDIDATE_MODULES: dict[str, frozenset[str]] = {
     "sage.graphs.generators.distance_regular": frozenset(                   # 36
         {"LazyImport", "libgap"}
     ),
+    # Item 78, the second pass over the same ranking. Each screens clean as a
+    # whole -- no drop needed -- and each is mathematics a caller could ask for
+    # rather than scaffolding. Nothing here is individually large; together they
+    # are the rest of what the star-import mechanism can reach.
+    "sage.tests.arxiv_0812_2725": frozenset(),                             # 31
+    "sage.combinat.designs.gen_quadrangles_with_spread": frozenset(),      # 16
+    "sage.manifolds.operators": frozenset(),                               # 15
+    "sage.structure.set_factories": frozenset(),                           # 14
+    "sage.structure.set_factories_example": frozenset(),                   # 14
+    "sage.typeset.symbols": frozenset(),                                   # 12
+    "sage.algebras.exterior_algebra_groebner": frozenset(),                # 8
+    "sage.combinat.species.library": frozenset(),                          # 7
+    "sage.schemes.toric.fano_variety": frozenset(),                        # 6
+    "sage.matroids.transversal_matroid": frozenset(),                      # 6
+    "sage.games.hexad": frozenset(),                                       # 5
+    "sage.schemes.toric.chow_group": frozenset(),                          # 5
+    "sage.quadratic_forms.genera.spinor_genus": frozenset(),               # 4
+    "sage.rings.polynomial.pbori.interpolate": frozenset(),                # 4
+    "sage.combinat.superpartition": frozenset(),                           # 3
+    "sage.matroids.gammoid": frozenset(),                                  # 3
+    "sage.modules.fp_graded.free_module": frozenset(),                     # 2
+    "sage.rings.padics.padic_relaxed_errors": frozenset(),                 # 2
+    "sage.combinat.cyclic_sieving_phenomenon": frozenset(),                # 1
+    # Screened clean and still excluded, by curation rather than by the screen --
+    # the same call `sage.libs.ecl` gets. `sage.misc.sageinspect` (30) reads
+    # source files and returns filesystem paths, which is the introspection the
+    # policy withholds, not mathematics. `sage.symbolic.random_tests` (9),
+    # `sage.structure.list_clone_timings_cy` (4) and `sage.misc.benchmark` (8)
+    # are Sage's own test and timing scaffolding: admitting them would raise the
+    # corpus number without giving a caller anything to compute with.
+    # `sage.misc.nested_class` (3) exports `nested_pickle` and
+    # `modify_for_nested_pickle`. `sage.structure.richcmp` (3) is comparison
+    # infrastructure. The big remaining blocks stay refused on their merits:
+    # `sage.misc.explain_pickle` (98) and `pickle`/`copyreg` (39) are pickle
+    # machinery, `sage.libs.ecl` (87) evaluates Lisp, `sage.interfaces.rubik` (9)
+    # spawns a program, and `gmpy2` (17) is not a Sage module at all.
 }
 
 HEADER = '''"""The `from <module> import *` statements caller code is allowed to keep.

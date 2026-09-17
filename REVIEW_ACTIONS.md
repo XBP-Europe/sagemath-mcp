@@ -4083,3 +4083,82 @@ Against real Sage, in the container:
 Fixed 2026-09-16. `sage.libs.ecl` remains excluded by curation despite screening
 clean -- `EclObject` evaluates Lisp, which no screen can see -- and this change
 does not alter that: curation, not the screen, is what keeps it out.
+
+## 78. Second pass over the star-import ranking — usability — DONE
+
+### Symptom
+
+Item 77 took the three largest entries off the same ranking and left the tail.
+`scripts/analyse_corpus_refusals.py` re-run on `main` afterwards showed the
+remaining `'X' is not a name this server offers` bucket at 1,296, spread thin:
+no module worth more than 31 examples, and about thirty modules worth anything
+at all.
+
+### Fix
+
+Eighteen more modules added to `CANDIDATE_MODULES`, each screening clean as a
+whole with no drop needed, each mathematics rather than scaffolding. The
+largest are `sage.tests.arxiv_0812_2725` (31 — the k-distant crossing number
+computations from the paper it is named for),
+`sage.combinat.designs.gen_quadrangles_with_spread` (16),
+`sage.manifolds.operators` (15 — `grad`, `div`, `curl`, `laplacian`,
+`dalembertian`, which a caller reaches for and `sage.all` does not re-export),
+`sage.structure.set_factories` and its example module (14 each), and
+`sage.typeset.symbols` (12). The rest are single-digit: toric varieties and
+Chow groups, exterior-algebra Gröbner strategies, combinatorial species,
+superpartitions, transversal matroids and gammoids, spinor genera, the Mathieu
+hexad game, cyclic sieving, graded free modules, and one more pbori module.
+
+### What was deliberately left out
+
+Curation, not the screen, keeps these out, and the reasoning is recorded in the
+candidate list so the next pass does not re-litigate it:
+
+| refusals | module | why it stays refused |
+| ---: | --- | --- |
+| 98 | `sage.misc.explain_pickle` | pickle machinery |
+| 87 | `sage.libs.ecl` | `EclObject` evaluates Lisp (item 60's standing exclusion) |
+| 39 | `pickle`, `copyreg` | pickle machinery, and not Sage modules |
+| 30 | `sage.misc.sageinspect` | **screens clean**; reads source files and returns filesystem paths, which is introspection the policy withholds |
+| 17 | `gmpy2` | not a Sage module |
+| 9 | `sage.interfaces.rubik` | spawns an external program |
+| 21 | `sage.symbolic.random_tests`, `sage.misc.benchmark`, `sage.structure.list_clone_timings{,_cy}` | Sage's own test and timing scaffolding; admitting them would raise the corpus number without giving a caller anything to compute with |
+| 3 | `sage.misc.nested_class` | **screens clean**; exports `nested_pickle` and `modify_for_nested_pickle` |
+| 3 | `sage.structure.richcmp` | comparison infrastructure, not mathematics |
+
+The three that screen clean and are excluded anyway are the point: the screen is
+a floor, not the decision.
+
+### Measured
+
+Doctest corpus sweep, SageMath 10.9:
+
+| | after item 77 | after item 78 |
+| --- | ---: | ---: |
+| accepted | 370,837 | 370,966 |
+| refused | 3,591 | 3,462 |
+| `not a name this server offers` | 1,296 | 1,167 |
+| acceptance (in-scope) | 99.0409% | **99.0754%** |
+
+129 rather than the 157 the ranking suggested, because a block that
+star-imports one of these often refuses for a second, unrelated reason too. The
+passagemath lane measures the same gain on its own corpus: 363,073 → 363,202
+accepted, 3,221 → 3,092 refused, 99.1207% → **99.1559%**.
+
+### How to verify
+
+`tests/test_math_coverage.py::test_the_second_pass_star_imports_compute`
+evaluates a sample against real Sage rather than only validating it: the
+gradient of a scalar field on Euclidean 3-space lands in the right module, the
+cycle species' generating series has the coefficient it should, a superpartition
+reports the bosonic and fermionic degrees Sage computes, and a gammoid built
+from a digraph has rank 1. `test_the_star_exports_match_this_sage` re-screens
+all 37 listed modules. Full integration suite in the Sage container: 1,274
+passed. Unit suite at 100% coverage.
+
+### Status
+
+Fixed 2026-09-17. The bucket this worked through is now mostly boundaries
+rather than gaps, so a third pass is not worth its review time on the present
+evidence: what remains is pickle machinery, the Lisp evaluator, the external
+interfaces, and names the corpus binds in a docstring's own surrounding code.

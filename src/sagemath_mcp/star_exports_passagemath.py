@@ -199,6 +199,112 @@ STAR_EXPORTS: dict[str, frozenset[str]] = {
         "shortened_00_11_binary_Golay_code_graph", "strongly_regular_graph",
         "vanLintSchrijverGraph", "vector"
     }),
+    "sage.tests.arxiv_0812_2725": frozenset({
+        "CompleteMatchings", "SetPartitions", "dcrossing", "dcrossvec_cm",
+        "dcrossvec_setp", "matchingsset", "setp_to_edges", "tablecolumn"
+    }),
+    "sage.combinat.designs.gen_quadrangles_with_spread": frozenset({
+        "dual_GQ_ovoid", "generalised_quadrangle_hermitian_with_ovoid",
+        "generalised_quadrangle_with_spread", "is_GQ_with_spread"
+    }),
+    "sage.manifolds.operators": frozenset({
+        "curl", "dalembertian", "div", "grad", "laplacian"
+    }),
+    "sage.structure.set_factories": frozenset({
+        "BareFunctionPolicy", "FacadeParentPolicy", "Parent",
+        "ParentWithSetFactory", "SageObject", "SelfParentPolicy", "SetFactory",
+        "SetFactoryPolicy", "TopMostParentPolicy", "UniqueRepresentation",
+        "abstract_method"
+    }),
+    "sage.structure.set_factories_example": frozenset({
+        "AllPairs", "DisjointUnionEnumeratedSets", "ElementWrapper",
+        "EnumeratedSets", "Integer", "LazyFamily", "MAX", "PairsX_", "Pairs_Y",
+        "ParentWithSetFactory", "SetFactory", "SingletonPair",
+        "TopMostParentPolicy", "UniqueRepresentation", "XYPair", "XYPairs",
+        "XYPairsFactory", "lazy_attribute"
+    }),
+    "sage.typeset.symbols": frozenset({
+        "CompoundAsciiSymbol", "CompoundSymbol", "CompoundUnicodeSymbol",
+        "SageObject", "ascii_integral", "ascii_left_curly_brace",
+        "ascii_left_parenthesis", "ascii_left_square_bracket",
+        "ascii_right_curly_brace", "ascii_right_parenthesis",
+        "ascii_right_square_bracket", "unicode_integral",
+        "unicode_left_curly_brace", "unicode_left_parenthesis",
+        "unicode_left_square_bracket", "unicode_right_curly_brace",
+        "unicode_right_parenthesis", "unicode_right_square_bracket"
+    }),
+    "sage.algebras.exterior_algebra_groebner": frozenset({
+        "GBElement", "GroebnerStrategy", "GroebnerStrategyDegLex",
+        "GroebnerStrategyDegRevLex", "GroebnerStrategyNegLex", "bytes_to_str",
+        "copy", "have_same_parent", "parent", "revop", "rich_to_bool",
+        "rich_to_bool_sgn", "richcmp", "richcmp_not_equal", "str_to_bytes"
+    }),
+    "sage.combinat.species.library": frozenset({
+        "BinaryForestSpecies", "BinaryTreeSpecies", "CharacteristicSpecies",
+        "CombinatorialSpecies", "CompositionSpecies", "CycleSpecies",
+        "EmptySetSpecies", "EmptySpecies", "FunctorialCompositionSpecies",
+        "LinearOrderSpecies", "PartitionSpecies", "PermutationSpecies",
+        "ProductSpecies", "SetSpecies", "SimpleGraphSpecies", "SingletonSpecies",
+        "SubsetSpecies", "SumSpecies"
+    }),
+    "sage.schemes.toric.fano_variety": frozenset({
+        "AlgebraicScheme_subscheme_toric", "AnticanonicalHypersurface",
+        "CPRFanoToricVariety", "CPRFanoToricVariety_field", "Cone",
+        "DEFAULT_COEFFICIENT", "DEFAULT_COEFFICIENTS", "FaceFan", "Fan", "Fields",
+        "FractionField_generic", "LatticePolytope", "MPolynomialRing_base",
+        "NefCompleteIntersection", "PolynomialRing", "PolynomialRing_generic", "QQ",
+        "ToricVariety_field", "add_variables", "coercion_model", "latex",
+        "normalize_names", "prod"
+    }),
+    "sage.matroids.transversal_matroid": frozenset({
+        "BipartiteGraph", "Counter", "DiGraph", "MinorMatroid",
+        "TransversalMatroid", "bytes_to_str", "copy", "newlabel", "str_to_bytes"
+    }),
+    "sage.games.hexad": frozenset({
+        "GF", "MatrixSpace", "Minimog", "SR", "infinity", "matrix", "picture_set",
+        "view_list"
+    }),
+    "sage.schemes.toric.chow_group": frozenset({
+        "ChowCycle", "ChowGroup", "ChowGroupFactory", "ChowGroup_class",
+        "ChowGroup_degree_class", "FGP_Element", "FGP_Module_class", "FreeModule",
+        "Infinity", "QQ", "SageObject", "ToricDivisor_generic",
+        "ToricVariety_field", "UniqueFactory", "WithEqualityById", "ZZ",
+        "annotations", "cached_method", "flatten"
+    }),
+    "sage.quadratic_forms.genera.spinor_genus": frozenset({
+        "AbelianGroupElement_gap", "AbelianGroupGap", "QQ", "SpinorOperator",
+        "SpinorOperators", "ZZ"
+    }),
+    "sage.rings.polynomial.pbori.interpolate": frozenset({
+        "Block", "BoolePolynomialVector", "BooleSet", "Monomial", "Polynomial",
+        "Random", "Variable", "add_up_poly_list", "add_up_polynomials",
+        "bench_interpolate", "clock", "declare_ring", "gen_random_o_z",
+        "gen_random_poly", "generator", "interpolate", "interpolate_smallest_lex",
+        "lex_groebner_basis_for_polynomial_via_variety",
+        "lex_groebner_basis_points", "nf_lex_points", "variety_lex_leading_terms"
+    }),
+    "sage.combinat.superpartition": frozenset({
+        "ClonableArray", "Composition", "EnumeratedSets", "GlobalOptions",
+        "InheritComparisonClasscallMetaclass", "Integer", "Parent", "Partition",
+        "Partitions", "SuperPartition", "SuperPartitions", "SuperPartitions_all",
+        "SuperPartitions_n", "SuperPartitions_n_m", "UniqueRepresentation", "ZZ",
+        "annotations", "chain", "reduce", "richcmp", "richcmp_method"
+    }),
+    "sage.matroids.gammoid": frozenset({
+        "DiGraph", "Gammoid", "Matroid", "MinorMatroid"
+    }),
+    "sage.modules.fp_graded.free_module": frozenset({
+        "CombinatorialFreeModule", "FreeGradedModule", "FreeGradedModuleElement",
+        "FreeModule", "GradedModules", "Hom", "PrincipalIdealDomains",
+        "cached_method", "infinity"
+    }),
+    "sage.rings.padics.padic_relaxed_errors": frozenset({
+        "PrecisionError", "raise_error"
+    }),
+    "sage.combinat.cyclic_sieving_phenomenon": frozenset({
+        "CyclicSievingCheck", "CyclicSievingPolynomial", "PolynomialRing", "ZZ",
+        "annotations", "lcm", "orbit_decomposition"
+    }),
 }
 
 

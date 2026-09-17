@@ -7,6 +7,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-09-17
+
+Cut for one reason: the sdist every previous release published could not be
+built from. Anyone installing from source, packaging for a distribution, or
+reviewing the conda-forge recipe hit it; the wheel on PyPI was always fine, so
+most users never did. It also carries a second pass at letting more of
+SageMath's own mathematics through.
+
+
 ### Fixed
 
 - **The published sdist could not build a wheel.** Every release since the

@@ -63,6 +63,11 @@ dev = [
     "coverage>=7.15.4",
     "ruff>=0.16.2",
     "build>=1.5.0",
+    # The build backend, so tests/test_sdist_roundtrip.py can build the sdist
+    # and then a wheel from it with --no-isolation: offline, and the same
+    # backend version the release uses rather than whatever an isolated env
+    # resolves. Without it that test skips, and a skipped guard guards nothing.
+    "hatchling>=1.32.0",
     "pip-audit>=2.10.1",
     # Property-based tests over the security policy (tests/test_security_property.py)
     # and mutation testing of it (make mutation, scripts/run_mutation_tests.py).
@@ -73,7 +78,13 @@ dev = [
 [project.scripts]
 sagemath-mcp = "sagemath_mcp.server:main"
 
-[tool.hatch.build]
+# `packages` is set on the WHEEL target only, never on `[tool.hatch.build]`.
+# Set globally it also applies to the sdist, where it rewrites `src/sagemath_mcp`
+# to `sagemath_mcp` -- and then the sdist no longer matches the `src/...` paths
+# in this file, so building a wheel FROM the sdist either fails on the
+# force-include or silently produces a wheel with no code in it. Both happened.
+# See `tests/test_sdist_roundtrip.py`, which builds the wheel from the sdist.
+[tool.hatch.build.targets.wheel]
 packages = ["src/sagemath_mcp"]
 
 [tool.hatch.build.targets.wheel.force-include]
@@ -84,17 +95,20 @@ packages = ["src/sagemath_mcp"]
 # setuptools file. One lived here for a long time listing these same documents,
 # and shipped none of them: every sdist contained README.md alone while
 # DISTRIBUTION.md and build_release.py both said "documentation included".
-include = ["src/sagemath_mcp/py.typed"]
-
-[tool.hatch.build.targets.sdist.force-include]
-"USAGE.md" = "USAGE.md"
-"TESTING.md" = "TESTING.md"
-"AGENTS.md" = "AGENTS.md"
-"INSTALLATION.md" = "INSTALLATION.md"
-"SECURITY.md" = "SECURITY.md"
-"CONTRIBUTING.md" = "CONTRIBUTING.md"
-"CHANGELOG.md" = "CHANGELOG.md"
-"docs" = "docs"
+#
+# `only-include` keeps each path where it is, so the sdist is the source tree:
+# `src/` stays `src/`. That is what makes it round-trip.
+only-include = [
+    "src",
+    "docs",
+    "USAGE.md",
+    "TESTING.md",
+    "AGENTS.md",
+    "INSTALLATION.md",
+    "SECURITY.md",
+    "CONTRIBUTING.md",
+    "CHANGELOG.md",
+]
 
 [tool.ruff]
 line-length = 100

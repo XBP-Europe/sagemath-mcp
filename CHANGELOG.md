@@ -7,6 +7,39 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The published sdist could not build a wheel.** Every release since the
+  typing marker was added shipped an sdist that fails with `FileNotFoundError:
+  Forced include not found: src/sagemath_mcp/py.typed`, which breaks `pip
+  install --no-binary :all:`, conda-forge, and any distribution packaging from
+  source. The wheel on PyPI was always fine, which is why it went unnoticed:
+  CI builds the wheel from the repository, where `src/` exists. `packages` was
+  set on `[tool.hatch.build]`, which applies to every target, so the sdist
+  rewrote `src/sagemath_mcp` to `sagemath_mcp` and then no longer matched the
+  `src/...` paths in `pyproject.toml`. It is now set on the wheel target alone,
+  and the sdist uses `only-include` so it keeps the source layout.
+
+  Worth knowing for the next packaging change: simply dropping the
+  `force-include` makes the build *succeed* and emit a wheel containing only
+  `.dist-info` — no code, installs cleanly, fails at every import.
+  `tests/test_sdist_roundtrip.py` now builds the sdist and then a wheel from
+  that sdist and looks inside, which catches both. Found by submitting the
+  conda-forge recipe. See REVIEW_ACTIONS 79.
+
+### Changed
+
+- **The conda-forge recipe is submitted, and converted to the v1 format.**
+  `packaging/conda/meta.yaml` becomes `packaging/conda/recipe.yaml`:
+  staged-recipes deprecated the v0 `meta.yaml` format in August 2026 and warns
+  that v0 submissions are "less likely to be reviewed in a timely manner".
+  Submitted as conda-forge/staged-recipes#34875 with `csteinlxbp` as the listed
+  maintainer, confirmed on the pull request as their checklist requires.
+  `tests/test_conda_recipe.py` now reads the recipe as YAML rather than by
+  regular expression, and asserts the maintainer handle rather than leaving it
+  to a copy-paste.
+
+
 ### Changed
 
 - **Eighteen more internal modules are star-importable, and corpus acceptance

@@ -355,6 +355,33 @@ prioritised. Correctness first, then packaging/adoption.
       job refuses anything in `dist/` that is not a wheel or an sdist, and
       `tests/test_mcpb_bundle.py` holds both.
 
+      **Post-release trust check, v0.8.1 (2026-09-17).** Re-run end to end on
+      the published artefacts, not the working tree. Cosign verifies both images
+      against `release.yml@refs/tags/v0.8.1`; SLSA provenance verifies on both
+      image digests and the SPDX SBOM is attested to the primary one; PyPI
+      carries PEP 740 for both files; all four SBOM assets parse as SPDX 2.3;
+      and all four tags (`v0.8.1`, `v0.8.1-passagemath`, `latest`,
+      `latest-passagemath`) resolve anonymously, the passagemath ones as
+      `linux/amd64` + `linux/arm64` indexes. The **new provenance asset works as
+      designed**: `gh attestation verify <artefact> --bundle
+      sagemath-mcp-0.8.1.intoto.jsonl` verifies the `.mcpb` offline, and the
+      bundle names all three subjects.
+
+      The **desktop bundle was installed from the release page and driven over
+      MCP**: it reports `sagemath-mcp 0.8.1`, lists 40 tools, evaluates
+      `factor(2^61 - 1)` correctly, and — the part worth checking — `from
+      sage.matroids.advanced import *` followed by `BasisMatroid(...).rank()`
+      returns 2 while `libgap` is still refused. So item 77's gain reached a real
+      user through a real install, and the drop is not a hole there either.
+
+      One false alarm worth recording: the first attempt failed with `Failed to
+      install: passagemath_symbolics-…whl`, which looked like a bundle defect and
+      was not. The scratch directory sat on a tmpfs with 3 GB free while the uv
+      cache was on another filesystem, so uv full-copied instead of hardlinking
+      and ran out of space. Re-run on the cache's own filesystem it installs
+      clean. **Test the bundle where hardlinking works**, or the failure mode
+      misleads.
+
       **The dry run earns its keep (2026-09-16).** Re-running
       `release.yml` by dispatch on the fix branch failed immediately: the bundle
       step derived its version by stripping `v` from `GITHUB_REF_NAME`, which on
@@ -398,11 +425,13 @@ prioritised. Correctness first, then packaging/adoption.
         could match. The release now attaches
         `sagemath-mcp-<version>.intoto.jsonl`, the Sigstore bundles for the
         wheel, sdist and `.mcpb` that the attestation step already produced.
-        **What to expect:** the score is the average over the last five
-        releases (10 with provenance, 8 signed-only, 0 otherwise, floored), so
-        one release with provenance gives `floor(10/5) = 2` and it reaches 10
-        only once five such releases are in the window. Nothing further to do
-        but ship.
+        **Confirmed 2026-09-17 by v0.8.1**, the first release built with the
+        asset attached: Signed-Releases **0 → 2**, overall **7.4 → 7.5**, with
+        the reason line reading "1 out of the last 5 releases have a total of 1
+        signed artifacts". That is exactly the arithmetic — the score averages
+        the last five releases (10 with provenance, 8 signed-only, 0 otherwise,
+        floored), so `floor(10/5) = 2` — and it reaches 10 only once five such
+        releases are in the window. Nothing further to do but ship.
       - *Branch-Protection −1 (internal error).* Scorecard's default token
         cannot read protection settings; needs the owner to add a fine-grained
         PAT (`administration: read`) as `SCORECARD_TOKEN` and pass it as

@@ -84,11 +84,14 @@ def test_the_recipe_python_floor_matches_requires_python() -> None:
     assert "python ${{ python_min }}.*" in RECIPE["requirements"]["host"], (
         "the host requirement should pin python_min exactly, as noarch recipes do"
     )
-    # python_min is supplied by conda-forge's pinning, so the recipe cannot
-    # state the number; what it can do is not contradict it.
-    assert required == ">=3.12", (
-        f"requires-python changed to {required}; check conda-forge's python_min "
-        "still matches before the next recipe submission"
+    # conda-forge's global python_min is lower than this project's floor, so the
+    # recipe overrides it in `context`. Getting this wrong does not warn: the
+    # build environment simply gets the older Python and pip refuses the install
+    # with "requires a different Python", which is how it was found.
+    declared = RECIPE["context"]["python_min"]
+    assert required == f">={declared}", (
+        f"pyproject requires-python is {required} but the recipe's python_min is "
+        f"{declared}; conda-forge would build against the wrong Python"
     )
 
 

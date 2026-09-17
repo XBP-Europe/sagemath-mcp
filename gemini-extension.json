@@ -1,13 +1,13 @@
 {
   "name": "sagemath",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Stateful SageMath computations: symbolic calculus, number theory, linear algebra, graphs, groups, elliptic curves, plotting and claim verification.",
   "mcpServers": {
     "sagemath": {
       "command": "uvx",
       "args": [
         "--from",
-        "sagemath-mcp[passagemath]==0.8.0",
+        "sagemath-mcp[passagemath]==0.8.1",
         "sagemath-mcp"
       ]
     }

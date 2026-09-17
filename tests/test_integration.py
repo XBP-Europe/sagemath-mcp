@@ -787,12 +787,21 @@ def test_the_star_exports_match_this_sage():
     Regenerate with the snippet in scripts/generate_star_exports.py and review
     the diff.
     """
-    from sagemath_mcp._artifacts import STAR_EXPORTS  # runtime-appropriate set
+    from sagemath_mcp._artifacts import (  # runtime-appropriate set
+        STAR_EXPORT_DROPS,
+        STAR_EXPORTS,
+    )
     from sagemath_mcp._sage_worker import _star_export_screen
 
     drift = {}
     for module_name, baked in STAR_EXPORTS.items():
-        screened = _star_export_screen(module_name)
+        # Re-screened with exactly the drops the generator recorded, so a Sage
+        # that adds a different dangerous export to a listed module -- or makes
+        # a recorded drop unnecessary -- turns the result to None and fails here.
+        screened = _star_export_screen(
+            module_name,
+            expected_drops=STAR_EXPORT_DROPS.get(module_name, frozenset()),
+        )
         if screened != baked:
             drift[module_name] = (
                 "no longer screens clean" if screened is None

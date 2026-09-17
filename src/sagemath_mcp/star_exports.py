@@ -156,5 +156,66 @@ STAR_EXPORTS: dict[str, frozenset[str]] = {
         "Ring", "Variable", "all_monomials_of_degree_d", "declare_ring",
         "groebner_basis", "load_file", "normal_form", "power_set"
     }),
+    "sage.matroids.advanced": frozenset({
+        "BasisMatroid", "BinaryMatroid", "CircuitClosuresMatroid",
+        "CircuitsMatroid", "DualMatroid", "FlatsMatroid", "GraphicMatroid",
+        "LinearMatroid", "LinearSubclasses", "MatroidExtensions", "MatroidSum",
+        "MatroidUnion", "MinorMatroid", "PartitionMatroid", "QuaternaryMatroid",
+        "RankMatroid", "RegularMatroid", "TernaryMatroid", "cmp_elements_key",
+        "get_nonisomorphic_matroids", "lift_cross_ratios", "lift_map", "newlabel",
+        "setprint"
+    }),
+    "sage.combinat.matrices.latin": frozenset({
+        "DLXCPP", "FiniteField", "GapElement", "Integer", "LatinSquare",
+        "LatinSquare_generator", "Matrix_integer_dense", "Permutation",
+        "PermutationConstructor", "PermutationGroup", "PermutationGroupElement",
+        "ZZ", "alternating_group_bitrade_generators", "back_circulant", "beta1",
+        "beta2", "beta3", "bitrade", "bitrade_from_group", "cells_map_as_square",
+        "check_bitrade_generators", "coin", "column_containing_sym",
+        "direct_product", "dlxcpp_find_completions", "dlxcpp_rows_and_map",
+        "elementary_abelian_2group", "flatten", "forward_circulant", "genus",
+        "group_to_LatinSquare", "is_bitrade", "is_disjoint", "is_primary_bitrade",
+        "is_prime", "is_row_and_col_balanced", "is_same_shape", "isotopism",
+        "matrix", "next_conjugate", "p3_group_bitrade_generators",
+        "pq_group_bitrade_generators", "reduce", "row_containing_sym", "tau1",
+        "tau123", "tau2", "tau3", "tau_to_bitrade"
+    }),
+    "sage.graphs.generators.distance_regular": frozenset({
+        "AlternatingFormsGraph", "BiggsSmithGraph", "BilinearFormsGraph",
+        "ConwaySmith_for_3S7", "CoxeterGraph", "DodecahedralGraph",
+        "DoubleGrassmannGraph", "DoubleOddGraph", "DoublyTruncatedWittGraph",
+        "FosterGraph", "FosterGraph3S6", "GF", "GeneralisedDodecagonGraph",
+        "GeneralisedHexagonGraph", "GeneralisedOctagonGraph", "GossetGraph",
+        "Graph", "GrassmannGraph", "HalfCube", "HermitianFormsGraph",
+        "HigmanSimsGraph", "HoffmanSingletonGraph", "IvanovIvanovFaradjevGraph",
+        "J2Graph", "LargeWittGraph", "LeonardGraph", "LivingstoneGraph", "Matrix",
+        "SimsGewirtzGraph", "TruncatedWittGraph", "UstimenkoGraph", "VectorSpace",
+        "WellsGraph", "cocliques_HoffmannSingleton", "codes",
+        "distance_3_doubly_truncated_Golay_code_graph", "distance_regular_graph",
+        "graph_3O73", "graph_from_GQ_spread", "graph_with_classical_parameters",
+        "is_classical_parameters_graph", "is_from_GQ_spread", "is_near_polygon",
+        "is_pseudo_partition_graph", "locally_GQ42_distance_transitive_graph",
+        "near_polygon_graph", "pseudo_partition_graph",
+        "shortened_000_111_extended_binary_Golay_code_graph",
+        "shortened_00_11_binary_Golay_code_graph", "strongly_regular_graph",
+        "vanLintSchrijverGraph", "vector"
+    }),
+}
+
+
+#: Names a listed module exports that the screen deliberately did NOT export.
+#:
+#: Only ever import machinery re-exported next to the mathematics --
+#: `lazy_import`, `libgap` -- which the namespace scrub deletes from the
+#: namespace and the validator refuses by name, so dropping one removes nothing
+#: a caller had. It is recorded rather than filtered silently: the drift test
+#: re-screens each module permitting exactly these names, so a Sage that adds a
+#: different dangerous export to a listed module fails the screen with the new
+#: name instead of dropping it quietly. A module absent from here screened clean
+#: as a whole on this runtime.
+STAR_EXPORT_DROPS: dict[str, frozenset[str]] = {
+    "sage.combinat.matrices.latin": frozenset({"libgap"}),
+    "sage.graphs.generators.distance_regular": frozenset({"LazyImport", "libgap"}),
+    "sage.matroids.advanced": frozenset({"lazy_import"}),
 }
 

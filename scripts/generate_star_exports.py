@@ -24,10 +24,20 @@ CANDIDATE_MODULES is the human-curated input. Adding one is a review step: it
 is included only if the screen passes it, and the doctest corpus sweep is where
 its value shows up. `sage.libs.ecl` is deliberately absent -- it screens clean
 but `EclObject` evaluates Lisp, which the screen cannot see.
+
+A module maps to the set of names it is PERMITTED to drop. Empty, the usual
+case, means clean as a whole. A non-empty set is a reviewed exception: a
+dangerous name in the set is dropped, a dangerous name outside it still fails
+the module whole, and a listed name the module does not export simply goes
+unused (the generator says so on stderr, because the two runtimes differ --
+passagemath's `sage.matroids.advanced` re-exports no `lazy_import`). What each
+runtime actually dropped is written into its own generated file, which is what
+the drift test re-checks. See `_star_export_screen` and REVIEW_ACTIONS item 77.
 """
 
 from __future__ import annotations
 
+import sys
 import textwrap
 
 from sagemath_mcp._sage_worker import _star_export_screen
@@ -35,20 +45,20 @@ from sagemath_mcp._sage_worker import _star_export_screen
 # Curated candidates: internal modules the doctest corpus star-imports and whose
 # mathematics is otherwise unreachable. Each is admitted only if it screens
 # clean as a whole; a comment records the corpus weight that motivated it.
-CANDIDATE_MODULES: tuple[str, ...] = (
-    "sage.rings.polynomial.real_roots",                       # 191
-    "sage.matroids.lean_matrix",                              # 93
-    "sage.graphs.graph_decompositions.modular_decomposition", # 87
-    "sage.coding.binary_code",                                # 72
-    "sage.combinat.sf.kfpoly",                                # 26
-    "sage.modular.dims",                                      # 23
-    "sage.schemes.elliptic_curves.weierstrass_morphism",      # 23
-    "sage.libs.lcalc.lcalc_Lfunction",                        # 27
-    "sage.plot.plot3d.shapes",                                # 19
-    "sage.matroids.union_matroid",                            # 14
-    "sage.modules.fp_graded.module",                          # 14
-    "sage.combinat.dlx",                                      # 13
-    "sage.rings.fraction_field_FpT",                          # 15
+CANDIDATE_MODULES: dict[str, frozenset[str]] = {
+    "sage.rings.polynomial.real_roots": frozenset(),                       # 191
+    "sage.matroids.lean_matrix": frozenset(),                              # 93
+    "sage.graphs.graph_decompositions.modular_decomposition": frozenset(), # 87
+    "sage.coding.binary_code": frozenset(),                                # 72
+    "sage.combinat.sf.kfpoly": frozenset(),                                # 26
+    "sage.modular.dims": frozenset(),                                      # 23
+    "sage.schemes.elliptic_curves.weierstrass_morphism": frozenset(),      # 23
+    "sage.libs.lcalc.lcalc_Lfunction": frozenset(),                        # 27
+    "sage.plot.plot3d.shapes": frozenset(),                                # 19
+    "sage.matroids.union_matroid": frozenset(),                            # 14
+    "sage.modules.fp_graded.module": frozenset(),                          # 14
+    "sage.combinat.dlx": frozenset(),                                      # 13
+    "sage.rings.fraction_field_FpT": frozenset(),                          # 15
     # Re-admitted under item 63's drop-module-objects screen: each was dirty for
     # a re-exported module object alone (`real_roots`/`dims` were item-60 modules
     # item 61 dropped whole; `pbori` re-exports `operator`/`sage`). The module
@@ -56,9 +66,21 @@ CANDIDATE_MODULES: tuple[str, ...] = (
     # the comment. `sage.libs.ecl` stays out despite screening clean -- EclObject
     # evaluates Lisp, which no screen can see; curation, not the screen, keeps it
     # excluded.
-    "sage.rings.polynomial.pbori.pbori",                      # 38
-    "sage.rings.polynomial.pbori",                            # 11
-)
+    "sage.rings.polynomial.pbori.pbori": frozenset(),                      # 38
+    "sage.rings.polynomial.pbori": frozenset(),                            # 11
+    # Item 77. Sage's own public entry points for these areas re-export import
+    # machinery next to the mathematics, and failing the module whole for it cost
+    # the largest single block of corpus refusals left. Each drop is one name the
+    # caller could never reach anyway: the scrub deletes it from the namespace
+    # and the validator refuses it by name, so the drop removes nothing a caller
+    # had. The number is the corpus refusals inside blocks that star-import the
+    # module, measured by scripts/analyse_corpus_refusals.py.
+    "sage.matroids.advanced": frozenset({"lazy_import"}),                  # 217
+    "sage.combinat.matrices.latin": frozenset({"libgap"}),                 # 146
+    "sage.graphs.generators.distance_regular": frozenset(                   # 36
+        {"LazyImport", "libgap"}
+    ),
+}
 
 HEADER = '''"""The `from <module> import *` statements caller code is allowed to keep.
 
@@ -89,13 +111,43 @@ from __future__ import annotations
 STAR_EXPORTS: dict[str, frozenset[str]] = {
 '''
 
+DROPS_HEADER = '''
+#: Names a listed module exports that the screen deliberately did NOT export.
+#:
+#: Only ever import machinery re-exported next to the mathematics --
+#: `lazy_import`, `libgap` -- which the namespace scrub deletes from the
+#: namespace and the validator refuses by name, so dropping one removes nothing
+#: a caller had. It is recorded rather than filtered silently: the drift test
+#: re-screens each module permitting exactly these names, so a Sage that adds a
+#: different dangerous export to a listed module fails the screen with the new
+#: name instead of dropping it quietly. A module absent from here screened clean
+#: as a whole on this runtime.
+STAR_EXPORT_DROPS: dict[str, frozenset[str]] = {'''
+
 
 def main() -> int:
     lines = [HEADER]
-    for module_name in CANDIDATE_MODULES:
-        screened = _star_export_screen(module_name)
+    drops: dict[str, frozenset[str]] = {}
+    for module_name, expected_drops in CANDIDATE_MODULES.items():
+        dropped: set[str] = set()
+        screened = _star_export_screen(
+            module_name, expected_drops=expected_drops, dropped_out=dropped
+        )
         if not screened:
+            print(f"skipped (screens dirty): {module_name}", file=sys.stderr)
             continue
+        # What was permitted and what was needed differ per runtime:
+        # passagemath's `sage.matroids.advanced` re-exports no `lazy_import` and
+        # is clean as a whole there. Record what this runtime actually dropped,
+        # and say so, rather than writing a permission the artifact does not use.
+        if unused := expected_drops - dropped:
+            print(
+                f"note: {module_name} needed no drop for {sorted(unused)} on this "
+                "runtime; the permission is unused here",
+                file=sys.stderr,
+            )
+        if dropped:
+            drops[module_name] = frozenset(dropped)
         names = textwrap.fill(
             ", ".join(f'"{name}"' for name in sorted(screened)),
             width=84,
@@ -103,6 +155,11 @@ def main() -> int:
             subsequent_indent="        ",
         )
         lines.append(f'    "{module_name}": frozenset({{\n{names}\n    }}),')
+    lines.append("}\n")
+    lines.append(DROPS_HEADER)
+    for module_name, expected_drops in sorted(drops.items()):
+        listed = ", ".join(f'"{name}"' for name in sorted(expected_drops))
+        lines.append(f'    "{module_name}": frozenset({{{listed}}}),')
     lines.append("}\n")
     print("\n".join(lines))
     return 0

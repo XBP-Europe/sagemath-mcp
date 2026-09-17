@@ -1122,3 +1122,61 @@ async def test_an_unvetted_star_import_stays_refused() -> None:
                 await _value(session, code)
     finally:
         await session.shutdown()
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_a_star_import_with_a_reviewed_drop_computes() -> None:
+    """The three modules admitted under item 77 carry real mathematics.
+
+    Each is Sage's own public entry point for its area and each re-exports one
+    piece of import machinery next to the mathematics, which used to fail the
+    module whole. The mathematics has to actually run, not merely validate --
+    a screened name that is a lazy import stub would pass the validator and
+    then raise.
+    """
+    session = await _session("starimport-dropped")
+    try:
+        await _value(session, "from sage.matroids.advanced import *")
+        assert await _value(
+            session,
+            "BasisMatroid(groundset='abcd', bases=['ab', 'ac', 'ad', 'bc', 'bd', 'cd']).rank()",
+        ) == "2"
+
+        await _value(session, "from sage.combinat.matrices.latin import *")
+        assert await _value(session, "back_circulant(4).nrows()") == "4"
+        assert await _value(session, "isotopism(3).order()") == "1"
+
+        await _value(session, "from sage.graphs.generators.distance_regular import *")
+        assert await _value(session, "GossetGraph().is_distance_regular()") == "True"
+    finally:
+        await session.shutdown()
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_a_dropped_name_is_still_refused_after_its_star_import() -> None:
+    """The point of dropping rather than exporting.
+
+    `sage.matroids.advanced` exports `lazy_import`, and the latin-squares and
+    distance-regular modules export `libgap`. Those names are not in the
+    expansion, so the import cannot bind them -- and the validator still refuses
+    them by name afterwards, which is what makes the drop cost the caller
+    nothing. If either ever stopped being refused, the drop would be a hole.
+    """
+    from sagemath_mcp.session import SageEvaluationError
+
+    session = await _session("starimport-dropped-deny")
+    try:
+        await _value(session, "from sage.matroids.advanced import *")
+        await _value(session, "from sage.combinat.matrices.latin import *")
+        for code in (
+            "lazy_import('sage.all', 'ZZ')",
+            "libgap.eval('1+1')",
+            "libgap",
+            "lazy_import",
+        ):
+            with pytest.raises(SageEvaluationError):
+                await _value(session, code)
+    finally:
+        await session.shutdown()

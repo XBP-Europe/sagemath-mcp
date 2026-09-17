@@ -4162,3 +4162,62 @@ Fixed 2026-09-17. The bucket this worked through is now mostly boundaries
 rather than gaps, so a third pass is not worth its review time on the present
 evidence: what remains is pickle machinery, the Lisp evaluator, the external
 interfaces, and names the corpus binds in a docstring's own surrounding code.
+
+## 79. The published sdist could not build a wheel — high — DONE
+
+### Symptom
+
+Found within minutes of submitting the conda-forge recipe
+(conda-forge/staged-recipes#34875), because conda-forge always builds from the
+sdist and nothing here ever had:
+
+```
+FileNotFoundError: Forced include not found: $SRC_DIR/src/sagemath_mcp/py.typed
+error: metadata-generation-failed
+```
+
+Every release since the typing marker was added shipped an sdist that cannot be
+built from. That breaks `pip install --no-binary :all: sagemath-mcp`,
+conda-forge, and any distribution packaging from source. The wheel on PyPI was
+always fine, which is why nobody noticed: CI builds it from the *repository*,
+where `src/` exists.
+
+### Cause
+
+`packages = ["src/sagemath_mcp"]` was set on `[tool.hatch.build]`, which applies
+to **every** target, not just the wheel. On the sdist target it rewrites
+`src/sagemath_mcp` to `sagemath_mcp`, so the sdist's layout stopped matching the
+`src/...` paths in `pyproject.toml` that the build then reads back.
+
+The second failure is the one worth remembering. Removing the wheel's
+`force-include` makes the build *succeed* — and produce a wheel containing only
+`.dist-info`, with no code at all. Measured: 5 files, none of them Python. That
+wheel installs cleanly and every import fails at run time. A green build is not
+evidence that a wheel has anything in it.
+
+### Fix
+
+- `packages` moved to `[tool.hatch.build.targets.wheel]`, so the rewrite applies
+  to the wheel alone.
+- The sdist target uses `only-include`, which keeps every path where it is, so
+  the sdist *is* the source tree and round-trips.
+- `hatchling` added to the `dev` extra, so the new test can build with
+  `--no-isolation` rather than skipping. A guard that skips in CI is not a guard.
+
+The rebuilt wheel has a **file list identical** to the released 0.8.1 wheel, so
+the fix changes the sdist and nothing else.
+
+### How to verify
+
+`tests/test_sdist_roundtrip.py` builds the sdist and then a wheel *from that
+sdist*, and looks inside: the sdist keeps `src/`, the wheel carries at least 20
+modules plus `server.py` and `security.py`, `py.typed` survives, and the console
+script is declared. Reverting `pyproject.toml` to the old configuration makes it
+fail with the exact conda-forge error, which is how the guard was proven rather
+than assumed.
+
+### Status
+
+Fixed 2026-09-17. The conda-forge recipe pins the 0.8.1 sdist and therefore
+cannot build until a release ships this; the submission is blocked on that, not
+on review.

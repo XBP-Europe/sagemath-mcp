@@ -293,15 +293,21 @@ prioritised. Correctness first, then packaging/adoption.
       provenance are attested to the GHCR digest; Scorecard publishes weekly.
       First real exercise is the next tag — the dry-run dispatch covers SBOM
       generation but attests nothing by design. The install paths remain open:
-      **conda-forge is written and verified but not submitted.** The recipe is
-      on `main` (#93, closed) — `packaging/conda/meta.yaml`, kept in step with
-      `pyproject.toml` by `tests/test_conda_recipe.py`, including the sdist hash
-      against PyPI. Every runtime dependency is on conda-forge, `fastmcp 3.4.7`
-      included, so it resolves under the `<4` cap today. **Submitting it to
-      `conda-forge/staged-recipes` is #101** — it starts an external review and
-      names a maintainer publicly, so it is the owner's call, and the README /
-      USAGE / DISTRIBUTION lines wait on it. The **`.mcpb` bundle is done**
-      (2026-09-16, `packaging/mcpb`): MCPB `uv` server type, ~2 KB, pinning
+      **conda-forge is SUBMITTED, 2026-09-17** — conda-forge/staged-recipes#34875
+      (#101). The recipe is on `main` — `packaging/conda/recipe.yaml`, kept in
+      step with `pyproject.toml` by `tests/test_conda_recipe.py`, including the
+      sdist hash against PyPI. It was converted to the **v1 `recipe.yaml`
+      format** for the submission: staged-recipes deprecated v0 `meta.yaml` in
+      August 2026 and says v0 submissions are "less likely to be reviewed in a
+      timely manner". Every runtime dependency is on conda-forge, `fastmcp
+      3.4.7` included, so it resolves under the `<4` cap today. **The
+      submission immediately found a real defect in our sdist** — see item 79;
+      the recipe cannot build until a release ships the fix. The maintainer
+      listed is `csteinlxbp`, confirmed on the pull request as staged-recipes
+      requires, so the owner is publicly on the hook for the feedstock and for
+      the bot's pull requests after it. The README / USAGE / DISTRIBUTION
+      install lines and the `conda-forge` badge wait on the merge.
+      The **`.mcpb` bundle is done** (2026-09-16, `packaging/mcpb`): MCPB `uv` server type, ~2 KB, pinning
       `sagemath-mcp[passagemath]` so the host installs a Sage runtime with it;
       built and attached by every release, schema-validated as it packs, version
       kept in step by the bump script. A **Gemini CLI extension** landed with

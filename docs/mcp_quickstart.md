@@ -43,8 +43,10 @@ All tools use **SageMath** as the computation backend unless noted.
 
 **It runs Sage, not Python.** Code is preparsed exactly as Sage's own REPL does:
 `2^3` is 8, not 1; integer literals are Sage `Integer`s; `K.<a> = NumberField(x^3 - 2)`
-parses; and `x`, `y`, `z` and `t` are already defined. Any other symbol needs
-`var('w')` first, and the error message says so. Use `^^` if you actually want XOR.
+parses; and `x`, `y`, `z` and `t` are already defined. So is any other
+symbol-shaped name — `w`, `x_2`, `alpha` — which the server declares for you; a
+name that is not symbol-shaped, like `sinn`, stays an error, so a typo is
+reported rather than silently becoming a symbol. Use `^^` if you actually want XOR.
 Code indented as a whole -- pasted out of a markdown block, say -- is accepted:
 the shared margin is stripped before parsing.
 

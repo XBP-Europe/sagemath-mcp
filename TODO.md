@@ -451,6 +451,31 @@ prioritised. Correctness first, then packaging/adoption.
       - *Fuzzing 0.* Not pursued: the AST validator is exercised by the
         432,878-example doctest corpus and a Hypothesis property suite, which is
         the fuzzing this project's shape actually benefits from.
+      **Score 7.7 (2026-09-18), and the remaining gap is mostly not ours to
+      close.** Signed-Releases reached 4 once v0.8.1 and v0.8.2 both carried the
+      provenance asset, and it climbs on its own as releases ship; SAST is 9 and
+      rises the same way, since the 7 uncovered commits predate `codeql.yml`.
+      Branch-Protection needs the owner's fine-grained PAT, CII-Best-Practices
+      is an owner questionnaire, and Code-Review and Contributors are the
+      single-maintainer reality `SUPPORT.md` states. Of the four
+      Pinned-Dependencies warnings, all four are deliberate: `pip install
+      --no-deps .` installs the project itself and has no hash to pin, and the
+      three `npm install -g` lines in `cli-nightly.yml` install the CLI clients
+      the harness exists to measure — pinning them would measure a client nobody
+      runs. The workflow now says so where someone would otherwise "fix" it.
+      **Chasing the number further is not worth the review time**; what was
+      worth doing is below, and Scorecard does not flag it.
+      - [x] *Pin the MCPB packer (2026-09-18).* `release.yml` and `make mcpb`
+        fetched `@anthropic-ai/mcpb@latest`. That tool runs inside the release
+        and the bundle it emits is attested a few steps later, so an unpinned
+        packer meant our signature vouched for whatever npm served that minute,
+        and a format change would reach a desktop app without anyone deciding to
+        ship it. Pinned to 2.1.2 in both places — verified output-identical to
+        the released v0.8.2 bundle, 1,891 bytes and the same three files, so the
+        pin changed what we trust and nothing else. npm versions are immutable,
+        so this is a real pin even though it is not a hash. A test fails if the
+        two places disagree or if `@latest` returns. Scorecard never flagged it,
+        because it inspects `npm install`, not `npx`.
 - [x] **Measure the tool surface before defending it.** The roadmap argues 40
       tools is a differentiator; the reviewer argues `evaluate_sage` covers most
       of it and a 12-tool build might score the same. Use the CLI harness to

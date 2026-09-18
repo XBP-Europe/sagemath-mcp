@@ -56,7 +56,7 @@ drop the `:ro` on that one volume rather than changing ownership of the tree.
 ```bash
 helm install sagemath charts/sagemath-mcp \
   --set image.repository=<your-ghcr-namespace>/sagemath-mcp \
-  --set image.tag=v0.5.0
+  --set image.tag=v0.8.2
 ```
 
 Pin the tag to a released version rather than `latest`. `latest` gives you no

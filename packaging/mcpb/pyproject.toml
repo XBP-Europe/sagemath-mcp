@@ -1,5 +1,5 @@
 # Dependencies for the MCPB bundle. The host application installs these with uv
-# on first launch, which is what lets the bundle stay ~10 KB while still
+# on first launch, which is what lets the bundle stay about 2 KB while still
 # shipping a working Sage.
 #
 # The Sage runtime is the [passagemath] extra -- a pip-installable SageMath, the

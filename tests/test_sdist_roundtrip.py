@@ -25,6 +25,7 @@ from __future__ import annotations
 import subprocess
 import sys
 import tarfile
+import tomllib
 import zipfile
 from pathlib import Path
 
@@ -35,7 +36,35 @@ ROOT = Path(__file__).resolve().parents[1]
 # Both are dev extras precisely so this runs rather than skips: a guard that
 # skips in CI is not a guard. See the `dev` extra in pyproject.toml.
 pytest.importorskip("build", reason="the `build` frontend is a dev extra")
-pytest.importorskip("hatchling", reason="the build backend is a dev extra")
+hatchling = pytest.importorskip("hatchling", reason="the build backend is a dev extra")
+
+
+def _backend_is_new_enough() -> bool:
+    """`--no-isolation` builds with whatever backend is installed here.
+
+    An environment carrying an older hatchling than `[build-system] requires`
+    asks for -- the Sage container ships 1.29 -- fails inside the build with a
+    dependency report, which surfaces as four errors and a wall of build log
+    rather than as "your backend is old". Checked up front so the reason is
+    legible. `make sage-deps` is what fixes it in the container.
+    """
+    from importlib.metadata import version
+
+    from packaging.requirements import Requirement
+
+    requires = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    for spec in requires["build-system"]["requires"]:
+        requirement = Requirement(spec)
+        if not requirement.specifier.contains(version(requirement.name), prereleases=True):
+            return False
+    return True
+
+
+pytestmark = pytest.mark.skipif(
+    not _backend_is_new_enough(),
+    reason="the installed build backend is older than [build-system] requires "
+    "(run `make sage-deps` in the Sage container)",
+)
 
 
 @pytest.fixture(scope="module")

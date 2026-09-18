@@ -66,6 +66,14 @@ jobs:
         # depends on -- rather than inside someone's desktop app after a
         # one-click install.
         #
+        # The packer is pinned to an exact version, not `@latest`. It runs
+        # inside the release, and what it produces is signed and attested a few
+        # steps later -- so an unpinned tool means our signature vouches for
+        # whatever npm served that minute. npm versions are immutable, so a
+        # version pin is a real pin even though it is not a hash. Moving it is a
+        # deliberate review step: `make mcpb` carries the same version and a test
+        # fails if the two drift apart.
+        #
         # It is packed into bundle/, NOT dist/, and that is not cosmetic: the
         # publish job uploads `packages-dir: dist` to PyPI, and twine refuses a
         # directory holding anything it does not recognise as a distribution
@@ -86,7 +94,7 @@ jobs:
             VERSION="0.0.0-dryrun"
           fi
           mkdir -p bundle
-          npx --yes @anthropic-ai/mcpb@latest pack packaging/mcpb \
+          npx --yes @anthropic-ai/mcpb@2.1.2 pack packaging/mcpb \
             "bundle/sagemath-mcp-${VERSION}.mcpb"
           ls -l bundle/*.mcpb
       - name: Keep dist/ to what PyPI accepts

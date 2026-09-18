@@ -130,9 +130,13 @@ tool-surface:
 #
 # It lands in bundle/, not dist/: dist/ is what the release uploads to PyPI, and
 # twine refuses a directory holding anything that is not a wheel or an sdist.
+# Pinned, and kept equal to the version release.yml uses by a test: the packer
+# runs inside the release and what it emits is signed, so `@latest` would mean
+# the signature vouches for whatever npm served that minute.
+MCPB_VERSION ?= 2.1.2
 mcpb:
 	@mkdir -p bundle
-	npx --yes @anthropic-ai/mcpb@latest pack packaging/mcpb bundle/sagemath-mcp-$(shell grep -m1 '^version' pyproject.toml | cut -d'"' -f2).mcpb
+	npx --yes @anthropic-ai/mcpb@$(MCPB_VERSION) pack packaging/mcpb bundle/sagemath-mcp-$(shell grep -m1 '^version' pyproject.toml | cut -d'"' -f2).mcpb
 
 all: test integration-test
 

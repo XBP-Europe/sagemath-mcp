@@ -7,6 +7,24 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- **The desktop-bundle packer is pinned.** `release.yml` and `make mcpb` ran
+  `npx @anthropic-ai/mcpb@latest`. That tool runs inside the release job, and
+  the bundle it produces is signed and attested a few steps later, so an
+  unpinned packer meant the signature vouched for whatever npm served at that
+  moment — and a format change could reach someone's desktop app without anyone
+  deciding to ship it. Now pinned to 2.1.2 in both places, verified to produce
+  a bundle identical to the released 0.8.2 one, so the pin changes what is
+  trusted and nothing else. A test fails if the two places drift apart or if
+  `@latest` comes back. OpenSSF Scorecard does not flag this, because it
+  inspects `npm install` rather than `npx`.
+
+  The three `npm install -g` lines in the nightly CLI harness stay deliberately
+  unpinned, and the workflow now says why: that job exists to measure how
+  today's clients behave, and it publishes nothing.
+
+
 ## [0.8.2] - 2026-09-17
 
 Cut for one reason: the sdist every previous release published could not be

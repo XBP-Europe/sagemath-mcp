@@ -12,6 +12,7 @@ the rest of the manifest's promises.
 from __future__ import annotations
 
 import json
+import re
 import tomllib
 from pathlib import Path
 
@@ -96,7 +97,7 @@ def test_the_release_builds_and_attaches_the_bundle() -> None:
     manifest as it packs, so a bad manifest fails before anything publishes.
     """
     release = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
-    assert "mcpb@latest pack packaging/mcpb" in release, (
+    assert re.search(r"mcpb@[\d.]+ pack packaging/mcpb", release), (
         "release.yml no longer builds the bundle"
     )
     assert 'bundle/sagemath-mcp-${VERSION}.mcpb' in release
@@ -155,4 +156,35 @@ def test_the_release_attaches_signed_provenance() -> None:
     )
     assert '.intoto.jsonl' in release, (
         "Scorecard's Signed-Releases probe matches on this exact suffix"
+    )
+
+
+def test_the_bundle_packer_is_pinned_in_both_places() -> None:
+    """`@latest` in the release would let npm decide what we sign.
+
+    `mcpb pack` runs inside the release job, and the bundle it emits is attested
+    a few steps later -- so an unpinned packer means the signature vouches for
+    whatever version npm served that minute, and a format change lands in
+    someone's desktop app without anyone deciding to ship it. npm versions are
+    immutable, so an exact version is a real pin even though it is not a hash.
+
+    The Makefile has to agree, or `make mcpb` builds a different artefact
+    locally than the release does, which is the drift that makes a local check
+    worthless.
+    """
+    release = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+
+    assert "@anthropic-ai/mcpb@latest" not in release, (
+        "release.yml fetches the packer unpinned; it signs what that packer emits"
+    )
+    assert "@anthropic-ai/mcpb@latest" not in makefile
+
+    in_release = re.search(r"@anthropic-ai/mcpb@(\d+\.\d+\.\d+)", release)
+    in_makefile = re.search(r"^MCPB_VERSION \?= (\d+\.\d+\.\d+)$", makefile, re.MULTILINE)
+    assert in_release, "release.yml no longer pins the packer to an exact version"
+    assert in_makefile, "the Makefile no longer declares MCPB_VERSION"
+    assert in_release.group(1) == in_makefile.group(1), (
+        f"release.yml packs with mcpb {in_release.group(1)} but `make mcpb` uses "
+        f"{in_makefile.group(1)}; a local bundle would not match the released one"
     )

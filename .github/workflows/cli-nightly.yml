@@ -96,6 +96,14 @@ jobs:
           node-version: "22"
 
       - name: Install the ${{ matrix.cli }} CLI
+        # Deliberately UNPINNED, and the one place in this repository where that
+        # is the right answer. This harness exists to measure how today's
+        # clients behave against this server, so pinning them would measure a
+        # client nobody is running. Nothing built here is published, signed or
+        # installed by a user: the job reads credentials, runs prompts and
+        # reports. Scorecard flags these three lines; that is the trade, taken
+        # knowingly. The packer in release.yml is pinned, because that one does
+        # produce a signed artefact.
         if: steps.creds.outputs.present == 'true'
         run: |
           case "${{ matrix.cli }}" in

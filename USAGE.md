@@ -15,7 +15,9 @@
   the Docker image automatically.
 - Optional: `sage` on your `PATH` if running outside Docker.
 - `docker compose up --build` (or `docker-compose up --build` on Compose v1) launches the bundled stack on `http://127.0.0.1:8314/mcp` using the
-  non-root `sage` user (UID/GID 1001); ensure the mounted project directory is writable by that UID.
+  non-root `sage` user (UID/GID 1001). The project directory is mounted
+  **read-only**, so it needs no ownership change — do not `chown -R` your
+  checkout.
 - To deploy to Kubernetes, use the Helm chart in `charts/sagemath-mcp` and set
   `image.repository`/`image.tag` to the published container (non-root execution is enforced by default).
 
@@ -570,16 +572,20 @@ Render a 2D plot of an expression and return it as MCP image content (PNG by def
 | `range_min` | `float` | `-10.0` | Lower bound of the plot range. |
 | `range_max` | `float` | `10.0` | Upper bound of the plot range. |
 
-**Returns:** `{"image_base64": "...", "format": "png"}`
+**Returns:** an MCP **image content block**, not JSON.
 
-The returned base64 string can be rendered directly in any client that supports inline images (e.g., via an `<img>` tag or Markdown `![](data:image/png;base64,...)`).
+The plotting tools used to return `{"image_base64": ...}`, a plain dict that
+serialises as JSON text — so a client showed a wall of base64 instead of a
+picture, and paid the context cost with nothing to look at. They now decode to
+bytes and return an `ImageContent` block, which a client renders directly.
+Nothing has to parse a string or build a `data:` URI.
 
 ```
 > plot_expression(expression="sin(x)*e^(-x/5)", range_min=-5, range_max=20)
-  {"image_base64": "iVBORw0KGgo...", "format": "png"}
+  [image content block: image/png]
 
 > plot_expression(expression="x^3 - 3*x", range_min=-3, range_max=3)
-  {"image_base64": "...", "format": "png"}
+  [image content block: image/png]
 ```
 
 ---
@@ -653,9 +659,13 @@ specialised tools have always declared `x, y, z, t` in their prelude: with only
 `x`, `differentiate_expression("x^2*y^3")` worked while the identical
 mathematics through `evaluate_sage` failed.
 
-**In `evaluate_sage`, any other symbol needs `var('w')`,** and the error message
-says so. That is exactly SageMath's own rule: `w + 1` typed as *code* is a
-`NameError` there too.
+**In `evaluate_sage`, any other symbol-shaped name is declared for you** —
+`w`, `x_2`, `k1`, `alpha`, `α`. SageMath's own rule is stricter (`w + 1` typed
+as *code* is a `NameError` there), and this is a deliberate departure: the
+specialised tools already declared a symbol on sight, so the two paths
+disagreed about which names exist. A name that is *not* symbol-shaped stays an
+error, so a typo like `sinn` is reported rather than quietly becoming a symbol.
+`var('w')` still works and is never wrong to write.
 
 **The specialised tools declare a symbol on sight,** because they take an
 expression as a *string* and that is SageMath's other rule — `SR("a*b + a")`
@@ -1022,7 +1032,7 @@ open it. See [`packaging/mcpb/README.md`](packaging/mcpb/README.md).
 **Gemini CLI.** The repository is itself an extension:
 
 ```bash
-gemini extensions install https://github.com/XBP-Europe/sagemath-mcp --ref v0.8.0
+gemini extensions install https://github.com/XBP-Europe/sagemath-mcp --ref v0.8.2
 ```
 
 Pass the release tag you want as `--ref`; without it you get whatever `main`
@@ -1033,7 +1043,7 @@ removes it.
 rather than a package:
 
 ```bash
-codex mcp add sagemath -- uvx --from "sagemath-mcp[passagemath]==0.8.0" sagemath-mcp
+codex mcp add sagemath -- uvx --from "sagemath-mcp[passagemath]==0.8.2" sagemath-mcp
 ```
 
 All three routes install a Sage runtime along with the server through the
@@ -1083,14 +1093,13 @@ For HTTP transports, point the client at `http://HOST:PORT/mcp` and enable strea
 - **`'n' is larger than 2^53`**: pass that argument as a decimal string. A JSON
   number that large is not exact, so the server refuses it rather than computing
   from a rounded value.
-- **`'w' is not defined`**: in `evaluate_sage`, `x`, `y`, `z` and `t` exist
-  without being declared and anything else needs `var('w')` first, exactly as in
-  the Sage REPL — `w + 1` as code is a `NameError` there too. The error says so
-  and names the declaration to write. The specialised tools do not need it: they
-  take an expression as a string, which is `SR`'s contract, and declare a
-  symbol-shaped name on sight (`a`, `x_2`, `alpha`, `α`, `Ω`). A name that is
-  not symbol-shaped stays an error, so a typo like `sinn(3)` is reported rather
-  than quietly turned into a symbol.
+- **`'sinn' is not defined`**: `x`, `y`, `z` and `t` exist without being
+  declared, and so does any other **symbol-shaped** name — a letter with an
+  optional index, or a Greek name (`w`, `x_2`, `k1`, `alpha`, `α`, `Ω`). Both
+  `evaluate_sage` and the specialised tools declare those on sight. What stays
+  an error is a name that is not symbol-shaped, which is the point: a typo like
+  `sinn(3)` is reported rather than quietly turned into a symbol. `var('w')` is
+  never wrong to write, it is simply no longer required.
 - **Indented code is fine.** A snippet pasted out of a markdown block with four
   spaces on every line used to fail as a syntax error; the shared indentation is
   now stripped before anything else happens.

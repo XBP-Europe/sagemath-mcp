@@ -7,6 +7,41 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Documentation audited against the code after three releases in two days.**
+  Nineteen findings, verified individually rather than taken on trust. The ones
+  that mattered:
+  - `MONITORING.md`'s Prometheus exporter could not run. It pointed at a
+    `scripts/metrics_exporter.py` that does not exist, passed the transport
+    twice to `Client`, never entered the client as a context manager, and then
+    indexed and attributed a dict as if it were a list of objects. Corrected
+    and checked against a running server, where the monitoring resource returns
+    a dict with exactly the six fields the exporter reads.
+  - `USAGE.md` and `docs/mcp_quickstart.md` said every symbol other than
+    `x, y, z, t` needs `var('w')` in `evaluate_sage`. That stopped being true
+    when symbol-shaped names began auto-declaring, and one page contradicted
+    itself 490 lines apart.
+  - `USAGE.md` documented the plotting tools as returning
+    `{"image_base64": ...}`. They return an MCP image content block; the base64
+    dict is what was replaced because clients showed a wall of text.
+  - `USAGE.md` told readers to make the mounted project directory writable. It
+    is mounted read-only, and two other pages say so.
+  - `DISTRIBUTION.md` ran `twine` from the `dev` extra, which does not contain
+    it, and both it and `CONTRIBUTING.md` said the version bump touches four or
+    five files. It touches eight, three of which decide which release a
+    one-click install pulls.
+  - `TESTING.md` listed seven CI jobs (there are eight; `passagemath` was
+    missing) and its suite table omitted fourteen test files.
+
+- **The sdist round-trip test now skips legibly instead of erroring.** With
+  `--no-isolation` it builds using whatever backend is installed, and an
+  environment carrying an older `hatchling` than `[build-system] requires` —
+  the Sage container ships 1.29 — failed inside the build with four errors and
+  a wall of log. It now checks the backend version up front and says to run
+  `make sage-deps`.
+
+
 ### Security
 
 - **The desktop-bundle packer is pinned.** `release.yml` and `make mcpb` ran

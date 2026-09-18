@@ -1,4 +1,4 @@
-"""Run all 44 test cases against Gemini CLI."""
+"""Run all 43 test cases against Gemini CLI."""
 
 from __future__ import annotations
 

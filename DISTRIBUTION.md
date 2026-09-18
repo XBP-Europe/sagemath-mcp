@@ -5,10 +5,13 @@
 Use the **Bump Version** workflow (GitHub Actions → *Bump Version*) before starting a release. The workflow:
 
 - increments the selected segment (patch by default) via `scripts/bump_version.py`,
-- updates all four places a version appears — `pyproject.toml`,
-  `src/sagemath_mcp/__init__.py`, `charts/sagemath-mcp/Chart.yaml` and
-  `server.json` (which carries it twice) — because a test fails when they
-  disagree,
+- updates all **eight** files a version appears in — `pyproject.toml`,
+  `src/sagemath_mcp/__init__.py`, `charts/sagemath-mcp/Chart.yaml` (twice),
+  `server.json` (twice), `CITATION.cff` (with the release date),
+  `packaging/mcpb/manifest.json`, `packaging/mcpb/pyproject.toml` and
+  `gemini-extension.json` — because a test fails when they disagree. The last
+  three decide which release a one-click install pulls, so a miss there ships a
+  bundle that installs the previous version,
 - pushes a branch and **opens a pull request**; `main` is protected by required
   status checks, so nothing is committed to it directly, and
 - stops there. **You push the tag yourself once that pull request merges:**
@@ -40,7 +43,7 @@ The full release procedure, including how to choose the segment, is in
 ## Verifying Contents
 ```bash
 uv run python -m build --wheel --sdist --outdir dist
-uv run python -m twine check dist/*
+uvx twine check dist/*
 ```
 `twine check` confirms metadata and long description rendering.
 
@@ -72,6 +75,13 @@ the container image, and then publishes every artefact from that one run (see
 | `sagemath-mcp-<version>.intoto.jsonl` | asset on the GitHub release | the Sigstore bundle naming the wheel, sdist and desktop bundle as its subjects — the same provenance as above, as a file, so an artefact can be verified offline and a scanner reading release assets can see it |
 | registry entry | the official MCP registry | published with GitHub OIDC after PyPI succeeds |
 
+**conda-forge is submitted, not yet available.** The recipe lives at
+`packaging/conda/recipe.yaml` (v1 format) and was submitted as
+conda-forge/staged-recipes#34875 on 2026-09-17; it builds green on Linux, macOS
+and Windows and is waiting on a reviewer. Nothing in the table above changes
+until it merges — at which point conda-forge creates the feedstock and its bot
+opens a version pull request there after each PyPI release.
+
 A manual `twine upload` would work but would ship files with no attestation, so it
 is not the supported path. The `workflow_dispatch` dry run exercises the build,
 smoke test and SBOM generation without publishing or attesting anything.
@@ -82,7 +92,7 @@ The release workflow automatically builds and pushes Docker images to GHCR at
 `ghcr.io/xbp-europe/sagemath-mcp`. To pull locally:
 
 ```bash
-docker pull ghcr.io/xbp-europe/sagemath-mcp:v0.5.0   # or :latest to track releases
+docker pull ghcr.io/xbp-europe/sagemath-mcp:v0.8.2   # or :latest to track releases
 ```
 
 Prefer a version tag in anything you deploy. `latest` gives no way to say which

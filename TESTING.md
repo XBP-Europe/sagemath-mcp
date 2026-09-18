@@ -29,6 +29,19 @@ that gap.
 | `test_version_consistency.py` | no | Every declared version agrees, and the bump script updates them all |
 | `test_math_suite.py` | no | Mathematical results the pure-Python worker can check |
 | `test_cli_harness.py` | no | The extended CLI harness's own verdict logic, fed synthetic wire logs |
+| `test_security_property.py` | no | Property-based checks over the AST policy, where the hand-written corpus is only as good as what someone thought to try |
+| `test_auth.py` | no | The optional HTTP bearer token: constant-time compare, and `/health` and `/ready` staying open |
+| `test_warm_pool.py` | no | The pre-warmed spare-worker pool: its ceiling, reclamation, and surviving a cancelled request |
+| `test_prompts.py` | no | The MCP prompts, which steer a client toward verified stateful use and must never execute anything |
+| `test_artifacts.py` | no | The runtime artifact dispatch, and the committed passagemath allowlist and star-export sets |
+| `test_generate_allowlist.py` | no | That the generator classifies rather than accepts, so an unrecognised name stops it instead of being allowlisted |
+| `test_mcp_proxy_tool_filter.py` | no | The measurement proxy's tool allowlist really narrows `tools/list` and refuses `tools/call` |
+| `test_version_consistency.py`, `test_mcpb_bundle.py`, `test_gemini_extension.py` | no | The one-click install paths: every version location agrees, the bundle's manifest promises hold, and the packer is pinned |
+| `test_conda_recipe.py` | no | The conda-forge recipe against `pyproject.toml`: dependencies, Python floor, entry point, maintainer, and the sdist hash against PyPI |
+| `test_sdist_roundtrip.py` | no | Builds the sdist, then a wheel **from that sdist**, and looks inside — the path conda-forge and `pip install --no-binary :all:` take, and the one that was broken for every release before 0.8.2 |
+| `test_provenance_bundle.py` | no | The release's provenance asset names every artefact it ships, since a glob that matches nothing is not an error |
+| `test_passagemath_lock.py` | no | The hash-locked requirements export still matches `uv.lock`, because the image installs from it with `--require-hashes` |
+| `test_sage_doctest_execution.py` | **yes** | Opt-in and sampled: executes SageMath's doctests and compares the output against what they document, rather than only validating them |
 | `test_math_coverage.py` | **partly** | Mathematics that must *work*: binding forms and allowlist reachability without Sage, then truths Sage evaluates, equivalent spellings and preparser behaviour with it |
 | `test_verify.py` | **partly** | The `verify_claim` proof ladder: the comparison-side split, exact-decimal rewriting and injection guards without Sage, then the verdicts (proved/refuted/supported/undecided, `float_comparison`, domain-aware sampling) against real Sage |
 | `test_research_workflows.py` | **yes** | Multi-step sessions on open problems — Collatz, Goldbach, twin primes, odd perfect numbers, zeta zeros, BSD, Erdős–Straus, three cubes, abc. The realistic workload, and the strongest stress on the allowlist |
@@ -103,7 +116,7 @@ Two suites drive real CLIs against a real server. Both are opt-in: they consume
 API quota and take minutes, so neither runs in CI.
 
 ```bash
-make cli-integration     # 44 breadth cases, Claude and Gemini
+make cli-integration     # 43 breadth cases, Claude and Gemini
 make cli-extended        # tool-forcing cases across all three CLIs
 uv run python -m tests.cli_integration.run_extended --cli codex --case ext-comb-bell
 ```
@@ -248,11 +261,15 @@ would have shelled out to.
 
 ## CI
 
-Seven jobs, all required by branch protection on `main`: `lint`, `test (3.12)`,
-`test (3.13)`, `security`, `helm`, `integration`, `smoke`.
+Eight jobs, all required by branch protection on `main`: `lint`, `test (3.12)`,
+`test (3.13)`, `security`, `helm`, `integration`, `smoke`, `passagemath`.
 
 - `integration` starts the Sage container itself and reads the image from the Dockerfile,
   so the Sage version has a single source of truth
+- `passagemath` cold-installs the exact pinned passagemath wheel into a fresh
+  environment and runs the whole suite plus the corpus sweep against it, so it
+  doubles as the smoke gate for bumping that pin — a bump that breaks the other
+  runtime fails here rather than after release
 - `security` runs `pip-audit` and is **blocking**; a new upstream advisory turns CI red
   with no repository change
 - `smoke` brings up the compose stack and runs `scripts/exercise_mcp.py` plus the

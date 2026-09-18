@@ -123,11 +123,14 @@ preparser behaviour. Run both.
 `main` is protected and requires all CI checks, so a release cannot be pushed to it
 directly. The flow is:
 
-1. Run the **Version bump** workflow (`workflow_dispatch`) with the segment to bump. It
-   updates `pyproject.toml`, `src/sagemath_mcp/__init__.py`,
-   `charts/sagemath-mcp/Chart.yaml`, `server.json` and `CITATION.cff` (version and
-   release date), then opens a pull request. `tests/test_version_consistency.py`
-   fails if any of them disagree.
+1. Run the **Bump Version** workflow (`workflow_dispatch`) with the segment to bump. It
+   updates all eight files that carry the version — `pyproject.toml`,
+   `src/sagemath_mcp/__init__.py`, `charts/sagemath-mcp/Chart.yaml`,
+   `server.json`, `CITATION.cff` (version and release date),
+   `packaging/mcpb/manifest.json`, `packaging/mcpb/pyproject.toml` and
+   `gemini-extension.json` — then opens a pull request.
+   `tests/test_version_consistency.py` fails if any of them disagree. The last
+   three decide which release a one-click install pulls.
 2. Merge that pull request once CI passes.
 3. Push the tag to publish:
 
@@ -137,8 +140,9 @@ directly. The flow is:
 
 Pushing the tag triggers `release.yml`, which publishes to PyPI (with PEP 740
 attestations), pushes a Cosign-signed image to GHCR with SLSA provenance and an SPDX
-SBOM attested to its digest, and creates the GitHub release with the SBOMs attached
-(`DISTRIBUTION.md` shows how each is verified). **A PyPI version number can never be
+SBOM attested to its digest, and creates the GitHub release with the SBOMs, the
+one-click `.mcpb` bundle and a `sagemath-mcp-<version>.intoto.jsonl` provenance
+file attached (`DISTRIBUTION.md` shows how each is verified). **A PyPI version number can never be
 reused**, so treat the tag push as the point of no return; if something is wrong the only
 remedy is another version.
 

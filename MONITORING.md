@@ -79,9 +79,11 @@ containers mounting shared volumes tolerate UID/GID 1001 ownership.
 
 Create a small bridge that fetches metrics and exposes a Prometheus-compatible endpoint:
 
+Save it as `metrics_exporter.py` wherever you keep your operational scripts —
+it is an example, not something this repository ships:
+
 ```python
-# scripts/metrics_exporter.py
-import asyncio, json
+import json
 from aiohttp import web
 from fastmcp import Client
 
@@ -100,10 +102,11 @@ FIELDS = {
 }
 
 async def fetch_snapshot():
-    client = Client("http://127.0.0.1:8314/mcp", transport="http")
-    contents = await client.read_resource("resource://sagemath/monitoring/metrics")
-    snapshot = json.loads(contents[0].text)
-    return snapshot[0]
+    # As above: the client has to be entered, the URL is the transport, and
+    # read_resource returns a list of contents whose first entry is the JSON.
+    async with Client("http://127.0.0.1:8314/mcp") as client:
+        contents = await client.read_resource("resource://sagemath/monitoring/metrics")
+    return json.loads(contents[0].text)
 
 async def metrics_handler(request):
     try:
@@ -112,7 +115,7 @@ async def metrics_handler(request):
         return web.Response(status=503, text="sagemath_mcp_up 0\n")
     lines = []
     for field, help_text in FIELDS.items():
-        value = getattr(snapshot, field) or 0
+        value = snapshot.get(field) or 0   # the snapshot is a dict of aggregates
         lines.append(
             TEMPLATE.format(
                 name=field,
@@ -133,7 +136,7 @@ if __name__ == "__main__":
 Run the exporter (inside Docker or on the host):
 
 ```bash
-uv run python scripts/metrics_exporter.py
+uv run --with aiohttp python metrics_exporter.py
 # Prometheus scrape target: http://HOST:9108/metrics
 ```
 

@@ -35,7 +35,7 @@ stated result through a proof ladder and answers `proved` / `refuted` /
 Caller code is **deny-by-default**: the full breadth of Sage mathematics is
 reachable, but imports, the external CAS interfaces, and the file / display /
 persistence primitives are not. The policy accepts **99.1% of SageMath's own
-432,878 documented doctest examples** (3,462 in-scope refusals, every one
+432,878 documented doctest examples** (3,416 in-scope refusals, every one
 attributed to a named rule; 99.2% of 433,289 on the passagemath runtime) while
 refusing the rest — measured on every CI run (see [Security](#security)).
 

@@ -9,6 +9,28 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **The Helm chart is hardened to match the Compose deployment.** Docker
+  supplies several container controls implicitly and Kubernetes supplies none
+  of them, so the chart was weaker than the documentation describing both: no
+  seccomp profile, meaning pods ran **Unconfined** with the whole syscall table
+  exposed to a process that executes model-written code; and the namespace's
+  default ServiceAccount token projected into that container, which a
+  read-only root filesystem does not stop anything reading.
+
+  Both are now set. The chart also gains `auth.existingSecret` /
+  `auth.secretKey`, so the bearer token comes from a Secret rather than a
+  literal environment value that would land in the Deployment spec,
+  `kubectl describe` and the release Secret — it was previously the only
+  shipped deployment that puts the server on a network and had no supported way
+  to set the token. Absent unless configured, since no authentication is the
+  supported posture for a local run.
+
+  The README credited both deployments with a fork ceiling; Kubernetes has no
+  per-pod PID limit in the pod spec, so that sentence is corrected rather than
+  a chart field invented. `tests/test_helm_chart.py` renders the chart and
+  reads the result. See REVIEW_ACTIONS 86.
+
+
 - **The star-export screen judged the proxy rather than the object.** It never
   resolved a `LazyImport`, which is not a `ModuleType` however module-like its
   target and proxies no `__module__` — so both of its value-based checks read

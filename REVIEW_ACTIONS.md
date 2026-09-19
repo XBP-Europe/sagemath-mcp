@@ -4654,3 +4654,62 @@ coverage.
 ### Status
 
 Fixed 2026-09-19.
+
+## 86. The Helm chart was materially weaker than the Compose deployment it is described alongside — medium — DONE
+
+### Symptom
+
+`SECURITY.md` and `README.md` describe one container boundary covering both
+Compose and the chart. Docker supplies several of those controls implicitly and
+Kubernetes supplies none of them, so the chart was weaker on three counts and
+the README claimed a fourth it cannot have.
+
+| | Compose | chart, before |
+| --- | --- | --- |
+| seccomp | Docker's default, applied automatically | **none — pod runs Unconfined** |
+| Kubernetes API token | n/a | **default ServiceAccount token projected in** |
+| bearer token | documented, via environment | **no supported way to set it** |
+| PID ceiling | `pids_limit: 256` | not possible in a pod spec |
+
+The seccomp gap is the serious one: an unconfined syscall table, for a process
+whose entire job is executing model-written code, in the deployment most likely
+to be multi-tenant.
+
+The API-token gap contradicts this document's own advice at two points — that
+the AST policy "has been bypassed and repaired repeatedly", and that operators
+should not mount sensitive paths into the worker. The chart mounted one by
+default, and `readOnlyRootFilesystem` does not prevent *reading* it.
+
+### Fix
+
+- `seccompProfile: {type: RuntimeDefault}` on the pod security context.
+- `automountServiceAccountToken: false`, exposed as a value so an operator who
+  genuinely needs the token can restore it deliberately.
+- An `auth.existingSecret` / `auth.secretKey` pair rendering
+  `SAGEMATH_MCP_HTTP_AUTH_TOKEN` from a `secretKeyRef`. The chart never renders
+  the value, so the shared secret stays out of the Deployment spec, out of
+  `kubectl describe` and out of the Helm release Secret. Absent unless
+  configured, because no authentication is the supported posture for a local
+  run and an empty token would fail every request.
+- The README sentence corrected rather than a chart field invented: Kubernetes
+  has no per-pod PID limit in the pod spec, it is the node's `podPidsLimit`.
+  `SECURITY.md` gained rows for the two new controls.
+
+### How to verify
+
+`tests/test_helm_chart.py` renders the chart with `helm template` and reads the
+result, rather than grepping the template source — what matters is what lands
+in the cluster. Seven tests: the three new controls, the token absent when
+unconfigured, the README claim, a regression net over the controls that were
+already right, and that every rendered document is valid.
+
+An earlier version of the README test passed vacuously because the claim wraps
+across a line and it searched for the unwrapped phrase; it now collapses
+whitespace first. Worth recording, because a test that cannot fail is worse
+than no test.
+
+`helm lint` clean. Unit suite at 100% coverage.
+
+### Status
+
+Fixed 2026-09-20. Last of the eight findings from the 2026-09-19 review.

@@ -19,6 +19,23 @@ serviceAccount:
   annotations: {}
   name: ""
 
+# Nothing in this server talks to the Kubernetes API, and SECURITY.md tells
+# operators not to mount sensitive paths into the worker. Without this the pod
+# gets the namespace's default ServiceAccount token projected into it, and a
+# read-only root filesystem does not stop anything *reading* it.
+automountServiceAccountToken: false
+
+# The bearer token, for anyone putting this on a network. Point it at a Secret
+# you created; the chart never renders the value itself, so it stays out of the
+# Deployment spec, `kubectl describe` and the Helm release Secret. Leave empty
+# for no authentication, which is the supported posture for a local run.
+#
+#   kubectl create secret generic sagemath-mcp-token --from-literal=token=...
+#   helm install ... --set auth.existingSecret=sagemath-mcp-token
+auth:
+  existingSecret: ""
+  secretKey: token
+
 podAnnotations: {}
 podLabels: {}
 
@@ -31,6 +48,13 @@ podSecurityContext:
   runAsUser: 1001
   runAsGroup: 1001
   fsGroup: 1001
+  # Docker applies its default seccomp profile without being asked; Kubernetes
+  # does not. Without this the pod runs Unconfined, with the whole syscall
+  # table exposed to a process whose job is executing model-written code --
+  # which made the chart materially weaker than the Compose deployment that
+  # SECURITY.md describes it alongside.
+  seccompProfile:
+    type: RuntimeDefault
 
 securityContext:
   runAsNonRoot: true

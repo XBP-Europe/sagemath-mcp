@@ -82,8 +82,8 @@ by reading the report a failing assertion prints.
 
 ```
 3,168 files, 60,094 docstrings, 432,878 examples
-accepted 371,012   refused 3,416   out of scope 58,268   unparsed 182
-acceptance among in-scope examples: 99.09%   (enforced floor: 98.50%)
+accepted 370,062   refused 4,366   out of scope 58,268   unparsed 182
+acceptance among in-scope examples: 98.83%   (enforced floor: 98.50%)
 ```
 
 The same sweep on the passagemath runtime (`passagemath-standard==10.8.11`,
@@ -126,6 +126,17 @@ that conclusion and won back 46 more (3,462 → 3,416 refusals, 99.08% → 99.09
 asked why the dirty ones were dirty. Six of them failed on a single re-exported
 `lazy_import`, `pari` or `get_verbose`, which is exactly the case item 77 built
 the per-module drop permission for.
+
+**Item 81 spent 950 of them back, deliberately.** A security review found caller
+code executing arbitrary Python through the `sage` module tree --
+`sage.misc.lazy_import.LazyImport('os','system')('id')` ran, while the bare
+`LazyImport` was correctly refused -- because the guard enumerated dangerous path
+segments and ten dangerous modules had none listed. The root is now refused
+outright, which is the only shape that does not fall behind the next Sage
+release. 99.09% -> 98.83%, still clear of the 98.50% floor. Every one of those
+examples has a direct spelling (`exp(1)`, not `sage.functions.log.exp(1)`) and
+the refusal message says so, which makes this a **boundary, not a gap** -- the
+same category as the external CAS interfaces.
 
 The acceptance ratio is **blind to the import rewrite by construction**: any
 example containing an import is skipped before validation, so an import that is

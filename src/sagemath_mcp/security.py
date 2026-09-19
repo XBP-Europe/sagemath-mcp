@@ -194,6 +194,22 @@ class SecurityPolicy:
         # this list is the only thing standing between a future namespace
         # regression and arbitrary execution.
     )
+    #: Names whose attribute tree caller code may not traverse AT ALL.
+    #:
+    #: `forbidden_attribute_parents` enumerates dangerous path segments, and a
+    #: 2026-09-19 review showed why that shape cannot hold: `sage` is on the
+    #: caller allowlist, so the whole module tree was live, and ten of the
+    #: thirty modules the worker classifies as dangerous had no listed segment
+    #: and no forbidden leaf. `sage.misc.lazy_import.LazyImport('os','system')`
+    #: therefore executed while the bare `LazyImport` was refused. Any list of
+    #: segments is one Sage release behind; refusing the ROOT is not.
+    #:
+    #: `codegen._refuse_scrubbed_names` has applied exactly this rule to tool
+    #: parameters since the `sage.all.unpickle_global` bypass, and for the same
+    #: reason: no caller needs to traverse `sage` -- they write `matrix`,
+    #: `integrate`, `codes.HammingCode` directly. `trusted_policy()` clears it,
+    #: because the generated prelude does `import sage.all as _sage_ns`.
+    forbidden_attribute_roots: tuple[str, ...] = ("sage",)
     forbidden_attribute_parents: tuple[str, ...] = (
         # `operator` carries the string-path primitives; `pari` runs a shell
         # through PARI's own `system()`; `oeis` reaches the network. Each was
@@ -769,6 +785,9 @@ def trusted_policy(policy: SecurityPolicy | None = None) -> SecurityPolicy:
     return replace(
         base,
         forbidden_call_names=relaxed,
+        # The prelude does `import sage.all as _sage_ns` and reads attributes
+        # off it; generated code is not attacker-controlled.
+        forbidden_attribute_roots=(),
         # The prelude imports sage.all and the plot templates use base64 and io.
         # Caller code gets none of this: see allowed_import_modules above.
         allowed_import_modules=_TRUSTED_IMPORTS,
@@ -1268,6 +1287,14 @@ def validate_module(
                 len(segments) == 2
                 and (segments[0], segments[1]) in policy.allowed_module_attributes
             )
+            if segments and segments[0] in policy.forbidden_attribute_roots:
+                # Checked before anything else, and regardless of what the
+                # caller bound: a caller-owned alias for the root was item 52's
+                # escape, and the root here is offered anyway.
+                raise SecurityViolation(
+                    f"Reaching into the '{segments[0]}' module is not permitted; "
+                    "name the function directly"
+                )
             if not permitted_pair:
                 # Every segment is inspected, not just segments[:-1]. Checking
                 # only the parents let two escapes through:
@@ -1345,6 +1372,21 @@ def validate_module(
         # object is bound to an unremarkable name there is no chain left to
         # inspect, so the module name has to be unreadable in the first place.
         if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+            # A root whose tree cannot be traversed has no business being read
+            # either: what comes back is a module object, and handing a caller
+            # one is the pivot items 61/62/63 exist to prevent. Reading it bare
+            # buys nothing anyway -- every attribute of it is refused above --
+            # so this closes the invariant rather than trading anything for it.
+            if (
+                node.id in policy.forbidden_attribute_roots
+                and id(node) not in exempt_module_names
+            ):
+                _raise_violation(
+                    f"Reaching into the '{node.id}' module is not permitted; "
+                    "name the function directly",
+                    code=code,
+                    policy=policy,
+                )
             # A screened `attrcall('degree')` exempts its own func node here,
             # the way `operator` is exempted inside `operator.le`.
             if node.id in policy.forbidden_call_names and id(node) not in exempt_module_names:

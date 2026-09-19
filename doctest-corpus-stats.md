@@ -6,7 +6,7 @@ The most important functional test of the security guardrails: every
 the mathematics Sage itself documents. Generated on every run of
 `tests/test_sage_doctest_corpus.py`; counts only, never corpus text.
 
-- Generated: 2026-09-19 12:58:06 UTC
+- Generated: 2026-09-19 15:45:14 UTC
 - SageMath: 10.9 (`/home/sage/sage/local/var/lib/sage/venv-python3.12/lib/python3.12/site-packages/sage`)
 
 | Metric | Value |
@@ -14,11 +14,11 @@ the mathematics Sage itself documents. Generated on every run of
 | Source files | 3,168 |
 | Docstrings | 60,094 |
 | Examples | 432,878 |
-| Accepted | 371,012 |
-| Refused | 3,416 |
+| Accepted | 370,062 |
+| Refused | 4,366 |
 | Excluded (out of scope by design) | 58,268 |
 | Unparsed | 182 |
-| **Acceptance (in-scope)** | **99.0877%** |
+| **Acceptance (in-scope)** | **98.8340%** |
 | Required acceptance | 98.50% |
 | Required accepted examples | 250,000 |
 
@@ -30,15 +30,16 @@ ceiling, or `test_every_refusal_is_a_rule_we_meant_to_write` fails.
 
 | Count | Share of in-scope | Rule |
 | ---: | ---: | --- |
-| 2,027 | 0.5414% | `'X' is not offered: it spawns an external program, and this server does the same mathema` |
-| 1,121 | 0.2994% | `'X' is not a name this server offers` |
-| 130 | 0.0347% | `Access through 'X' is blocked ('X' is not permitted in Sage executions)` |
+| 1,927 | 0.5147% | `'X' is not offered: it spawns an external program, and this server does the same mathema` |
+| 1,120 | 0.2991% | `'X' is not a name this server offers` |
+| 1,090 | 0.2911% | `Reaching into the 'X' module is not permitted; name the function directly` |
+| 92 | 0.0246% | `Access through 'X' is blocked ('X' is not permitted in Sage executions)` |
 | 69 | 0.0184% | `Access to 'X' is blocked: writing files is not available to caller code` |
 | 38 | 0.0101% | `Call to forbidden function 'X' is blocked` |
 | 17 | 0.0045% | `Call to forbidden attribute 'X' is blocked` |
 | 11 | 0.0029% | `Import statements are disabled for Sage executions` |
-| 2 | 0.0005% | `Access to forbidden function 'X' is blocked` |
 | 1 | 0.0003% | `Reference to forbidden name 'X' is blocked` |
+| 1 | 0.0003% | `Access to forbidden function 'X' is blocked` |
 
 ## Excluded, by capability
 

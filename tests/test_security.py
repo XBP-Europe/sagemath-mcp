@@ -249,11 +249,18 @@ def test_a_forbidden_attribute_chain_stops_at_the_first_offending_segment() -> N
 
     from sagemath_mcp.security import SECURITY_POLICY, SecurityViolation, validate_module
 
-    # Now stopped a segment earlier: temporary_file is itself forbidden, since
-    # sage's own sub-packages are how callers reached compilers and shells.
-    code = "sage.misc.temporary_file.os.sys.path"
+    # A `sage`-rooted chain no longer reaches the segment walk at all: the root
+    # rule fires first (see forbidden_attribute_roots). This keeps the original
+    # property under test -- first offending segment, not last -- on a chain the
+    # segment walk still owns.
+    code = "dirichlet.free_module_element.temporary_file.os.sys.path"
     with pytest.raises(SecurityViolation, match="'temporary_file'"):
         validate_module(ast.parse(code), code=code, policy=SECURITY_POLICY)
+
+    # And the sage root is refused before any segment is named.
+    rooted = "sage.misc.temporary_file.os.sys.path"
+    with pytest.raises(SecurityViolation, match="Reaching into the 'sage' module"):
+        validate_module(ast.parse(rooted), code=rooted, policy=SECURITY_POLICY)
 
 
 def test_relative_imports_are_rejected_by_name() -> None:

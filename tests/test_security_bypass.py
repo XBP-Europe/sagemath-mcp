@@ -341,14 +341,28 @@ def test_sage_loaders_are_blocked(label, payload) -> None:
 
 
 def test_ordinary_sage_attribute_use_still_works() -> None:
-    """The gate is the final name, not the presence of a dot."""
+    """The gate is the final name, not the presence of a dot.
+
+    Amended 2026-09-19. This used to assert that `sage.functions.log.exp(1)`
+    and `sage.rings.integer.Integer(5)` validate, on the theory that only the
+    leaf matters. The security review showed that traversing `sage` at all is
+    the hole -- the same chain shape reached
+    `sage.misc.lazy_import.LazyImport('os','system')` -- so the root is now
+    refused outright and both spellings are boundaries, not gaps. Each has a
+    direct form that still works, which is what the refusal message says, and
+    that is what this test pins now.
+    """
     for code in (
-        "sage.functions.log.exp(1)",
+        "exp(1)",
         "matrix([[1, 2], [3, 4]]).determinant()",
-        "sage.rings.integer.Integer(5)",
+        "Integer(5)",
         "plot(sin(x), (x, 0, 1)).matplotlib()",
     ):
         validate_module(ast.parse(code), code=code, policy=SECURITY_POLICY)
+
+    for rooted in ("sage.functions.log.exp(1)", "sage.rings.integer.Integer(5)"):
+        with pytest.raises(SecurityViolation, match="name the function directly"):
+            validate_module(ast.parse(rooted), code=rooted, policy=SECURITY_POLICY)
 
 
 # --- Sage's own dangerous helpers --------------------------------------------
@@ -2526,3 +2540,96 @@ async def test_an_injection_does_not_unlock_withheld_names() -> None:
         assert "gp" in str(caught.value)
     finally:
         await session.shutdown()
+
+
+# --- The sage module tree, reachable as a dotted chain -------------------------
+#
+# Found by a security review on 2026-09-19 and verified against real SageMath:
+# every payload below EXECUTED before the fix. `sage` is on the caller allowlist,
+# so the module tree was live, and the only guard was `forbidden_attribute_parents`
+# -- a hand-written list of path segments that covered roughly two thirds of the
+# modules the worker itself classifies as dangerous. Ten dangerous modules had no
+# forbidden segment and no forbidden leaf, so the bare spelling was refused while
+# the dotted one walked straight past.
+#
+# The scrub cannot cover this: it deletes names from the session namespace and
+# from `sage.all`, never from `sage.misc` or `sage.libs`.
+
+_SAGE_TREE_ESCAPES = (
+    # Arbitrary import + attribute, then call: full arbitrary execution.
+    "sage.misc.lazy_import.LazyImport('os', 'system')('id')",
+    "sage.misc.lazy_import.LazyImport('builtins', 'eval')('6*7')",
+    "sage.misc.lazy_import.LazyImport('subprocess', 'run')",
+    "sage.misc.lazy_import.LazyImport('builtins', 'open')('/etc/hostname').read()",
+    "sage.misc.lazy_import.LazyImport('os', 'environ')",
+    # Shells and evaluators reachable the same way.
+    "sage.libs.ecl.ecl_eval('(ext:system \"id\")')",
+    "sage.libs.gap.libgap.libgap.Exec('id')",
+    "sage.rings.pari_ring.Pari('system(\"id\")')",
+    "sage.groups.pari_group.PariGroup('system(\"id\")', 1)",
+    # Unpickling and arbitrary file write.
+    "sage.misc.fpickle.unpickle_function(b'')",
+    "sage.misc.latex.png(1, '/tmp/anywhere.png')",
+    # The bare module object itself is a pivot (items 61/62).
+    "sage.misc",
+    "sage.libs",
+    "sage",
+)
+
+
+@pytest.mark.parametrize("code", _SAGE_TREE_ESCAPES)
+def test_a_sage_rooted_chain_is_refused(code):
+    """No caller chain may traverse the `sage` package.
+
+    Enumerating dangerous segments is what failed: the list will always be one
+    module behind whatever Sage adds next. The root is refused instead, which is
+    the same rule `codegen._refuse_scrubbed_names` has applied to tool
+    parameters since the `sage.all.unpickle_global` bypass.
+    """
+    with pytest.raises(SecurityViolation) as excinfo:
+        validate_module(ast.parse(code), code=code)
+    assert "sage" in str(excinfo.value)
+
+
+def test_the_sage_root_refusal_names_the_alternative():
+    """A refusal that does not say what to write instead reads as a bug."""
+    code = "sage.misc.lazy_import.LazyImport('os', 'system')"
+    with pytest.raises(SecurityViolation) as excinfo:
+        validate_module(ast.parse(code), code=code)
+    assert "directly" in str(excinfo.value).lower()
+
+
+def test_trusted_generated_code_may_still_reach_sage():
+    from sagemath_mcp.security import trusted_policy
+
+    """The prelude does `import sage.all as _sage_ns` and reads attributes off
+    it; refusing the root for generated code would break every specialised
+    tool. Only caller code is held to this."""
+    code = "import sage.all as _sage_ns\nhasattr(_sage_ns, 'x')"
+    validate_module(ast.parse(code), code=code, policy=trusted_policy())
+
+
+def test_a_terminal_module_under_a_non_sage_allowlisted_root_is_refused():
+    """The module-path rule outlives the `sage` root refusal.
+
+    `sage.misc.trace` used to be this branch's worked example; the root rule now
+    catches that spelling earlier. The rule itself still matters, because `sage`
+    is not the only allowlisted name that is a package: a three-or-more segment
+    chain rooted at an offered name and ending in a forbidden parent is a module
+    reference whatever the root is (items 49/50/56).
+    """
+    for code in ("codes.bounds.os", "codes.databases.sys", "codes.decoders.subprocess"):
+        with pytest.raises(SecurityViolation, match="is blocked"):
+            validate_module(ast.parse(code), code=code, policy=SECURITY_POLICY)
+
+    # And the harder half: the five forbidden parents that are ALSO ordinary
+    # methods. `A.trace()` is mathematics and must pass; the same name three
+    # segments deep under an offered root is a module reference and must not.
+    # `sage.misc.trace` was this branch's worked example until the root rule
+    # started catching that spelling first.
+    ordinary = "A = matrix([[1, 2], [3, 4]])\nA.trace()"
+    validate_module(ast.parse(ordinary), code=ordinary, policy=SECURITY_POLICY)
+    validate_module(ast.parse("codes.trace"), code="codes.trace", policy=SECURITY_POLICY)
+    for code in ("codes.bounds.trace", "codes.bounds.pari", "graphs.x.sh"):
+        with pytest.raises(SecurityViolation, match="is blocked"):
+            validate_module(ast.parse(code), code=code, policy=SECURITY_POLICY)

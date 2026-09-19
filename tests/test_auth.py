@@ -8,6 +8,8 @@ about. See `src/sagemath_mcp/auth.py` and SECURITY.md.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from sagemath_mcp.auth import StaticBearerTokenVerifier, build_http_auth
@@ -69,3 +71,47 @@ def test_a_public_bind_without_auth_is_warned() -> None:
 
 def test_a_public_bind_with_auth_is_not_warned() -> None:
     assert _exposure_warning("0.0.0.0", has_auth=True) is None
+
+
+# --- DNS rebinding: the loopback default is not self-protecting ----------------
+
+
+def test_the_http_transport_asks_for_host_and_origin_protection() -> None:
+    """Binding to loopback does not keep a browser out.
+
+    Found by a security review on 2026-09-19 and reproduced live: with no
+    `Host`/`Origin` validation, a request carrying `Host: attacker.example`
+    was accepted and the full protocol chain -- initialize, initialized,
+    `tools/call` -- completed. A page the user visits, served from a domain
+    that rebinds to 127.0.0.1, is same-origin to the browser, so no preflight
+    is needed and the response body is readable: arbitrary evaluation and full
+    result disclosure from a drive-by page.
+
+    This matters *more* because running locally with no authentication is a
+    deliberate, supported posture here. There is no second line behind it.
+
+    `"auto"` validates only when the connection arrives over loopback, so
+    container and Kubernetes deployments -- where traffic arrives on a real
+    address -- are untouched. Verified both ways against a running server.
+    """
+    source = (Path(__file__).resolve().parents[1] / "src" / "sagemath_mcp" / "server.py").read_text(
+        encoding="utf-8"
+    )
+    assert '"host_origin_protection"' in source or "host_origin_protection=" in source, (
+        "the HTTP transport no longer asks for host/origin protection; a browser "
+        "page can reach the loopback server again"
+    )
+    assert '"auto"' in source, (
+        "protection should be 'auto', which guards loopback binds and leaves "
+        "real remote binds alone; True would break deployments behind a proxy"
+    )
+
+
+def test_the_threat_model_documents_the_rebinding_defence() -> None:
+    """The old model said 'bind loopback' and stopped there, which is exactly
+    what this attack defeats. If the control is there, the document has to say
+    so, or the next person removes it as noise."""
+    security = (Path(__file__).resolve().parents[1] / "SECURITY.md").read_text(encoding="utf-8")
+    lowered = security.lower()
+    assert "rebind" in lowered
+    assert "origin" in lowered

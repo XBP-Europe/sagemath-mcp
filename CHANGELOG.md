@@ -9,6 +9,25 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **The HTTP transports now validate `Host` and `Origin`.** Binding to loopback
+  does not keep a browser out: a page served from a domain whose DNS rebinds to
+  `127.0.0.1` reaches the server as same-origin, needs no preflight, and can
+  read the response. Verified before the fix — a request carrying
+  `Host: attacker.example` was accepted and the whole chain, initialize through
+  `tools/call`, completed. On the configuration the README recommends that was
+  arbitrary evaluation and full result disclosure from a drive-by page.
+
+  This matters more here than it would elsewhere, because running locally with
+  no authentication is a supported posture: there is nothing behind the bind.
+
+  Protection runs in `auto` mode, which validates only when the connection
+  arrives over loopback — measured, not assumed, so container and Kubernetes
+  deployments reached on a real address are untouched. A reverse proxy that
+  talks to the server over localhost while forwarding its own `Host` needs
+  `FASTMCP_HTTP_ALLOWED_HOSTS`; `SECURITY.md` documents it. See
+  REVIEW_ACTIONS 82.
+
+
 - **Caller code could execute arbitrary Python through the `sage` module tree.**
   Found by an adversarial review and verified against real SageMath before
   anything changed: `sage.misc.lazy_import.LazyImport('builtins','eval')('6*7')`

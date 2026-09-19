@@ -78,17 +78,17 @@ why a failing assertion prints its examples instead of storing them.
 A Sage upgrade moves the baselines. A *drop* in acceptance is the signal; refresh
 by reading the report a failing assertion prints.
 
-## What it measured (SageMath 10.9, re-measured 2026-09-17 on `main`)
+## What it measured (SageMath 10.9, re-measured 2026-09-19 on `main`)
 
 ```
 3,168 files, 60,094 docstrings, 432,878 examples
-accepted 370,966   refused 3,462   out of scope 58,268   unparsed 182
-acceptance among in-scope examples: 99.08%   (enforced floor: 98.50%)
+accepted 371,012   refused 3,416   out of scope 58,268   unparsed 182
+acceptance among in-scope examples: 99.09%   (enforced floor: 98.50%)
 ```
 
 The same sweep on the passagemath runtime (`passagemath-standard==10.8.11`,
-its own CI lane) reads 3,232 files, 433,289 examples, 363,202 accepted,
-3,092 refused, 66,815 out of scope — 99.16%. The two runtimes differ in what
+its own CI lane) reads 3,232 files, 433,289 examples, 363,248 accepted,
+3,046 refused, 66,815 out of scope — 99.17%. The two runtimes differ in what
 is *out of scope* (passagemath's modular layout tags more examples
 `# needs`), not in what is refused. The committed
 [`doctest-corpus-stats.md`](../doctest-corpus-stats.md) is the monolithic
@@ -120,7 +120,12 @@ pass over the same ranking and won back 129 more (3,591 → 3,462 refusals,
 99.04% → 99.08%) across eighteen smaller modules, none worth more than 31
 examples on its own. What is left in that bucket is mostly boundaries rather
 than gaps: pickle machinery, the Lisp evaluator, the external interfaces, and
-names the corpus binds in a docstring's own surrounding code.
+names the corpus binds in a docstring's own surrounding code. Item 80 corrected
+that conclusion and won back 46 more (3,462 → 3,416 refusals, 99.08% → 99.09%):
+"mostly boundaries" had been read off which modules screened *clean*, and never
+asked why the dirty ones were dirty. Six of them failed on a single re-exported
+`lazy_import`, `pari` or `get_verbose`, which is exactly the case item 77 built
+the per-module drop permission for.
 
 The acceptance ratio is **blind to the import rewrite by construction**: any
 example containing an import is skipped before validation, so an import that is

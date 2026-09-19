@@ -1217,3 +1217,37 @@ async def test_the_second_pass_star_imports_compute() -> None:
         ) == "1"
     finally:
         await session.shutdown()
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_the_third_pass_star_imports_compute() -> None:
+    """Item 80 admitted six modules that each failed on one re-exported helper.
+
+    Two of the dropped names are new: `pari` and `get_verbose`, which join
+    `lazy_import` and `libgap` as names the scrub deletes and the validator
+    refuses. So this checks both halves again on the new shapes -- the
+    mathematics runs, and the dropped name is still refused afterwards.
+    """
+    from sagemath_mcp.session import SageEvaluationError
+
+    session = await _session("starimport-third-pass")
+    try:
+        await _value(session, "from sage.rings.qqbar import *")
+        assert await _value(session, "AA(2).sqrt().minpoly()") == "x^2 - 2"
+
+        await _value(session, "from sage.rings.complex_mpc import *")
+        assert await _value(
+            session, "MPComplexField(100)(1, 1).abs()^2"
+        ) == "2.0000000000000000000000000000"
+
+        await _value(session, "from sage.combinat.partition_algebra import *")
+        assert await _value(session, "SetPartitionsAk(2).cardinality()") == "15"
+
+        # `pari` came in beside the mathematics of complex_mpc and is dropped;
+        # it must stay refused, as must the other two helpers.
+        for code in ("pari", "pari(2).isprime()", "lazy_import", "get_verbose"):
+            with pytest.raises(SageEvaluationError):
+                await _value(session, code)
+    finally:
+        await session.shutdown()

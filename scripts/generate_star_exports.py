@@ -103,6 +103,24 @@ CANDIDATE_MODULES: dict[str, frozenset[str]] = {
     "sage.modules.fp_graded.free_module": frozenset(),                     # 2
     "sage.rings.padics.padic_relaxed_errors": frozenset(),                 # 2
     "sage.combinat.cyclic_sieving_phenomenon": frozenset(),                # 1
+    # Item 80, third pass. Item 78 concluded the remaining bucket was "mostly
+    # boundaries rather than gaps"; that was measured by which modules screened
+    # CLEAN, and never asked why the dirty ones were dirty. These six each fail
+    # on exactly one re-exported helper -- the same case item 77 built the drop
+    # mechanism for -- and carry real mathematics behind it. `pari` and
+    # `get_verbose` join `lazy_import` and `libgap` as names the scrub deletes
+    # and the validator refuses, so dropping one takes nothing from a caller.
+    "sage.data_structures.stream": frozenset({"lazy_import"}),             # 12
+    "sage.combinat.partition_algebra": frozenset({"lazy_import"}),         # 10
+    "sage.combinat.knutson_tao_puzzles": frozenset({"lazy_import"}),       # 9
+    "sage.rings.qqbar": frozenset({"lazy_import"}),                        # 5
+    "sage.rings.complex_mpc": frozenset({"pari"}),                         # 5
+    "sage.rings.polynomial.toy_buchberger": frozenset({"get_verbose"}),    # 5
+    # `sage.combinat.designs.ext_rep` (9) is NOT admitted, though it would need
+    # only `tmp_filename` and `dump_to_tmpfile` dropped. That module's purpose
+    # is reading design data out of files and URLs, so it is the filesystem
+    # boundary rather than mathematics behind an import helper -- the same call
+    # `sage.misc.sageinspect` gets.
     # Screened clean and still excluded, by curation rather than by the screen --
     # the same call `sage.libs.ecl` gets. `sage.misc.sageinspect` (30) reads
     # source files and returns filesystem paths, which is the introspection the

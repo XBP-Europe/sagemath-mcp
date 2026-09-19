@@ -307,6 +307,93 @@ STAR_EXPORTS: dict[str, frozenset[str]] = {
         "CyclicSievingCheck", "CyclicSievingPolynomial", "PolynomialRing", "ZZ",
         "annotations", "lcm", "orbit_decomposition"
     }),
+    "sage.data_structures.stream": frozenset({
+        "Action", "CoefficientRing", "DominatingAction", "FractionFieldElement",
+        "FractionField_generic", "HopfAlgebrasWithBasis", "InfinitePolynomial",
+        "InfinitePolynomialRing", "QuotientFields", "Stream", "Stream_add",
+        "Stream_binary", "Stream_binaryCommutative", "Stream_cauchy_compose",
+        "Stream_cauchy_invert", "Stream_cauchy_mul",
+        "Stream_cauchy_mul_commutative", "Stream_compose", "Stream_derivative",
+        "Stream_dirichlet_convolve", "Stream_dirichlet_invert", "Stream_exact",
+        "Stream_function", "Stream_inexact", "Stream_infinite_operator",
+        "Stream_infinite_product", "Stream_infinite_sum", "Stream_integral",
+        "Stream_iterator", "Stream_lmul", "Stream_map_coefficients", "Stream_neg",
+        "Stream_plethysm", "Stream_pseudo_diff_mul", "Stream_rmul", "Stream_scalar",
+        "Stream_shift", "Stream_sub", "Stream_taylor", "Stream_truncated",
+        "Stream_unary", "Stream_uninitialized", "Stream_zero",
+        "UniqueRepresentation", "VariablePool", "ZZ", "binomial", "cached_method",
+        "divisors", "infinity", "lazy_attribute", "prod", "wt_int_vec_iter"
+    }),
+    "sage.combinat.partition_algebra": frozenset({
+        "AlgebrasWithBasis", "CombinatorialFreeModule", "Graph",
+        "PartitionAlgebraElement_ak", "PartitionAlgebraElement_bk",
+        "PartitionAlgebraElement_generic", "PartitionAlgebraElement_pk",
+        "PartitionAlgebraElement_prk", "PartitionAlgebraElement_rk",
+        "PartitionAlgebraElement_sk", "PartitionAlgebraElement_tk",
+        "PartitionAlgebra_ak", "PartitionAlgebra_bk", "PartitionAlgebra_generic",
+        "PartitionAlgebra_pk", "PartitionAlgebra_prk", "PartitionAlgebra_rk",
+        "PartitionAlgebra_sk", "PartitionAlgebra_tk", "Permutations", "QQ", "Set",
+        "SetPartition", "SetPartitions", "SetPartitionsAk", "SetPartitionsAk_k",
+        "SetPartitionsAkhalf_k", "SetPartitionsBk", "SetPartitionsBk_k",
+        "SetPartitionsBkhalf_k", "SetPartitionsIk", "SetPartitionsIk_k",
+        "SetPartitionsIkhalf_k", "SetPartitionsPRk", "SetPartitionsPRk_k",
+        "SetPartitionsPRkhalf_k", "SetPartitionsPk", "SetPartitionsPk_k",
+        "SetPartitionsPkhalf_k", "SetPartitionsRk", "SetPartitionsRk_k",
+        "SetPartitionsRkhalf_k", "SetPartitionsSk", "SetPartitionsSk_k",
+        "SetPartitionsSkhalf_k", "SetPartitionsTk", "SetPartitionsTk_k",
+        "SetPartitionsTkhalf_k", "SetPartitionsXkElement", "SetPartitions_set",
+        "Set_generic", "Subsets", "ZZ", "binomial", "catalan_number", "ceil",
+        "factorial", "identity", "is_planar", "pair_to_graph", "propagating_number",
+        "set_partition_composition", "to_graph", "to_set_partition"
+    }),
+    "sage.combinat.knutson_tao_puzzles": frozenset({
+        "BK_pieces", "DeltaPiece", "Graphics", "HT_grassmannian_pieces",
+        "HT_two_step_pieces", "H_grassmannian_pieces", "H_two_step_pieces",
+        "Integers", "K_grassmannian_pieces", "KnutsonTaoPuzzleSolver", "NablaPiece",
+        "PolynomialRing", "PuzzleFilling", "PuzzlePiece", "PuzzlePieces",
+        "RhombusPiece", "UniqueRepresentation", "annotations", "cached_method",
+        "graphics_array", "line", "polygon", "text"
+    }),
+    "sage.rings.qqbar": frozenset({
+        "AA", "AAPoly", "AA_0", "AA_golden_ratio", "AA_hash_offset", "ANBinaryExpr",
+        "ANDescr", "ANExtensionElement", "ANRational", "ANRoot", "ANUnaryExpr",
+        "Action", "AlgebraicField", "AlgebraicField_common", "AlgebraicGenerator",
+        "AlgebraicGeneratorRelation", "AlgebraicNumber",
+        "AlgebraicNumberPowQQAction", "AlgebraicNumber_base",
+        "AlgebraicPolynomialTracker", "AlgebraicReal", "AlgebraicRealField", "CC",
+        "CIF", "ComplexIntervalField", "ComplexIntervalFieldElement",
+        "CyclotomicField", "GaussianField", "GlobalOptions", "NumberField",
+        "NumberFieldElement_gaussian", "Polynomial", "PolynomialRing", "QQ", "QQ_0",
+        "QQ_1", "QQ_1_2", "QQ_1_4", "QQbar", "QQbarPoly", "QQbar_I",
+        "QQbar_I_generator", "QQbar_I_nf", "QQbar_hash_offset", "QQx", "QQx_x",
+        "QQxy", "QQxy_x", "QQxy_y", "QQy", "QQy_y", "RIF", "RR", "RR_1_10",
+        "RealBallField", "RealIntervalField", "RealIntervalFieldElement",
+        "RealIntervalField_class", "SageObject", "Singleton", "SymbolicRing", "ZZ",
+        "ZZX_x", "algebraic_generator_counter", "an_binop_element", "an_binop_expr",
+        "an_binop_rational", "cached_method", "clear_denominators",
+        "cmp_elements_with_same_minpoly", "conjugate_expand", "conjugate_shrink",
+        "do_polred", "factor", "find_zero_result", "get_AA_golden_ratio",
+        "increase_recursion_limit", "isolating_interval", "lazy_string",
+        "number_field_elements_from_algebraics", "op_EQ", "op_GT", "op_NE",
+        "parent_is_numerical", "parent_is_real_numerical", "prec_seq",
+        "qq_generator", "rational_exact_root", "rich_to_bool", "richcmp",
+        "richcmp_method", "richcmp_not_equal", "short_prec_seq", "t1", "t2",
+        "tail_prec_seq"
+    }),
+    "sage.rings.complex_mpc": frozenset({
+        "AA", "CCtoMPC", "CDF", "CLF", "ComplexField_class", "Fields",
+        "INTEGERtoMPC", "MPComplexField", "MPComplexField_class", "MPComplexNumber",
+        "MPCtoMPC", "MPFRtoMPC", "PariError", "QQbar", "RLF", "bytes_to_str",
+        "cache", "complex_ten", "digit_ten", "exponent_ten", "have_same_parent",
+        "imaginary_ten", "late_import", "mpfr_prec_max", "mpfr_prec_min",
+        "number_ten", "parent", "pari_gen", "re_complex_ten", "revop",
+        "rich_to_bool", "rich_to_bool_sgn", "richcmp", "richcmp_not_equal", "sign",
+        "split_complex_string", "str_to_bytes"
+    }),
+    "sage.rings.polynomial.toy_buchberger": frozenset({
+        "LCM", "LM", "LT", "Sequence", "buchberger", "buchberger_improved",
+        "inter_reduction", "select", "spol", "update"
+    }),
 }
 
 
@@ -321,8 +408,14 @@ STAR_EXPORTS: dict[str, frozenset[str]] = {
 #: name instead of dropping it quietly. A module absent from here screened clean
 #: as a whole on this runtime.
 STAR_EXPORT_DROPS: dict[str, frozenset[str]] = {
+    "sage.combinat.knutson_tao_puzzles": frozenset({"lazy_import"}),
     "sage.combinat.matrices.latin": frozenset({"libgap"}),
+    "sage.combinat.partition_algebra": frozenset({"lazy_import"}),
+    "sage.data_structures.stream": frozenset({"lazy_import"}),
     "sage.graphs.generators.distance_regular": frozenset({"LazyImport", "libgap"}),
     "sage.matroids.advanced": frozenset({"lazy_import"}),
+    "sage.rings.complex_mpc": frozenset({"pari"}),
+    "sage.rings.polynomial.toy_buchberger": frozenset({"get_verbose"}),
+    "sage.rings.qqbar": frozenset({"lazy_import"}),
 }
 

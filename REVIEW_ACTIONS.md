@@ -4221,3 +4221,77 @@ than assumed.
 Fixed 2026-09-17. The conda-forge recipe pins the 0.8.1 sdist and therefore
 cannot build until a release ships this; the submission is blocked on that, not
 on review.
+
+## 80. Six more modules were dirty for one helper each, and item 78 missed them — usability — DONE
+
+### Symptom
+
+Item 78 closed with "a third pass is not worth its review time on the present
+evidence: what remains is mostly boundaries rather than gaps." That conclusion
+was wrong, and wrong in an instructive way.
+
+It was measured by re-screening the candidate ranking and seeing which modules
+came back **clean**. It never asked why the ones that came back **dirty** were
+dirty. Six of them fail on exactly one re-exported helper:
+
+| refusals | module | the single blocking name |
+| ---: | --- | --- |
+| 12 | `sage.data_structures.stream` | `lazy_import` |
+| 10 | `sage.combinat.partition_algebra` | `lazy_import` |
+| 9 | `sage.combinat.knutson_tao_puzzles` | `lazy_import` |
+| 5 | `sage.rings.qqbar` | `lazy_import` |
+| 5 | `sage.rings.complex_mpc` | `pari` |
+| 5 | `sage.rings.polynomial.toy_buchberger` | `get_verbose` |
+
+That is the case item 77 built the per-module drop permission for, and it was
+simply never applied to them.
+
+### Fix
+
+The six are admitted with `expected_drops`. Two of the dropped names are new
+shapes: `pari`, denylisted outright, and `get_verbose`, denylisted by provenance
+because a sibling in `sage.misc.verbose` writes to a caller-chosen path. Both
+are refused by the validator and deleted from the namespace by the scrub, so
+dropping either takes nothing a caller had — the same argument `lazy_import`
+and `libgap` already stand on.
+
+`sage.rings.qqbar` is the one worth naming: 102 exported names of algebraic
+number theory, previously unreachable because of one import helper.
+
+### What is still excluded, and why
+
+`sage.combinat.designs.ext_rep` (9) would need only `tmp_filename` and
+`dump_to_tmpfile` dropped, and is **not** admitted. That module's purpose is
+reading design data out of files and URLs, so it is the filesystem boundary
+rather than mathematics sitting behind an import helper — the same call
+`sage.misc.sageinspect` got in item 78. The large remaining blocks are
+unchanged: `sage.misc.explain_pickle` (98) and `pickle`/`copyreg` (39),
+`sage.libs.ecl` (87), `sage.interfaces.rubik` (9), and `gmpy2` (17), which is
+not a Sage module.
+
+### Measured
+
+| | after item 78 | after item 80 |
+| --- | ---: | ---: |
+| accepted | 370,966 | 371,012 |
+| refused | 3,462 | 3,416 |
+| acceptance (in-scope) | 99.0754% | **99.0877%** |
+
+46 examples, which is what was predicted before the work started rather than
+after. The passagemath lane reads the same gain on its own corpus: 363,202 →
+363,248 accepted, 3,092 → 3,046 refused, 99.1559% → **99.1684%**.
+
+### How to verify
+
+`tests/test_math_coverage.py::test_the_third_pass_star_imports_compute` runs
+each new shape against real Sage: the minimal polynomial of an algebraic square
+root, a 100-bit complex absolute value, the cardinality of a set-partition
+algebra basis — then asserts `pari`, `pari(2).isprime()`, `lazy_import` and
+`get_verbose` are all still refused afterwards. `test_the_star_exports_match_this_sage`
+re-screens all 43 listed modules with their recorded drops.
+
+### Status
+
+Fixed 2026-09-19. The lesson is the method, not the modules: "which candidates
+screen clean" and "which candidates could be made clean" are different
+questions, and only the second one finds this.

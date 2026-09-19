@@ -7,6 +7,24 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **Six more internal modules are star-importable, and corpus acceptance
+  reaches 99.09%.** Each failed on exactly one re-exported helper —
+  `lazy_import`, `pari` or `get_verbose` — with real mathematics behind it,
+  including `sage.rings.qqbar` and its 102 names of algebraic number theory.
+  That is the case the per-module drop permission was built for, and it had
+  simply never been applied to them.
+
+  This corrects the previous pass, which concluded a third was not worth doing.
+  That conclusion came from re-screening the ranking and seeing which modules
+  came back **clean**; it never asked why the dirty ones were dirty. "Which
+  candidates screen clean" and "which candidates could be made clean" are
+  different questions, and only the second finds these. Measured on SageMath
+  10.9: 370,966 → 371,012 accepted, 3,462 → 3,416 refused, 99.0754% →
+  **99.0877%**; on passagemath 10.8.11, 99.12% → **99.17%**. See REVIEW_ACTIONS 80.
+
+
 ### Fixed
 
 - **Documentation audited against the code after three releases in two days.**

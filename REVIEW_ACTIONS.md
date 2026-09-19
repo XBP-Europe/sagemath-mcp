@@ -4456,3 +4456,60 @@ so the control cannot be removed later as unexplained noise.
 ### Status
 
 Fixed 2026-09-19. Found by the same review as item 81.
+
+## 83. Sage-only syntax smuggled a `sage` chain past the fragment screen — high — DONE
+
+### Symptom
+
+Item 81 refused `sage`-rooted chains in caller code, and
+`codegen._refuse_scrubbed_names` had refused them in *parseable* tool
+parameters since the `sage.all.unpickle_global` bypass. Both gates were walked
+around by wrapping the chain in syntax that is not valid Python:
+
+```
+sage.misc.latex.png(1, '/tmp/x.png')        -> refused  (parses; AST path fires)
+[sage.misc.latex.png(1, '/tmp/x.png')..1]   -> ACCEPTED (does not parse)
+```
+
+Accepted by `_encode_literal` *and* `_validated_expression`, then interpolated
+into a template and evaluated by `sage_eval` under `trusted_policy()`. Sage
+preparses `[X..1]` into `ellipsis_range(X, Ellipsis, Integer(1))`, so `X` is
+called; the `TypeError` that follows is irrelevant, the side effect has already
+happened. Confirmed reaching the evaluator through a real tool call — it
+stopped only because this container has no `latex` binary.
+
+### Cause
+
+`_validated_expression` parses the fragment and hands it to the AST path. Sage
+has syntax Python does not (`[a..b]`, `R.<x>`), so a legitimate fragment can
+fail to parse; those fall through to `_screen_unparseable_fragment`, a token
+screen that deliberately mirrors the AST path's checks.
+
+It mirrored two of the policy's sets — `forbidden_call_names` and
+`forbidden_attribute_parents` — and item 81 had added a third,
+`forbidden_attribute_roots`, which it did not mirror. `lazy_import` was caught
+because it is separately on the scrub list; `sage` was not on any of them.
+
+### Fix
+
+`always_forbidden` now includes `forbidden_attribute_roots`. One line, and it
+restores the property the screen is built on: *whatever the AST path refuses in
+any position, the token screen refuses too.*
+
+### How to verify
+
+`tests/test_codegen.py::test_the_token_screen_refuses_a_sage_root_like_the_ast_path_does`
+asserts both spellings are refused by both gates, and
+`test_the_token_screen_still_accepts_ordinary_sage_only_syntax` asserts the
+screen has not started refusing what it exists to allow — `[1..5]` and
+`[1,3..11]` still pass. Verified against real Sage in the container, and the
+full integration suite passes (1,304).
+
+No corpus cost: this gate is on tool parameters, not on caller code.
+
+### Status
+
+Fixed 2026-09-19. Third and last of the escape-shaped findings from the
+2026-09-19 review. The lesson is the coupling: the token screen mirrors the AST
+path by hand, so a new policy set is two edits, not one. A test now fails if
+they drift on this one.

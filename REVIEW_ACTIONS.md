@@ -4278,7 +4278,8 @@ not a Sage module.
 | acceptance (in-scope) | 99.0754% | **99.0877%** |
 
 46 examples, which is what was predicted before the work started rather than
-after.
+after. The passagemath lane reads the same gain on its own corpus: 363,202 →
+363,248 accepted, 3,092 → 3,046 refused, 99.1559% → **99.1684%**.
 
 ### How to verify
 

@@ -22,7 +22,7 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   candidates screen clean" and "which candidates could be made clean" are
   different questions, and only the second finds these. Measured on SageMath
   10.9: 370,966 → 371,012 accepted, 3,462 → 3,416 refused, 99.0754% →
-  **99.0877%**. See REVIEW_ACTIONS 80.
+  **99.0877%**; on passagemath 10.8.11, 99.12% → **99.17%**. See REVIEW_ACTIONS 80.
 
 
 ### Fixed

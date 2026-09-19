@@ -228,7 +228,7 @@ of in-scope examples accepted as of 2026-09-19 (the first measurement read
 97.81%; `docs/sage_doctest_corpus.md` keeps the ledger), every refusal
 attributable to a rule that is named and capped in the file, and no allowlist
 gap in any mathematical name. The passagemath CI lane runs the same sweep on
-its runtime and reads 99.16%.
+its runtime and reads 99.17%.
 
 ### The corpus is SageMath's, and is not in this repository
 

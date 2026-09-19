@@ -4366,7 +4366,8 @@ caller code as well.
 ### Measured, and priced
 
 The corpus sweep fell **99.0877% → 98.8340%**, about 950 examples, against an
-enforced floor of 98.50%. That is the cost of the fix and it is declared rather
+enforced floor of 98.50%. The passagemath lane reads the same shape on its own
+corpus: 99.1684% → **98.9159%**, 925 examples. That is the cost of the fix and it is declared rather
 than absorbed: the rule has its own entry in `DELIBERATE_RULES` with a ceiling,
 so a future regression shows up as this rule firing more often.
 

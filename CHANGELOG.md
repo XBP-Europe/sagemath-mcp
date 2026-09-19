@@ -29,7 +29,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is one Sage release behind; the root is not. Generated code is unaffected.
 
   **This cost 950 corpus examples, 99.09% → 98.83%**, against an enforced floor
-  of 98.50%, and the cost is declared with its own ceiling rather than absorbed.
+  of 98.50% (passagemath: 99.17% → 98.92%), and the cost is declared with its
+  own ceiling rather than absorbed.
   Every refused example has a direct spelling — `exp(1)`, not
   `sage.functions.log.exp(1)` — and the refusal message names it. A boundary,
   not a gap. See REVIEW_ACTIONS 81.

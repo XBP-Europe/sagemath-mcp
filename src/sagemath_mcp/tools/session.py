@@ -29,6 +29,7 @@ from ..session import (
     SageSessionManager,
 )
 from ..text import SESSION_ARG_DESC as _SESSION_ARG_DESC
+from ..text import loggable_session
 from .hints import DISCARDS, INTERRUPTS, READS, STARTS
 
 DOC_LINKS: list[DocumentationLink] = [
@@ -47,17 +48,7 @@ DOC_LINKS: list[DocumentationLink] = [
 ]
 
 
-def _loggable(session: str) -> str:
-    """A workspace label safe for logs, notifications and responses.
-
-    A workspace token is a **bearer credential** (see `session.py`): whoever
-    holds it reaches that workspace, so it must never appear in a log line, an
-    MCP notification or a tool response -- the same secrecy `start_sage_session`
-    promises. A caller's `session` argument may be either a plain name or a
-    token, so a token is shown as a generic label and a name (not a secret) as
-    itself. Every lifecycle tool routes its user-facing strings through here.
-    """
-    return "the workspace" if session.strip().startswith(WORKSPACE_TOKEN_PREFIX) else f"'{session}'"
+_loggable = loggable_session
 
 
 @mcp.tool(

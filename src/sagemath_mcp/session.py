@@ -498,6 +498,26 @@ class SageSession:
         seen: set[Path] = set()
         return [p for p in candidates if not (p in seen or seen.add(p))]
 
+    def _discard_persisted_journal(self) -> None:
+        """Delete the on-disk journal, so a reset is not undone by a replay.
+
+        `reset()` used to clear only the in-memory journal. `get()` restores
+        from disk whenever the in-memory one is empty, and every worker-backed
+        tool call goes through `get()` -- so the statements the caller had just
+        discarded came back on the next call, including any flagged trusted,
+        with no signal. Someone resetting to drop sensitive intermediates got
+        them back immediately. The tool is annotated destructive and documented
+        as clearing state; this makes that true when persistence is on.
+
+        Legacy paths are removed too: `existing_journal_path` falls back to them
+        on restore, so leaving one behind would reopen the same hole.
+        """
+        for path in (self._persist_path(), *self._legacy_persist_paths()):
+            if path is None:
+                continue
+            with contextlib.suppress(OSError):
+                path.unlink(missing_ok=True)
+
     def existing_journal_path(self) -> Path | None:
         """The journal to restore from, preferring the current scheme."""
         current = self._persist_path()
@@ -611,6 +631,7 @@ class SageSession:
         if not response.get("ok", False):
             raise SageProcessError("Failed to reset Sage session.")
         self._code_journal.clear()
+        self._discard_persisted_journal()
         self.last_used_at = time.time()
 
     async def interrupt(self) -> bool:

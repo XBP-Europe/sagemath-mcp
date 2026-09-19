@@ -13,6 +13,8 @@ unknown handle cannot be fabricated to reach someone else's state.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from sagemath_mcp import runtime, server
@@ -211,3 +213,31 @@ async def test_lifecycle_tools_never_echo_the_workspace_token(manager):
         assert token not in str(exc)
     else:
         _assert_clean(stop_ctx, stop_response)
+
+
+def test_no_tool_interpolates_a_raw_session_argument() -> None:
+    """The durable version of the check that missed `evaluate_sage`.
+
+    Item 70 routed the lifecycle tools' strings through the masking helper and
+    pinned it with a hand-written list of four tools. `evaluate_sage` takes the
+    same `session` argument and was not on that list, so its cancellation path
+    printed the workspace token verbatim into an MCP warning -- found by a
+    security review on 2026-09-19, a year of releases later.
+
+    A hand-written list is what failed. This reads the tool sources instead, so
+    a new tool that interpolates `session` raw fails here whether or not anyone
+    remembers to add it.
+    """
+    tools_dir = Path(__file__).resolve().parents[1] / "src" / "sagemath_mcp" / "tools"
+    offenders: list[str] = []
+    for source in sorted(tools_dir.glob("*.py")):
+        for number, line in enumerate(source.read_text(encoding="utf-8").splitlines(), 1):
+            # An f-string interpolating the argument itself, rather than the
+            # masked form. `{session_key}` is the resolved internal key, not the
+            # caller's credential, and is fine.
+            if "{session}" in line and "loggable_session" not in line:
+                offenders.append(f"{source.name}:{number}: {line.strip()}")
+    assert not offenders, (
+        "a tool interpolates its raw `session` argument, which may be a "
+        "workspace token (a bearer credential):\n" + "\n".join(offenders)
+    )

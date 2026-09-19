@@ -1748,3 +1748,40 @@ async def test_terminate_kills_the_worker_process_group(monkeypatch, python_sett
         await session.shutdown()
 
     assert (pid, signal_module.SIGKILL) in killed
+
+
+@pytest.mark.asyncio
+async def test_reset_clears_the_persisted_journal_too(tmp_path):
+    """`reset_sage_session` is annotated destructive and documented as clearing
+    state. With persistence on it did not.
+
+    Found by a security review on 2026-09-19 and reproduced: `reset()` cleared
+    `_code_journal` in memory but left the file on disk, and `get()` replays
+    from disk whenever the in-memory journal is empty. So the next worker-backed
+    call -- and every tool call goes through `get()` -- replayed the statements
+    the caller had just asked to discard, including any flagged trusted, with no
+    signal that it had happened.
+
+    Someone who resets specifically to drop sensitive intermediates got them
+    back one call later. That is the failure this pins.
+    """
+    settings = SageSettings(
+        force_python_worker=True, persist_sessions=True, persist_dir=str(tmp_path)
+    )
+    manager = SageSessionManager(settings)
+    try:
+        session = await manager.get("resetter")
+        await session.evaluate("secret = 4242", want_latex=False, capture_stdout=False)
+        session.save_journal()
+        assert session.existing_journal_path() is not None, "nothing was persisted"
+
+        await session.reset()
+
+        assert session.existing_journal_path() is None, (
+            "reset left the persisted journal on disk; the next get() replays it"
+        )
+        replayed = await manager.get("resetter")
+        with pytest.raises(SageEvaluationError):
+            await replayed.evaluate("secret", want_latex=False, capture_stdout=False)
+    finally:
+        await manager.shutdown()

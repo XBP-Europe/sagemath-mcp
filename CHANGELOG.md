@@ -9,6 +9,21 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **`reset_sage_session` did not clear state when session persistence is on.**
+  It cleared the in-memory journal and left the file on disk, and the next
+  worker-backed call replayed it — so a caller who reset specifically to drop
+  sensitive intermediates got them back one call later, with no signal. Reset
+  now deletes the persisted journal too, legacy paths included. See
+  REVIEW_ACTIONS 84.
+
+- **The workspace token could reach an MCP notification.** `evaluate_sage`'s
+  cancellation path printed its raw `session` argument, which may be the bearer
+  credential `start_sage_session` promises never to expose. The masking helper
+  moved to the shared strings module and `evaluate_sage` now uses it. The
+  earlier regression test iterated a hand-written list of four tools, which is
+  why this was missed; the new one scans every tool module instead.
+
+
 - **Sage-only syntax smuggled a `sage` chain past the tool-parameter screen.**
   `sage.misc.latex.png(1,'/tmp/x.png')` was refused, but
   `[sage.misc.latex.png(1,'/tmp/x.png')..1]` was accepted: it is not valid

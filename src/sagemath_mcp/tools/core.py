@@ -35,6 +35,7 @@ from ..session import (
     SageProcessError,
 )
 from ..text import SESSION_ARG_DESC as _SESSION_ARG_DESC
+from ..text import loggable_session
 from .hints import COMPUTES, EVALUATES
 
 LOGGER = logging.getLogger(__name__)
@@ -127,7 +128,11 @@ async def evaluate_sage(
     except asyncio.CancelledError:
         monitoring.record_failure("cancelled", is_security=False, details="evaluation cancelled")
         await runtime.SESSION_MANAGER.cancel(session_key)
-        await ctx.warning(f"Sage evaluation cancelled; session '{session}' restarted")
+        # Masked: `session` may be a workspace token, which is a bearer
+        # credential and must never reach a notification (item 84).
+        await ctx.warning(
+            f"Sage evaluation cancelled; session {loggable_session(session)} restarted"
+        )
         raise
     except TimeoutError as exc:
         # A timeout escaped raw: no monitoring record, and the client saw an

@@ -4513,3 +4513,73 @@ Fixed 2026-09-19. Third and last of the escape-shaped findings from the
 2026-09-19 review. The lesson is the coupling: the token screen mirrors the AST
 path by hand, so a new policy set is two edits, not one. A test now fails if
 they drift on this one.
+
+## 84. `reset_sage_session` was undone by journal replay, and the token leaked on cancellation — medium — DONE
+
+Two findings from the 2026-09-19 review, both in the session surface, fixed
+together.
+
+### 84a. Reset did not clear state when persistence is on
+
+`reset()` cleared `_code_journal` in memory and left the file on disk. `get()`
+restores from disk whenever the in-memory journal is empty, and **every**
+worker-backed tool call goes through `get()` — so the next call replayed the
+statements the caller had just asked to discard, including any flagged
+`trusted`, with no signal that it had happened.
+
+Reproduced with the sequence a persisted deployment actually takes: evaluate,
+stop (journal written), reconnect (replayed, intended), **reset**, next call →
+the value is back.
+
+```
+after reconnect   -> 4242
+after reset+get   -> 4242
+```
+
+The tool is annotated `DISCARDS` and documented as clearing state. Someone who
+resets specifically to drop sensitive intermediates got them back one call
+later.
+
+**Fix.** `reset()` now deletes the persisted journal as well, legacy paths
+included — `existing_journal_path` falls back to those on restore, so leaving
+one behind would reopen the same hole.
+
+A related inconsistency is left alone deliberately: `cancel()` and the timeout
+path destroy the namespace but keep the journal, which matches their documented
+wording ("variables discarded") even though the two paths disagree about what
+the journal means.
+
+### 84b. The workspace token reached an MCP notification
+
+`evaluate_sage`'s cancellation path interpolated its raw `session` argument:
+
+```python
+await ctx.warning(f"Sage evaluation cancelled; session '{session}' restarted")
+```
+
+Since workspace handles landed, that argument may be the `wsk_…` bearer
+credential. Item 70 introduced the masking helper and routed the lifecycle
+tools through it; `evaluate_sage` takes the same argument and was not included.
+It was the only raw interpolation left in the tool surface.
+
+**Fix.** The helper moved from `tools/session.py` to `text.py`, which is where
+strings shared between tool modules belong, and `evaluate_sage` uses it.
+
+**Why it was missed, and what stops it recurring.** Item 70's regression test
+iterated a hand-written list of four tools. A hand-written list is exactly what
+failed. The new test reads the tool sources and fails on any `{session}`
+interpolation that is not masked, so a tool added later is covered whether or
+not anyone remembers.
+
+### How to verify
+
+`tests/test_session.py::test_reset_clears_the_persisted_journal_too` runs the
+full sequence and asserts both that the file is gone and that a fresh `get()`
+does not resurrect the value.
+`tests/test_workspace_handles.py::test_no_tool_interpolates_a_raw_session_argument`
+scans every tool module. Integration suite 1,306 passed; unit suite at 100%
+coverage.
+
+### Status
+
+Fixed 2026-09-19.

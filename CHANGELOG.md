@@ -9,6 +9,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **The star-export screen judged the proxy rather than the object.** It never
+  resolved a `LazyImport`, which is not a `ModuleType` however module-like its
+  target and proxies no `__module__` — so both of its value-based checks read
+  one as harmless. `sage.graphs.generators.distance_regular` exports `codes` as
+  a lazy import of a module, and it was baked into the curated star list: the
+  screen handed a caller a module object, the one thing that mechanism promises
+  never to do. Worse, the provenance check was blind for *every* lazy
+  re-export. The screen now resolves lazy imports first, as the namespace scrub
+  in the same file already did in two places. Exactly one name leaves the lists
+  and there is no corpus cost, because `codes` is separately allowlisted. See
+  REVIEW_ACTIONS 85.
+
+
 - **`reset_sage_session` did not clear state when session persistence is on.**
   It cleared the in-memory journal and left the file on disk, and the next
   worker-backed call replayed it — so a caller who reset specifically to drop

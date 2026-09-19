@@ -638,6 +638,20 @@ def _star_export_screen(
         if not isinstance(name, str) or name.startswith("_") or not name.isidentifier():
             return None
         value = vars(module).get(name)
+        # Resolve a lazy import before judging it. A `LazyImport` is a proxy:
+        # it is not a `ModuleType` however module-like its target, and it
+        # proxies no `__module__`, so the two checks below both read it as
+        # harmless. `sage.graphs.generators.distance_regular` exports
+        # `codes = LazyImport('sage.coding', 'codes_catalog')`, which is a
+        # MODULE -- so the screen baked a module object into the curated star
+        # list, the one thing items 61/62/63 say it must never hand a caller.
+        # Worse, the provenance check was blind for *every* lazy re-export, so
+        # a lazily-imported dangerous helper would have screened clean.
+        # `_dangerous_sage_names` above already resolves lazy imports for
+        # exactly this reason, in two places; this is the third (item 85).
+        if type(value).__name__ == "LazyImport":
+            with contextlib.suppress(Exception):
+                value = value._get_object()
         # A re-exported module object is DROPPED, not a reason to fail the module.
         # `dirichlet` re-exports `sage.modules.free_module_element`, which reaches
         # `sage.env.os`, so binding it is a pivot into the whole tree -- but the

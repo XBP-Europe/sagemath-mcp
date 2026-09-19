@@ -190,7 +190,7 @@ STAR_EXPORTS: dict[str, frozenset[str]] = {
         "HigmanSimsGraph", "HoffmanSingletonGraph", "IvanovIvanovFaradjevGraph",
         "J2Graph", "LargeWittGraph", "LeonardGraph", "LivingstoneGraph", "Matrix",
         "SimsGewirtzGraph", "TruncatedWittGraph", "UstimenkoGraph", "VectorSpace",
-        "WellsGraph", "cocliques_HoffmannSingleton", "codes",
+        "WellsGraph", "cocliques_HoffmannSingleton",
         "distance_3_doubly_truncated_Golay_code_graph", "distance_regular_graph",
         "graph_3O73", "graph_from_GQ_spread", "graph_with_classical_parameters",
         "is_classical_parameters_graph", "is_from_GQ_spread", "is_near_polygon",

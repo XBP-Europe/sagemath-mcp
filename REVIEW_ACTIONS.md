@@ -4583,3 +4583,74 @@ coverage.
 ### Status
 
 Fixed 2026-09-19.
+
+## 85. The star-export screen judged the proxy, not the object — medium — DONE
+
+### Symptom
+
+`_star_export_screen` inspected each exported value directly and never resolved
+a `LazyImport`. A lazy import is a proxy: it is not a `ModuleType` however
+module-like its target, and it proxies no `__module__`. So both of the screen's
+value-based checks read it as harmless.
+
+Confirmed against real SageMath 10.9:
+
+```
+sage.graphs.generators.distance_regular exports  codes = LazyImport('sage.coding', 'codes_catalog')
+  isinstance(value, ModuleType)  -> False      # item 61's module-object drop never fires
+  getattr(value, "__module__")   -> absent     # the provenance check passes unconditionally
+  value._get_object()            -> module sage.coding.codes_catalog
+  baked into star_exports.py     -> yes
+```
+
+So the curated star list handed a caller a **module object** — the one thing
+items 61/62/63 say it must never do, and which item 63 explicitly promised
+still held ("still never handing a caller a module").
+
+The drift test could not catch it: `test_the_star_exports_match_this_sage`
+re-runs the same screen, so it re-derived the same wrong answer and agreed with
+the file.
+
+### Why it was worth fixing rather than special-casing `codes`
+
+Exploitation was contained today. The reachable graph from `codes_catalog`
+stays inside `sage.coding.*`, a deep pivot to `os`/`sys` is refused by item 62,
+and `codes` is independently on the allowlist so the star granted no new name.
+
+The latent half is the reason: the provenance check was blind for **every**
+lazy re-export. A lazily-imported helper whose target lives in a dangerous
+module read as provenance-free and screened clean, and any future Sage version
+re-exporting such a name would have been baked silently.
+
+`_dangerous_sage_names` in the same file already resolves lazy imports, in two
+places, with a comment saying exactly why ("a LazyImport reports
+`sage.misc.lazy_import` as its type's module — so every provenance check in this
+file classifies it as harmless"). The star screen was the one that forgot.
+
+### Fix
+
+Resolve `LazyImport` at the top of the per-name loop, before the module-object
+drop and the provenance check, mirroring the two existing sites. Failure to
+resolve is suppressed and the proxy is judged as-is, which is the conservative
+direction.
+
+### Measured
+
+Exactly one name leaves the curated lists on each runtime — `codes`, the module
+object — and nothing else moves. **No corpus cost** (98.8340%, unchanged),
+because `codes` is separately on the allowlist: verified live that the star
+import still works, that a graph from the module still computes, and that
+`codes.HammingCode(GF(2), 3).dimension()` still answers 4.
+
+### How to verify
+
+`tests/test_sage_worker.py::test_star_export_screen_resolves_a_lazy_import_before_judging_it`
+builds a module exporting a lazily-imported module and asserts it is dropped;
+`test_star_export_screen_sees_through_a_lazy_import_to_a_dangerous_home` builds
+one whose target lives in a dangerous module and asserts the whole module fails,
+which is the latent half. Integration suite 1,308 passed; unit suite at 100%
+coverage.
+
+### Status
+
+Fixed 2026-09-19.

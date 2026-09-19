@@ -4395,3 +4395,64 @@ integration suite 1,300 passed, unit suite at 100% coverage.
 Fixed 2026-09-19. The lesson is the shape, not the list: enumerating dangerous
 segments under a reachable root cannot be completed, and the root is the only
 thing there is a finite number of.
+
+## 82. Loopback is not a boundary against a browser: no `Host`/`Origin` validation — high — DONE
+
+### Symptom
+
+The HTTP transports accepted any `Host` and any `Origin`. Verified against a
+running server before the fix:
+
+```
+POST /mcp   Host: attacker.example   Origin: https://attacker.example   -> 200
+```
+
+and the whole chain completed under that foreign host — `initialize`, then
+`notifications/initialized`, then a `tools/call` that reached the evaluator.
+
+### Why it matters here more than elsewhere
+
+The stated mitigation throughout this document was "bind to loopback, because
+there is no authentication". Loopback stops another *machine*; it does not stop
+a *page* the user is already looking at. A page served from a domain whose DNS
+rebinds to `127.0.0.1` reaches this server as same-origin: no preflight, and
+the response body is readable. On the configuration the README recommends that
+is arbitrary Sage evaluation and full result disclosure from a drive-by page.
+
+Running locally with no authentication is a deliberate, supported posture for
+this project. That makes this worse rather than excusable: there is no second
+line behind the bind. The threat model never mentioned rebinding, `Origin` or
+`Host` — grepped across every document, the only hits were unrelated uses of the
+word "rebind" about variable names.
+
+### Fix
+
+`main()` now passes `host_origin_protection="auto"` to the HTTP transports.
+
+`"auto"`, not `True`, and the distinction was measured rather than assumed. The
+guard validates only when the connection **arrives** over loopback:
+
+| bind | reached via | foreign `Host` |
+| --- | --- | ---: |
+| `127.0.0.1` | loopback | 421 |
+| `0.0.0.0` | loopback | 421 |
+| `0.0.0.0` | the machine's own address | 200 |
+
+So the container and the Helm deployment, where traffic arrives on a real
+address, are untouched. The one shape that needs configuration is a reverse
+proxy talking to this server over localhost while forwarding its own `Host`:
+`FASTMCP_HTTP_ALLOWED_HOSTS` covers it, and `SECURITY.md` now says so.
+
+### How to verify
+
+On shipped defaults with no environment variables set: a foreign `Host` gets
+421, a normal client gets 200, and `/health` still answers 200.
+`tests/test_auth.py::test_the_http_transport_asks_for_host_and_origin_protection`
+pins the setting and pins `"auto"` specifically, because `True` would break
+deployments behind a proxy;
+`test_the_threat_model_documents_the_rebinding_defence` pins the documentation,
+so the control cannot be removed later as unexplained noise.
+
+### Status
+
+Fixed 2026-09-19. Found by the same review as item 81.

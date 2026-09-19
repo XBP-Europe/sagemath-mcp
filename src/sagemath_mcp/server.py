@@ -241,6 +241,22 @@ def main(argv: list[str] | None = None) -> None:  # pragma: no cover - CLI entry
     transport_kwargs: dict[str, object] = {}
     if args.transport != "stdio":
         transport_kwargs.update({"host": args.host, "port": args.port})
+        # Binding to loopback does not keep a browser out, and this server's
+        # supported posture is local with no authentication -- so there is no
+        # second line behind it. Without this, a request carrying
+        # `Host: attacker.example` was accepted and the whole chain
+        # (initialize, initialized, tools/call) completed: a page served from a
+        # domain that rebinds to 127.0.0.1 is same-origin to the browser, needs
+        # no preflight, and can read the response. Arbitrary evaluation and full
+        # result disclosure from a drive-by page (REVIEW_ACTIONS 82).
+        #
+        # "auto", not True: the guard then validates only when the connection
+        # ARRIVES over loopback. Verified against a running server -- a wildcard
+        # bind reached on a real address is untouched, so the container and the
+        # Helm deployment are unaffected. A reverse proxy that talks to this
+        # server over localhost while forwarding its own Host is the one shape
+        # that needs `FASTMCP_HTTP_ALLOWED_HOSTS`; SECURITY.md says so.
+        transport_kwargs["host_origin_protection"] = "auto"
         if args.path:
             transport_kwargs["path"] = args.path
         _register_health_route()

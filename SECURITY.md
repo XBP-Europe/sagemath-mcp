@@ -44,6 +44,25 @@ there is **no authentication by default**, which is normal for a locally-run MCP
 server and is why it must stay local unless you put something authenticating in
 front.
 
+**Loopback alone is not a boundary against a browser, so the server also
+validates `Host` and `Origin`.** A local bind stops another machine from
+connecting; it does not stop a web page the user is already looking at. A page
+served from a domain whose DNS rebinds to `127.0.0.1` reaches this server as
+same-origin — no preflight, and the response body is readable — which on the
+default configuration meant arbitrary evaluation and full result disclosure
+from a drive-by page. Verified against a running server in September 2026:
+before the fix, a request carrying `Host: attacker.example` was accepted and
+the whole protocol chain completed.
+
+The HTTP transports therefore run with host/origin protection in `auto` mode.
+It validates only when the connection **arrives** over loopback, so a container
+or Kubernetes deployment reached on a real address is untouched. The one shape
+that needs configuration is a reverse proxy that talks to this server over
+localhost while forwarding its own `Host`: set `FASTMCP_HTTP_ALLOWED_HOSTS` to
+the names it forwards. This matters more here than it would elsewhere, because
+running locally with no authentication is a supported posture — there is
+nothing behind it.
+
 **Optional bearer-token auth (opt-in).** For anyone who does front the HTTP
 endpoint, setting `SAGEMATH_MCP_HTTP_AUTH_TOKEN=<secret>` requires every MCP
 request to carry `Authorization: Bearer <secret>`, compared in constant time and

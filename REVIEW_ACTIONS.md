@@ -4295,3 +4295,103 @@ re-screens all 43 listed modules with their recorded drops.
 Fixed 2026-09-19. The lesson is the method, not the modules: "which candidates
 screen clean" and "which candidates could be made clean" are different
 questions, and only the second one finds this.
+
+## 81. Caller code executed arbitrary Python through the `sage` module tree — critical — DONE
+
+### Symptom
+
+Found by an adversarial security review on 2026-09-19 and verified against real
+SageMath 10.9 before anything was changed. Every one of these **ran**:
+
+```python
+sage.misc.lazy_import.LazyImport('builtins', 'eval')('6*7')                  # 42
+sage.misc.lazy_import.LazyImport('os', 'getpid')()                           # a real PID
+sage.misc.lazy_import.LazyImport('subprocess', 'run')                        # the callable
+sage.misc.lazy_import.LazyImport('builtins','open')('/etc/hostname').read()  # file contents
+sage.misc.lazy_import.LazyImport('os', 'environ')                            # the environment
+sage.libs.gap.libgap.libgap.Exec('true')                                     # a shell
+```
+
+Arbitrary evaluation, arbitrary imports, subprocess access, file reads and
+environment disclosure — the whole point of the AST policy, defeated. The bare
+spellings (`LazyImport`, `libgap`, `pari`) were all correctly refused, so
+deny-by-default was working exactly as designed and the dotted path walked
+around it.
+
+This mattered most on the install paths added this month: the pip extra, the
+MCPB bundle and the three client one-liners all run with the user's own
+privileges, and there the policy is the only boundary.
+
+### Cause
+
+`sage` is on the generated caller allowlist, so the whole module tree was live
+in the worker. The only guard on it was `forbidden_attribute_parents`, a
+hand-written list of dangerous path segments — and ten of the thirty modules
+`_DANGEROUS_SAGE_MODULES` classifies as dangerous had no listed segment and no
+forbidden leaf:
+
+```
+sage.misc.lazy_import   sage.misc.fpickle   sage.misc.session   sage.misc.verbose
+sage.misc.call          sage.cpython.debug  sage.rings.pari_ring sage.groups.pari_group
+sage.libs.gap.libgap    sage.lfunctions.dokchitser
+```
+
+The namespace scrub cannot cover this: it deletes names from the session
+namespace and from `sage.all.__dict__`, never from `sage.misc` or `sage.libs`,
+which are attributes of a live package object.
+
+The comment at the top of that list already stated the intent correctly
+("Blocking the import is not enough on its own: `sage` is bound in the worker
+namespace"). The list simply enumerated a subset, and any list of segments is
+one Sage release behind.
+
+### Fix
+
+A new policy field, `forbidden_attribute_roots = ("sage",)`, refused two ways:
+
+- the **root of any attribute chain**, checked before the segment walk and
+  regardless of what the caller bound (a caller-owned alias for the root was
+  item 52's escape);
+- the **bare name**, because what comes back is a module object and handing a
+  caller one is the pivot items 61/62/63 exist to prevent. Reading it bare buys
+  nothing once every attribute of it is refused.
+
+`trusted_policy()` clears the field, because the generated prelude does
+`import sage.all as _sage_ns` and reads attributes off it.
+
+This is the rule `codegen._refuse_scrubbed_names` has applied to tool parameters
+since the `sage.all.unpickle_global` bypass, for the same reason, now applied to
+caller code as well.
+
+### Measured, and priced
+
+The corpus sweep fell **99.0877% → 98.8340%**, about 950 examples, against an
+enforced floor of 98.50%. The passagemath lane reads the same shape on its own
+corpus: 99.1684% → **98.9159%**, 925 examples. That is the cost of the fix and it is declared rather
+than absorbed: the rule has its own entry in `DELIBERATE_RULES` with a ceiling,
+so a future regression shows up as this rule firing more often.
+
+It is a **boundary, not a gap**. Every refused example has a direct spelling —
+`exp(1)` rather than `sage.functions.log.exp(1)` — and the refusal message names
+it. The same category as the external CAS interfaces, which cost more.
+
+### How to verify
+
+`tests/test_security_bypass.py::test_a_sage_rooted_chain_is_refused` runs all
+thirteen payloads above through the validator; each one executed before the fix.
+`test_the_sage_root_refusal_names_the_alternative` pins the message, and
+`test_trusted_generated_code_may_still_reach_sage` pins that the prelude still
+works. Two existing tests were amended rather than deleted, and both now
+document the boundary: `test_ordinary_sage_attribute_use_still_works` asserts the
+direct spellings pass and the rooted ones do not, and
+`test_a_forbidden_attribute_chain_stops_at_the_first_offending_segment` moved its
+example to a non-`sage` root so the segment walk is still covered.
+
+Verified end to end in the Sage container: all ten live payloads refused, full
+integration suite 1,300 passed, unit suite at 100% coverage.
+
+### Status
+
+Fixed 2026-09-19. The lesson is the shape, not the list: enumerating dangerous
+segments under a reachable root cannot be completed, and the root is the only
+thing there is a finite number of.

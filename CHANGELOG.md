@@ -7,6 +7,38 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- **Caller code could execute arbitrary Python through the `sage` module tree.**
+  Found by an adversarial review and verified against real SageMath before
+  anything changed: `sage.misc.lazy_import.LazyImport('builtins','eval')('6*7')`
+  returned 42, `LazyImport('subprocess','run')` handed over the callable,
+  `LazyImport('builtins','open')('/etc/hostname').read()` read a file, and
+  `LazyImport('os','environ')` disclosed the environment. The bare spellings
+  were all correctly refused — deny-by-default worked exactly as designed and
+  the dotted path walked around it.
+
+  `sage` is on the caller allowlist, so the tree was live, and the only guard
+  was a hand-written list of dangerous path segments. Ten of the thirty modules
+  the worker classifies as dangerous had no listed segment and no forbidden
+  leaf. The namespace scrub cannot help: it clears names from the session
+  namespace and from `sage.all`, never from `sage.misc` or `sage.libs`.
+
+  The root is now refused instead — both as the head of an attribute chain and
+  as a bare name, since what comes back is a module object. Any list of segments
+  is one Sage release behind; the root is not. Generated code is unaffected.
+
+  **This cost 950 corpus examples, 99.09% → 98.83%**, against an enforced floor
+  of 98.50% (passagemath: 99.17% → 98.92%), and the cost is declared with its
+  own ceiling rather than absorbed.
+  Every refused example has a direct spelling — `exp(1)`, not
+  `sage.functions.log.exp(1)` — and the refusal message names it. A boundary,
+  not a gap. See REVIEW_ACTIONS 81.
+
+  Anyone running the server outside the container should upgrade: on the pip,
+  bundle and CLI install paths this policy is the only boundary.
+
+
 ### Changed
 
 - **Six more internal modules are star-importable, and corpus acceptance

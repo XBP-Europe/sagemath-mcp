@@ -88,9 +88,9 @@ Running SageMath's own doctests through the validator — 432,878 examples,
 `tests/test_sage_doctest_corpus.py` — accepted 98.59% of what is in scope when
 this was measured. The 5,266 refusals were categorised by whether the security
 justification holds (REVIEW_ACTIONS.md items 45 and 46), and everything that
-failed that test has been fixed. **Re-measured 2026-09-19 on `main`:** 99.09%
-(371,012 accepted, 3,416 refused, 58,268 out of scope by design) on SageMath
-10.9, and 99.17% of 433,289 examples on passagemath 10.8.11; the enforced floor
+failed that test has been fixed. **Re-measured 2026-09-19 on `main`:** 98.83%
+(370,062 accepted, 4,366 refused, 58,268 out of scope by design) on SageMath
+10.9, and 98.92% of 433,289 examples on passagemath 10.8.11; the enforced floor
 is 98.50%. The ledger of what each step cost or won back is in
 [docs/sage_doctest_corpus.md](docs/sage_doctest_corpus.md).
 
@@ -244,8 +244,8 @@ documentation rather than surface:
       names by value provenance, so the modular layout no longer over-fires, and
       the server picks the matching generated artifact set at import
       (`_artifacts.py`); a `passagemath` CI lane cold-installs the exact pin and
-      runs the whole suite plus the doctest corpus sweep against it (99.17%
-      acceptance on 10.8.11, versus 99.09% on monolithic 10.9). The pin is exact
+      runs the whole suite plus the doctest corpus sweep against it (98.92%
+      acceptance on 10.8.11, versus 98.83% on monolithic 10.9). The pin is exact
       on purpose: 10.8.10/10.8.11 shipped a broken Maxima backend as first
       released (found here, filed as passagemath#2836, fixed upstream by a
       `.post1` reissue), so every bump goes through that lane, never Dependabot

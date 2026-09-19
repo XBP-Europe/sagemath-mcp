@@ -408,10 +408,10 @@ def corpus() -> Harvest:
 # --- the assertions -----------------------------------------------------------
 #
 # Baselines measured against SageMath 10.9 (re-measured 2026-09-19 on main):
-# 3,168 sources, 60,094 docstrings, 432,878 examples, of which 371,012 accepted,
-# 3,416 refused and 58,268 out of scope -- 99.09% acceptance among in-scope
+# 3,168 sources, 60,094 docstrings, 432,878 examples, of which 370,062 accepted,
+# 4,366 refused and 58,268 out of scope -- 98.83% acceptance among in-scope
 # examples, in about a minute. On passagemath 10.8.11 the same sweep reads
-# 433,289 examples at 99.17%. The ledger since 2026-08-15's 98.60%: the
+# 433,289 examples at 98.92%. The ledger since 2026-08-15's 98.60%: the
 # hardening of items 49-58 cost ~365 examples (libgap and the Pari family,
 # priced deliberately); item 59 won back 702 by modelling session injection and
 # screening `attrcall` literals; item 60 won back 617 more by permitting
@@ -506,6 +506,17 @@ DELIBERATE_RULES: dict[str, float] = {
     "refused:Sage code exceeds maximum length": 0.001,
     "refused:Sage code is too deeply nested": 0.001,
     "refused:Sage code has too many AST nodes": 0.001,
+    # The `sage` module tree, refused at the root. A 2026-09-19 security review
+    # found caller code executing arbitrary Python through it --
+    # `sage.misc.lazy_import.LazyImport('os','system')('id')` ran, while the
+    # bare `LazyImport` was correctly refused -- because the guard enumerated
+    # dangerous path segments and ten dangerous modules had none listed.
+    # Refusing the root is the only shape that does not fall behind the next
+    # Sage release. It costs about 1,089 examples, and that is a **boundary,
+    # not a gap**: every one of them has a direct spelling (`exp(1)`, not
+    # `sage.functions.log.exp(1)`), which is what the message says. Priced
+    # deliberately, the way the CAS interfaces were.
+    "refused:Reaching into the 'X' module is not permitted; name the function directly": 0.004,
     # `latex` may be called and not reached into: `latex(obj)` builds a string,
     # while `latex.has_file(name)` runs `call("kpsewhich %s" % name, shell=True)`
     # and executed a command as the container user on 10.9. The corpus reaches

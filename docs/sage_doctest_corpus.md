@@ -82,13 +82,13 @@ by reading the report a failing assertion prints.
 
 ```
 3,168 files, 60,094 docstrings, 432,878 examples
-accepted 371,012   refused 3,416   out of scope 58,268   unparsed 182
-acceptance among in-scope examples: 99.09%   (enforced floor: 98.50%)
+accepted 370,062   refused 4,366   out of scope 58,268   unparsed 182
+acceptance among in-scope examples: 98.83%   (enforced floor: 98.50%)
 ```
 
 The same sweep on the passagemath runtime (`passagemath-standard==10.8.11`,
-its own CI lane) reads 3,232 files, 433,289 examples, 363,248 accepted,
-3,046 refused, 66,815 out of scope — 99.17%. The two runtimes differ in what
+its own CI lane) reads 3,232 files, 433,289 examples, 362,323 accepted,
+3,971 refused, 66,815 out of scope — 98.92%. The two runtimes differ in what
 is *out of scope* (passagemath's modular layout tags more examples
 `# needs`), not in what is refused. The committed
 [`doctest-corpus-stats.md`](../doctest-corpus-stats.md) is the monolithic
@@ -126,6 +126,17 @@ that conclusion and won back 46 more (3,462 → 3,416 refusals, 99.08% → 99.09
 asked why the dirty ones were dirty. Six of them failed on a single re-exported
 `lazy_import`, `pari` or `get_verbose`, which is exactly the case item 77 built
 the per-module drop permission for.
+
+**Item 81 spent 950 of them back, deliberately.** A security review found caller
+code executing arbitrary Python through the `sage` module tree --
+`sage.misc.lazy_import.LazyImport('os','system')('id')` ran, while the bare
+`LazyImport` was correctly refused -- because the guard enumerated dangerous path
+segments and ten dangerous modules had none listed. The root is now refused
+outright, which is the only shape that does not fall behind the next Sage
+release. 99.09% -> 98.83%, still clear of the 98.50% floor. Every one of those
+examples has a direct spelling (`exp(1)`, not `sage.functions.log.exp(1)`) and
+the refusal message says so, which makes this a **boundary, not a gap** -- the
+same category as the external CAS interfaces.
 
 The acceptance ratio is **blind to the import rewrite by construction**: any
 example containing an import is skipped before validation, so an import that is

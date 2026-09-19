@@ -1372,3 +1372,81 @@ def test_star_export_screen_drops_a_dangerous_name_by_name(monkeypatch):
     assert _sage_worker._star_export_screen(
         "fake.named", expected_drops=frozenset({denied})
     ) == frozenset({"Matroid"})
+
+
+def test_star_export_screen_resolves_a_lazy_import_before_judging_it(monkeypatch):
+    """A `LazyImport` is a proxy, and the screen was judging the proxy.
+
+    Found by a security review on 2026-09-19 and confirmed against real Sage:
+    `sage.graphs.generators.distance_regular` exports
+    `codes = LazyImport('sage.coding', 'codes_catalog')`. To the screen that
+    value is not a `ModuleType`, so item 61's module-object drop never fired,
+    and it has no `__module__`, so the provenance check passed unconditionally.
+    `codes` was baked into the curated star list and resolves at runtime to the
+    module `sage.coding.codes_catalog` -- the screen handed a caller a module
+    object, which is precisely the pivot items 61/62/63 exist to prevent.
+
+    `_dangerous_sage_names` in this same file already resolves lazy imports, in
+    two places, for exactly this reason. The star screen was the one that
+    forgot.
+    """
+    import sys
+    import types
+
+    from sagemath_mcp import _sage_worker
+
+    target = types.ModuleType("some.lazily.imported.module")
+
+    class LazyImport:  # the screen keys on the type NAME, as Sage's does
+        def __init__(self, obj):
+            self._obj = obj
+
+        def _get_object(self):
+            return self._obj
+
+    mod = types.ModuleType("fake.lazy")
+    mod.__all__ = ["Widget", "lazy_module"]
+    mod.Widget = type("Widget", (), {})
+    mod.Widget.__module__ = "fake.lazy"
+    mod.lazy_module = LazyImport(target)
+    monkeypatch.setitem(sys.modules, "fake.lazy", mod)
+
+    screened = _sage_worker._star_export_screen("fake.lazy")
+    assert screened == frozenset({"Widget"}), (
+        "a lazily-imported MODULE must be dropped like any other module object"
+    )
+
+
+def test_star_export_screen_sees_through_a_lazy_import_to_a_dangerous_home(monkeypatch):
+    """The latent half, and the reason this is worth fixing rather than
+    special-casing `codes`: a lazy re-export of something that lives in a
+    dangerous module read as provenance-free and screened clean. Any future
+    Sage version re-exporting such a name would have been baked silently, and
+    the drift test would not object because it re-runs the same screen."""
+    import sys
+    import types
+
+    from sagemath_mcp import _sage_worker
+
+    dangerous_home = next(iter(_sage_worker._DANGEROUS_SAGE_MODULES))
+    unpickler = type("Unpickler", (), {})
+    unpickler.__module__ = dangerous_home
+
+    class LazyImport:
+        def __init__(self, obj):
+            self._obj = obj
+
+        def _get_object(self):
+            return self._obj
+
+    mod = types.ModuleType("fake.lazydanger")
+    mod.__all__ = ["Widget", "looks_harmless"]
+    mod.Widget = type("Widget", (), {})
+    mod.Widget.__module__ = "fake.lazydanger"
+    mod.looks_harmless = LazyImport(unpickler)
+    monkeypatch.setitem(sys.modules, "fake.lazydanger", mod)
+
+    assert _sage_worker._star_export_screen("fake.lazydanger") is None, (
+        "a lazy re-export whose target lives in a dangerous module must fail "
+        "the module, exactly as the eager spelling does"
+    )

@@ -14,6 +14,7 @@ from __future__ import annotations
 import pytest
 from fastmcp.exceptions import ToolError
 
+from sagemath_mcp import codegen
 from sagemath_mcp.codegen import (
     _check_matrix,
     _declare_free_symbols,
@@ -526,3 +527,37 @@ def test_matrix_entries_refuse_a_number_that_has_already_been_rounded() -> None:
         _exact_matrix_entries([[True]], "m")
     with pytest.raises(ToolError, match="list of rows"):
         _exact_matrix_entries(["not a row"], "m")
+
+
+# --- The `sage` root, on the path that has no parse tree ----------------------
+
+
+def test_the_token_screen_refuses_a_sage_root_like_the_ast_path_does():
+    """A fragment that will not parse must not be a way around item 81.
+
+    `_validated_expression` parses the fragment and the AST path refuses a
+    `sage`-rooted chain. Sage-only syntax does not parse as Python, so the
+    fragment falls through to the token screen instead -- which mirrored the
+    call names and the attribute parents, but not the roots. Found by the same
+    review as items 81 and 82: `[sage.misc.latex.png(1,'/tmp/x.png')..1]` was
+    accepted by both `_encode_literal` and `_validated_expression`, while the
+    parseable spelling was correctly refused. It then reached `sage_eval` under
+    the trusted policy, where `[X..1]` preparses to `ellipsis_range(X, ...)` and
+    calls `X`.
+    """
+    parseable = "sage.misc.latex.png(1, '/tmp/x.png')"
+    unparseable = "[sage.misc.latex.png(1, '/tmp/x.png')..1]"
+
+    for fragment in (parseable, unparseable):
+        with pytest.raises(ToolError, match="sage"):
+            codegen._encode_literal(fragment)
+        with pytest.raises(ToolError, match="sage"):
+            codegen._validated_expression(fragment)
+
+
+def test_the_token_screen_still_accepts_ordinary_sage_only_syntax():
+    """The screen must not start refusing the syntax it exists for: `[1..5]`
+    does not parse as Python either, and is ordinary mathematics."""
+    assert codegen._encode_literal("[1..5]") == '"[1..5]"'
+    assert codegen._validated_expression("[1..5]") == "[1..5]"
+    assert codegen._validated_expression("[1,3..11]") == "[1,3..11]"

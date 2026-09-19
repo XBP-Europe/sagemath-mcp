@@ -9,6 +9,17 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **Sage-only syntax smuggled a `sage` chain past the tool-parameter screen.**
+  `sage.misc.latex.png(1,'/tmp/x.png')` was refused, but
+  `[sage.misc.latex.png(1,'/tmp/x.png')..1]` was accepted: it is not valid
+  Python, so it fell through the parsed path to a token screen that mirrored
+  two of the policy's forbidden sets and not the third. It then reached
+  `sage_eval` under the trusted policy, where `[X..1]` preparses into a range
+  call and invokes `X`. Confirmed reaching the evaluator through a real tool
+  call. The screen now mirrors all three sets, and `[1..5]` still works. See
+  REVIEW_ACTIONS 83.
+
+
 - **The HTTP transports now validate `Host` and `Origin`.** Binding to loopback
   does not keep a browser out: a page served from a domain whose DNS rebinds to
   `127.0.0.1` reaches the server as same-origin, needs no preflight, and can

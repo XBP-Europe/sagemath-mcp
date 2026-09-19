@@ -170,6 +170,15 @@ def _screen_unparseable_fragment(fragment: str) -> None:
     always_forbidden = (
         set(_FRAGMENT_POLICY.forbidden_call_names)
         | set(_FRAGMENT_POLICY.forbidden_attribute_parents)
+        # And the roots whose tree may not be traversed at all (item 81). The
+        # AST path refuses `sage.misc.latex.png(...)`; without this, the same
+        # chain wrapped in Sage-only syntax -- `[sage.misc.latex.png(1,'x')..1]`
+        # -- did not parse, fell through to this screen, and was accepted by
+        # both gates. It then reached `sage_eval` under the trusted policy,
+        # where `[X..1]` preparses to `ellipsis_range(X, ...)` and calls X.
+        # The screen mirrors the AST path; this is the third set it has to
+        # mirror (item 83).
+        | set(_FRAGMENT_POLICY.forbidden_attribute_roots)
     )
     # Attribute-position only: these guard *methods* -- `has_file`, `save_image`,
     # `write_to_eps`, `.gp()`, `.eval()` -- reached through an object. The AST

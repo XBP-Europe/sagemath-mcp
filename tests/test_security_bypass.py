@@ -2684,6 +2684,13 @@ _REACH_STILL_REFUSED = (
     "sage.rings.ideal.unpickle_global",
     # Aliasing the root, which was item 52's escape.
     "f = sage\nf.rings.ideal.Katsura",
+    # A chain with the right segments and no root at all. `_attribute_segments`
+    # omits a root that is not a Name, so this reads as
+    # `sage.rings.ideal.Katsura` while `.sage` is an attribute of whatever the
+    # subscript returned -- the permit has to be tied to a real Name root, not
+    # to the spelling that survives the walk.
+    "things[0].sage.rings.ideal.Katsura",
+    "(matrix([[1]]) + 1).sage.rings.ideal.Katsura",
 )
 
 

@@ -5004,6 +5004,16 @@ Neither reached a test first, and both would have made the change do nothing:
    exempting the prefixes of a fully-permitted chain **by node identity, not by
    spelling** -- which is what keeps `sage.rings.ideal` written alone refused.
 
+A third came from the coverage gate, and it was the only one that opened
+something. A partial branch in `_permitted_chain_nodes` marked the case where a
+chain has no `Name` at its root: `things[0].sage.rings.ideal.Katsura`.
+`_attribute_segments` omits a root that is not a Name, so that chain reads as
+`sage.rings.ideal.Katsura` to the check while `.sage` is an attribute of
+whatever the subscript returned -- and it was being permitted. The permit now
+requires a real `Name` root, which is what ties the spelling to the module it
+claims to name. Nothing but the 100% branch gate pointed at it; the case is
+obscure enough that no probe of mine had thought to write it.
+
 ### Result
 
 284 corpus examples recovered: 4,366 refusals to 4,082, acceptance 98.8340% to

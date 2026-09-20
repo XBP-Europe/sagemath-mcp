@@ -879,14 +879,15 @@ def _permitted_chain_nodes(module: ast.Module, policy: SecurityPolicy) -> set[in
     for node in ast.walk(module):
         if not isinstance(node, ast.Attribute):
             continue
-        if not _star_export_spelling(_attribute_segments(node), policy):
+        if not _star_export_spelling(node, policy):
             continue
+        # The root is a Name -- `_star_export_spelling` established that -- so
+        # this walks prefixes down to it and adds every one.
         current: ast.expr = node.value
         while isinstance(current, ast.Attribute):
             permitted.add(id(current))
             current = current.value
-        if isinstance(current, ast.Name):
-            permitted.add(id(current))
+        permitted.add(id(current))
     return permitted
 
 
@@ -920,7 +921,7 @@ def _reach_refusal(segments: list[str]) -> str:
     )
 
 
-def _star_export_spelling(segments: list[str], policy: SecurityPolicy) -> bool:
+def _star_export_spelling(node: ast.Attribute, policy: SecurityPolicy) -> bool:
     """Is this dotted chain the long spelling of a permitted star export?
 
     `from sage.rings.ideal import *` is already permitted, and binds `Katsura`
@@ -943,8 +944,19 @@ def _star_export_spelling(segments: list[str], policy: SecurityPolicy) -> bool:
       the same code path that permits `Katsura`, with no separate denylist to
       keep in step.
     """
-    if len(segments) < 2:
+    current: ast.expr = node
+    while isinstance(current, ast.Attribute):
+        current = current.value
+    if not isinstance(current, ast.Name):
+        # `f().sage.rings.ideal.Katsura` has the right segments and the wrong
+        # root: `_attribute_segments` omits a root that is not a Name, so the
+        # chain reads as `sage.rings.ideal.Katsura` while `.sage` is an
+        # attribute of whatever the call returned. Requiring a Name root is
+        # what ties the spelling to the module it claims to name.
         return False
+    # An Attribute rooted at a Name always yields at least two segments, so
+    # `segments[:-1]` is never empty and needs no guard.
+    segments = _attribute_segments(node)
     names = policy.star_export_modules.get(".".join(segments[:-1]))
     return names is not None and segments[-1] in names
 
@@ -1387,7 +1399,7 @@ def validate_module(
             if (
                 segments
                 and segments[0] in policy.forbidden_attribute_roots
-                and not _star_export_spelling(segments, policy)
+                and not _star_export_spelling(node, policy)
                 and id(node) not in permitted_chain_nodes
             ):
                 # Checked before anything else, and regardless of what the

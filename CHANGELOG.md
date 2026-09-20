@@ -25,6 +25,11 @@ Two more were reachable without any credential: a second route to the same
 module tree through Sage-only syntax, and no `Host`/`Origin` validation, which
 let a web page drive a loopback-bound server through DNS rebinding.
 
+A second, independent review of those eight fixes then found three fail-open
+error paths **inside them** -- each falling back to the permissive behaviour
+the fix had just removed. Those are fixed here too, and the release was held
+for them.
+
 
 ### Security
 
@@ -50,9 +55,6 @@ let a web page drive a loopback-bound server through DNS rebinding.
   When a security check cannot complete, the fallback must be refusal.
   `contextlib.suppress` around a security decision is the smell. See
   REVIEW_ACTIONS 87.
-
-
-### Security
 
 - **The Helm chart is hardened to match the Compose deployment.** Docker
   supplies several container controls implicitly and Kubernetes supplies none

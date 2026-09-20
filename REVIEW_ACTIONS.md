@@ -4902,7 +4902,11 @@ then signed at its own digest. It is wrong wherever the digest must be
 preserved, and it fails silently -- the push succeeds and prints the new
 digest, which reads like success unless you compare it to the source.
 
-One untagged manifest is left over and is queued for deletion in TODO.md.
+The stray index was deleted the same day. Afterwards all eight tags still
+resolve to the two signed digests and still verify, which is worth checking
+rather than assuming: a cosign signature lives in the registry as its own
+`sha256-<digest>.sig` tag, so deleting package versions is not obviously
+unrelated to whether signatures survive.
 
 ### Status
 

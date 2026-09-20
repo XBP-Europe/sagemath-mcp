@@ -239,6 +239,37 @@ prioritised. Correctness first, then packaging/adoption.
       2026-09-15 (#91).* Nothing read the files (`lookup_sage_doc` and the docs
       resource link to doc.sagemath.org directly), so the change was a deletion
       rather than a generation step.
+      **Adversarial security review, 2026-09-19/20 — eight findings, all fixed
+      and released in 0.8.3.** Four parallel reviews over the validator, the
+      star-export subsystem, the worker and the deployment surface, with every
+      claim re-verified against real SageMath before it was acted on. Two agent
+      claims did not survive that check and were dropped.
+
+      The one that mattered: **caller code executed arbitrary Python through
+      the `sage` module tree** (item 81) --
+      `LazyImport('builtins','eval')('6*7')` returned 42, `('os','environ')`
+      disclosed the environment, `('builtins','open')(...)` read files. The
+      bare spellings were all correctly refused, so deny-by-default worked as
+      designed and the dotted path walked around it. Closing it cost 950 corpus
+      examples (99.09% -> 98.83%), declared with its own ceiling. Two more were
+      reachable with no credential: the same tree through Sage-only syntax
+      (item 83), and **no `Host`/`Origin` validation**, which let a web page
+      drive a loopback-bound server by DNS rebinding (item 82).
+
+      The rest: reset not clearing persisted state and the workspace token
+      reaching a notification (item 84), the star screen judging a `LazyImport`
+      proxy rather than its target (item 85), and the Helm chart running
+      seccomp-Unconfined with an API token mounted (item 86).
+
+      **Two patterns worth carrying forward.** Three findings came from
+      *enumerations that fell behind what they were meant to cover* -- a list of
+      dangerous path segments, a hand-written list of four tools, a screen
+      mirroring two policy sets out of three. Prefer refusing a root, or
+      deriving the list, over extending it. And two came from *one mechanism not
+      inheriting a lesson a neighbouring one had already learned*: the namespace
+      scrub resolved lazy imports and the star screen did not; the AST path had
+      a `sage`-root guard and the token screen did not.
+
 - [ ] **Clear the `sagemath-*` PyPI namespace question** with sage-devel now —
       Sage upstream owns `sagemath-standard`/`sagemath-symbolics`/… and this is a
       third-party package in that namespace. A friendly ask today, a forced

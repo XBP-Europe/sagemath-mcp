@@ -253,7 +253,9 @@ What the policy enforces: an **allowlist** (caller code may read only a name the
 server offers or the caller itself bound); **no imports** by default; `eval` /
 `exec` / `compile` and runtime string evaluation blocked; dunder access blocked;
 the external CAS interfaces and every file / network / persistence primitive
-removed from the namespace, by provenance rather than by name. The container adds
+removed from the namespace, by provenance rather than by name; and the `sage`
+package tree closed to caller code, so a helper is reached by its own name or
+not at all. The container adds
 a read-only root, dropped capabilities, `no-new-privileges`, the default
 seccomp profile, and memory ceilings. Compose adds a fork (PID) ceiling;
 Kubernetes has no per-pod equivalent in the pod spec, so on the chart that is

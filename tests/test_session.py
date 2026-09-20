@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import json
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -1785,3 +1786,34 @@ async def test_reset_clears_the_persisted_journal_too(tmp_path):
             await replayed.evaluate("secret", want_latex=False, capture_stdout=False)
     finally:
         await manager.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_reset_reports_failure_if_the_journal_cannot_be_deleted(tmp_path, monkeypatch):
+    """A reset that cannot clear persisted state must not report success.
+
+    The item 84 fix deleted the journal under `contextlib.suppress(OSError)`,
+    so a read-only mount or a permissions problem left the file in place while
+    `reset_sage_session` still reported success -- and the next call replayed
+    it, which is the exact failure item 84 was fixing. Silence is the wrong
+    answer here: the caller asked to discard state and is entitled to know it
+    did not happen (REVIEW_ACTIONS 87).
+    """
+    settings = SageSettings(
+        force_python_worker=True, persist_sessions=True, persist_dir=str(tmp_path)
+    )
+    session = SageSession("stubborn", settings)
+    try:
+        await session.evaluate("secret = 4242", want_latex=False, capture_stdout=False)
+        session.save_journal()
+        assert session.existing_journal_path() is not None
+
+        def refuse(*args, **kwargs):
+            raise PermissionError("read-only filesystem")
+
+        monkeypatch.setattr(Path, "unlink", refuse)
+        with pytest.raises(SageProcessError, match="journal"):
+            await session.reset()
+    finally:
+        monkeypatch.undo()
+        await session.shutdown()

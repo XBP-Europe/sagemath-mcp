@@ -9,6 +9,32 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **Three fail-open error paths in this week's own security fixes.** A second,
+  independent review of the eight fixes found that three of them fell back to
+  the permissive behaviour when something went wrong:
+
+  - The host/origin guard was **silently absent on the SSE transport**.
+    FastMCP's legacy SSE app never reads `host_origin_protection`, so
+    `--transport sse` shipped with no validation while the other two
+    transports had it. The middleware is now constructed explicitly for that
+    transport; a foreign `Host` on `/sse` gets 421 on shipped defaults.
+  - A **lazy import that would not resolve reverted to the blind path** the
+    fix existed to close: the resolution was wrapped in a suppress, so on
+    failure the unresolved proxy was judged instead. It now fails the module.
+    Regenerating both artifact sets produces a byte-identical file, so failing
+    closed costs nothing.
+  - A **reset that could not delete the persisted journal still reported
+    success**, leaving the state to be replayed — the exact failure that fix
+    had just removed, restored by its own error handler. It now raises and
+    names the paths.
+
+  When a security check cannot complete, the fallback must be refusal.
+  `contextlib.suppress` around a security decision is the smell. See
+  REVIEW_ACTIONS 87.
+
+
+### Security
+
 - **The Helm chart is hardened to match the Compose deployment.** Docker
   supplies several container controls implicitly and Kubernetes supplies none
   of them, so the chart was weaker than the documentation describing both: no

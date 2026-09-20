@@ -214,6 +214,46 @@ def _exposure_warning(host: str, has_auth: bool) -> str | None:
     )
 
 
+def _host_origin_kwargs(transport: str) -> dict[str, object]:
+    """The host/origin protection this transport actually honours.
+
+    Binding to loopback does not keep a browser out, and this server's
+    supported posture is local with no authentication -- so there is no second
+    line behind it. Without a guard, a request carrying
+    `Host: attacker.example` was accepted and the whole chain completed: a page
+    served from a domain that rebinds to 127.0.0.1 is same-origin to the
+    browser, needs no preflight, and can read the response (REVIEW_ACTIONS 82).
+
+    `"auto"`, not `True`: the guard then validates only when the connection
+    ARRIVES over loopback, so a wildcard bind reached on a real address is
+    untouched and the container and Helm deployments are unaffected. A reverse
+    proxy talking to this server over localhost while forwarding its own Host
+    needs `FASTMCP_HTTP_ALLOWED_HOSTS`; SECURITY.md says so.
+
+    **The legacy SSE app ignores the flag.** `create_sse_app` never reads
+    `host_origin_protection`, so passing it there installs nothing -- the
+    control was silently absent on one supported transport for a day
+    (REVIEW_ACTIONS 87). For SSE the same middleware is therefore constructed
+    and passed explicitly, with the arguments the streamable path uses, rather
+    than trusting a keyword that transport drops on the floor.
+    """
+    if transport != "sse":
+        return {"host_origin_protection": "auto"}
+    from fastmcp.server.http import HostOriginGuardMiddleware
+    from starlette.middleware import Middleware
+
+    return {
+        "middleware": [
+            Middleware(
+                HostOriginGuardMiddleware,
+                allowed_hosts=None,
+                allowed_origins=None,
+                mode="auto",
+            )
+        ]
+    }
+
+
 def main(argv: list[str] | None = None) -> None:  # pragma: no cover - CLI entrypoint
     parser = argparse.ArgumentParser(description="Run the SageMath MCP server.")
     parser.add_argument(
@@ -256,7 +296,7 @@ def main(argv: list[str] | None = None) -> None:  # pragma: no cover - CLI entry
         # Helm deployment are unaffected. A reverse proxy that talks to this
         # server over localhost while forwarding its own Host is the one shape
         # that needs `FASTMCP_HTTP_ALLOWED_HOSTS`; SECURITY.md says so.
-        transport_kwargs["host_origin_protection"] = "auto"
+        transport_kwargs.update(_host_origin_kwargs(args.transport))
         if args.path:
             transport_kwargs["path"] = args.path
         _register_health_route()

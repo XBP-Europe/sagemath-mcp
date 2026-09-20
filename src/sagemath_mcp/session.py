@@ -512,11 +512,25 @@ class SageSession:
         Legacy paths are removed too: `existing_journal_path` falls back to them
         on restore, so leaving one behind would reopen the same hole.
         """
+        failed: list[str] = []
         for path in (self._persist_path(), *self._legacy_persist_paths()):
             if path is None:
                 continue
-            with contextlib.suppress(OSError):
+            try:
                 path.unlink(missing_ok=True)
+            except OSError as exc:
+                # FAIL LOUD. Suppressing this left the journal in place while
+                # `reset_sage_session` still reported success, and the next
+                # call replayed it -- which is the exact failure the deletion
+                # was added to fix. A caller who asked to discard state is
+                # entitled to know it did not happen (REVIEW_ACTIONS 87).
+                failed.append(f"{path}: {exc}")
+        if failed:
+            raise SageProcessError(
+                "Session state was cleared in memory but the persisted journal "
+                "could not be deleted, so it will be replayed on the next call: "
+                + "; ".join(failed)
+            )
 
     def existing_journal_path(self) -> Path | None:
         """The journal to restore from, preferring the current scheme."""

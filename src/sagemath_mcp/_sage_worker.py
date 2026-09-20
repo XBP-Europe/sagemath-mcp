@@ -650,8 +650,18 @@ def _star_export_screen(
         # `_dangerous_sage_names` above already resolves lazy imports for
         # exactly this reason, in two places; this is the third (item 85).
         if type(value).__name__ == "LazyImport":
-            with contextlib.suppress(Exception):
+            try:
                 value = value._get_object()
+            except Exception:
+                # FAIL CLOSED. This was `contextlib.suppress(Exception)`, which
+                # left `value` as the unresolved proxy and sent it straight back
+                # into the two checks that cannot see through one -- reverting
+                # to the blind path this resolution exists to close. The commit
+                # calling that "the conservative direction" had it backwards.
+                # Resolution failure is realistic: resolving a lazy import at
+                # generation time can hit a circular import. A name that cannot
+                # be screened is not a name to admit (REVIEW_ACTIONS 87).
+                return None
         # A re-exported module object is DROPPED, not a reason to fail the module.
         # `dirichlet` re-exports `sage.modules.free_module_element`, which reaches
         # `sage.env.os`, so binding it is a pivot into the whole tree -- but the

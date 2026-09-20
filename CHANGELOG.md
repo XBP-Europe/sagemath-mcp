@@ -32,9 +32,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   release between the metadata step and the push if any required tag is
   missing. The shortfall was invisible from the repository and only observable
   by pulling, and `type=semver` produces nothing on a branch, so the dry-run
-  dispatch could not have caught it. v0.8.3's own bare tags need a one-off
-  retag of the published digest; TODO.md carries the command. See
-  REVIEW_ACTIONS 88.
+  dispatch could not have caught it. v0.8.3's own tags were backfilled by hand
+  and verify. See REVIEW_ACTIONS 88.
 
 
 ## [0.8.3] - 2026-09-20

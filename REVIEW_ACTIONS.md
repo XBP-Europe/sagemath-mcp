@@ -4881,8 +4881,30 @@ Verified against the live release: both images verify keylessly against
 names the wheel, sdist and bundle as subjects. A modified copy of the wheel
 fails with a 404, there being no attestation for its digest.
 
+### A trap found while backfilling v0.8.3's tags
+
+v0.8.3 predates the `tags:` input, so its bare tags were added by hand. The
+obvious tool was wrong. `docker buildx imagetools create -t 0.8.3 <ref>` does
+not retag: given a single source it wraps the manifest in a **new index** and
+pushes that, under a new digest. So `0.8.3` and `0.8` briefly pointed at
+`sha256:0d635d95...`, which nothing had signed, and `cosign verify` on them
+failed with "no signatures found" -- a tag that looks official, resolves to a
+real image, and cannot be verified.
+
+Redone with `crane tag`, which repoints a tag at an existing digest without
+touching the manifest. All eight tags now resolve to the two signed digests
+(`f88afd7b` primary, `b2da93112f` passagemath) and all four new tags pass both
+`cosign verify` and `gh attestation verify`.
+
+The distinction is worth keeping: `imagetools create` is correct where the
+release workflow uses it, assembling a genuinely new multi-arch index that is
+then signed at its own digest. It is wrong wherever the digest must be
+preserved, and it fails silently -- the push succeeds and prints the new
+digest, which reads like success unless you compare it to the source.
+
+One untagged manifest is left over and is queued for deletion in TODO.md.
+
 ### Status
 
-Fixed 2026-09-20. The tag change takes effect on the next release; v0.8.3's
-own bare tags need a one-off retag of the published digest, which is a registry
-write and is listed in TODO.md rather than done here.
+Fixed 2026-09-20. v0.8.3's bare tags were backfilled the same day and verify;
+from the next release the workflow publishes all four itself.

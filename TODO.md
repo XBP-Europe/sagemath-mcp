@@ -6,28 +6,6 @@ reproduction and regression test in [REVIEW_ACTIONS.md](REVIEW_ACTIONS.md). This
 file carried 31 ticked boxes duplicating both, several of them years of context
 out of date.
 
-- [ ] **Delete one orphaned untagged manifest in GHCR.** The v0.8.3 tag
-      backfill first used `docker buildx imagetools create`, which does not
-      retag: given a single source it *wraps* the manifest in a new index and
-      pushes that, so `0.8.3` and `0.8` briefly pointed at
-      `sha256:0d635d95...`, a digest nothing had signed -- `cosign verify` on
-      those tags failed with "no signatures found". Redone with `crane tag`,
-      which repoints a tag at the existing digest; all eight tags now resolve
-      to the two signed digests and all four new ones verify. The stray index
-      is untagged and unreferenced, but it is an unsigned manifest in a public
-      registry and should go:
-
-      ```bash
-      gh api -X DELETE \
-        /orgs/XBP-Europe/packages/container/sagemath-mcp/versions/1271224478
-      ```
-
-      **Never use `imagetools create` to retag.** It is the right tool where
-      the release workflow uses it -- assembling a genuinely new multi-arch
-      index, which is then signed at its own digest -- and the wrong tool
-      anywhere the digest must be preserved, because it changes the digest
-      silently and detaches the signature.
-
 - [ ] **Lift the `fastmcp<4` cap — blocked upstream, 2026-09-16.** Investigated
       against 4.0.4: `Context.session_id` is a fresh UUID on every tool call, on
       every transport, so no stateful fastmcp server keeps a client's state

@@ -23,16 +23,15 @@ ref the release trigger fires on.
 
 ```bash
 # Container image. Works on a tag or a digest; the signature covers the digest.
-cosign verify ghcr.io/xbp-europe/sagemath-mcp:v0.8.3 \
+cosign verify ghcr.io/xbp-europe/sagemath-mcp:0.8.3 \
   --certificate-identity-regexp='^https://github\.com/XBP-Europe/sagemath-mcp/\.github/workflows/release\.yml@refs/tags/v' \
   --certificate-oidc-issuer=https://token.actions.githubusercontent.com
 ```
 
 Releases publish four tags: `v0.8.3` (the git ref), `0.8.3` (pin a patch),
 `0.8` (track the minor line and pick up security patches) and `latest`, each
-with a `-passagemath` twin for the amd64+arm64 image. The bare version tags
-begin with the first release after v0.8.3, which shipped with only the ref tag
-and `latest`; the `v`-prefixed tag is on every release, so the examples use it.
+with a `-passagemath` twin for the amd64+arm64 image. All four point at one
+digest, which is what is signed, so the tag you verify through does not matter.
 
 Expect three entries for the primary image -- the cosign signature, the SLSA
 provenance and the SPDX SBOM -- and two for `-passagemath`, which carries no
@@ -42,7 +41,7 @@ SLSA provenance is stored with the repository rather than in the signature, so
 it is checked with `gh`, which resolves the digest itself:
 
 ```bash
-gh attestation verify oci://ghcr.io/xbp-europe/sagemath-mcp:v0.8.3 --owner XBP-Europe
+gh attestation verify oci://ghcr.io/xbp-europe/sagemath-mcp:0.8.3 --owner XBP-Europe
 gh attestation verify sagemath_mcp-0.8.3-py3-none-any.whl --owner XBP-Europe
 ```
 

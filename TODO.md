@@ -6,27 +6,27 @@ reproduction and regression test in [REVIEW_ACTIONS.md](REVIEW_ACTIONS.md). This
 file carried 31 ticked boxes duplicating both, several of them years of context
 out of date.
 
-- [ ] **Backfill v0.8.3's bare image tags — needs a registry write.** The
-      release predates the explicit `tags:` input, so v0.8.3 published only
-      `v0.8.3` and `latest` (plus the `-passagemath` twins). Retagging the
-      published digests costs nothing and keeps signatures valid, since a cosign
-      signature covers the digest, not the tag:
+- [ ] **Delete one orphaned untagged manifest in GHCR.** The v0.8.3 tag
+      backfill first used `docker buildx imagetools create`, which does not
+      retag: given a single source it *wraps* the manifest in a new index and
+      pushes that, so `0.8.3` and `0.8` briefly pointed at
+      `sha256:0d635d95...`, a digest nothing had signed -- `cosign verify` on
+      those tags failed with "no signatures found". Redone with `crane tag`,
+      which repoints a tag at the existing digest; all eight tags now resolve
+      to the two signed digests and all four new ones verify. The stray index
+      is untagged and unreferenced, but it is an unsigned manifest in a public
+      registry and should go:
 
       ```bash
-      gh auth token | docker login ghcr.io -u <you> --password-stdin
-      docker buildx imagetools create \
-        -t ghcr.io/xbp-europe/sagemath-mcp:0.8.3 \
-        -t ghcr.io/xbp-europe/sagemath-mcp:0.8 \
-        ghcr.io/xbp-europe/sagemath-mcp@sha256:f88afd7b100ebf3aecb22dbaddb4ea43e837d3bf98aa3d2a616e46fa72d660cc
-      docker buildx imagetools create \
-        -t ghcr.io/xbp-europe/sagemath-mcp:0.8.3-passagemath \
-        -t ghcr.io/xbp-europe/sagemath-mcp:0.8-passagemath \
-        ghcr.io/xbp-europe/sagemath-mcp@sha256:b2da93112f5312f846ef3a2bbb4fa5ad5c0566d13b63c0b01ac8d685494831de
+      gh api -X DELETE \
+        /orgs/XBP-Europe/packages/container/sagemath-mcp/versions/1271224478
       ```
 
-      Afterwards, `SECURITY.md`'s note that the bare tags "begin with the first
-      release after v0.8.3" is no longer true and should go. Doing nothing is
-      also fine: the next release publishes all four tags itself.
+      **Never use `imagetools create` to retag.** It is the right tool where
+      the release workflow uses it -- assembling a genuinely new multi-arch
+      index, which is then signed at its own digest -- and the wrong tool
+      anywhere the digest must be preserved, because it changes the digest
+      silently and detaches the signature.
 
 - [ ] **Lift the `fastmcp<4` cap — blocked upstream, 2026-09-16.** Investigated
       against 4.0.4: `Context.session_id` is a fresh UUID on every tool call, on

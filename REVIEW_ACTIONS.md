@@ -4912,3 +4912,136 @@ unrelated to whether signatures survive.
 
 Fixed 2026-09-20. v0.8.3's bare tags were backfilled the same day and verify;
 from the next release the workflow publishes all four itself.
+
+## 89. The module-reach refusal gave advice that could not be followed — low — DONE
+
+### What was wrong
+
+Item 79 closed a sandbox escape by refusing every attribute chain rooted at
+`sage`: `sage.misc.lazy_import.LazyImport('os','system')('id')` ran as caller
+code, and the deny-by-default allowlist could not see it, because `sage` is an
+ordinary allowlisted name and the guard enumerated dangerous *segments* --
+a list that will always be one Sage release behind.
+
+Refusing the root was right and stays. What was wrong was the sentence it
+refused with, and the claim recorded next to its ceiling:
+
+> It costs about 1,089 examples, and that is a **boundary, not a gap**: every
+> one of them has a direct spelling (`exp(1)`, not `sage.functions.log.exp(1)`),
+> which is what the message says.
+
+Nobody had measured that. `scripts/analyse_module_reach.py`, written for this
+item, did: of the 1,090 corpus examples the rule refuses, **835 reach a leaf
+that is offered under no spelling at all**. `sage.rings.ideal.Katsura` is
+mathematics; there is no `Katsura` to name. The single instruction the message
+gave was, for four out of five callers, the one instruction that could not be
+followed -- and the ceiling comment asserted the opposite as settled fact.
+
+Only 84 of the 1,090 were the case the comment described.
+
+### The fix
+
+Two changes, and the first is smaller than it looks.
+
+**The star-export table now authorizes both spellings.** `from
+sage.rings.ideal import *` was already permitted, because the module passes
+`_star_export_screen` as a whole, and it already binds `Katsura`.
+`sage.rings.ideal.Katsura` names the same object by a longer path, so
+permitting it grants nothing the star import does not already grant. It is not
+a relaxation with a justification; it is a second spelling of something already
+allowed. One table, one screen, one drift test -- there is no new artifact and
+no second list that could fall out of step with the first.
+
+Everything about the check fails closed:
+
+- The chain must end in a screened NAME. `sage.rings.ideal` alone is the module
+  object, and handing a caller one is the pivot items 61/62/63 exist to
+  prevent, so it is still refused.
+- Anything hanging off the leaf makes a different, unlisted prefix, so
+  `sage.rings.ideal.Katsura.attr` is refused on its maximal node.
+- A module the screen has not passed is simply absent from the table, so
+  `sage.misc.persist.unpickle_global` -- item 79's escape -- is refused by the
+  same code path that permits `Katsura`.
+
+**The message is now conditional.** A leaf the server offers gets the original
+advice, and now names the spelling (`name the function directly: 'ZZ'`). A leaf
+it does not gets told so plainly. A caller who cannot act on a refusal should at
+least not be sent looking for something that was never there.
+
+### Thirteen modules, and what the screen could not decide
+
+The modules behind the largest blocks of the 835 were screened and admitted:
+`sage.rings.ideal` (89 examples), `sage.structure.element` (36), the three
+graph backends (90 together), and nine smaller ones.
+
+Three screened CLEAN and were excluded anyway, which is the part worth
+remembering -- the screen reads a module for code execution, not for what the
+mathematics is:
+
+- **`sage.env`** exports 75 names, and they are `SAGE_ROOT`, `SAGE_SRC` and the
+  rest of the installation's filesystem layout. Nothing in it executes; all of
+  it is the filesystem boundary the policy withholds.
+- **`sage.symbolic.constants`** re-exports `unpickle_Constant` and
+  `register_symbol` next to `pi` and `e`. The constants are already offered by
+  name, so admitting it would add the pickle and symbol-table helpers and
+  almost no mathematics.
+- **`sage.manifolds.utilities`** is real mathematics but re-exports `latex`,
+  which this server withholds by name and `SECURITY.md` documents as withheld.
+  Admitting it would have contradicted the documentation quietly, so it waits
+  for a decision about `latex` instead of settling one.
+
+A clean screen is a floor, not the decision. `sage.libs.ecl` has had that
+written next to it since item 60; `sage.env` is the sharpest example yet.
+
+### Two bugs found by probing, both over-refusing
+
+Neither reached a test first, and both would have made the change do nothing:
+
+1. The root `Name` node `sage` was refused by its own rule before the chain
+   rule ran. Fixed the way `operator.le` was, by exempting that node.
+2. `ast.walk` judges every intermediate node, and `sage.rings` is not a listed
+   module, so a permitted chain was refused on its own prefix. Fixed by
+   exempting the prefixes of a fully-permitted chain **by node identity, not by
+   spelling** -- which is what keeps `sage.rings.ideal` written alone refused.
+
+A third came from the coverage gate, and it was the only one that opened
+something. A partial branch in `_permitted_chain_nodes` marked the case where a
+chain has no `Name` at its root: `things[0].sage.rings.ideal.Katsura`.
+`_attribute_segments` omits a root that is not a Name, so that chain reads as
+`sage.rings.ideal.Katsura` to the check while `.sage` is an attribute of
+whatever the subscript returned -- and it was being permitted. The permit now
+requires a real `Name` root, which is what ties the spelling to the module it
+claims to name. Nothing but the 100% branch gate pointed at it; the case is
+obscure enough that no probe of mine had thought to write it.
+
+### Result
+
+284 corpus examples recovered: 4,366 refusals to 4,082, acceptance 98.8340% to
+**98.9098%** against an enforced floor of 98.50%. The module-reach rule falls
+from 1,090 to 806, and the ceiling entry that made the false claim is now three
+entries counting three different things, so the honest one cannot hide inside
+the other again.
+
+The wider finding is that this line of work is nearly finished. Of the 4,082
+refusals that remain, 1,927 are external programs and the bulk of the rest are
+pickle machinery, introspection and doctest-local variables. The star-export
+lever, which carried items 77/78/80, has about 27 examples left in it.
+
+### How to verify
+
+`tests/test_security_bypass.py` --
+`test_the_star_export_spelling_does_not_reopen_the_sage_tree` runs sixteen
+chains that must stay refused: item 79's escape, the curated exclusions, bare
+module objects, prefixes, unexported names under a listed module, and the
+aliased root from item 52. `test_a_refusal_does_not_send_the_caller_after_a_name_that_is_not_there`
+and its converse pin both halves of the message.
+
+`test_ordinary_sage_attribute_use_still_works` now has
+`sage.rings.integer.Integer(5)` accepted and `sage.functions.log.exp(1)`
+refused -- the two halves on opposite sides of the line, which states where the
+line is more precisely than either alone.
+
+### Status
+
+Fixed 2026-09-20. Corpus sweep green on SageMath 10.9 with the ceilings
+rewritten; unit suite at 100% coverage.

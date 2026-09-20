@@ -343,26 +343,38 @@ def test_sage_loaders_are_blocked(label, payload) -> None:
 def test_ordinary_sage_attribute_use_still_works() -> None:
     """The gate is the final name, not the presence of a dot.
 
-    Amended 2026-09-19. This used to assert that `sage.functions.log.exp(1)`
-    and `sage.rings.integer.Integer(5)` validate, on the theory that only the
-    leaf matters. The security review showed that traversing `sage` at all is
-    the hole -- the same chain shape reached
-    `sage.misc.lazy_import.LazyImport('os','system')` -- so the root is now
-    refused outright and both spellings are boundaries, not gaps. Each has a
-    direct form that still works, which is what the refusal message says, and
-    that is what this test pins now.
+    Amended twice, and the second amendment is the interesting one.
+
+    2026-09-19: this used to assert that `sage.functions.log.exp(1)` and
+    `sage.rings.integer.Integer(5)` validate, on the theory that only the leaf
+    matters. The security review showed that traversing `sage` at all is the
+    hole -- the same chain shape reached
+    `sage.misc.lazy_import.LazyImport('os','system')` -- so the root was
+    refused outright and both spellings became boundaries.
+
+    2026-09-20 (item 89): `sage.rings.integer.Integer(5)` validates again, and
+    that is not a retreat from the first amendment. It is permitted because
+    `sage.rings.integer` passes the star-export screen as a whole, which is the
+    same basis on which `from sage.rings.integer import *` was already
+    permitted and already binds `Integer`. The dotted form names the same
+    object; refusing it never removed a capability, only a spelling.
+
+    `sage.functions.log` is not a screened module, so that spelling stays
+    refused -- the two halves of this test are now on opposite sides of the
+    line, which is the clearest statement of where the line is.
     """
     for code in (
         "exp(1)",
         "matrix([[1, 2], [3, 4]]).determinant()",
         "Integer(5)",
         "plot(sin(x), (x, 0, 1)).matplotlib()",
+        "sage.rings.integer.Integer(5)",
     ):
         validate_module(ast.parse(code), code=code, policy=SECURITY_POLICY)
 
-    for rooted in ("sage.functions.log.exp(1)", "sage.rings.integer.Integer(5)"):
-        with pytest.raises(SecurityViolation, match="name the function directly"):
-            validate_module(ast.parse(rooted), code=rooted, policy=SECURITY_POLICY)
+    rooted = "sage.functions.log.exp(1)"
+    with pytest.raises(SecurityViolation, match="not permitted"):
+        validate_module(ast.parse(rooted), code=rooted, policy=SECURITY_POLICY)
 
 
 # --- Sage's own dangerous helpers --------------------------------------------
@@ -2591,12 +2603,22 @@ def test_a_sage_rooted_chain_is_refused(code):
     assert "sage" in str(excinfo.value)
 
 
-def test_the_sage_root_refusal_names_the_alternative():
-    """A refusal that does not say what to write instead reads as a bug."""
+def test_the_sage_root_refusal_says_what_to_do_instead():
+    """A refusal that does not say what to write instead reads as a bug.
+
+    It used to say "name the function directly" here, which was wrong for this
+    example: there is no `LazyImport` to name, and item 89 measured that 835 of
+    the 1,090 corpus examples this rule refuses are in the same position. The
+    requirement is unchanged -- the refusal must leave the caller with
+    something to do -- and what satisfies it now depends on whether the leaf
+    exists under another spelling.
+    """
     code = "sage.misc.lazy_import.LazyImport('os', 'system')"
     with pytest.raises(SecurityViolation) as excinfo:
         validate_module(ast.parse(code), code=code)
-    assert "directly" in str(excinfo.value).lower()
+    message = str(excinfo.value)
+    assert "LazyImport" in message
+    assert "not offered under any other spelling" in message
 
 
 def test_trusted_generated_code_may_still_reach_sage():
@@ -2633,3 +2655,81 @@ def test_a_terminal_module_under_a_non_sage_allowlisted_root_is_refused():
     for code in ("codes.bounds.trace", "codes.bounds.pari", "graphs.x.sh"):
         with pytest.raises(SecurityViolation, match="is blocked"):
             validate_module(ast.parse(code), code=code, policy=SECURITY_POLICY)
+
+
+_REACH_STILL_REFUSED = (
+    # Item 79's escape, and its neighbours. `sage.misc.persist` is not a
+    # screened module, so the same code path that now permits
+    # `sage.rings.ideal.Katsura` refuses these -- there is no second list to
+    # keep in step.
+    "sage.misc.persist.unpickle_global('sage.rings.integer', 'make_integer')",
+    "sage.misc.persist.load('/etc/passwd')",
+    "sage.misc.sageinspect.sage_getfile(1)",
+    # Screened clean by the module screen and excluded by curation: 75 names of
+    # installation filesystem layout.
+    "sage.env.SAGE_SRC",
+    "sage.env.SAGE_ROOT",
+    # A listed module is not a listed name: the module object itself, and every
+    # prefix of a permitted chain, stay refused when written alone.
+    "sage.rings.ideal",
+    "sage.rings",
+    "sage.structure.element",
+    "sage",
+    # A listed name is not a listed prefix: anything hanging off the permitted
+    # leaf makes a maximal chain nobody screened.
+    "sage.rings.ideal.Katsura.__globals__",
+    "sage.rings.ideal.Katsura.anything",
+    # A name the module does not export, under a module that is listed.
+    "sage.rings.ideal.os",
+    "sage.rings.ideal.unpickle_global",
+    # Aliasing the root, which was item 52's escape.
+    "f = sage\nf.rings.ideal.Katsura",
+    # A chain with the right segments and no root at all. `_attribute_segments`
+    # omits a root that is not a Name, so this reads as
+    # `sage.rings.ideal.Katsura` while `.sage` is an attribute of whatever the
+    # subscript returned -- the permit has to be tied to a real Name root, not
+    # to the spelling that survives the walk.
+    "things[0].sage.rings.ideal.Katsura",
+    "(matrix([[1]]) + 1).sage.rings.ideal.Katsura",
+)
+
+
+@pytest.mark.parametrize("code", _REACH_STILL_REFUSED)
+def test_the_star_export_spelling_does_not_reopen_the_sage_tree(code):
+    """Item 89 permits `sage.<module>.<name>` for modules the star-export
+    screen passed whole. That is the same capability `from <module> import *`
+    already grants, so it must not widen the rule by one inch beyond it.
+
+    Every case here is one inch beyond: an unscreened module, a curated
+    exclusion, a bare module object, a prefix, an unexported name, and the
+    aliased root. They are the failure modes a prefix-matching implementation
+    would have, which is why the check is on the whole chain and on node
+    identity rather than on the spelling.
+    """
+    with pytest.raises(SecurityViolation):
+        validate_module(ast.parse(code), code=code)
+
+
+def test_a_refusal_does_not_send_the_caller_after_a_name_that_is_not_there():
+    """The message used to say "name the function directly" for every chain.
+    Measured against the corpus, 835 of the 1,090 examples it refused reach a
+    leaf offered under no spelling at all, so the single instruction it gave
+    was the one instruction that could not be followed (REVIEW_ACTIONS 89).
+    """
+    code = "sage.misc.persist.unpickle_global"
+    with pytest.raises(SecurityViolation) as excinfo:
+        validate_module(ast.parse(code), code=code)
+    message = str(excinfo.value)
+    assert "unpickle_global" in message
+    assert "not offered under any other spelling" in message
+    assert "name the function directly" not in message
+
+
+def test_a_refusal_still_names_the_alternative_when_there_is_one():
+    """The converse, and the reason the message had to become conditional
+    rather than simply honest: for a leaf the server does offer, the original
+    advice was right, and it now names the spelling to use."""
+    code = "sage.rings.integer_ring.ZZ"
+    with pytest.raises(SecurityViolation) as excinfo:
+        validate_module(ast.parse(code), code=code)
+    assert "name the function directly: 'ZZ'" in str(excinfo.value)

@@ -512,11 +512,27 @@ DELIBERATE_RULES: dict[str, float] = {
     # bare `LazyImport` was correctly refused -- because the guard enumerated
     # dangerous path segments and ten dangerous modules had none listed.
     # Refusing the root is the only shape that does not fall behind the next
-    # Sage release. It costs about 1,089 examples, and that is a **boundary,
-    # not a gap**: every one of them has a direct spelling (`exp(1)`, not
-    # `sage.functions.log.exp(1)`), which is what the message says. Priced
-    # deliberately, the way the CAS interfaces were.
-    "refused:Reaching into the 'X' module is not permitted; name the function directly": 0.004,
+    # Sage release. Priced deliberately, the way the CAS interfaces were.
+    #
+    # Item 89 split this into two rules, because the claim above -- "every one
+    # of them has a direct spelling" -- turned out to be false for most of
+    # them. Measured with `scripts/analyse_module_reach.py`: of the 1,090
+    # examples, 835 reach a leaf offered under no spelling at all, so the
+    # advice the message gave could not be followed. The two rules are now
+    # counted apart, so that the honest one cannot hide inside the other
+    # again:
+    "refused:Reaching into the 'X' module is not permitted; name the function directly: 'X'": 0.001,
+    # Reading the root bare -- `getdoc(sage)` -- rather than reaching through
+    # it. There is no leaf to report, so this keeps the original wording, and
+    # its own entry rather than being folded into one of the two above: it is a
+    # different thing being refused, and at one example it would otherwise sit
+    # invisibly inside a ceiling sized for hundreds.
+    "refused:Reaching into the 'X' module is not permitted; name the function directly": 0.001,
+    # The larger half, and the one worth watching. It shrinks when a module
+    # behind it is screened into the star exports, which is what item 89 did
+    # for the biggest thirteen; the rest is the boundary working.
+    "refused:Reaching into the 'X' module is not permitted, and 'X' is not offered"
+    " under any other sp": 0.002,
     # `latex` may be called and not reached into: `latex(obj)` builds a string,
     # while `latex.has_file(name)` runs `call("kpsewhich %s" % name, shell=True)`
     # and executed a command as the container user on 10.9. The corpus reaches

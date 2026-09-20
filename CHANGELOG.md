@@ -7,6 +7,37 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **`sage.<module>.<name>` is accepted where the module is already a permitted
+  star export.** Item 79 refused every attribute chain rooted at `sage` to
+  close a sandbox escape, and that root refusal stays. What changes is a
+  spelling: `from sage.rings.ideal import *` was already permitted -- the
+  module passes the star-export screen as a whole -- and already binds
+  `Katsura`, so `sage.rings.ideal.Katsura` names the same object by a longer
+  path and grants nothing new. One table authorizes both forms, so they cannot
+  drift apart. Thirteen modules were screened and admitted; `sage.env`,
+  `sage.symbolic.constants` and `sage.manifolds.utilities` screened clean and
+  were excluded by curation -- `sage.env` exports 75 filesystem paths, which is
+  the clearest reminder yet that a clean screen is a floor and not the
+  decision. Corpus acceptance 98.8340% → **98.9098%** (284 examples), floor
+  98.50%.
+
+### Fixed
+
+- **A refusal that told callers to do the one thing they could not.** The
+  module-reach rule said "name the function directly" for every chain, and the
+  ceiling beside it recorded as settled fact that "every one of them has a
+  direct spelling". Measured for the first time: of the 1,090 examples it
+  refuses, **835 reach a leaf offered under no spelling at all** —
+  `sage.rings.ideal.Katsura` is mathematics, and there was no `Katsura` to
+  name. The message is now conditional: it names the spelling when one exists
+  (`name the function directly: 'ZZ'`) and says plainly when none does. The
+  one ceiling became three, counting three different things, so the false
+  claim cannot re-form inside a number sized for something else. See
+  REVIEW_ACTIONS 89.
+
+
 ### Added
 
 - **A documented, tested way to check a release.** Three badges claimed cosign

@@ -859,6 +859,108 @@ def _attribute_segments(node: ast.Attribute) -> list[str]:
     return segments
 
 
+def _permitted_chain_nodes(module: ast.Module, policy: SecurityPolicy) -> set[int]:
+    """Node ids inside a chain that is a permitted star-export spelling.
+
+    `ast.walk` visits every node of `sage.rings.ideal.Katsura`, so the whole
+    chain being permitted is not enough on its own: the walker also reaches the
+    prefixes `sage.rings.ideal` and `sage.rings`, and the root `sage`, none of
+    which is a listed module, and the reach rule would refuse the expression on
+    one of those instead. This collects the prefixes and the root so the rule
+    can skip exactly them.
+
+    Only a chain that is permitted **in full** contributes, and each prefix is
+    exempted only where it occurs inside such a chain -- `id()` of the node,
+    not the spelling. So `sage.rings.ideal` written on its own is still the
+    module object and still refused, and `sage.rings.ideal.Katsura.attr`, whose
+    maximal chain is not listed, is refused on that maximal node.
+    """
+    permitted: set[int] = set()
+    for node in ast.walk(module):
+        if not isinstance(node, ast.Attribute):
+            continue
+        if not _star_export_spelling(node, policy):
+            continue
+        # The root is a Name -- `_star_export_spelling` established that -- so
+        # this walks prefixes down to it and adds every one.
+        current: ast.expr = node.value
+        while isinstance(current, ast.Attribute):
+            permitted.add(id(current))
+            current = current.value
+        permitted.add(id(current))
+    return permitted
+
+
+def _reach_refusal(segments: list[str]) -> str:
+    """Why this chain is refused, and what the caller can actually do instead.
+
+    The original message said "name the function directly" for every chain.
+    `scripts/analyse_module_reach.py` measured what that advice was worth: of
+    the 1,090 corpus examples the rule refuses, 835 reach a leaf offered under
+    no spelling at all, so the one instruction given was the one instruction
+    that could not be followed. `sage.rings.ideal.Katsura` is mathematics, and
+    there was no `Katsura` to name.
+
+    So the message now depends on what the leaf is. A name the server offers
+    gets the original advice, which is correct for it. A name it does not gets
+    told so plainly -- a caller who cannot act on a refusal should at least not
+    be sent looking for something that was never there.
+    """
+    root = segments[0]
+    leaf = segments[-1] if len(segments) > 1 else root
+    if leaf in ALLOWED_CALLER_NAMES:
+        return (
+            f"Reaching into the '{root}' module is not permitted; "
+            f"name the function directly: '{leaf}'"
+        )
+    return (
+        f"Reaching into the '{root}' module is not permitted, and '{leaf}' is "
+        "not offered under any other spelling either. If it is mathematics this "
+        "server should offer, it needs to be added to the allowlist or its "
+        "module screened into the permitted star exports"
+    )
+
+
+def _star_export_spelling(node: ast.Attribute, policy: SecurityPolicy) -> bool:
+    """Is this dotted chain the long spelling of a permitted star export?
+
+    `from sage.rings.ideal import *` is already permitted, and binds `Katsura`
+    -- the module screened clean as a whole, so every public name in it is
+    ordinary mathematics (`star_exports.py`). `sage.rings.ideal.Katsura` names
+    the *same object* by a longer path, so permitting it grants nothing the
+    star import does not already grant. One table authorizes both spellings,
+    which is what keeps them from drifting apart.
+
+    Deliberately exact, and everything about it fails closed:
+
+    - The chain must end in a screened NAME. `sage.rings.ideal` on its own is
+      the module object, and handing a caller one is the pivot items 61/62/63
+      exist to prevent, so it stays refused.
+    - Anything hanging off the name is a different, unlisted prefix:
+      `sage.rings.ideal.Katsura.foo` asks whether `sage.rings.ideal.Katsura` is
+      a listed module, which it is not.
+    - A module the screen has not passed is simply absent, so
+      `sage.misc.persist.unpickle_global` -- item 79's escape -- is refused by
+      the same code path that permits `Katsura`, with no separate denylist to
+      keep in step.
+    """
+    current: ast.expr = node
+    while isinstance(current, ast.Attribute):
+        current = current.value
+    if not isinstance(current, ast.Name):
+        # `f().sage.rings.ideal.Katsura` has the right segments and the wrong
+        # root: `_attribute_segments` omits a root that is not a Name, so the
+        # chain reads as `sage.rings.ideal.Katsura` while `.sage` is an
+        # attribute of whatever the call returned. Requiring a Name root is
+        # what ties the spelling to the module it claims to name.
+        return False
+    # An Attribute rooted at a Name always yields at least two segments, so
+    # `segments[:-1]` is never empty and needs no guard.
+    segments = _attribute_segments(node)
+    names = policy.star_export_modules.get(".".join(segments[:-1]))
+    return names is not None and segments[-1] in names
+
+
 def _is_allowed_import(module: str, policy: SecurityPolicy) -> bool:
     module = module or ""
     if module in policy.allowed_import_modules:
@@ -1043,6 +1145,13 @@ def validate_module(
         and isinstance(node.value, ast.Name)
         and (node.value.id, node.attr) in policy.allowed_module_attributes
     }
+    # `sage` is a Name node too, and the rule that refuses reading the root
+    # bare would refuse `sage.rings.ideal.Katsura` before the attribute rule
+    # decided the chain was a permitted star export. Only the root of such a
+    # chain is exempted, so a bare `sage` -- or a root under any other chain --
+    # stays refused; this is the `operator.le` treatment, for the same reason.
+    permitted_chain_nodes = _permitted_chain_nodes(module, policy)
+    exempt_module_names |= permitted_chain_nodes
     # The `attrcall` in `attrcall('degree')` earns the same treatment when its
     # literal passes the attribute screen: that one call is permitted, and the
     # bare name -- `f = attrcall`, the aliasing that defeats name rules -- stays
@@ -1287,14 +1396,16 @@ def validate_module(
                 len(segments) == 2
                 and (segments[0], segments[1]) in policy.allowed_module_attributes
             )
-            if segments and segments[0] in policy.forbidden_attribute_roots:
+            if (
+                segments
+                and segments[0] in policy.forbidden_attribute_roots
+                and not _star_export_spelling(node, policy)
+                and id(node) not in permitted_chain_nodes
+            ):
                 # Checked before anything else, and regardless of what the
                 # caller bound: a caller-owned alias for the root was item 52's
                 # escape, and the root here is offered anyway.
-                raise SecurityViolation(
-                    f"Reaching into the '{segments[0]}' module is not permitted; "
-                    "name the function directly"
-                )
+                raise SecurityViolation(_reach_refusal(segments))
             if not permitted_pair:
                 # Every segment is inspected, not just segments[:-1]. Checking
                 # only the parents let two escapes through:

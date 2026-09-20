@@ -392,6 +392,107 @@ STAR_EXPORTS: dict[str, frozenset[str]] = {
         "LCM", "LM", "LT", "Sequence", "buchberger", "buchberger_improved",
         "inter_reduction", "select", "spol", "update"
     }),
+    "sage.rings.ideal": frozenset({
+        "Cyclic", "FieldIdeal", "Fields", "GeneratorType", "Ideal",
+        "Ideal_fractional", "Ideal_generic", "Ideal_pid", "Ideal_principal",
+        "Katsura", "MonoidElement", "Rings", "Sequence", "is_Ideal", "op_NE",
+        "rich_to_bool"
+    }),
+    "sage.structure.element": frozenset({
+        "AdditiveGroupElement", "AlgebraElement", "CommutativeAlgebraElement",
+        "CommutativeRingElement", "DedekindDomainElement", "Element",
+        "ElementWithCachedMethod", "EuclideanDomainElement", "Expression",
+        "FieldElement", "InfinityElement", "IntegralDomainElement", "LazyFormat",
+        "Matrix", "ModuleElement", "ModuleElementWithMutability", "MonoidElement",
+        "MultiplicativeGroupElement", "PrincipalIdealDomainElement", "RingElement",
+        "Vector", "bin_op", "canonical_coercion", "coerce_binop", "coercion_model",
+        "coercion_traceback", "deprecation", "digits_to_bits", "get_coercion_model",
+        "have_same_parent", "is_AdditiveGroupElement", "is_AlgebraElement",
+        "is_CommutativeAlgebraElement", "is_CommutativeRingElement",
+        "is_DedekindDomainElement", "is_Element", "is_EuclideanDomainElement",
+        "is_FieldElement", "is_InfinityElement", "is_IntegralDomainElement",
+        "is_Matrix", "is_ModuleElement", "is_MonoidElement",
+        "is_MultiplicativeGroupElement", "is_PrincipalIdealDomainElement",
+        "is_RingElement", "is_Vector", "make_element", "parent", "revop",
+        "rich_to_bool", "rich_to_bool_sgn", "richcmp", "richcmp_not_equal",
+        "sage_wraps"
+    }),
+    "sage.graphs.base.sparse_graph": frozenset({
+        "SparseGraph", "SparseGraphBackend", "bytes_to_str", "str_to_bytes"
+    }),
+    "sage.graphs.base.graph_backends": frozenset({
+        "GenericGraphBackend", "bytes_to_str", "str_to_bytes",
+        "unpickle_graph_backend"
+    }),
+    "sage.graphs.base.dense_graph": frozenset({
+        "DenseGraph", "DenseGraphBackend", "bytes_to_str", "str_to_bytes"
+    }),
+    "sage.combinat.misc": frozenset({
+        "DoublyLinkedList", "Infinity", "IterableFunctionCall",
+        "check_integer_list_constraints", "prod", "umbral_operation"
+    }),
+    "sage.graphs.genus": frozenset({
+        "Graph", "bytes_to_str", "simple_connected_genus_backtracker",
+        "simple_connected_graph_genus", "str_to_bytes"
+    }),
+    "sage.modular.pollack_stevens.fund_domain": frozenset({
+        "Id", "Integer", "M2Z", "M2ZSpace", "ManinRelations", "MatrixSpace",
+        "P1List", "PollackStevensModularDomain", "QQ", "SageObject", "Sigma0", "ZZ",
+        "basic_hecke_matrix", "cached_method", "minone_inf_path", "sig", "t00",
+        "t01", "t10", "t11", "tau"
+    }),
+    "sage.graphs.cliquer": frozenset({
+        "all_cliques", "all_max_clique", "clique_number", "max_clique"
+    }),
+    "sage.misc.mrange": frozenset({
+        "cantor_product", "cartesian_product_iterator", "mrange", "mrange_iter",
+        "prod", "xmrange", "xmrange_iter"
+    }),
+    "sage.combinat.free_dendriform_algebra": frozenset({
+        "Alphabet", "BinaryTree", "BinaryTrees", "CoercionException",
+        "CombinatorialFreeModule", "CompositeConstructionFunctor",
+        "ConstructionFunctor", "DendriformFunctor", "Family",
+        "FreeDendriformAlgebra", "Functor", "HopfAlgebras",
+        "IdentityConstructionFunctor", "Infinity", "LabelledBinaryTree",
+        "LabelledBinaryTrees", "Rings", "cached_method", "lazy_attribute"
+    }),
+    "sage.modular.abvar.cuspidal_subgroup": frozenset({
+        "Cusp", "CuspidalSubgroup", "CuspidalSubgroup_generic", "FiniteSubgroup",
+        "Gamma0_class", "QQ", "RationalCuspSubgroup", "RationalCuspidalSubgroup",
+        "ZZ", "infinity", "is_rational_cusp_gamma0", "matrix"
+    }),
+    "sage.modular.modform.space": frozenset({
+        "Integer", "ModularFormElement", "ModularFormsSpace", "Newform",
+        "PlusInfinity", "PowerSeries", "PowerSeriesRing", "QQ", "Rings", "Sequence",
+        "WARN", "ZZ", "cached_method", "contains_each", "gcd",
+        "is_ModularFormsSpace", "rich_to_bool", "richcmp", "richcmp_method",
+        "richcmp_not_equal", "zero_matrix"
+    }),
+    "sage.modular.modsym.modsym": frozenset({
+        "CommutativeRings", "Fields", "Integer", "ModularSymbols",
+        "ModularSymbols_clear_cache", "RationalField", "canonical_parameters"
+    }),
+    "sage.rings.integer": frozenset({
+        "GCD_list", "Integer", "IntegerWrapper", "bytes_to_str", "coerce_binop",
+        "free_integer_pool", "have_same_parent", "initialized", "int_to_Z",
+        "is_Integer", "make_integer", "n_factor_to_list", "new_gen_from_integer",
+        "objtogen", "parent", "pari_divisors_small", "pari_gen", "pari_is_prime",
+        "pari_is_prime_power", "revop", "rich_to_bool", "rich_to_bool_sgn",
+        "richcmp", "richcmp_not_equal", "set_integer_from_gen", "str_to_bytes"
+    }),
+    "sage.functions.trig": frozenset({
+        "Function_arccos", "Function_arccot", "Function_arccsc", "Function_arcsec",
+        "Function_arcsin", "Function_arctan", "Function_arctan2", "Function_cos",
+        "Function_cot", "Function_csc", "Function_sec", "Function_sin",
+        "Function_tan", "GinacFunction", "acos", "acot", "acsc", "arccos", "arccot",
+        "arccsc", "arcsec", "arcsin", "arctan", "arctan2", "asec", "asin", "atan",
+        "atan2", "cos", "cot", "csc", "sec", "sin", "tan"
+    }),
+    "sage.groups.additive_abelian.additive_abelian_wrapper": frozenset({
+        "AdditiveAbelianGroupWrapper", "AdditiveAbelianGroupWrapperElement",
+        "Morphism", "Sequence", "UnwrappingMorphism", "ZZ", "basis_from_generators",
+        "parent", "vector"
+    }),
 }
 
 

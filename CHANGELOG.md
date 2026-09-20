@@ -7,6 +7,36 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **A documented, tested way to check a release.** Three badges claimed cosign
+  signing and SLSA provenance, and `SECURITY.md`'s threat model listed
+  "verify signed release images" as a mitigation, but nothing said how --
+  which matters more than usual here, because keyless verification fails
+  outright without `--certificate-identity*`, and the pattern that makes that
+  error go away fastest is `.*`, which passes for every identity Sigstore has
+  ever issued. `SECURITY.md` gains *Verifying a release* with commands for the
+  image signature and both provenance attestations, each run against the
+  published v0.8.3 first, and the signing badges now link to it instead of to
+  the workflow source. `tests/test_release_verification.py` applies the
+  documented signer pattern to a real release identity and to four it must
+  reject, so a loosened pattern fails review.
+
+### Fixed
+
+- **Releases published only `vX.Y.Z` and `latest`.** `docker/metadata-action`
+  ran on its defaults in both image jobs, so there was no `0.8.3` to pin a
+  deployment to and no `0.8` to track for security patches -- while the chart's
+  own comment tells operators to prefer a release tag over `latest`. Both jobs
+  now ask for the semver tags, and `scripts/check_image_tags.py` fails the
+  release between the metadata step and the push if any required tag is
+  missing. The shortfall was invisible from the repository and only observable
+  by pulling, and `type=semver` produces nothing on a branch, so the dry-run
+  dispatch could not have caught it. v0.8.3's own bare tags need a one-off
+  retag of the published digest; TODO.md carries the command. See
+  REVIEW_ACTIONS 88.
+
+
 ## [0.8.3] - 2026-09-20
 
 **A security release. Upgrade if you run the server outside the container.**

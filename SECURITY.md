@@ -8,6 +8,59 @@ We currently support the latest released version of the `sagemath-mcp` package. 
 | ------- | --------- |
 | latest  | ✅        |
 
+## Verifying a release
+
+Three badges at the top of the README claim this project signs and attests what
+it publishes. Until now none of them said how to check that, which makes a
+signature worth roughly what an unchecked signature is worth. Every command
+below was run against v0.8.3.
+
+Keyless Sigstore signatures need the expected signer spelled out. `cosign
+verify` without `--certificate-identity*` refuses to run; with a loose pattern
+it passes for *any* Sigstore identity, so the regexp below anchors both ends --
+the workflow file that is allowed to sign, and `refs/tags/v`, which is the only
+ref the release trigger fires on.
+
+```bash
+# Container image. Works on a tag or a digest; the signature covers the digest.
+cosign verify ghcr.io/xbp-europe/sagemath-mcp:v0.8.3 \
+  --certificate-identity-regexp='^https://github\.com/XBP-Europe/sagemath-mcp/\.github/workflows/release\.yml@refs/tags/v' \
+  --certificate-oidc-issuer=https://token.actions.githubusercontent.com
+```
+
+Releases publish four tags: `v0.8.3` (the git ref), `0.8.3` (pin a patch),
+`0.8` (track the minor line and pick up security patches) and `latest`, each
+with a `-passagemath` twin for the amd64+arm64 image. The bare version tags
+begin with the first release after v0.8.3, which shipped with only the ref tag
+and `latest`; the `v`-prefixed tag is on every release, so the examples use it.
+
+Expect three entries for the primary image -- the cosign signature, the SLSA
+provenance and the SPDX SBOM -- and two for `-passagemath`, which carries no
+image SBOM.
+
+SLSA provenance is stored with the repository rather than in the signature, so
+it is checked with `gh`, which resolves the digest itself:
+
+```bash
+gh attestation verify oci://ghcr.io/xbp-europe/sagemath-mcp:v0.8.3 --owner XBP-Europe
+gh attestation verify sagemath_mcp-0.8.3-py3-none-any.whl --owner XBP-Europe
+```
+
+One attestation covers the wheel, the sdist and the `.mcpb` bundle together, so
+verifying any one of the three is enough to place all three in the same build.
+Add `--format json` to see the subjects and the signing workflow; `gh` prints
+nothing when it is not attached to a terminal, and exits 0, so **read the exit
+status, not the output**. A file that was modified after the build fails with a
+404: there is no attestation for its digest.
+
+PyPI carries its own PEP 740 attestations, shown per file under *Provenance* on
+the release page; `pip` does not check them yet.
+
+None of this tells you the code is safe -- only that the artifact is the one
+this repository's tagged workflow built. What it protects against is a
+substituted image or wheel, which is the one supply-chain threat a local,
+unauthenticated deployment cannot otherwise notice.
+
 ## Security Model
 
 Read this before reporting: it decides what counts as a vulnerability here, and

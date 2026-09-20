@@ -229,6 +229,26 @@ jobs:
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ghcr.io/${{ github.repository }}
+          tags: |
+            # metadata-action's defaults give only `v0.8.3` and `latest` -- the
+            # git ref, verbatim. So there was no way to pin a deployment to a
+            # patch (`0.8.3`) or to track a minor line and pick up security
+            # patches automatically (`0.8`), which is what the chart's own
+            # comment tells operators to do. No `{{major}}`: a bare `0` tag on
+            # a 0.x project promises a stability the version number denies.
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+      - name: The tag set must be complete before anything is pushed
+        # Between deciding the tags and publishing them. A short tag set is
+        # only visible to whoever pulls a tag that is not there, so the release
+        # fails here instead (REVIEW_ACTIONS 88).
+        env:
+          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          printf '%s\n' "$IMAGE_TAGS" | python3 scripts/check_image_tags.py \
+            --image "ghcr.io/${GITHUB_REPOSITORY,,}" \
+            --ref-name "$GITHUB_REF_NAME" --suffix "${SUFFIX:-}"
       - name: Build candidate image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
@@ -507,8 +527,29 @@ jobs:
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ghcr.io/${{ github.repository }}
+          tags: |
+            # metadata-action's defaults give only `v0.8.3` and `latest` -- the
+            # git ref, verbatim. So there was no way to pin a deployment to a
+            # patch (`0.8.3`) or to track a minor line and pick up security
+            # patches automatically (`0.8`), which is what the chart's own
+            # comment tells operators to do. No `{{major}}`: a bare `0` tag on
+            # a 0.x project promises a stability the version number denies.
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
           flavor: |
             suffix=-passagemath,onlatest=true
+      - name: The tag set must be complete before anything is pushed
+        # Between deciding the tags and publishing them. A short tag set is
+        # only visible to whoever pulls a tag that is not there, so the release
+        # fails here instead (REVIEW_ACTIONS 88).
+        env:
+          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
+          SUFFIX: "-passagemath"
+        run: |
+          printf '%s\n' "$IMAGE_TAGS" | python3 scripts/check_image_tags.py \
+            --image "ghcr.io/${GITHUB_REPOSITORY,,}" \
+            --ref-name "$GITHUB_REF_NAME" --suffix "${SUFFIX:-}"
       - name: Log in to GHCR
         if: env.DO_PUSH == 'true'
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0

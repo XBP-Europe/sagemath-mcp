@@ -4795,3 +4795,94 @@ identical.
 ### Status
 
 Fixed 2026-09-20, before 0.8.3 was tagged. The release was held for it.
+
+## 88. The supply-chain claims were unpublishable and uncheckable — low — DONE
+
+### What was wrong
+
+Two defects found while verifying the v0.8.3 release, one in what the release
+publishes and one in what the documentation says about it.
+
+**The tag set was short.** `docker/metadata-action` ran with no `tags:` input
+in both image jobs, so its defaults produced exactly the git ref and `latest`:
+`v0.8.3` and `latest`, plus the `-passagemath` twins. No `0.8.3`, no `0.8`.
+The chart's own comment tells operators to "prefer a release tag over `latest`
+in anything you deploy", and the tag it steers them towards is the one form
+that did exist -- but a deployment could not pin a patch by its bare version,
+and nothing could track the `0.8` line to pick up a security patch
+automatically. For a project whose last three releases were security releases,
+the moving minor tag is the one most worth having.
+
+Worse, the shortfall is invisible from the repository. The tags are decided by
+an action's defaults and only observable by pulling; nothing in CI or in the
+release output states what was published.
+
+**The signatures were undocumented.** Three README badges claim cosign
+signing, SLSA provenance and PEP 740 attestations, and `SECURITY.md`'s threat
+model lists "verify signed release images" as a mitigation. Nothing anywhere
+said how. The two signing badges linked to `release.yml`, which shows a reader
+that signing happens, not how to check it.
+
+That gap is not cosmetic. Keyless Sigstore verification is exactly the case
+where a missing recipe becomes a wrong one: `cosign verify` refuses to run
+without `--certificate-identity*`, so anyone who wants the check working
+invents a pattern, and the pattern that makes the error go away fastest is the
+loosest one. `--certificate-identity-regexp='.*'` passes for every identity
+Sigstore has ever issued, which is strictly worse than not checking, because it
+produces the word "Verification" on stdout.
+
+### The fix
+
+`tags:` is now explicit in both image jobs: the git ref, `{{version}}`,
+`{{major}}.{{minor}}`, and `latest` from the existing flavor. No `{{major}}`:
+a bare `0` tag on a 0.x project promises a stability the version number denies.
+
+`scripts/check_image_tags.py` runs between the metadata step and the push and
+fails the release if any required tag is missing. This cannot be checked before
+a release -- `type=semver` produces nothing on a branch, so the dry-run
+dispatch the workflow exists for cannot exercise it -- which is precisely why
+the assertion belongs inside the release rather than in review.
+
+`SECURITY.md` gains a *Verifying a release* section with the commands for the
+image signature, the image provenance and the artifact provenance, and both
+signing badges now link to it. Every command in it was run against the
+published v0.8.3 before it was written down.
+
+Two things the recipe has to say out loud, because both invert a reader's
+conclusion:
+
+- `gh attestation verify` prints nothing and exits 0 when it is not attached to
+  a terminal. A reader checking the output rather than the exit status reads
+  success as failure, or pipes it and sees silence.
+- One attestation covers the wheel, the sdist and the `.mcpb` together, so
+  verifying one of the three places all three in the same build.
+
+### What it does not claim
+
+Nothing here says the code is safe. It says the artifact is the one this
+repository's tagged workflow built, which is the single supply-chain threat a
+local, unauthenticated deployment has no other way to notice.
+
+### How to verify
+
+`tests/test_release_verification.py` applies the documented signer pattern to
+the identity a release actually produces, and to four it must reject -- another
+repository, another workflow, the release workflow run from a branch, and a
+lookalike owner. Loosening the pattern in `SECURITY.md` to `.*sagemath-mcp.*`
+fails that test; this was checked by making the change.
+
+The recipe's image references are checked against the tag set
+`check_image_tags.expected_tags` requires, so a recipe naming a tag the release
+does not publish fails in review rather than in a reader's terminal.
+
+Verified against the live release: both images verify keylessly against
+`release.yml@refs/tags/v0.8.3` (three attestations on the primary, two on
+`-passagemath`, which carries no image SBOM), and the artifact attestation
+names the wheel, sdist and bundle as subjects. A modified copy of the wheel
+fails with a 404, there being no attestation for its digest.
+
+### Status
+
+Fixed 2026-09-20. The tag change takes effect on the next release; v0.8.3's
+own bare tags need a one-off retag of the published digest, which is a registry
+write and is listed in TODO.md rather than done here.

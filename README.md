@@ -254,8 +254,10 @@ server offers or the caller itself bound); **no imports** by default; `eval` /
 `exec` / `compile` and runtime string evaluation blocked; dunder access blocked;
 the external CAS interfaces and every file / network / persistence primitive
 removed from the namespace, by provenance rather than by name. The container adds
-a read-only root, dropped capabilities, `no-new-privileges`, and fork / memory
-ceilings.
+a read-only root, dropped capabilities, `no-new-privileges`, the default
+seccomp profile, and memory ceilings. Compose adds a fork (PID) ceiling;
+Kubernetes has no per-pod equivalent in the pod spec, so on the chart that is
+the node's `podPidsLimit` rather than something the chart can set.
 
 Full threat model and the complete blocked / allowed tables:
 **[SECURITY.md](SECURITY.md)** and

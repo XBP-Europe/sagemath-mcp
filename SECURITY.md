@@ -151,10 +151,11 @@ crosses a trust boundary.
 | Generated-code injection | Validate every caller-controlled fragment before it reaches a trusted template; reject rather than guess when syntax is outside the accepted subset |
 | Direct shell, file, network, loader, compiler, pickle or external-CAS access | Block known routes in the AST policy and worker namespace, test bypasses against real Sage, and contain any missed route in the hardened runtime |
 | Attribute access by a name the parser cannot see | Refuse string-path primitives as a class, since each one defeats every AST attribute rule at once |
-| Container or node escape | Run as non-root with a read-only root, dropped capabilities, no privilege escalation and current runtime/image security fixes |
+| Container or node escape | Run as non-root with a read-only root, dropped capabilities, no privilege escalation, the runtime's default seccomp profile, and current runtime/image security fixes. Docker applies seccomp implicitly; Kubernetes does not, so the chart sets it explicitly |
+| Credentials reachable from the sandbox | Mount nothing the server does not need. The chart sets `automountServiceAccountToken: false`, since a read-only root does not stop a bypassed sandbox *reading* a projected API token, and takes the bearer token from a Secret rather than a literal `env` value |
 | Session crossover or stale responses | Bind requests, responses, journals and cancellation to the correct session and request identifiers |
 | Unauthenticated remote use | Keep listeners local by default; require deployment-provided authentication and authorization before broader exposure |
-| Resource exhaustion | Enforce evaluation timeouts and deployment resource limits (Compose supplies PID/memory limits; Helm supplies CPU/memory limits); cancellation must release worker and queue resources |
+| Resource exhaustion | Enforce evaluation timeouts and deployment resource limits (Compose supplies PID/memory limits; Helm supplies CPU/memory limits (a PID ceiling on Kubernetes is the node's `podPidsLimit`, not a pod-spec field)); cancellation must release worker and queue resources |
 | Incorrect or lossy results | Preserve exact values across Sage, Python and JSON boundaries and fail explicitly when exact transport is impossible |
 | Supply-chain compromise | Pin dependencies, keep the lockfile reproducible, scan dependencies and verify signed release images |
 

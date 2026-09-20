@@ -1450,3 +1450,40 @@ def test_star_export_screen_sees_through_a_lazy_import_to_a_dangerous_home(monke
         "a lazy re-export whose target lives in a dangerous module must fail "
         "the module, exactly as the eager spelling does"
     )
+
+
+def test_star_export_screen_fails_the_module_when_a_lazy_import_will_not_resolve(monkeypatch):
+    """Suppressing the resolution error reverted to the blind path.
+
+    Item 85 resolved `LazyImport` before judging it, but wrapped the call in
+    `contextlib.suppress(Exception)` -- so when resolution FAILED the proxy was
+    judged instead, which is exactly the blind spot the item was fixing. The
+    commit message called that "the conservative direction"; it is the opposite.
+    Resolution failure is realistic, not theoretical: resolving a lazy import
+    at generation time can hit a circular import, as it did while this was
+    being investigated.
+
+    `_dangerous_sage_names` in this file gets the same situation right -- on
+    failure it ADDS the name to the danger set. A screen must fail closed
+    (REVIEW_ACTIONS 87).
+    """
+    import sys
+    import types
+
+    from sagemath_mcp import _sage_worker
+
+    class LazyImport:
+        def _get_object(self):
+            raise ImportError("circular import during generation")
+
+    mod = types.ModuleType("fake.unresolvable")
+    mod.__all__ = ["Widget", "looks_harmless"]
+    mod.Widget = type("Widget", (), {})
+    mod.Widget.__module__ = "fake.unresolvable"
+    mod.looks_harmless = LazyImport()
+    monkeypatch.setitem(sys.modules, "fake.unresolvable", mod)
+
+    assert _sage_worker._star_export_screen("fake.unresolvable") is None, (
+        "a lazy import that will not resolve cannot be screened, so the module "
+        "must fail rather than be judged on its proxy"
+    )

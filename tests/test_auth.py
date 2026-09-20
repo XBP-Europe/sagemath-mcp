@@ -115,3 +115,27 @@ def test_the_threat_model_documents_the_rebinding_defence() -> None:
     lowered = security.lower()
     assert "rebind" in lowered
     assert "origin" in lowered
+
+
+def test_every_http_transport_gets_the_host_origin_guard() -> None:
+    """FastMCP's legacy SSE app ignores `host_origin_protection` entirely.
+
+    Found 2026-09-20, the day after the guard landed: `create_sse_app` never
+    reads the flag, so `--transport sse` -- which this server's CLI offers --
+    shipped with no Host/Origin validation while the other two transports had
+    it. A control silently absent on one supported transport is worse than one
+    absent everywhere, because the documentation says it is there.
+
+    Asserted per transport rather than once, because the gap was invisible from
+    the call site: the same keyword was passed for all three and only two
+    honoured it.
+    """
+    from sagemath_mcp.app import mcp
+    from sagemath_mcp.server import _host_origin_kwargs
+
+    for transport in ("http", "streamable-http", "sse"):
+        app = mcp.http_app(transport=transport, **_host_origin_kwargs(transport))
+        installed = [m.cls.__name__ for m in app.user_middleware]
+        assert any("HostOriginGuard" in name for name in installed), (
+            f"the {transport} transport has no host/origin guard: {installed}"
+        )

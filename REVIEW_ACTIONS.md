@@ -4713,3 +4713,85 @@ than no test.
 ### Status
 
 Fixed 2026-09-20. Last of the eight findings from the 2026-09-19 review.
+
+## 87. Three fail-open error paths, all introduced by items 82/84/85 — high — DONE
+
+Found 2026-09-20 by a second, independent review of the fixes from the
+2026-09-19 one. All three are mine, all landed within two days, and all three
+are the same mistake: **an error path that falls back to the permissive
+behaviour instead of refusing.**
+
+### 87a. The guard was silently absent on the SSE transport
+
+Item 82 passed `host_origin_protection="auto"` to `mcp.run(...)`. FastMCP's
+`create_sse_app` never reads that keyword, so `--transport sse` -- which this
+server's CLI offers -- shipped with no `Host`/`Origin` validation at all while
+the other two transports had it. Measured:
+
+```
+http              guard installed: True
+streamable-http   guard installed: True
+sse               guard installed: False
+```
+
+A control that is silently absent on one supported transport is worse than one
+absent everywhere, because the documentation says it is there.
+
+**Fix.** `_host_origin_kwargs(transport)` returns the keyword for the two
+transports that honour it, and for SSE constructs the same
+`HostOriginGuardMiddleware` explicitly with the arguments the streamable path
+uses. Verified: a foreign `Host` on `/sse` now gets 421 on shipped defaults.
+The test asserts per transport, because the gap was invisible from the call
+site -- one keyword passed for all three, honoured by two.
+
+### 87b. A lazy import that would not resolve reverted to the blind path
+
+Item 85 resolved `LazyImport` before judging it, wrapped in
+`contextlib.suppress(Exception)`. On failure `value` stayed the **unresolved
+proxy** and went straight back into the two checks that cannot see through one
+-- reverting to the exact blind spot item 85 existed to close. The commit
+called that "the conservative direction". It is the opposite.
+
+Resolution failure is realistic rather than theoretical: resolving a lazy
+import at generation time can hit a circular import, which happened during
+this investigation.
+
+`_dangerous_sage_names`, in the same file, gets the same situation right --
+on failure it *adds* the name to the danger set.
+
+**Fix.** Return `None`: a name that cannot be screened is not a name to admit.
+Regenerating both artifact sets produces a **byte-identical** file, so failing
+closed costs nothing today.
+
+### 87c. A reset that could not delete the journal still reported success
+
+Item 84 deleted the persisted journal under `contextlib.suppress(OSError)`. On
+a read-only mount or a permissions problem the file survived, `reset_sage_session`
+reported success, and the next call replayed it -- the exact failure item 84
+was fixing, restored by its own error handler.
+
+**Fix.** Collect the failures and raise, naming the paths and saying the state
+will be replayed. A caller who asked to discard state is entitled to know it
+did not happen.
+
+### The pattern
+
+Item 86 already recorded two patterns from the first review. This is a third,
+and it is about how *fixes* fail rather than how features do: **when a security
+check cannot complete, the fallback must be refusal.** Three consecutive fixes
+chose silence, and in each case the silent path was precisely the vulnerable
+one the fix had just removed. `contextlib.suppress` around a security decision
+is the smell.
+
+### How to verify
+
+`tests/test_auth.py::test_every_http_transport_gets_the_host_origin_guard`,
+`tests/test_sage_worker.py::test_star_export_screen_fails_the_module_when_a_lazy_import_will_not_resolve`,
+`tests/test_session.py::test_reset_reports_failure_if_the_journal_cannot_be_deleted`.
+Each fails on the code as shipped in 0.8.3's branch. Integration suite 1,311
+passed; unit suite at 100% coverage; the regenerated star-export artifact is
+identical.
+
+### Status
+
+Fixed 2026-09-20, before 0.8.3 was tagged. The release was held for it.

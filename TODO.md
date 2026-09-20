@@ -6,6 +6,28 @@ reproduction and regression test in [REVIEW_ACTIONS.md](REVIEW_ACTIONS.md). This
 file carried 31 ticked boxes duplicating both, several of them years of context
 out of date.
 
+- [ ] **Backfill v0.8.3's bare image tags — needs a registry write.** The
+      release predates the explicit `tags:` input, so v0.8.3 published only
+      `v0.8.3` and `latest` (plus the `-passagemath` twins). Retagging the
+      published digests costs nothing and keeps signatures valid, since a cosign
+      signature covers the digest, not the tag:
+
+      ```bash
+      gh auth token | docker login ghcr.io -u <you> --password-stdin
+      docker buildx imagetools create \
+        -t ghcr.io/xbp-europe/sagemath-mcp:0.8.3 \
+        -t ghcr.io/xbp-europe/sagemath-mcp:0.8 \
+        ghcr.io/xbp-europe/sagemath-mcp@sha256:f88afd7b100ebf3aecb22dbaddb4ea43e837d3bf98aa3d2a616e46fa72d660cc
+      docker buildx imagetools create \
+        -t ghcr.io/xbp-europe/sagemath-mcp:0.8.3-passagemath \
+        -t ghcr.io/xbp-europe/sagemath-mcp:0.8-passagemath \
+        ghcr.io/xbp-europe/sagemath-mcp@sha256:b2da93112f5312f846ef3a2bbb4fa5ad5c0566d13b63c0b01ac8d685494831de
+      ```
+
+      Afterwards, `SECURITY.md`'s note that the bare tags "begin with the first
+      release after v0.8.3" is no longer true and should go. Doing nothing is
+      also fine: the next release publishes all four tags itself.
+
 - [ ] **Lift the `fastmcp<4` cap — blocked upstream, 2026-09-16.** Investigated
       against 4.0.4: `Context.session_id` is a fresh UUID on every tool call, on
       every transport, so no stateful fastmcp server keeps a client's state

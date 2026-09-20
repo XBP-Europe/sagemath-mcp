@@ -47,6 +47,9 @@ parses; and `x`, `y`, `z` and `t` are already defined. So is any other
 symbol-shaped name — `w`, `x_2`, `alpha` — which the server declares for you; a
 name that is not symbol-shaped, like `sinn`, stays an error, so a typo is
 reported rather than silently becoming a symbol. Use `^^` if you actually want XOR.
+Name functions directly -- `exp(1)`, not `sage.functions.log.exp(1)`: everything
+SageMath preloads is offered under its plain name, and reaching through the
+`sage` package is refused.
 Code indented as a whole -- pasted out of a markdown block, say -- is accepted:
 the shared margin is stripped before parsing.
 

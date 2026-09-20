@@ -7,6 +7,30 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-09-20
+
+**A security release. Upgrade if you run the server outside the container.**
+
+An adversarial review of the whole codebase found eight issues; all eight are
+fixed here. The one that matters: caller code could execute arbitrary Python
+by walking the `sage` module tree, which defeated the deny-by-default policy
+entirely. On the pip extra, the desktop bundle and the three client one-liners
+that policy is the only boundary, so those installs had none.
+
+Closing it cost 950 doctest-corpus examples — 99.09% to 98.83%, against an
+enforced floor of 98.50% — and that trade is deliberate and declared. Every
+refused example has a direct spelling, and the refusal message names it.
+
+Two more were reachable without any credential: a second route to the same
+module tree through Sage-only syntax, and no `Host`/`Origin` validation, which
+let a web page drive a loopback-bound server through DNS rebinding.
+
+A second, independent review of those eight fixes then found three fail-open
+error paths **inside them** -- each falling back to the permissive behaviour
+the fix had just removed. Those are fixed here too, and the release was held
+for them.
+
+
 ### Security
 
 - **Three fail-open error paths in this week's own security fixes.** A second,
@@ -31,9 +55,6 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   When a security check cannot complete, the fallback must be refusal.
   `contextlib.suppress` around a security decision is the smell. See
   REVIEW_ACTIONS 87.
-
-
-### Security
 
 - **The Helm chart is hardened to match the Compose deployment.** Docker
   supplies several container controls implicitly and Kubernetes supplies none

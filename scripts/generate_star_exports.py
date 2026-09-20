@@ -134,6 +134,53 @@ CANDIDATE_MODULES: dict[str, frozenset[str]] = {
     # `sage.misc.explain_pickle` (98) and `pickle`/`copyreg` (39) are pickle
     # machinery, `sage.libs.ecl` (87) evaluates Lisp, `sage.interfaces.rubik` (9)
     # spawns a program, and `gmpy2` (17) is not a Sage module at all.
+    # Item 89, the first pass driven by the *module-reach* measurement rather
+    # than the star-import one. `scripts/analyse_module_reach.py` showed that
+    # 835 of the 1,090 refusals under the item-79 rule reach a name offered
+    # nowhere at all -- so the refusal's advice, "name the function directly",
+    # could not be followed. These are the modules behind the largest blocks of
+    # that, each screening clean as a whole. The number is the module-reach
+    # refusals, which these recover in the dotted spelling as well as the star
+    # one, since `STAR_EXPORTS` now authorizes both.
+    "sage.rings.ideal": frozenset(),                                       # 89
+    "sage.structure.element": frozenset(),                                 # 36
+    "sage.graphs.base.sparse_graph": frozenset(),                          # 38
+    "sage.graphs.base.graph_backends": frozenset(),                        # 27
+    "sage.graphs.base.dense_graph": frozenset(),                           # 25
+    "sage.combinat.misc": frozenset(),                                     # 13
+    "sage.graphs.genus": frozenset(),                                      # 10
+    "sage.modular.pollack_stevens.fund_domain": frozenset(),               # 9
+    "sage.graphs.cliquer": frozenset(),                                    # 7
+    "sage.misc.mrange": frozenset(),                                       # 6
+    "sage.combinat.free_dendriform_algebra": frozenset(),                  # 5
+    "sage.modular.abvar.cuspidal_subgroup": frozenset(),                   # 5
+    "sage.modular.modform.space": frozenset(),                             # 5
+    "sage.modular.modsym.modsym": frozenset(),                             # 5
+    "sage.rings.integer": frozenset(),                                     # 3
+    "sage.functions.trig": frozenset(),                                    # 2
+    "sage.groups.additive_abelian.additive_abelian_wrapper": frozenset(),  # 1
+    # Screened CLEAN and still excluded, by curation. The screen reads a module
+    # for code execution, not for what the mathematics is:
+    #   `sage.env` (1) exports 75 names, and they are SAGE_ROOT, SAGE_SRC and
+    #   the rest of the installation's filesystem layout. Nothing in it
+    #   executes; all of it is the filesystem boundary the policy withholds.
+    #   The same call `sage.misc.sageinspect` gets, and the clearest reminder
+    #   that a clean screen is a floor and not the decision.
+    #   `sage.symbolic.constants` (5) re-exports `unpickle_Constant` and
+    #   `register_symbol` next to `pi` and `e`. The constants themselves are
+    #   already offered by name, so admitting the module would add the pickle
+    #   and symbol-table helpers and almost no mathematics.
+    #   `sage.misc.weak_dict` (31), `sage.structure.dynamic_class` (10),
+    #   `sage.structure.coerce_maps` (9) are data structures and metaclass
+    #   plumbing; `sage.rings.tests` (16) is Sage's own test scaffolding, the
+    #   same call `sage.symbolic.random_tests` got.
+    #   `sage.manifolds.utilities` (23) is real mathematics but re-exports
+    #   `latex`, which this server withholds by name and SECURITY.md documents
+    #   as withheld. Admitting it would contradict the documentation, so it
+    #   waits for a decision about `latex` rather than settling one quietly.
+    #   `sage` itself (1) and `sage.combinat` (1) screen clean only because
+    #   their package roots export almost nothing: `load_ipython_extension` and
+    #   `getdoc`. Neither is mathematics.
 }
 
 HEADER = '''"""The `from <module> import *` statements caller code is allowed to keep.

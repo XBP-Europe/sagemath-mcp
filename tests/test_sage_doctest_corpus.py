@@ -533,6 +533,16 @@ DELIBERATE_RULES: dict[str, float] = {
     # for the biggest thirteen; the rest is the boundary working.
     "refused:Reaching into the 'X' module is not permitted, and 'X' is not offered"
     " under any other sp": 0.002,
+    # Deleting a name the server provides. The namespace persists between
+    # calls, so `del Integer` makes `2 + 2` fail for the rest of the session --
+    # the preparser rewrites every integer literal to `Integer(...)` -- and
+    # `del x` removes a predefined symbol the tools and `evaluate_sage` are
+    # documented to agree on. The corpus does this 23 times, all of them
+    # doctests tidying up a local they had just assigned, which costs them
+    # nothing: the refusal names the assignment to use instead. A boundary,
+    # and a cheap one (REVIEW_ACTIONS 90).
+    "refused:Deleting 'X' is not permitted: it is a name this server provides,"
+    " and the session keeps ": 0.001,
     # `latex` may be called and not reached into: `latex(obj)` builds a string,
     # while `latex.has_file(name)` runs `call("kpsewhich %s" % name, shell=True)`
     # and executed a command as the container user on 10.9. The corpus reaches

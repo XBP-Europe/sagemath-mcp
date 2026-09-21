@@ -5045,3 +5045,120 @@ line is more precisely than either alone.
 
 Fixed 2026-09-20. Corpus sweep green on SageMath 10.9 with the ceilings
 rewritten; unit suite at 100% coverage.
+
+## 90. `del` was counted as a binding, and bought the allowlist exemption — medium — DONE
+
+### How it was found
+
+Deliberately, for once. Every previous item in this file was found by review or
+by a report; this one came from pointing a generative fuzzer at
+`validate_code`, which is what the security suite had never had. 82,074
+generated programs that genuinely reference a denied name, in expression and
+statement contexts nested to depth three.
+
+Three classes of acceptance came back. Two are the policy working: `Store`
+(`attrgetter = 1`) and the binding forms (`def attach(): pass`) are
+**shadowing**, which is exactly how deny-by-default is documented to work --
+the caller's own value replaces the name, and reading it afterwards reads
+their value. The third was real.
+
+### What was wrong
+
+`_bound_names` counted `ast.Del` as binding a name:
+
+```python
+if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+    bound.add(node.id)
+```
+
+Deleting a name is the opposite of creating one. And `_bound_names` walks the
+whole tree, reachable or not, so:
+
+```python
+if False:
+    del eval
+eval("1")
+```
+
+validated. This is item 37's trap -- `if False: sage = 1` buying the
+exemption -- which was closed for the `sage` root specifically and left open
+for every other name in the allowlist. Measured over the denied set, the
+spelling unlocked **thirteen** names: `eval`, `locals`, `vars`, `input`,
+`breakpoint`, `memoryview`, `os`, `sys`, `subprocess`, `builtins`,
+`unpickle_global`, `copyreg`, `pickle`.
+
+**None of them executed.** Every one was checked against a real worker, and
+all eight payloads died on `NameError`: the namespace scrub removes the Sage
+helpers and `_restricted_builtins` removes the builtins, so the second lock
+held while the first was open. That is the layering `SECURITY.md` describes,
+working as described. It is still a finding, by the standard that file sets:
+a name reached by a spelling the rules do not see counts even when no payload
+can be built from it.
+
+### The second bug, from the same rule
+
+`del` of a name the server provides was accepted, and the namespace persists
+between calls. Verified against a real worker:
+
+```
+del Integer   ->  accepted
+2 + 2         ->  NameError: name 'Integer' is not defined
+```
+
+The Sage preparser rewrites every integer literal to `Integer(...)`, so one
+`del` breaks arithmetic for the remainder of the session -- about as confusing
+a failure as this server can produce, and the model that caused it would have
+no way to connect the two calls. `del x` removes a predefined symbol, breaking
+the invariant `symbols.py` exists to hold.
+
+This is not a privilege escalation: a caller can only break its own session.
+It is a correctness bug against a documented invariant, and it was free to
+trigger.
+
+### The fix
+
+`ast.Del` is no longer a binding. Separately, deleting a name in
+`ALLOWED_CALLER_NAMES` or `PREDEFINED_SYMBOLS` is refused: **you may delete
+what you brought, not what the server provided.** Assignment is untouched,
+because shadowing replaces a name while deleting removes it -- the asymmetry
+is the whole point. `del my_var` still works, and the refusal names the
+assignment to use instead, including `x = var('x')` for a predefined symbol.
+
+Cost: 23 corpus examples, all doctests tidying up a local they had just
+assigned. 98.9098% to 98.9037%, floor 98.50%. Priced with its own ceiling.
+
+### The harness needed the same scrutiny as the code
+
+Two ways this nearly reported nothing, both worth recording because a fuzzer
+that cannot fail is worse than no fuzzer:
+
+- The first campaign judged the **source text** rather than the parsed tree,
+  and reported `f'{{name}}'` as a bypass. Those are literal braces; no name is
+  in the program at all. An hour went into a finding that did not exist.
+- The first harness prepended the name-selector byte to the source, so nearly
+  every input was a `SyntaxError` and the campaign printed "clean" over
+  almost nothing. `fuzz/fuzz_validate.py` now counts what it actually judged
+  and fails if that is fewer programs than it has templates.
+
+### How to verify
+
+`tests/test_security_property.py` builds contexts rather than listing them --
+the seven hand-written `_POSITIONS` were the same shape as the enumerated path
+segments item 79 had to replace. `test_deleting_a_name_does_not_buy_the_right_to_read_it`
+pins the bypass, `test_a_predefined_symbol_cannot_be_deleted` and
+`test_a_name_the_server_provides_cannot_be_deleted` pin the session bug, and
+`test_a_caller_may_delete_what_it_created` is the counter-property: a policy
+that refused every `del` would pass the other three.
+
+`tests/test_fuzz_harness.py` runs the target on every unit run and checks both
+oracles fire on planted holes, because a fuzz target is the easiest thing in a
+repository to let rot.
+
+`.clusterfuzzlite/` and `.github/workflows/fuzz.yml` run it continuously:
+code-change mode on pull requests touching the policy, a 30-minute batch
+weekly.
+
+### Status
+
+Fixed 2026-09-21. Integration suite green against SageMath 10.9; corpus sweep
+green with the new ceiling; unit suite at 100% coverage.

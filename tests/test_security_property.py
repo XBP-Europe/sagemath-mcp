@@ -19,6 +19,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from sagemath_mcp.security import SECURITY_POLICY, SecurityViolation, validate_module
+from sagemath_mcp.symbols import PREDEFINED_SYMBOLS
 
 
 def _is_refused(code: str) -> bool:
@@ -93,4 +94,111 @@ def test_plain_arithmetic_is_never_refused(a: int, b: int, op: str) -> None:
 )
 def test_predefined_symbols_and_offered_functions_are_allowed(name: str, fn: str) -> None:
     code = f"{fn}({name})"
+    validate_module(ast.parse(code), code=code, policy=SECURITY_POLICY)
+
+
+# --- Generated contexts, rather than a list of them -------------------------
+#
+# `_POSITIONS` above is seven hand-written spellings, which is the same shape
+# as the enumerated path segments that item 79 had to replace: a list is only
+# ever as good as what someone thought of. These build the context instead, so
+# the depth and the nesting are Hypothesis's to choose.
+#
+# A generated program is only judged when the parsed tree really contains the
+# name in a Load context. The first campaign that skipped that check reported
+# `f'{{name}}'` as a bypass for an hour; it is a literal brace, and no name is
+# in the program at all. Verify against the AST, never against the source text.
+
+_EXPR_WRAPS = [
+    "({})", "[{}][0]", "({},)[0]", "{{'k': {}}}['k']", "{{{}}}",
+    "(lambda a={}: a)()", "(lambda: {})()", "[e for e in [{}]][0]",
+    "({} if True else None)", "(None if False else {})", "[*[{}]][0]",
+    "not {}", "-{}", "{}()", "{}.attr", "{}[0]", "{} + 1", "f'{{{}}}'",
+    "{{**{{'a': {}}}}}['a']", "sorted([{}], key=lambda v: v)",
+    "[x for x in [1] if {}][0]", "(lambda *a: a)(*[{}])",
+    "(lambda **k: k)(**{{'a': {}}})",
+]
+_STMT_WRAPS = [
+    "{}", "x = {}", "print({})", "@{}\ndef f(): pass", "class C({}): pass",
+    "def f(a={}): pass", "for i in [{}]: pass", "while {}: break",
+    "with {} as c: pass", "match {}:\n    case _: pass", "assert {}",
+    "try:\n    pass\nexcept {}: pass", "return {}", "yield {}", "raise {}",
+]
+
+
+@st.composite
+def _program_reading(draw: st.DrawFn, names: list[str]) -> tuple[str, str] | None:
+    """A program that reads `name`, wrapped in generated context."""
+    name = draw(st.sampled_from(names))
+    expression = name
+    for wrap in draw(st.lists(st.sampled_from(_EXPR_WRAPS), max_size=3)):
+        expression = wrap.format(expression)
+    return name, draw(st.sampled_from(_STMT_WRAPS)).format(expression)
+
+
+def _reads_name(code: str, name: str) -> bool:
+    """Does the PARSED program load `name`? The source text is not evidence."""
+    try:
+        tree = ast.parse(code)
+    except (SyntaxError, ValueError, MemoryError):
+        return False
+    return any(
+        isinstance(node, ast.Name)
+        and node.id == name
+        and isinstance(node.ctx, ast.Load)
+        for node in ast.walk(tree)
+    )
+
+
+@given(program=_program_reading(_FORBIDDEN_CALLS))
+def test_a_forbidden_name_is_refused_however_it_is_wrapped(
+    program: tuple[str, str],
+) -> None:
+    """The invariant `_POSITIONS` samples: reading a forbidden name is refused
+    at any nesting, in any expression or statement context."""
+    name, code = program
+    if not _reads_name(code, name):
+        return  # the wrapping did not actually produce a read; nothing to assert
+    assert _is_refused(code), f"{code!r} slipped past the policy"
+
+
+@given(name=st.sampled_from(_FORBIDDEN_CALLS))
+def test_deleting_a_name_does_not_buy_the_right_to_read_it(name: str) -> None:
+    """`del` was counted as a binding, and `_bound_names` walks unreachable
+    code, so `if False: del eval` made `eval("1")` validate -- item 37's trap,
+    closed for the `sage` root and left open for every other name. Thirteen
+    names were reachable this way (REVIEW_ACTIONS 90).
+
+    None of them executed: the namespace scrub and the restricted builtins are
+    the second lock and both held. The first lock is supposed to hold too.
+    """
+    code = f"if False:\n    del {name}\n{name}(1)"
+    assert _is_refused(code), f"{code!r} bought the allowlist exemption"
+
+
+@given(name=st.sampled_from(sorted(PREDEFINED_SYMBOLS)))
+def test_a_predefined_symbol_cannot_be_deleted(name: str) -> None:
+    """The namespace persists between calls, so a delete outlives the request
+    that made it. `symbols.py` is the single source of truth for `x, y, z, t`
+    precisely because the tools and `evaluate_sage` disagreeing about which
+    symbols exist is a bug class of its own."""
+    assert _is_refused(f"del {name}")
+
+
+@given(name=st.sampled_from(["Integer", "matrix", "sin", "QQ", "factor"]))
+def test_a_name_the_server_provides_cannot_be_deleted(name: str) -> None:
+    """`del Integer` made `2 + 2` fail for the rest of the session: the Sage
+    preparser rewrites every integer literal to `Integer(...)`. Verified
+    against a real worker before this rule was written."""
+    assert _is_refused(f"del {name}")
+
+
+@given(name=_IDENTS)
+def test_a_caller_may_delete_what_it_created(name: str) -> None:
+    """The counter-property. The rule is "you may delete what you brought",
+    not "deleting is refused" -- a policy that refused every `del` would pass
+    the three tests above."""
+    if name in SECURITY_POLICY.allowed_names or name in PREDEFINED_SYMBOLS:
+        return
+    code = f"{name} = 1\ndel {name}"
     validate_module(ast.parse(code), code=code, policy=SECURITY_POLICY)

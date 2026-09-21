@@ -6,7 +6,7 @@ The most important functional test of the security guardrails: every
 the mathematics Sage itself documents. Generated on every run of
 `tests/test_sage_doctest_corpus.py`; counts only, never corpus text.
 
-- Generated: 2026-09-20 18:58:24 UTC
+- Generated: 2026-09-21 06:18:22 UTC
 - SageMath: 10.9 (`/home/sage/sage/local/var/lib/sage/venv-python3.12/lib/python3.12/site-packages/sage`)
 
 | Metric | Value |
@@ -14,11 +14,11 @@ the mathematics Sage itself documents. Generated on every run of
 | Source files | 3,168 |
 | Docstrings | 60,094 |
 | Examples | 432,878 |
-| Accepted | 370,346 |
-| Refused | 4,082 |
+| Accepted | 370,323 |
+| Refused | 4,105 |
 | Excluded (out of scope by design) | 58,268 |
 | Unparsed | 182 |
-| **Acceptance (in-scope)** | **98.9098%** |
+| **Acceptance (in-scope)** | **98.9037%** |
 | Required acceptance | 98.50% |
 | Required accepted examples | 250,000 |
 
@@ -37,6 +37,7 @@ ceiling, or `test_every_refusal_is_a_rule_we_meant_to_write` fails.
 | 92 | 0.0246% | `Access through 'X' is blocked ('X' is not permitted in Sage executions)` |
 | 69 | 0.0184% | `Access to 'X' is blocked: writing files is not available to caller code` |
 | 38 | 0.0101% | `Call to forbidden function 'X' is blocked` |
+| 23 | 0.0061% | `Deleting 'X' is not permitted: it is a name this server provides, and the session keeps ` |
 | 17 | 0.0045% | `Call to forbidden attribute 'X' is blocked` |
 | 11 | 0.0029% | `Import statements are disabled for Sage executions` |
 | 1 | 0.0003% | `Reaching into the 'X' module is not permitted; name the function directly` |

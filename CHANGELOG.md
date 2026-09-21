@@ -7,6 +7,45 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- **`del` counted as binding a name, which bought the allowlist exemption.**
+  `_bound_names` treated `ast.Del` as creating a name, and it walks
+  unreachable code, so `if False: del eval` followed by `eval("1")`
+  validated -- item 37's trap, closed for the `sage` root and left open for
+  every other name. Thirteen names were reachable this way, including `os`,
+  `sys`, `subprocess` and `pickle`. **None of them executed:** the namespace
+  scrub and the restricted builtins are the second lock and both held, which
+  is the layering `SECURITY.md` describes. The first lock is supposed to hold
+  too. Found by a new generative fuzz campaign over `validate_code`, not by
+  review. See REVIEW_ACTIONS 90.
+
+### Fixed
+
+- **`del Integer` broke arithmetic for the rest of the session.** Deleting a
+  name the server provides was accepted, and the namespace persists between
+  calls -- so after one `del Integer`, `2 + 2` failed with a `NameError`,
+  because the Sage preparser rewrites every integer literal to `Integer(...)`.
+  `del x` removed a predefined symbol. Deleting a provided name is now
+  refused, with a message naming the assignment to use instead; deleting your
+  own variables is unchanged. The asymmetry is deliberate: assignment shadows
+  a name, deletion removes it. Costs 23 corpus examples, all doctests tidying
+  up a local they had just assigned (98.9098% → 98.9037%, floor 98.50%).
+
+### Added
+
+- **Continuous fuzzing of the AST policy.** `fuzz/fuzz_validate.py` asserts
+  that `validate_code` never raises anything but `SecurityViolation` and never
+  accepts a denied name in a read position, checked against the **parsed
+  tree** rather than the source text -- the first campaign to skip that
+  reported `f'{{name}}'` as a bypass, which is a literal brace with no name in
+  it. Wired to ClusterFuzzLite: code-change mode on pull requests touching the
+  policy, a 30-minute batch weekly. `tests/test_security_property.py` now
+  builds its contexts instead of listing seven of them, and
+  `tests/test_fuzz_harness.py` checks the target's oracles fire on planted
+  holes, because a fuzz target that cannot fail is worse than none.
+
+
 ### Changed
 
 - **`sage.<module>.<name>` is accepted where the module is already a permitted

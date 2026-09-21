@@ -7,6 +7,31 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Two clients could have composed to one storage key.** Keys are
+  `scope::name`, and the default workspace keys on the bare scope, so
+  `key_for("A", "x")` and `key_for("A::x", "default")` both produced `A::x` --
+  one client's named workspace and another's default, sharing a worker and its
+  namespace. Not reachable: the scope is the MCP session id, fastmcp issues a
+  hex UUID and refuses a client-supplied `Mcp-Session-Id` with 404 (measured).
+  But that invariant belongs to a dependency and was asserted nowhere here,
+  guarding the only thing the key scheme exists to do. The scope is now
+  checked; every existing key shape and journal filename is unchanged. See
+  REVIEW_ACTIONS 93.
+
+### Added
+
+- **A structural guard for helpers, not just tools.** The test that keeps
+  caller strings out of generated code walked only `@tool`-decorated
+  functions, so a tool handing a string to a helper that interpolates it was
+  invisible -- and generated code runs under `trusted_policy()`. Four helpers
+  interpolate a parameter and all four are safe (three are prompts producing
+  text; `_savefig_snippet` takes a dict lookup behind a `Literal`), but a
+  fifth would have been found the hard way. Also fuzzes the two codegen gates
+  that had not been: `_validated_identifier` and `_encode_literal`.
+
+
 ### Changed
 
 - **`latex` is callable but not reachable into.** It is not a function but an

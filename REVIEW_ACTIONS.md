@@ -5392,3 +5392,80 @@ its attributes.
 
 Fixed 2026-09-21. Corpus sweep green at 98.8908%; integration suite green;
 unit suite 1,226 at 100% coverage.
+
+## 93. Two clients could have composed to one storage key — low — DONE
+
+### What was wrong
+
+Storage keys compose as `scope::name`, and the default workspace keys on the
+**bare scope** so that journal filenames stayed what they were before named
+sessions existed. That shortcut makes the composition non-injective:
+
+    key_for("A",    "x")       -> "A::x"
+    key_for("A::x", "default") -> "A::x"
+
+One client's named workspace and another client's default, sharing a worker
+and therefore a namespace -- every variable, every definition. The docstring
+on `resolve_key` states the guarantee absolutely: "a caller cannot fabricate a
+handle to reach another's state, so unguessability is the isolation
+guarantee." Unguessability covers the handles. It says nothing about the keys
+those handles resolve to.
+
+### Reachability, checked rather than assumed
+
+The scope is the MCP session id. Measured on 2026-09-21 against a real
+streamable-HTTP server:
+
+- fastmcp issues the id itself, as a hex UUID with no separator in it.
+- A client-supplied `Mcp-Session-Id` is refused with **404**, not honoured.
+
+So this is **not reachable today**, and the finding is a latent one. It is
+worth fixing anyway, for the reason items 90 and 91 ended on: the invariant
+holding it shut belongs to a dependency and is asserted nowhere in this
+repository, while what it guards is the only thing the key scheme exists to
+do. A fastmcp release that accepted a client's id, or a future transport that
+derives the scope differently, would open it with nothing here objecting.
+
+### The fix
+
+`key_for` refuses a scope containing the separator. Refusing costs nothing --
+no id fastmcp issues contains one -- and it leaves every key shape exactly as
+it was. Changing the key format instead would have renamed every persisted
+journal on disk, which is a real cost for a latent bug.
+
+### The other two surfaces in this pass
+
+**The tool parameter surface.** `test_no_caller_string_is_interpolated_into_
+generated_code_unguarded` walks only functions carrying a `@tool` or
+`@resource` decorator, so a tool that hands a caller string to a **helper**
+which interpolates it is invisible to it -- and generated code runs under
+`trusted_policy()`, which re-permits `sage_eval`. Four helpers interpolate a
+parameter. All four are safe: three are MCP prompts, which produce text for
+the model rather than code, and `_savefig_snippet` is only ever called with
+`_SAVE_FORMAT[image_format]`, a lookup in a two-entry dict behind a
+`Literal["png", "svg"]` that pydantic enforces -- two locks, neither of them
+that test. A companion test now covers helpers with a reviewed-exception
+table, and fails on a fifth. Confirmed to fail on a planted one.
+
+**The two gates that had not been fuzzed.** `_validated_identifier` must
+return something that is an identifier and stays one statement when
+interpolated as a bare name; `_encode_literal` must round-trip and contain no
+call. Both clean.
+
+### How to verify
+
+`tests/test_workspace_handles.py` --
+`test_a_scope_may_not_contain_the_separator` pins the refusal,
+`test_distinct_workspaces_never_share_a_key` is the general property over
+generated pairs (two workspaces differing in scope or normalised name never
+compose to one key), and `test_an_unminted_handle_is_always_refused` pins that
+an unknown handle raises rather than opening a fresh workspace -- which would
+be the worse failure, since the caller would believe they had reached one.
+
+`tests/test_generated_code_lint.py::test_no_helper_interpolates_a_parameter_
+into_generated_code_unguarded` for the helper surface.
+
+### Status
+
+Fixed 2026-09-21. Integration suite 1,387 passed; unit suite 1,230 at 100%
+coverage.

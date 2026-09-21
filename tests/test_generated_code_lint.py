@@ -526,3 +526,70 @@ def test_the_release_workflow_publishes_only_on_a_tag_push() -> None:
         "so a workflow_dispatch against a tag could publish:\n"
         + "\n".join(f"  - {o}" for o in offenders)
     )
+
+
+def test_no_helper_interpolates_a_parameter_into_generated_code_unguarded() -> None:
+    """The same guard, for the functions the one above cannot see.
+
+    `test_no_caller_string_is_interpolated_into_generated_code_unguarded`
+    walks only functions carrying a `@tool` or `@resource` decorator. A tool
+    that hands a caller string to a *helper* which interpolates it is exactly
+    as dangerous and entirely invisible to that test — generated code runs
+    under `trusted_policy()`, which re-permits `sage_eval`.
+
+    Four helpers currently interpolate a parameter. All four are safe, and
+    each is listed below with the reason, because "it happens to be safe
+    today" is what the reviewed-exception table is for. A fifth will fail this
+    test rather than be discovered later.
+    """
+    import ast as _ast
+
+    # module, function -> why interpolating a parameter is safe there.
+    reviewed: dict[tuple[str, str], str] = {
+        ("plotting.py", "_savefig_snippet"): (
+            "save_format is never caller text: every call site passes "
+            "_SAVE_FORMAT[image_format], a lookup in a two-entry dict, and "
+            "image_format is Literal['png', 'svg'] so pydantic rejects "
+            "anything else before the lookup. Two locks, neither of them this "
+            "test."
+        ),
+        ("prompts.py", "prove_and_verify"): "an MCP prompt: text for the model, not code",
+        ("prompts.py", "solve_and_check"): "an MCP prompt: text for the model, not code",
+        ("prompts.py", "explore_object"): "an MCP prompt: text for the model, not code",
+    }
+
+    offenders: list[str] = []
+    checked = 0
+    for path in sorted((ROOT / "src" / "sagemath_mcp" / "tools").glob("*.py")):
+        tree = _ast.parse(path.read_text(encoding="utf-8"))
+        for fn in _ast.walk(tree):
+            if not isinstance(fn, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
+                continue
+            if any(
+                isinstance(d, _ast.Call) and getattr(d.func, "attr", "") in {"tool", "resource"}
+                for d in fn.decorator_list
+            ):
+                continue  # covered by the test above
+            params = {a.arg for a in fn.args.args + fn.args.kwonlyargs}
+            interpolated = {
+                node.id
+                for joined in _ast.walk(fn)
+                if isinstance(joined, _ast.JoinedStr)
+                for node in _ast.walk(joined)
+                if isinstance(node, _ast.Name) and node.id in params
+            }
+            if not interpolated:
+                continue
+            checked += 1
+            if (path.name, fn.name) not in reviewed:
+                offenders.append(f"{path.name}:{fn.name}() interpolates {sorted(interpolated)}")
+
+    assert checked >= len(reviewed), (
+        f"only {checked} helpers interpolate a parameter but {len(reviewed)} are "
+        "listed as reviewed; a stale entry means this test is guarding nothing"
+    )
+    assert not offenders, (
+        "these helpers interpolate a caller-supplied parameter and are not in "
+        "the reviewed table. Route the value through a gate, or add it with "
+        "the reason it is safe:\n  " + "\n  ".join(offenders)
+    )

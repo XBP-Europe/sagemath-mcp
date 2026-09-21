@@ -807,7 +807,30 @@ class SageSessionManager:
 
         The default workspace keys on the bare scope, so keys and their journal
         filenames are unchanged from before named sessions existed.
+
+        That shortcut is what makes the separator load-bearing. With it, two
+        distinct pairs can compose to one key:
+
+            key_for("A", "x")         -> "A::x"
+            key_for("A::x", "default") -> "A::x"
+
+        -- one client's named workspace and another client's default, sharing
+        a worker and its namespace. It is not reachable today: the scope is
+        the MCP session id, fastmcp issues it as a hex UUID and answers a
+        client-supplied `Mcp-Session-Id` with 404 (measured, 2026-09-21). But
+        that is an invariant of a dependency, asserted nowhere here, and the
+        isolation this composes is the one thing the whole key scheme is for.
+
+        So the scope is checked rather than trusted. Refusing costs nothing --
+        no id fastmcp issues contains the separator -- and changing the key
+        format instead would rename every persisted journal on disk.
         """
+        if _NAME_SEPARATOR in scope:
+            raise SageProcessError(
+                f"A session scope may not contain {_NAME_SEPARATOR!r}: it would "
+                "compose to the same storage key as another client's named "
+                "workspace, and the two would share a worker"
+            )
         name = (name or DEFAULT_SESSION_NAME).strip() or DEFAULT_SESSION_NAME
         return scope if name == DEFAULT_SESSION_NAME else f"{scope}{_NAME_SEPARATOR}{name}"
 

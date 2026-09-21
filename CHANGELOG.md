@@ -9,6 +9,36 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The bearer-token verifier raised where it should have refused.** A lone
+  surrogate cannot be UTF-8 encoded, so `verify_token` raised
+  `UnicodeEncodeError` -- a 500 from the one function whose job is answering
+  yes or no. Not reachable over HTTP: header bytes decode as latin-1, and
+  every byte sequence tried against a real server returned a clean 401
+  (measured). It refuses now. See REVIEW_ACTIONS 94.
+
+### Documentation
+
+- **Ten of twenty-five settings were undocumented, four of them security
+  toggles.** `SAGEMATH_MCP_SECURITY_NAME_ALLOWLIST` disables deny-by-default
+  and `SAGEMATH_MCP_SECURITY_ALLOW_IMPORTS` re-enables imports, and neither
+  appeared in any document -- switches an operator could only find by reading
+  source. `SAGEMATH_MCP_PERSIST_SESSIONS` and `..._PERSIST_DIR`, which
+  journal caller code to disk, were invisible too. `USAGE.md` now carries the
+  full configuration reference, and `tests/test_docs_settings.py` fails when
+  a setting is added without a row.
+
+- **`USAGE.md` pointed at a `README.md` section that does not exist**, telling
+  readers to find environment variables in a document that mentions none.
+
+- **Corpus figures had drifted two releases.** The prose said 98.83% and
+  98.92%; the sweep reads **98.8908%** and **98.9740%**, with 4,153 refusals
+  rather than 4,366 and a suite of 1,375 tests rather than 1,320.
+  `tests/test_docs_corpus_figures.py` now ties the prose to
+  `doctest-corpus-stats.md` -- it caught a wrong number on its first run.
+
+
+### Fixed
+
 - **Two clients could have composed to one storage key.** Keys are
   `scope::name`, and the default workspace keys on the bare scope, so
   `key_for("A", "x")` and `key_for("A::x", "default")` both produced `A::x` --

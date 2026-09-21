@@ -39,10 +39,22 @@ class StaticBearerTokenVerifier(TokenVerifier):
         self._expected = token.encode("utf-8")
 
     async def verify_token(self, token: str) -> AccessToken | None:
+        try:
+            candidate = token.encode("utf-8")
+        except UnicodeEncodeError:
+            # A lone surrogate cannot be UTF-8 encoded, and this raised out of
+            # the verifier: a 500 where a 401 belongs, from the one function
+            # whose entire job is answering yes or no. Not reachable over HTTP
+            # -- header bytes decode as latin-1, which never produces a
+            # surrogate, and every byte sequence tried against a real server
+            # returned a clean 401 (measured 2026-09-21). But `verify_token`
+            # takes a `str`, and refusing is the only answer it should ever
+            # have for one it cannot even encode (REVIEW_ACTIONS 94).
+            return None
         # `secrets.compare_digest` is constant-time in the length of the shorter
         # input, so an attacker cannot learn the token one character at a time by
         # measuring how long the comparison takes.
-        if secrets.compare_digest(token.encode("utf-8"), self._expected):
+        if secrets.compare_digest(candidate, self._expected):
             return AccessToken(token=token, client_id=_CLIENT_ID, scopes=[])
         return None
 

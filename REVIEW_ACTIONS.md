@@ -5469,3 +5469,87 @@ into_generated_code_unguarded` for the helper surface.
 
 Fixed 2026-09-21. Integration suite 1,387 passed; unit suite 1,230 at 100%
 coverage.
+
+## 94. The verifier raised where it should have refused, and ten settings were undocumented — low — DONE
+
+### The auth surface
+
+`verify_token` is the one function whose entire job is answering yes or no,
+and it had an input that made it do neither: a lone surrogate cannot be UTF-8
+encoded, so `token.encode("utf-8")` raised `UnicodeEncodeError` out of the
+verifier. A 500 where a 401 belongs.
+
+Reachability was measured rather than argued. Against a real
+streamable-HTTP server with auth enabled, every byte sequence tried in the
+`Authorization` header -- a UTF-8 encoded surrogate, a raw `\xed\xa0`, high
+latin-1 bytes -- returned a clean **401**. Header bytes decode as latin-1,
+which never produces a surrogate, so this is not reachable over HTTP.
+
+Fixed anyway: `verify_token` takes a `str`, and refusing is the only answer it
+should have for one it cannot encode. Third latent finding in a row where the
+first lock held on an invariant belonging to something else (items 90, 91, 93).
+
+The rest of the auth path came back clean: the correct token accepts, every
+near-miss rejects (prefix, suffix, empty, unicode homoglyph, embedded NUL, a
+100,000-character input), and the comparison stays `secrets.compare_digest`.
+
+### Ten undocumented settings, four of them security toggles
+
+This server reads 25 environment variables. Ten appeared in no `.md` file at
+all, and four of those turn parts of the security policy off:
+
+- `SAGEMATH_MCP_SECURITY_NAME_ALLOWLIST=false` disables deny-by-default, which
+  is the layer items 45/46 were built to install.
+- `SAGEMATH_MCP_SECURITY_ALLOW_IMPORTS=true` re-enables imports, which item 27
+  established is how caller code gets back everything the scrub removed.
+- `SAGEMATH_MCP_SECURITY_ALLOWED_IMPORTS` and `..._IMPORT_PREFIXES` do the
+  same for named modules.
+
+`CLAUDE.md` already required security toggles to be documented when they
+change. Nothing enforced it, and these were never documented at all -- a
+switch an operator could only find by reading source.
+
+Two more matter operationally and were equally invisible:
+`SAGEMATH_MCP_PERSIST_SESSIONS` and `SAGEMATH_MCP_PERSIST_DIR` journal caller
+code to disk, which is the file item 84's reset bug was about.
+
+### The pointer that pointed nowhere
+
+`USAGE.md` told readers to adjust settings "as documented in `README.md`".
+`README.md` mentions no environment variable at all -- zero occurrences. A
+reference to documentation that does not exist is worse than silence, because
+it stops the reader looking further. Found by grepping the claim rather than
+by following it.
+
+`USAGE.md` now carries the full configuration reference, in four tables, with
+the security section headed by what those switches give up.
+
+### Figures that had drifted two releases
+
+`README.md`, `ROADMAP.md` and `TESTING.md` quoted corpus acceptance as 98.83%
+and 98.92%. The sweep read **98.8908%** and **98.9740%**. The counts were
+stale too -- 4,366 refusals against a measured 4,153, and a suite "collecting
+1,320 tests" that collects 1,375.
+
+Prose numbers drift because nothing regenerates them, so
+`tests/test_docs_corpus_figures.py` now reads `doctest-corpus-stats.md` and
+fails when the prose disagrees. It earned its place immediately: the first
+run caught a refusal count of 4,105 that I had copied from my own earlier
+note rather than from the artifact.
+
+The passagemath figure is checked loosely rather than exactly -- that sweep
+runs in its own CI lane against a different runtime and its stats file is a
+build artifact, not a commit. An assertion that cannot be made precisely is
+better made loosely than dropped.
+
+### How to verify
+
+`tests/test_docs_settings.py` -- every setting the code reads has a row, no
+row describes a setting nothing reads, the security toggles are marked as
+weakening, and `USAGE.md` does not refer readers to a `README.md` section that
+does not exist. `tests/test_docs_corpus_figures.py` for the numbers.
+`tests/test_auth.py` for the verifier.
+
+### Status
+
+Fixed 2026-09-21.

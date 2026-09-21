@@ -16,6 +16,13 @@ out of date.
       as PrefectHQ/fastmcp#5134 (2026-09-16); the cap stays until a release
       reports one session id per connection and `tests/test_cache_isolation.py`
       passes against it in the Sage container.
+      **Re-checked 2026-09-21 against 4.0.5** (the one release since): three
+      calls on one connection still return three different session ids, and
+      the upstream issue is open with no replies. Dependabot proposed lifting
+      the cap to `<5` in PR #141, which is why `.github/dependabot.yml` now
+      ignores major bumps of `fastmcp` -- the cap is a reproduced regression,
+      not staleness, and a weekly PR to undo it is noise that will eventually
+      be merged by accident.
 - [ ] From the 2026-09-06 external review, in its recommended order (foundations
       before features; the fastmcp<4 cap and the verifier's exactness fixes from
       the same review already landed — REVIEW_ACTIONS 68, `tools/verify.py`):

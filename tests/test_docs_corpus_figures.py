@@ -28,13 +28,49 @@ ROOT = Path(__file__).resolve().parents[1]
 STATS = ROOT / "doctest-corpus-stats.md"
 
 
+#: The runtime the committed figures were measured against. The passagemath
+#: CI lane runs the same sweep with `SAGEMATH_MCP_DOCTEST_STATS_FILE` pointed
+#: at this very file, so during that job the file holds *its* numbers, not the
+#: monolithic ones the prose quotes. Today these tests happen to run first --
+#: `test_docs_corpus_figures.py` sorts before `test_sage_doctest_corpus.py` --
+#: and passing on alphabetical ordering is not passing for a reason. So the
+#: runtime is read out of the file and the comparison is skipped when it is
+#: not the one the prose is about.
+MONOLITHIC = "10.9"
+
+
+def _runtime() -> str:
+    text = STATS.read_text(encoding="utf-8")
+    match = re.search(r"^- SageMath: (\S+)", text, re.MULTILINE)
+    assert match, "doctest-corpus-stats.md no longer records its runtime"
+    return match.group(1)
+
+
 def _measured() -> tuple[str, int]:
     """(acceptance, refused) as the last sweep recorded them."""
+    if _runtime() != MONOLITHIC:
+        pytest.skip(
+            f"doctest-corpus-stats.md currently holds {_runtime()} figures "
+            "(the passagemath lane regenerates it in place); the prose quotes "
+            f"SageMath {MONOLITHIC}"
+        )
     text = STATS.read_text(encoding="utf-8")
     acceptance = re.search(r"\*\*Acceptance \(in-scope\)\*\* \| \*\*([\d.]+)%\*\*", text)
     refused = re.search(r"\| Refused \| ([\d,]+) \|", text)
     assert acceptance and refused, "doctest-corpus-stats.md has changed shape"
     return acceptance.group(1), int(refused.group(1).replace(",", ""))
+
+
+def test_the_passagemath_figure_is_quoted_somewhere() -> None:
+    """Checked loosely and on every runtime: that sweep's stats file is a CI
+    artifact rather than a commit, so the exact number cannot be asserted
+    here -- but a document claiming a passagemath acceptance at all is
+    something this test can insist on, and its absence would mean the second
+    runtime had quietly stopped being reported."""
+    for document in ("ROADMAP.md", "TESTING.md"):
+        text = (ROOT / document).read_text(encoding="utf-8")
+        assert re.search(r"passagemath", text), f"{document} no longer mentions passagemath"
+        assert re.search(r"9[89]\.\d+%", text), f"{document} quotes no acceptance figure"
 
 
 @pytest.mark.parametrize("document", ["ROADMAP.md", "TESTING.md"])

@@ -104,3 +104,46 @@ def test_the_export_matches_the_lockfile() -> None:
         "requirements-passagemath.txt does not match uv.lock; run `make passagemath-lock` "
         "and commit the result (the Dockerfile installs from this file with --require-hashes)"
     )
+
+
+def test_the_fastmcp_cap_covers_both_packages() -> None:
+    """`fastmcp` and `fastmcp-slim` are released together, and capping one
+    name left the other free.
+
+    `fastmcp==3.4.7` requires `fastmcp-slim[client,server]` at the same
+    version, so a bump to either alone is incoherent as well as regressed.
+    Dependabot proposed exactly that in PR #144 -- `fastmcp-slim` 3.4.7 to
+    4.0.5 in the hash-locked requirements the passagemath image installs,
+    while `fastmcp` stayed behind. That reaches the image rather than the
+    test environment, which is the half of the supply chain the lockfile
+    exists to pin (REVIEW_ACTIONS 94).
+
+    The lockfile drift test rejects the mismatch, verified by applying the
+    patch and watching it fail. This checks the layer before it: Dependabot
+    should not be proposing the bump at all.
+    """
+    import yaml
+
+    config = yaml.safe_load((ROOT / ".github" / "dependabot.yml").read_text(encoding="utf-8"))
+    pip = next(u for u in config["updates"] if u["package-ecosystem"] == "pip")
+    ignored = {
+        entry["dependency-name"]
+        for entry in pip.get("ignore", [])
+        if "version-update:semver-major" in entry.get("update-types", [])
+    }
+    assert {"fastmcp", "fastmcp-slim"} <= ignored, (
+        "both fastmcp packages must be capped against major bumps; "
+        f"currently ignored: {sorted(ignored)}"
+    )
+
+
+def test_the_two_fastmcp_packages_are_pinned_together() -> None:
+    """The invariant the cap protects: whatever versions are locked, the two
+    must agree. A mismatch installs a wrapper against a core it was not
+    released with."""
+    text = (ROOT / "requirements-passagemath.txt").read_text(encoding="utf-8")
+    versions = dict(re.findall(r"^(fastmcp(?:-slim)?)==(\S+?)\s", text, re.MULTILINE))
+    assert set(versions) == {"fastmcp", "fastmcp-slim"}, versions
+    assert versions["fastmcp"] == versions["fastmcp-slim"], (
+        f"fastmcp and fastmcp-slim are locked at different versions: {versions}"
+    )

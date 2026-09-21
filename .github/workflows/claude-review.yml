@@ -1,0 +1,130 @@
+name: Claude review
+
+# An independent reading of each pull request, posted as review comments.
+#
+# Why this exists. The security work in REVIEW_ACTIONS is a list of things that
+# were found *after* being written, and the pattern in items 90-94 is sharp:
+# the bugs were caught by the coverage gate, by a ceiling test, or by probing
+# a hunch -- not by re-reading the change. Three of them were introduced by
+# the fix for the item before. A second reader on the diff is the cheapest
+# thing that addresses that, and it reads the change rather than the tests.
+#
+# What this is NOT. It does not satisfy the OpenSSF Scorecard's Code-Review
+# check, which counts approving reviews on merged pull requests. A comment is
+# not an approval, and wiring a bot to approve its own repository's pull
+# requests would be gaming that metric rather than meeting it. Scorecard stays
+# at 0 there until a human reviews, or until SUPPORT.md says plainly that a
+# single-maintainer project does not have that control.
+#
+# Forks. `pull_request` does not hand secrets to a fork, so a fork's pull
+# request skips this job instead of failing. That gap is deliberate:
+# `pull_request_target` would close it and run with this repository's secrets
+# against a contributor's branch, and the action's own security guidance is
+# blunt about it -- "Do not check out an untrusted ref into the workspace root
+# before this action." The gap is the safer side of that trade.
+
+on:
+  pull_request:
+    types: [opened, ready_for_review]
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "scripts/**"
+      - ".github/workflows/**"
+
+permissions: {}
+
+concurrency:
+  # One review per pull request. A force-push while a review is running
+  # replaces it rather than posting twice.
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Review the diff
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Drafts get nothing until marked ready, and the job no-ops with a notice
+    # when no key is configured -- the same presence-guard cli-nightly.yml
+    # uses, so a fork or a clone without the secret sees why it skipped
+    # rather than a red cross.
+    if: github.event.pull_request.draft == false
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - name: Check for an API key
+        id: creds
+        env:
+          # Presence only, never the value.
+          KEY_PRESENT: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+        run: |
+          if [ "$KEY_PRESENT" != "true" ]; then
+            echo "::notice title=Claude review skipped::No ANTHROPIC_API_KEY is configured for this repository."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.creds.outputs.present == 'true'
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@cfc3eb22bfed5c26ef66e3223c982af27e4524de # v1.0
+        if: steps.creds.outputs.present == 'true'
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Review this pull request. The branch is already checked out.
+
+            Read CLAUDE.md first. This is a SageMath MCP server that executes
+            model-written mathematics, and its invariants are unusual enough
+            that generic review advice is mostly noise here. In particular:
+
+            - Caller code is deny-by-default. The question about a name is
+              never "is it forbidden" but "is it offered".
+            - Generated tool code runs under `trusted_policy()`, which permits
+              `sage_eval`. Any caller string reaching a template must pass
+              `_encode_literal`, `_validated_expression` or
+              `_validated_identifier`.
+            - Coverage is gated at 100%, statements and branches.
+              An unreachable branch is deleted, not exempted.
+            - Corpus acceptance has an enforced floor. A change that refuses
+              more mathematics needs a rule ceiling and a stated reason.
+
+            Weight these, in order:
+
+            1. A security check whose failure path is permissive. When a check
+               cannot complete, the fallback must be refusal. Items 87 and 90
+               were both `contextlib.suppress` around a security decision, and
+               item 90 was an error path that granted the exemption it existed
+               to withhold.
+            2. An enumerated list where deny-by-default belongs. Items 79 and
+               92 both replaced "refuse these known-dangerous members" with
+               "refuse the lot", because a list is only ever as good as what
+               someone thought of.
+            3. A test that cannot fail. Assertions on wrapped prose, campaigns
+               that judge nothing, ceilings for rules nothing emits: all three
+               have happened in this repository, and all three read as green.
+            4. A claim in a comment, docstring or .md file that the code does
+               not support. Item 92 began as a justification written from
+               memory and never checked.
+
+            Say clearly when you find nothing. A review that manufactures
+            findings to look useful is worse than a short one, and this
+            repository would rather read "the star-export change is sound and
+            here is why I think so" than three speculative nits.
+
+            Use `gh pr comment` for the overall read.
+            Use `mcp__github_inline_comment__create_inline_comment` (with
+            `confirmed: true`) for a specific line.
+            Post GitHub comments only; do not return the review as a message.
+
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Read,Grep,Glob"

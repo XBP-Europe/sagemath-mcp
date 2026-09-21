@@ -62,9 +62,40 @@ code, so they are listed here rather than discovered.
 - **Every tool must be documented.** A tool absent from `USAGE.md` and
   `README.md` fails `tests/test_tool_inventory.py`. The usage table drifted by
   four tools once, including the one the same page recommends in prose.
+- **Actions are pinned to a commit, with the version in a comment.** A tag is
+  mutable, and a job here holds the secrets that publish to PyPI and GHCR.
+  `tests/test_workflow_pins.py` fails on a mutable ref, and on a bare hash
+  with no `# vX.Y` beside it — the comment is what lets a reader tell an
+  upgrade from a substitution.
+- **Every setting must be documented.** `tests/test_docs_settings.py` fails
+  when an environment variable the code reads has no row in `USAGE.md`, and
+  when a row describes one nothing reads. Ten were undocumented until
+  2026-09-21, four of them security toggles.
+- **Prose figures must match the sweep.** The corpus acceptance numbers quoted
+  in `README.md`, `ROADMAP.md` and `TESTING.md` are checked against
+  `doctest-corpus-stats.md`; they had drifted two releases before anything
+  noticed.
 - **A dangerous-module entry must remove something.** Listing a module in
   `_DANGEROUS_SAGE_MODULES` that defines none of its own names protects nothing
   while looking like protection; an integration test rejects that.
+
+## Review
+
+Pull requests touching `src/`, `tests/`, `scripts/` or the workflows get an
+automated review from Claude (`.github/workflows/claude-review.yml`), posted
+as PR comments. It reads `CLAUDE.md` first and is pointed at the four failure
+modes this repository actually has — a permissive error path, an enumerated
+list where deny-by-default belongs, a test that cannot fail, and a comment
+that the code does not support. Each of those is in `REVIEW_ACTIONS.md`
+because it happened.
+
+It is advisory. It does not approve, it does not block a merge, and it is not
+a substitute for a human reading a security change — the OpenSSF Scorecard's
+Code-Review check counts approving reviews and will stay at zero until one
+happens. The job skips when no `ANTHROPIC_API_KEY` is configured, and skips on
+pull requests from forks because `pull_request` does not hand secrets to
+them; that gap is deliberate, since closing it with `pull_request_target`
+would run this repository's secrets against a contributor's branch.
 
 ## Writing a security fix
 

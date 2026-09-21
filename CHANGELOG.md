@@ -39,8 +39,12 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   accepts a denied name in a read position, checked against the **parsed
   tree** rather than the source text -- the first campaign to skip that
   reported `f'{{name}}'` as a bypass, which is a literal brace with no name in
-  it. Wired to ClusterFuzzLite: code-change mode on pull requests touching the
-  policy, a 30-minute batch weekly. `tests/test_security_property.py` now
+  it. It runs on the Python the package requires -- 50,000 programs per pull
+  request touching the policy, two million weekly. ClusterFuzzLite was wired
+  up first and removed the same day: its base image ships Python 3.11, and
+  PEP 701 rewrote f-string parsing in 3.12, so a coverage-guided run there
+  would face a different parser for the very construct that produced this
+  campaign's one false positive. `tests/test_security_property.py` now
   builds its contexts instead of listing seven of them, and
   `tests/test_fuzz_harness.py` checks the target's oracles fire on planted
   holes, because a fuzz target that cannot fail is worse than none.

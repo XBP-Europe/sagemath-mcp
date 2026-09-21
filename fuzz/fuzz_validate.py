@@ -6,8 +6,13 @@ the same shape -- a spelling nobody enumerated. Hand-written cases catch what
 someone thought of, and `tests/test_security_property.py` generalises those
 into invariants, but both are bounded by the shapes a person chose to write.
 
-This is the unbounded version, run by ClusterFuzzLite in CI and suitable for
-OSS-Fuzz. It asserts two things:
+This is the unbounded version, run by `.github/workflows/fuzz.yml` on the
+Python the package requires. ClusterFuzzLite was wired up first and removed
+the same day: its base image ships Python 3.11, and PEP 701 rewrote f-string
+parsing in 3.12, so a coverage-guided run there would face a different parser
+for exactly the construct that produced this campaign's one false positive.
+
+It asserts two things:
 
 1. **The policy never crashes.** For any input, `validate_code` either returns
    or raises `SecurityViolation`. Any other exception is a bug: callers that
@@ -22,14 +27,16 @@ The second check is verified against the **parsed tree**, never the source
 text. The first campaign to skip that reported `f'{{name}}'` as a bypass --
 those are literal braces, and no name is in the program at all.
 
-Run one input locally:
+Run it locally:
 
-    uv run python fuzz/fuzz_validate.py            # a short built-in campaign
-    uv run python fuzz/fuzz_validate.py corpus/    # replay a corpus directory
+    uv run python fuzz/fuzz_validate.py                      # a short campaign
+    uv run python fuzz/fuzz_validate.py --iterations 2000000 # the weekly one
+    uv run python fuzz/fuzz_validate.py corpus/              # replay a corpus
 """
 
 from __future__ import annotations
 
+import argparse
 import ast
 import sys
 from pathlib import Path
@@ -107,57 +114,76 @@ def check(data: bytes) -> None:
         raise AssertionError(f"denied name {name!r} was accepted in a read position: {source!r}")
 
 
-def _atheris_main() -> None:
-    import atheris
+#: Statement shapes with a `@@` hole. The hole is filled with an expression
+#: built from `_WRAPS`, so the campaign explores nesting rather than this list.
+_TEMPLATES = (
+    "@@", "x = @@", "(@@)", "@@()", "@@.attr", "f'{@@}'", "del @@",
+    "if False:\n    del @@\n@@(1)", "lambda: @@", "@@ += 1", "global @@",
+    "def f(a=@@): pass", "class C(@@): pass", "with @@ as c: pass",
+    "print(@@)", "@@\ndef f(): pass", "for i in [@@]: pass", "while @@: break",
+    "match @@:\n    case _: pass", "try:\n    pass\nexcept @@: pass",
+    "assert @@", "[e for e in [@@]][0]", "{'k': @@}['k']", "return @@",
+)
 
-    with atheris.instrument_imports():
-        pass
+#: Expression wrappers, applied to a random depth around the hole.
+_WRAPS = (
+    "({})", "[{}][0]", "({},)[0]", "{{'k': {}}}['k']", "{{{}}}", "not {}",
+    "(lambda a={}: a)()", "(lambda: {})()", "[e for e in [{}]][0]", "-{}",
+    "({} if True else None)", "(None if False else {})", "[*[{}]][0]",
+    "{}()", "{}.attr", "{}[0]", "{} + 1", "f'{{{}}}'", "{} if {} else {}",
+    "{{**{{'a': {}}}}}['a']", "sorted([{}], key=lambda v: v)",
+    "[x for x in [1] if {}][0]", "(lambda *a: a)(*[{}])",
+)
 
-    def one(data: bytes) -> None:
-        check(data)
 
-    atheris.Setup(sys.argv, one)
-    atheris.Fuzz()
+def _local_campaign(iterations: int = 5000, seed: int = 0) -> int:
+    """The campaign. Deterministic for a given seed, so a finding replays.
 
-
-def _local_campaign() -> int:
-    """A short deterministic campaign, so the harness is exercised without
-    atheris installed -- a fuzz target nobody can run is a fuzz target that
-    rots."""
+    Runs without any fuzzing engine, which is the point: a fuzz target nobody
+    can run is a fuzz target that rots, and this one is exercised by the unit
+    suite as well as by CI.
+    """
     import random
 
-    rng = random.Random(0)
-    templates = [
-        "@@", "x = @@", "(@@)", "[@@][0]", "@@()", "@@.attr", "f'{@@}'",
-        "del @@", "if False:\n    del @@\n@@(1)", "lambda: @@",
-        "[e for e in [@@]][0]", "{'k': @@}['k']", "@@ += 1", "global @@",
-        "def f(a=@@): pass", "class C(@@): pass", "with @@ as c: pass",
-    ]
-    for index in range(5000):
-        source = rng.choice(templates)
-        payload = bytes([index % 256]) + source.encode("utf-8")
-        check(payload)
-    if JUDGED < len(templates):
+    rng = random.Random(seed)
+    for index in range(iterations):
+        expression = "@@"
+        for _ in range(rng.randint(0, 3)):
+            wrap = rng.choice(_WRAPS)
+            try:
+                expression = wrap.format(*([expression] * wrap.count("{}")))
+            except (IndexError, KeyError):
+                pass
+        source = rng.choice(_TEMPLATES).replace("@@", expression)
+        check(bytes([index % 256]) + source.encode("utf-8"))
+    if JUDGED < min(iterations, len(_TEMPLATES)):
         raise AssertionError(
             f"the campaign only judged {JUDGED} programs; the generator is "
             "producing inputs the parser rejects, so 'clean' would mean nothing"
         )
     print(
-        f"local campaign clean: {JUDGED} programs validated over "
-        f"{len(templates)} templates x {len(DENIED)} denied names"
+        f"campaign clean: {JUDGED} of {iterations} generated programs validated, "
+        f"over {len(_TEMPLATES)} templates x {len(_WRAPS)} wrappers x "
+        f"{len(DENIED)} denied names (seed {seed})"
     )
     return 0
 
 
-if __name__ == "__main__":
-    if len(sys.argv) > 1 and Path(sys.argv[1]).is_dir():
-        for path in sorted(Path(sys.argv[1]).rglob("*")):
+def main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(description="Fuzz the AST security policy.")
+    parser.add_argument("corpus", nargs="?", help="replay every file in a directory")
+    parser.add_argument("--iterations", type=int, default=5000)
+    parser.add_argument("--seed", type=int, default=0, help="a finding replays with its seed")
+    args = parser.parse_args(argv)
+
+    if args.corpus:
+        for path in sorted(Path(args.corpus).rglob("*")):
             if path.is_file():
                 check(path.read_bytes())
-        print("corpus replay clean")
-        raise SystemExit(0)
-    try:
-        import atheris  # noqa: F401
-    except ImportError:
-        raise SystemExit(_local_campaign()) from None
-    _atheris_main()
+        print(f"corpus replay clean: {JUDGED} programs validated")
+        return 0
+    return _local_campaign(args.iterations, args.seed)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

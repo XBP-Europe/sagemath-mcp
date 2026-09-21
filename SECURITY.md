@@ -89,6 +89,16 @@ function on SageMath 10.9 and was arbitrary code execution. If you find another
 way to reach an attribute by a name the parser never sees, that is a finding
 even if you cannot yet build a payload from it.
 
+One asymmetry follows from the namespace persisting between calls: **you may
+delete what you brought, not what the server provided.** Assigning to a
+provided name is fine, because shadowing replaces it with your own value for
+as long as you want it -- `Integer = 1` is your `Integer`. Deleting one
+removes it, and it stays removed for every later call in that session, so
+`del Integer` made `2 + 2` fail (the Sage preparser rewrites every integer
+literal to `Integer(...)`) and `del x` removed a predefined symbol. Deleting
+your own variables is unaffected, and the refusal names the assignment to use
+instead.
+
 The practical consequence: **run the container, and do not expose the port.**
 Defaults are loopback throughout — stdio transport, `--host 127.0.0.1`, the
 compose file publishing to `127.0.0.1:8314`, a `ClusterIP` service — because

@@ -988,8 +988,18 @@ def _bound_names(module: ast.Module) -> set[str]:
     """
     bound: set[str] = set()
     for node in ast.walk(module):
-        if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
             bound.add(node.id)
+        # `ast.Del` is deliberately NOT here. Deleting a name is the opposite
+        # of creating one, and counting it as a binding handed the caller the
+        # allowlist exemption for free: `if False: del eval` followed by
+        # `eval("1")` validated, because `_bound_names` walks unreachable code
+        # -- item 37's trap, which was closed for the `sage` root and left open
+        # for every other name. Measured over the denied set, the spelling
+        # unlocked thirteen names (REVIEW_ACTIONS 90). None of them reached
+        # execution, because the namespace scrub and the restricted builtins
+        # are the second lock and both held, but the first lock is supposed to
+        # hold too.
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             bound.add(node.name)
         elif isinstance(node, ast.arg):
@@ -1482,6 +1492,37 @@ def validate_module(
         # Both returned the container uid from real SageMath. Once the module
         # object is bound to an unremarkable name there is no chain left to
         # inspect, so the module name has to be unreadable in the first place.
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Del):
+            # You may delete what you brought, not what the server provided.
+            #
+            # Deleting differs from assigning, which is why shadowing is fine
+            # and this is not: `Integer = 1` replaces the name with the
+            # caller's own value, while `del Integer` removes it from a
+            # namespace that persists across calls. The Sage preparser rewrites
+            # every integer literal to `Integer(...)`, so `del Integer` makes
+            # `2 + 2` fail for the rest of the session -- verified against a
+            # real worker, and about as confusing a failure as this server can
+            # produce. `del x` breaks the predefined symbols the tools and
+            # `evaluate_sage` are documented to agree on (`symbols.py`).
+            #
+            # A name the caller created is theirs to delete, and a name that
+            # was never there raises NameError as it always did.
+            if policy.enforce_name_allowlist and (
+                node.id in policy.allowed_names or node.id in PREDEFINED_SYMBOLS
+            ):
+                restore = (
+                    f", and {node.id} = var('{node.id}') restores the symbol"
+                    if node.id in PREDEFINED_SYMBOLS
+                    else ""
+                )
+                _raise_violation(
+                    f"Deleting '{node.id}' is not permitted: it is a name this "
+                    "server provides, and the session keeps its namespace "
+                    "between calls, so removing it would break later work. "
+                    f"Assign to it instead if you want your own value{restore}",
+                    code=code,
+                    policy=policy,
+                )
         if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
             # A root whose tree cannot be traversed has no business being read
             # either: what comes back is a module object, and handing a caller

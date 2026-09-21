@@ -103,6 +103,27 @@ def test_the_readme_refusal_count_matches() -> None:
     )
 
 
+@pytest.mark.parametrize("document", ["README.md", "ROADMAP.md"])
+def test_no_document_quotes_a_wrong_refusal_count(document: str) -> None:
+    """Both quote a refusal count, and only the README's was checked -- so
+    ROADMAP.md carried 4,105 against a measured 4,153, a number copied from a
+    note rather than read from the artifact. Checking one place and not the
+    other is how the second one drifts.
+    """
+    _, refused = _measured()
+    text = (ROOT / document).read_text(encoding="utf-8")
+    for match in re.finditer(r"([\d,]{4,}) (?:in-scope )?refus", text):
+        if int(match.group(1).replace(",", "")) == refused:
+            continue
+        # A superseded count may stay as history, on the same terms as a
+        # superseded percentage: the sentence has to say when it was true.
+        window = " ".join(text[max(0, match.start() - 400) : match.end() + 400].split())
+        assert re.search(r"\d{4}-\d{2}-\d{2}", window), (
+            f"{document} quotes {match.group(1)} refusals, which is not the "
+            f"measured {refused:,}, without saying when it was true"
+        )
+
+
 def test_the_enforced_floor_is_quoted_and_below_the_measurement() -> None:
     """A floor quoted above the current figure would mean CI is already
     failing, and a floor nobody quotes is one nobody can hold you to."""
@@ -114,3 +135,26 @@ def test_the_enforced_floor_is_quoted_and_below_the_measurement() -> None:
     else:
         pytest.fail("no document states the enforced acceptance floor")
     assert float(acceptance) > 98.50
+
+
+def test_a_superseded_figure_is_dated_where_it_is_kept() -> None:
+    """The gap in the test above, found by reading `main` after it merged.
+
+    Those tests check that the *measured* figure appears; they say nothing
+    about other figures on the page. ROADMAP.md keeps an older pair inside a
+    completed entry -- legitimate history -- but written in the present tense
+    it reads as a current claim, which is the same defect in a smaller place.
+
+    So a superseded acceptance figure may stay, provided the sentence holding
+    it says when it was measured.
+    """
+    acceptance, _ = _measured()
+    text = (ROOT / "ROADMAP.md").read_text(encoding="utf-8")
+    for match in re.finditer(r"9[89]\.\d+%", text):
+        if match.group(0) == f"{acceptance}%" or match.group(0) == "98.50%":
+            continue
+        window = " ".join(text[max(0, match.start() - 400) : match.end() + 400].split())
+        assert re.search(r"measured on \d{4}-\d{2}-\d{2}|as of \d{4}-\d{2}-\d{2}", window), (
+            f"ROADMAP.md quotes {match.group(0)}, which is not the measured "
+            f"{acceptance}%, without saying when it was measured"
+        )

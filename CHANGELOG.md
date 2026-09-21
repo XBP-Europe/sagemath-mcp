@@ -7,6 +7,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **The monitoring redaction is an allowlist, not a denylist.**
+  `public_snapshot()` popped three named free-text fields and published the
+  rest, so a field added to the metrics later would publish itself -- the
+  enumeration shape items 79 and 92 had to abandon, guarding the leak that
+  already happened twice (items 57, 58). A planted field came straight
+  through it. It did not reach the wire, because pydantic ignores unknown
+  keys, but that is a default rather than a decision and not the lock the
+  docstring claimed. Only the listed aggregate fields are copied out now.
+  See REVIEW_ACTIONS 95.
+
+
 ### Fixed
 
 - **The bearer-token verifier raised where it should have refused.** A lone

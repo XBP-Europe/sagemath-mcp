@@ -5553,3 +5553,89 @@ does not exist. `tests/test_docs_corpus_figures.py` for the numbers.
 ### Status
 
 Fixed 2026-09-21.
+
+## 95. The metrics redaction was a denylist — low — DONE
+
+### What was wrong
+
+Item 58 stopped the monitoring resource handing one client another client's
+error message, rejected code and untruncated stdout. The fix pops three named
+fields:
+
+```python
+_CLIENT_TEXT_FIELDS = ("last_error", "last_security_violation", "last_error_details")
+
+data = snapshot()
+for field in _CLIENT_TEXT_FIELDS:
+    data.pop(field, None)
+return data
+```
+
+Publish-everything-except. That is the enumeration shape items 79 and 92 had
+to abandon: the three names are the free-text fields *someone thought of*, and
+a field added to `EvaluationMetrics.snapshot()` afterwards publishes itself.
+
+Measured before changing anything -- a planted `last_rejected_code` came
+straight through `public_snapshot`.
+
+### The lock that actually held
+
+It did not reach the wire. `MonitoringSnapshot` is a pydantic model, pydantic
+ignores unknown keys by default, and the extra field was dropped at model
+construction.
+
+So the resource was safe, and safe for a reason nobody wrote down. The
+docstring claimed otherwise, in as many words:
+
+> Everything a caller could mine for another client's inputs or outputs is
+> dropped **here** rather than at the resource, so the redaction travels with
+> the data.
+
+The redaction did not travel with the data. A pydantic default did the work,
+and a default is not a decision -- `model_config = {"extra": "allow"}` on that
+model, added for an unrelated reason, would have published the field with
+nothing objecting.
+
+### The fix
+
+`public_snapshot` now copies out `_PUBLIC_FIELDS` and nothing else. A field
+added to the metrics later is private until someone lists it, which makes the
+docstring's claim true and leaves the pydantic model as the backstop it reads
+like rather than the only lock.
+
+`_CLIENT_TEXT_FIELDS` no longer drives the redaction and would be dead weight,
+except that it records *which* fields carry per-client text and why that
+matters. A test keeps it load-bearing by asserting the two sets never
+intersect.
+
+### The two surfaces that came back clean
+
+**The session resource.** `{scope}` is the one caller-controlled part of the
+URI, and the manager's map holds every client's workspaces. 4,000 generated
+scopes -- including `all`, `*`, `../other`, another client's full key
+`theirs::secret`, control characters and percent-encoding -- produced no
+cross-client disclosure and no exception. The filter is on `ctx.session_id`,
+which the caller does not choose; `{scope}` only selects a workspace name
+inside it. Item 57's fix holds.
+
+**The counters.** 16 threads x 3,000 operations, 38,283 recorded: no lost
+updates, `attempts == successes + failures` at the end, and the invariants
+held at every snapshot taken from inside the race. Both checks are now tests,
+at a size that keeps them fast.
+
+### How to verify
+
+`tests/test_monitoring.py` --
+`test_public_snapshot_withholds_a_field_nobody_listed` plants the field and
+asserts what the docstring claims,
+`test_no_known_free_text_field_is_public` keeps the item-58 knowledge
+load-bearing, `test_the_public_fields_are_exactly_the_model_fields` ties the
+allowlist to the wire contract in both directions, and
+`test_the_counters_survive_concurrent_writers` is the race.
+
+`tests/test_workspace_handles.py::test_the_session_resource_never_returns_another_clients_workspace`
+for the resource.
+
+### Status
+
+Fixed 2026-09-21. Unit suite 1,274 at 100% coverage.

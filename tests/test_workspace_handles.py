@@ -323,3 +323,44 @@ def test_an_unminted_handle_is_always_refused(name: str) -> None:
     handle = WORKSPACE_TOKEN_PREFIX + name
     with pytest.raises(SageProcessError, match="Unknown or expired"):
         manager.resolve_key("scope", handle)
+
+
+@given(
+    scope=st.text(max_size=16)
+    | st.sampled_from(["all", "*", "", "../other", "other::secret", "%2e%2e"])
+)
+def test_the_session_resource_never_returns_another_clients_workspace(scope: str) -> None:
+    """`{scope}` is the one caller-controlled part of the resource URI, and
+    the manager's map holds every client's workspaces.
+
+    Reading `.../session/all` once returned the whole map, so any client could
+    learn another's MCP session id and replay it in a header (item 57). The
+    filter is now on `ctx.session_id`, which the caller does not choose, and
+    `{scope}` only selects a workspace *name* within it. This asserts that
+    holds for any scope at all, including one spelled like another client's
+    key.
+    """
+    import asyncio
+    from unittest.mock import MagicMock
+
+    from sagemath_mcp import runtime
+    from sagemath_mcp.tools import session as session_tools
+
+    manager = MagicMock()
+    manager.snapshot.return_value = [
+        {"session_id": "mine", "live": True, "started_at": 1.0,
+         "last_used_at": 2.0, "idle_seconds": 0.0},
+        {"session_id": "theirs::secret", "live": True, "started_at": 1.0,
+         "last_used_at": 2.0, "idle_seconds": 0.0},
+    ]
+    context = MagicMock()
+    context.session_id = "mine"
+
+    original = runtime.SESSION_MANAGER
+    runtime.SESSION_MANAGER = manager
+    try:
+        body = asyncio.run(session_tools.session_resource(scope, ctx=context))
+    finally:
+        runtime.SESSION_MANAGER = original
+
+    assert "theirs" not in body and "secret" not in body, (scope, body)

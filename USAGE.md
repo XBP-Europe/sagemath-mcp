@@ -1068,10 +1068,73 @@ Sample Claude Desktop snippet:
 ```
 For HTTP transports, point the client at `http://HOST:PORT/mcp` and enable streaming to receive progress heartbeats.
 
+## Configuration reference
+
+Every setting is an environment variable, and this is all of them. Ten were
+undocumented until 2026-09-21, four of those being security toggles -- an
+operator could turn off the deny-by-default allowlist or re-enable imports
+with nothing in the documentation saying the switch existed.
+`tests/test_docs_settings.py` now fails if a setting is added without a row
+here.
+
+### Runtime
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `SAGEMATH_MCP_SAGE_BINARY` | `sage` | The Sage executable the worker is spawned with. |
+| `SAGEMATH_MCP_STARTUP` | *(empty)* | Code run once in each new worker namespace, before any caller code. |
+| `SAGEMATH_MCP_EVAL_TIMEOUT` | `30` | Seconds per evaluation. A tool's `timeout` argument overrides it. |
+| `SAGEMATH_MCP_MAX_STDOUT` | `100000` | Characters of captured stdout kept; the rest is truncated. |
+| `SAGEMATH_MCP_MAX_SESSIONS` | `128` | Ceiling on live workers. Reaching it refuses new sessions rather than exhausting memory. |
+| `SAGEMATH_MCP_IDLE_TTL` | `900` | Seconds before the culler removes an idle session. |
+| `SAGEMATH_MCP_WARM_POOL_SIZE` | `1` | Pre-spawned workers kept ready, to hide Sage's startup cost. |
+| `SAGEMATH_MCP_SHUTDOWN_GRACE` | `2.0` | Seconds a worker is given to exit cleanly before it is killed. |
+| `SAGEMATH_MCP_FORCE_PYTHON_WORKER` | `false` | Use the pure-Python worker instead of Sage. For the test suite; not a deployment setting. |
+| `SAGEMATH_MCP_PURE_PYTHON` | *(unset)* | Set to `1` inside the worker by the setting above; the worker reads it to decide whether Sage is available. Set it yourself only to reproduce the pure-Python suite by hand. |
+
+### Persistence
+
+Off by default. When enabled, a session's statements are journalled to disk and
+replayed when the worker is respawned, which is how a workspace survives a
+restart. The journal holds caller code, so it belongs on the same storage you
+would trust with the session itself.
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `SAGEMATH_MCP_PERSIST_SESSIONS` | `false` | Journal session state to disk and replay it on respawn. |
+| `SAGEMATH_MCP_PERSIST_DIR` | *(empty)* | Where journals are written. Empty means a temporary directory. |
+
+### HTTP
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `SAGEMATH_MCP_HTTP_AUTH_TOKEN` | *(unset)* | Require `Authorization: Bearer <token>` on MCP requests. Unset means no authentication, which is the supported posture for a local run. An empty value does **not** enable it. |
+| `FASTMCP_HTTP_ALLOWED_HOSTS` | *(unset)* | Extra `Host` values the origin guard accepts. Needed only for a reverse proxy that reaches this server over loopback while forwarding its own `Host`. |
+
+### Security policy
+
+**These weaken the policy.** The defaults are the documented posture, and each
+of these moves away from it. `SECURITY.md` describes what the layers are for
+before you decide to turn one off.
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `SAGEMATH_MCP_SECURITY_ENABLED` | `true` | Setting it false disables AST validation entirely. Caller code then runs unchecked. |
+| `SAGEMATH_MCP_SECURITY_NAME_ALLOWLIST` | `true` | Setting it false turns off deny-by-default: a name is then refused only if some rule names it, which is the enumeration the allowlist replaced. |
+| `SAGEMATH_MCP_SECURITY_ALLOW_IMPORTS` | `false` | Setting it true permits import statements. An import is how caller code gets back everything the namespace scrub removed. |
+| `SAGEMATH_MCP_SECURITY_ALLOWED_IMPORTS` | *(empty)* | Comma-separated modules a caller may import even while imports are otherwise refused. |
+| `SAGEMATH_MCP_SECURITY_ALLOWED_IMPORT_PREFIXES` | *(empty)* | Comma-separated module prefixes, the same but by prefix. |
+| `SAGEMATH_MCP_SECURITY_FORBID_GLOBAL` | `false` | Refuse `global` statements. |
+| `SAGEMATH_MCP_SECURITY_FORBID_NONLOCAL` | `false` | Refuse `nonlocal` statements. |
+| `SAGEMATH_MCP_SECURITY_LOG_VIOLATIONS` | `true` | Log refusals, with the offending snippet. |
+| `SAGEMATH_MCP_SECURITY_MAX_SOURCE` | `131072` | Maximum characters of caller source per evaluation. |
+| `SAGEMATH_MCP_SECURITY_MAX_AST_NODES` | `50000` | Maximum AST nodes per evaluation. |
+| `SAGEMATH_MCP_SECURITY_MAX_AST_DEPTH` | `75` | Maximum AST nesting depth per evaluation. |
+
 ## Troubleshooting Tips
 - **ModuleNotFoundError for `sage`**: ensure the server is launched via `sage -python ...` so Sage’s site-packages are on `PYTHONPATH`.
 - **Long-running jobs**: use `interrupt_sage_session` first — it stops the computation and keeps your variables. `cancel_sage_session` also works but restarts the worker, so everything defined in that session is gone.
-- **Idle sessions**: the background culler removes sessions after `SAGEMATH_MCP_IDLE_TTL` seconds (default 900). Adjust via environment variables as documented in `README.md`.
+- **Idle sessions**: the background culler removes sessions after `SAGEMATH_MCP_IDLE_TTL` seconds (default 900). Adjust it with `SAGEMATH_MCP_IDLE_TTL`; every setting is listed under [Configuration reference](#configuration-reference) above. (This line used to point at `README.md`, which documents no environment variables at all.)
 - **`SecurityViolation` on ordinary-looking code**: caller code is checked
   against an **allowlist**, so the question is not "is this name forbidden" but
   "is this name offered". You get the mathematical names SageMath preloads, the

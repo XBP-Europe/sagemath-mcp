@@ -139,3 +139,33 @@ def test_every_http_transport_gets_the_host_origin_guard() -> None:
         assert any("HostOriginGuard" in name for name in installed), (
             f"the {transport} transport has no host/origin guard: {installed}"
         )
+
+
+async def test_a_token_that_cannot_be_encoded_is_refused_not_raised() -> None:
+    """A lone surrogate cannot be UTF-8 encoded, and `token.encode("utf-8")`
+    raised straight out of the verifier -- a 500 from the one function whose
+    entire job is answering yes or no.
+
+    Not reachable over HTTP: header bytes decode as latin-1, which never
+    produces a surrogate, and every byte sequence tried against a real server
+    returned a clean 401 (measured 2026-09-21). But `verify_token` takes a
+    `str`, and refusing is the only answer it should have for one it cannot
+    even encode (REVIEW_ACTIONS 94).
+    """
+    from sagemath_mcp.auth import StaticBearerTokenVerifier
+
+    verifier = StaticBearerTokenVerifier("s3cret")
+    assert await verifier.verify_token("\ud800") is None
+    assert await verifier.verify_token("\udfff\ud800") is None
+
+
+async def test_the_verifier_accepts_only_the_configured_token() -> None:
+    """The counter-property, over the near-misses a timing or prefix bug would
+    let through. A verifier that refused everything would pass the test above
+    and be useless."""
+    from sagemath_mcp.auth import StaticBearerTokenVerifier
+
+    verifier = StaticBearerTokenVerifier("s3cret")
+    assert await verifier.verify_token("s3cret") is not None
+    for wrong in ("", "s3cre", "s3cretX", "S3CRET", "s3crét", "s3cret\x00", "x" * 100_000):
+        assert await verifier.verify_token(wrong) is None, wrong

@@ -175,9 +175,13 @@ CANDIDATE_MODULES: dict[str, frozenset[str]] = {
     #   plumbing; `sage.rings.tests` (16) is Sage's own test scaffolding, the
     #   same call `sage.symbolic.random_tests` got.
     #   `sage.manifolds.utilities` (23) is real mathematics but re-exports
-    #   `latex`, which this server withholds by name and SECURITY.md documents
-    #   as withheld. Admitting it would contradict the documentation, so it
-    #   waits for a decision about `latex` rather than settling one quietly.
+    #   `latex`. `latex` is offered -- allowlisted and callable -- and the
+    #   claim here that it was withheld was simply wrong (item 92). It stays
+    #   excluded for a different and real reason: `latex` is call-only, and a
+    #   star export BINDS it, which trips the caller-bound exemption and
+    #   re-opens the attribute surface -- `latex.engine` and the rest -- that
+    #   the call-only rule exists to close. Admitting this module would undo
+    #   item 92 for anyone who star-imports it.
     #   `sage` itself (1) and `sage.combinat` (1) screen clean only because
     #   their package roots export almost nothing: `load_ipython_extension` and
     #   `getdoc`. Neither is mathematics.

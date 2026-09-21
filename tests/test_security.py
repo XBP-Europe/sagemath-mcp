@@ -1,4 +1,6 @@
+import ast
 import logging
+from pathlib import Path
 
 import pytest
 
@@ -711,3 +713,91 @@ def test_mpmath_and_functools_imports_name_an_alternative():
     assert _import_alternative("no_such_module") is None
     with pytest.raises(SecurityViolation, match="RealField"):
         validate_code("import mpmath\nmpmath.mp.dps = 50\nmpmath.pi")
+
+
+# --- Call-only names --------------------------------------------------------
+
+
+def test_latex_may_be_called() -> None:
+    """`latex(expr)` builds a string and the corpus does it 1,408 times.
+    Refusing the name outright to match a documentation line would have cost
+    all of them (REVIEW_ACTIONS 92)."""
+    for code in ("latex(x)", "latex", "latex(matrix([[1, 2], [3, 4]]))"):
+        validate_module(ast.parse(code), code=code, policy=SECURITY_POLICY)
+
+
+@pytest.mark.parametrize(
+    "attribute",
+    [
+        # The four that run a toolchain. `has_file` ran
+        # `call("kpsewhich %s" % name, shell=True)` as the container user.
+        "eval", "has_file", "check_file", "add_package_to_preamble_if_available",
+        # And the nine inert ones, which are refused all the same: deny by
+        # default, because the list of dangerous attributes is only ever as
+        # good as the ones someone thought of -- the enumeration shape item 79
+        # had to abandon for the `sage` tree. Their inertness is a property of
+        # this server never compiling LaTeX, not of the object.
+        "engine", "extra_preamble", "add_macro", "add_to_preamble",
+        "extra_macros", "blackboard_bold", "matrix_delimiters",
+        "matrix_column_alignment", "vector_delimiters",
+    ],
+)
+def test_latex_may_not_be_reached_into(attribute: str) -> None:
+    code = f"latex.{attribute}"
+    with pytest.raises(SecurityViolation):
+        validate_module(ast.parse(code), code=code, policy=SECURITY_POLICY)
+
+
+def test_a_caller_may_reach_into_its_own_latex() -> None:
+    """The counter-property, and the shadowing principle: a caller who binds
+    the name owns the value, so the attributes are theirs."""
+    code = "latex = 1\nlatex.bit_length()"
+    validate_module(ast.parse(code), code=code, policy=SECURITY_POLICY)
+
+
+def test_a_star_export_does_not_hand_back_a_call_only_name() -> None:
+    """A star export binds the REAL object, not a value of the caller's, so
+    it must not earn the caller-bound exemption.
+
+    Not hypothetical: `sage.schemes.toric.fano_variety` is on the curated list
+    and re-exports `latex`, so before this rule
+    `from sage.schemes.toric.fano_variety import *` followed by `latex.engine`
+    returned the genuine bound method from a real session. The exemption is
+    now for names the caller *assigned*, which is what "the caller owns this
+    value" actually means (REVIEW_ACTIONS 92).
+    """
+    from sagemath_mcp.security import rewrite_permitted_imports
+
+    exporters = [
+        module
+        for module, names in SECURITY_POLICY.star_export_modules.items()
+        if set(names) & set(SECURITY_POLICY.call_only_names)
+    ]
+    assert exporters, (
+        "no listed module re-exports a call-only name any more, so this test "
+        "is no longer exercising the path it was written for"
+    )
+    for module in exporters:
+        for name in sorted(set(SECURITY_POLICY.star_export_modules[module])
+                           & set(SECURITY_POLICY.call_only_names)):
+            code = f"from {module} import *\n{name}.engine"
+            rewritten = rewrite_permitted_imports(
+                ast.parse(code), offered=frozenset(), policy=SECURITY_POLICY
+            )
+            with pytest.raises(SecurityViolation, match="may be called but not reached into"):
+                validate_module(rewritten, code=code, policy=SECURITY_POLICY)
+
+
+def test_the_docs_do_not_claim_latex_is_blocked() -> None:
+    """`USAGE.md` listed `latex` among names that "write, fetch or display"
+    and `ROADMAP.md` said "no `show`/`latex`/`html`", while the policy
+    allowlisted and offered it. Ten of the eleven names in that list were
+    accurate; `latex` was the one that was not, and the claim survived long
+    enough to be cited as the reason for a curation decision (item 89).
+    """
+    root = Path(__file__).resolve().parents[1]
+    usage = " ".join((root / "USAGE.md").read_text(encoding="utf-8").split())
+    roadmap = " ".join((root / "ROADMAP.md").read_text(encoding="utf-8").split())
+    assert "`show`/`latex`/`html`" not in roadmap
+    assert "`show`, `view`, `latex`, `html`" not in usage
+    assert "callable but not reachable into" in usage

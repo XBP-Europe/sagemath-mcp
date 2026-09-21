@@ -545,9 +545,16 @@ DELIBERATE_RULES: dict[str, float] = {
     " and the session keeps ": 0.001,
     # `latex` may be called and not reached into: `latex(obj)` builds a string,
     # while `latex.has_file(name)` runs `call("kpsewhich %s" % name, shell=True)`
-    # and executed a command as the container user on 10.9. The corpus reaches
-    # for `latex.extra_preamble` and `latex.has_file` in about 56 examples, all
-    # of them typesetting rather than mathematics.
+    # and executed a command as the container user on 10.9.
+    #
+    # This entry described an intent nothing implemented: until item 92 the
+    # four dangerous attributes were refused by name and the other nine were
+    # accepted, so no rule ever emitted this message and the ceiling counted
+    # zero. It counts 49 now -- deny-by-default on the object, because
+    # enumerating its dangerous members is the shape item 79 had to abandon
+    # for the `sage` tree. All 58 `latex.<attr>` uses in the corpus are
+    # typesetting rather than mathematics; the 1,408 `latex(...)` calls are
+    # untouched.
     "refused:'X' may be called but not reached into": 0.001,
     # These three were the shadowing class, and item 46 emptied them: 575
     # refusals became 5 in 432,878 examples. What is left is `open`, `exec`,

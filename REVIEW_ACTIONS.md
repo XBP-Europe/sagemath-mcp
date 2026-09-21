@@ -4985,10 +4985,14 @@ mathematics is:
   `register_symbol` next to `pi` and `e`. The constants are already offered by
   name, so admitting it would add the pickle and symbol-table helpers and
   almost no mathematics.
-- **`sage.manifolds.utilities`** is real mathematics but re-exports `latex`,
-  which this server withholds by name and `SECURITY.md` documents as withheld.
-  Admitting it would have contradicted the documentation quietly, so it waits
-  for a decision about `latex` instead of settling one.
+- **`sage.manifolds.utilities`** is real mathematics but re-exports `latex`.
+  The reason recorded here -- that the server withholds `latex` by name and
+  `SECURITY.md` documents it as withheld -- **was wrong**, and item 92
+  corrects it: `latex` is allowlisted and callable, and no line of
+  `SECURITY.md` says otherwise. The module stays excluded for the reason item
+  92 establishes instead: a star export binds the real `latex` object, which
+  trips the caller-bound exemption and re-opens the attribute surface the
+  call-only rule closes.
 
 A clean screen is a floor, not the decision. `sage.libs.ecl` has had that
 written next to it since item 60; `sage.env` is the sharpest example yet.
@@ -5264,3 +5268,127 @@ as no harness and harder to notice.
 
 Fixed 2026-09-21. Integration suite 1,366 passed against SageMath 10.9; unit
 suite 1,209 at 100% coverage.
+
+## 92. `latex` was documented as blocked, offered in fact, and enumerated in policy — medium — DONE
+
+### How it started
+
+As a curation question. Item 89 excluded `sage.manifolds.utilities` -- real
+mathematics, 23 corpus examples -- with this reason:
+
+> it re-exports `latex`, which this server withholds by name and `SECURITY.md`
+> documents as withheld. Admitting it would contradict the documentation
+> quietly, so it waits for a decision about `latex` rather than settling one.
+
+Every clause of that is wrong. `latex` is in the generated allowlist, is
+callable, and its bare name reads fine. No line of `SECURITY.md` mentions it.
+The reason was written from memory of a claim elsewhere and never checked
+against the policy it described -- and it then justified a decision.
+
+### What was actually true
+
+`USAGE.md` listed `latex` among "names that write, fetch or display", and
+`ROADMAP.md` said callers get "no `show`/`latex`/`html`". Checked name by
+name against the live policy, **ten of the eleven in that list were accurate
+and `latex` was the exception**:
+
+    refused: oeis install_doc show view animate html search_src search_doc
+             reference Profiler
+    offered: latex
+
+So the documentation had been wrong about exactly one name, for long enough
+that it was cited as a reason.
+
+### The real finding
+
+`latex` is not a function; it is an object with thirteen public attributes,
+and four of them run a LaTeX toolchain. `latex.has_file(name)` ran
+`call("kpsewhich %s" % name, shell=True)` as the container user on 10.9.
+Those four were refused **by name**. The other nine -- `engine`,
+`extra_preamble`, `matrix_delimiters` and the rest -- were accepted.
+
+That is the enumeration shape item 79 had to abandon for the `sage` tree:
+a list of dangerous members is only ever as good as the members someone
+thought of, and a fourteenth attribute in a future Sage would not be on it.
+The nine are inert, but for a reason that belongs to this server rather than
+to the object -- nothing here ever compiles LaTeX, so a preamble setting goes
+nowhere. That is a property that could change without anyone revisiting this.
+
+### The decision
+
+**`latex` is callable and not reachable into.** The name stays offered, every
+attribute of it is refused, and `call_only_names` is the policy field that
+says so.
+
+Measured before deciding, which is what settled it:
+
+| | corpus uses |
+| --- | ---: |
+| `latex(...)` and the bare name | **1,408** |
+| `latex.<attr>`, all thirteen | 58 |
+
+Refusing the name outright to match the documentation would have cost 1,408
+examples of ordinary mathematics. Deny-by-default on the attributes costs 48
+that were not already refused -- 98.9037% to **98.8908%**, against a floor of
+98.50%. All 58 are typesetting rather than mathematics.
+
+This **reverses a prior deliberate relaxation**, and that is worth saying
+plainly rather than letting it look like a tidy-up.
+`test_latex_the_function_and_its_harmless_methods_still_work` asserted that
+`latex.extra_preamble()` and `latex.matrix_delimiters(...)` validate. The
+1,387 refusals that relaxation was written for were the **calls**, which are
+untouched; what changes is the two methods the test also pinned. The test is
+amended in place with the reason, not deleted.
+
+### The bug the new rule found in itself
+
+The first implementation exempted any name the caller had *bound*, which is
+the shadowing principle the rest of the policy runs on: `latex = 1` gives the
+caller their own object and its attributes are theirs.
+
+But a star export binds the **real** object. `sage.schemes.toric.fano_variety`
+is on the curated list and re-exports `latex`, so:
+
+    from sage.schemes.toric.fano_variety import *
+    latex.engine
+
+returned the genuine bound method from a real session -- the rule bypassed
+through a module already on the list, the day it was written. Caught by a
+test written for the possibility before it was known to be real.
+
+The exemption is now for names the caller **assigned** -- an assignment, a
+def, a parameter -- which is what "the caller owns this value" actually
+means. An import binds someone else's object and earns nothing.
+
+### And the module that started it
+
+`sage.manifolds.utilities` stays excluded, for a reason that is now true: it
+re-exports `latex`, and admitting it would bind the real object for anyone
+who star-imports it. The rule above means that no longer grants attribute
+access, but the curated list should not be quietly handing out call-only
+names regardless.
+
+### A dead ceiling, revived
+
+`DELIBERATE_RULES` carried `"refused:'X' may be called but not reached into"`
+with a comment describing this exact design. Nothing emitted that message --
+the rule had never been implemented, so the ceiling counted zero and read as
+though it were working. It counts 48 now.
+
+### How to verify
+
+`tests/test_security.py` -- `test_latex_may_be_called`,
+`test_latex_may_not_be_reached_into` over all thirteen attributes,
+`test_a_caller_may_reach_into_its_own_latex` as the counter-property,
+`test_a_star_export_does_not_hand_back_a_call_only_name` (which fails if no
+listed module re-exports a call-only name any more, so it cannot pass
+vacuously), and `test_the_docs_do_not_claim_latex_is_blocked`.
+
+Verified against a real session: `latex.engine` refused bare and through the
+star import, `latex(x^2)` returns `x^{2}`, and a caller's own `latex` keeps
+its attributes.
+
+### Status
+
+Fixed 2026-09-21. Corpus sweep green at 98.8908%; integration suite green;
+unit suite 1,226 at 100% coverage.

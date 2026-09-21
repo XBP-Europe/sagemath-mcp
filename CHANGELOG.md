@@ -7,6 +7,40 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **`latex` is callable but not reachable into.** It is not a function but an
+  object with thirteen public attributes, four of which run a LaTeX
+  toolchain -- `latex.has_file` ran `call("kpsewhich %s" % name, shell=True)`
+  as the container user on 10.9. Those four were refused by name and the other
+  nine accepted, which is the enumeration shape item 79 had to abandon for the
+  `sage` tree: the list is only ever as good as the members someone thought
+  of. Attribute access on `latex` is now deny-by-default. `latex(expr)` is
+  untouched -- the corpus calls it 1,408 times -- and the change costs 48
+  examples, all typesetting rather than mathematics (98.9037% → 98.8908%,
+  floor 98.50%). **This reverses a prior deliberate relaxation:** the two
+  methods `latex.extra_preamble()` and `latex.matrix_delimiters(...)` used to
+  validate. See REVIEW_ACTIONS 92.
+
+### Fixed
+
+- **The documentation said `latex` was blocked; it was offered.** `USAGE.md`
+  listed it among names that "write, fetch or display" and `ROADMAP.md`
+  promised callers "no `show`/`latex`/`html`". Checked name by name, ten of
+  the eleven in that list were accurate and `latex` was the exception -- and
+  the false claim had survived long enough to be cited as the reason for a
+  curation decision in the previous release. Both documents now describe what
+  the policy does, and a test fails if they drift back.
+
+- **A star export handed back a call-only name.** The new rule exempted any
+  name the caller had bound, on the shadowing principle that `latex = 1` makes
+  the attributes yours. But a star export binds the *real* object, and
+  `sage.schemes.toric.fano_variety` is on the curated list and re-exports
+  `latex` -- so `from sage.schemes.toric.fano_variety import *` followed by
+  `latex.engine` returned the genuine bound method. The exemption is now for
+  names the caller **assigned**, which is what owning a value means.
+
+
 ### Fixed
 
 - **A malformed protocol frame killed the session.** The worker's loop went

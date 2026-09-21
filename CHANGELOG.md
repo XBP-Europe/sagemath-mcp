@@ -7,6 +7,34 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **A malformed protocol frame killed the session.** The worker's loop went
+  straight to `message.get("type")`, so any well-formed JSON that is not an
+  object -- `[]`, `"s"`, `3`, `null`, `true` -- raised an uncaught
+  `AttributeError` and the loop died, discarding every variable in the
+  session and leaving the parent a closed pipe with no reason.
+  `{"type": "execute"}` with no `code` did the same through a `KeyError`.
+  Frames come from `session.py`, so this was not reachable from a caller; it
+  was one bug in that file away from a dead session with no diagnosis.
+  Parsing is now a pure `_read_frame` that answers instead of raising. See
+  REVIEW_ACTIONS 91.
+
+### Added
+
+- **Fuzzing for the codegen gates and the worker protocol**, the two security
+  surfaces the first campaign did not reach. The codegen gates are the
+  higher-consequence one -- generated templates run under `trusted_policy()`,
+  which permits `sage_eval` -- and two of the three return text interpolated
+  **verbatim** into generated code, so the harness checks structure: no
+  newline, no added statement, no call the fragment did not itself bring.
+  150,000 fragments, clean. The import rewriter gained thirteen import shapes
+  in the existing campaign (214,844 programs, clean) plus property tests that
+  a star expands to exactly the screened names. All three harnesses run in CI
+  on changes to `security.py`, `codegen.py` or `_sage_worker.py`, and a test
+  fails if a harness exists that CI never runs.
+
+
 ### Security
 
 - **`del` counted as binding a name, which bought the allowlist exemption.**

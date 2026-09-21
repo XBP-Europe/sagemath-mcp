@@ -123,6 +123,18 @@ _TEMPLATES = (
     "print(@@)", "@@\ndef f(): pass", "for i in [@@]: pass", "while @@: break",
     "match @@:\n    case _: pass", "try:\n    pass\nexcept @@: pass",
     "assert @@", "[e for e in [@@]][0]", "{'k': @@}['k']", "return @@",
+    # Import shapes, because `rewrite_permitted_imports` runs BEFORE
+    # validation and deletes the imports it judges no-ops. A rewrite that
+    # dropped the wrong statement, or expanded a star to more names than were
+    # screened, would show up here as a denied name surviving into acceptance.
+    # The alias forms matter most: the check is against the name being
+    # imported, not the alias, and getting that backwards was a real bypass.
+    "from sage.all import @@", "from sage.all import @@ as m\nm(1)",
+    "import @@", "import @@ as m\nm(1)", "from x import @@",
+    "from sage.all import *\n@@(1)", "from sage.rings.ideal import *\n@@(1)",
+    "from sage.all import @@, factor", "import sage.misc.persist as m\nm.@@",
+    "from . import @@", "from .. import @@ as m\nm(1)",
+    "import a.b.c as @@\n@@(1)", "from sage.all import (@@,)",
 )
 
 #: Expression wrappers, applied to a random depth around the hole.

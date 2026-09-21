@@ -1487,3 +1487,71 @@ def test_star_export_screen_fails_the_module_when_a_lazy_import_will_not_resolve
         "a lazy import that will not resolve cannot be screened, so the module "
         "must fail rather than be judged on its proxy"
     )
+
+
+# --- Protocol frames --------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "line",
+    ["[]", '"str"', "3", "null", "true", "1.5", "[1, 2]"],
+)
+def test_a_frame_that_is_not_an_object_is_refused_not_fatal(line: str) -> None:
+    """`[].get("type")` is an AttributeError, and nothing caught it: one
+    malformed frame killed the worker and took the session's whole namespace
+    with it, leaving the parent a closed pipe and no reason.
+
+    The frames come from `session.py`, so this was not reachable from a
+    caller -- it was one bug in that file away from a dead session with no
+    diagnosis. Found by fuzzing the protocol (REVIEW_ACTIONS 91).
+    """
+    from sagemath_mcp._sage_worker import _read_frame
+
+    frame, error = _read_frame(line)
+    assert frame is None
+    assert error is not None and error["ok"] is False
+    assert error["error"]["type"] == "InvalidFrame"
+
+
+def test_an_execute_frame_without_code_is_refused_not_fatal() -> None:
+    """The same crash by a different route: the loop indexed `message["code"]`
+    directly, so a frame missing it raised KeyError out of the loop."""
+    from sagemath_mcp._sage_worker import _read_frame
+
+    frame, error = _read_frame('{"type": "execute", "id": 7}')
+    assert frame is None
+    assert error is not None and error["error"]["type"] == "InvalidFrame"
+    assert error["id"] == 7, "the refusal must be attributable to the request"
+
+
+@pytest.mark.parametrize("line", ["", "   ", "\n"])
+def test_a_blank_line_is_skipped(line: str) -> None:
+    """Neither a frame nor an error: the loop reads on. A blank line answered
+    with an error frame would desynchronise the parent's request/response
+    pairing."""
+    from sagemath_mcp._sage_worker import _read_frame
+
+    assert _read_frame(line) == (None, None)
+
+
+def test_a_well_formed_frame_still_passes() -> None:
+    """The counter-property. A parser that refused everything would satisfy
+    every test above."""
+    from sagemath_mcp._sage_worker import _read_frame
+
+    frame, error = _read_frame('{"type": "execute", "code": "1+1", "id": 3}')
+    assert error is None
+    assert frame == {"type": "execute", "code": "1+1", "id": 3}
+
+
+def test_the_protocol_fuzz_target_runs() -> None:
+    """The harness is exercised on every unit run, so it cannot rot."""
+    import importlib.util
+    from pathlib import Path
+
+    target = Path(__file__).resolve().parents[1] / "fuzz" / "fuzz_protocol.py"
+    spec = importlib.util.spec_from_file_location("fuzz_protocol", target)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.campaign(2000, seed=3) == 0

@@ -202,3 +202,56 @@ def test_a_caller_may_delete_what_it_created(name: str) -> None:
         return
     code = f"{name} = 1\ndel {name}"
     validate_module(ast.parse(code), code=code, policy=SECURITY_POLICY)
+
+
+# --- The import rewriter ----------------------------------------------------
+#
+# `rewrite_permitted_imports` runs BEFORE validation and deletes statements,
+# which makes it the one place where removing code can make a program more
+# permissive rather than less. The campaign in `fuzz/fuzz_validate.py` covers
+# the security question (a denied name must still be refused, whatever import
+# shape surrounds it). These cover the exactness question the fuzzer cannot
+# phrase: a star must expand to what was screened, and nothing else.
+
+_LISTED_MODULES = sorted(SECURITY_POLICY.star_export_modules)
+
+
+@given(module=st.sampled_from(_LISTED_MODULES))
+def test_a_star_expands_to_exactly_the_screened_names(module: str) -> None:
+    """The safety argument for the whole star-export mechanism is that what
+    runs is exactly what `_star_export_screen` passed. If the expansion bound
+    one name more, that name was never reviewed."""
+    from sagemath_mcp.security import rewrite_permitted_imports
+
+    code = f"from {module} import *"
+    rewritten = rewrite_permitted_imports(
+        ast.parse(code), offered=frozenset(), policy=SECURITY_POLICY
+    )
+    bound: set[str] = set()
+    for node in ast.walk(rewritten):
+        if isinstance(node, ast.alias):
+            bound.add(node.asname or node.name)
+        elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+            bound.add(node.id)
+    assert bound <= SECURITY_POLICY.star_export_modules[module], (
+        f"expanding {module} bound names the screen never passed: "
+        f"{sorted(bound - SECURITY_POLICY.star_export_modules[module])}"
+    )
+
+
+@given(module=_IDENTS, name=_IDENTS)
+def test_an_unlisted_star_is_never_expanded(module: str, name: str) -> None:
+    """Only curated modules are expanded. Anything else must be left for the
+    validator to refuse, not quietly turned into bindings."""
+    from sagemath_mcp.security import rewrite_permitted_imports
+
+    target = f"sage.{module}.{name}"
+    if target in SECURITY_POLICY.star_export_modules:
+        return
+    code = f"from {target} import *"
+    rewritten = rewrite_permitted_imports(
+        ast.parse(code), offered=frozenset(), policy=SECURITY_POLICY
+    )
+    assert any(isinstance(node, ast.ImportFrom) for node in ast.walk(rewritten)), (
+        f"the star import of the unlisted {target} was rewritten away"
+    )

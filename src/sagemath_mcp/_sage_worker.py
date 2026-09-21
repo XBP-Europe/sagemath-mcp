@@ -1344,6 +1344,45 @@ def _execute(
                 (frozenset(namespace) - before_trusted) | compiled.bound_here,
             )
 
+def _protocol_error(kind: str, message: str, msg_id: object = None) -> dict[str, Any]:
+    """The response for a frame that cannot be served."""
+    return {"ok": False, "id": msg_id, "error": {"type": kind, "message": message}}
+
+
+def _read_frame(line: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """Parse one protocol line into `(frame, error)`.
+
+    Exactly one of the two is set, or both are None for a blank line that the
+    loop skips. Pure, so the whole malformed-input surface can be fuzzed
+    without a subprocess (`fuzz/fuzz_protocol.py`).
+
+    It exists because the checks it now performs were missing. The worker
+    holds the session's entire namespace, so an uncaught exception here does
+    not drop one request -- it discards every variable the caller has built
+    and leaves the parent with a closed pipe and no reason. Two shapes did
+    exactly that: any well-formed JSON that is not an object (`[].get` is an
+    AttributeError), and an execute frame with no `code` (a KeyError). Frames
+    come from `session.py`, so neither was reachable from a caller; both were
+    one bug in that file away from a dead session (REVIEW_ACTIONS 91).
+    """
+    line = line.strip()
+    if not line:
+        return None, None
+    try:
+        message = json.loads(line)
+    except (json.JSONDecodeError, RecursionError):
+        return None, _protocol_error("JSONDecodeError", "Invalid JSON payload")
+    if not isinstance(message, dict):
+        return None, _protocol_error(
+            "InvalidFrame", f"Expected a JSON object, got {type(message).__name__}"
+        )
+    if message.get("type") == "execute" and "code" not in message:
+        return None, _protocol_error(
+            "InvalidFrame", "An execute frame needs 'code'", message.get("id")
+        )
+    return message, None
+
+
 def _main() -> int:
     namespace = _build_namespace()
     while True:
@@ -1355,25 +1394,11 @@ def _main() -> int:
             continue
         if not raw:
             break
-        raw = raw.strip()
-        if not raw:
+        message, error = _read_frame(raw)
+        if error is not None:
+            print(json.dumps(error), file=_protocol_stream(), flush=True)
             continue
-        try:
-            message = json.loads(raw)
-        except json.JSONDecodeError:
-            print(
-                json.dumps(
-                    {
-                        "ok": False,
-                        "error": {
-                            "type": "JSONDecodeError",
-                            "message": "Invalid JSON payload",
-                        },
-                    }
-                ),
-                file=_protocol_stream(),
-                flush=True,
-            )
+        if message is None:
             continue
         msg_type = message.get("type")
         msg_id = message.get("id")

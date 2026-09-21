@@ -5172,3 +5172,95 @@ which is the correct answer to the question it asks.
 
 Fixed 2026-09-21. Integration suite green against SageMath 10.9; corpus sweep
 green with the new ceiling; unit suite at 100% coverage.
+
+## 91. A malformed protocol frame killed the session — low — DONE
+
+### What was wrong
+
+The second pass of the fuzzing work, over the surfaces `fuzz_validate.py`
+does not reach. Two of the three were clean; this one was not.
+
+The worker's protocol loop read a line, parsed it as JSON, and went straight
+to `message.get("type")`. Any well-formed JSON that is **not an object** made
+that an `AttributeError` that nothing caught, so the loop died:
+
+    []        ->  AttributeError: 'list' object has no attribute 'get'
+    "str"     ->  AttributeError: 'str' object has no attribute 'get'
+    3, null, true  -- the same
+
+`{"type": "execute"}` with no `code` did it through a `KeyError`, because the
+loop indexed `message["code"]` directly.
+
+The worker holds the session's **entire namespace**. An uncaught exception
+there does not drop one request; it discards every variable the caller has
+built and leaves the parent with a closed pipe and no reason attached.
+
+Frames come from `session.py`, so none of this was reachable from a caller.
+It was one bug in that file away from a dead session with no diagnosis --
+the same argument the namespace scrub gets, and the same one item 90 ended
+on: the second lock is worth having while the first one holds.
+
+### The fix
+
+`_read_frame` is now a pure function returning `(frame, error)`, exactly one
+of which is set, or both None for a blank line the loop skips. Extracting it
+was worth doing for its own sake: the entire malformed-input surface is now
+testable and fuzzable without a subprocess, which is why
+`fuzz/fuzz_protocol.py` runs in the unit suite.
+
+A blank line still returns neither, deliberately: answering one with an error
+frame would desynchronise the parent's request/response pairing, which would
+be a worse bug than the one being fixed.
+
+### The two surfaces that were clean
+
+Recorded because "we looked and found nothing" is worth as much as a finding,
+and because the next person should not have to re-derive the oracles.
+
+**The codegen gates** (`fuzz/fuzz_codegen.py`), the higher-consequence surface:
+generated templates run under `trusted_policy()`, which permits `sage_eval`.
+Two of the three gates return a value interpolated **verbatim** into a line of
+generated code, so the contract is not only "safe to evaluate" but "cannot
+change the shape of the line it lands in". 150,000 fragments, 30,563 accepted
+and checked against: no newline in the output, no added statement, no call the
+fragment did not itself bring, and idempotence. The aim was the soft spot
+`_validated_expression` documents about itself -- a fragment that will not
+parse is screened at token level and returned, and a token screen sees names,
+not structure. It holds: unbalanced brackets are refused as unparseable and
+comments are refused outright.
+
+The oracle is deliberately calibrated rather than strict. `QQ, factor(1)` is
+accepted and does add a call to the template's own call -- but the call came
+from the fragment and every name in it is screened, so allowing it is correct.
+The check is for calls the *interpolation* conjured, not calls the fragment
+brought.
+
+**The import rewriter**, which runs before validation and is the one place
+where deleting code can make a program more permissive. Thirteen import shapes
+were added to the validate campaign -- aliases, relative, dotted-as, star over
+listed and unlisted modules -- and across 214,844 programs no denied name
+survived. Two property tests cover what a fuzzer cannot phrase: a star expands
+to exactly the screened names, and an unlisted star is never expanded.
+
+### How to verify
+
+`tests/test_sage_worker.py` -- `test_a_frame_that_is_not_an_object_is_refused_not_fatal`
+over the five shapes, `test_an_execute_frame_without_code_is_refused_not_fatal`
+(which also pins that the refusal carries the request id, so it is
+attributable), `test_a_blank_line_is_skipped`, and
+`test_a_well_formed_frame_still_passes` as the counter-property.
+
+Verified end to end against a real worker: all eight malformed frames are
+answered, and the worker survives to evaluate `1+1` afterwards, which is the
+part that matters.
+
+`tests/test_fuzz_harness.py::test_the_workflow_runs_the_target_on_the_python_we_ship`
+now fails if a target exists that CI never runs, or if a guarded file
+(`security.py`, `codegen.py`, `_sage_worker.py`) is missing from the
+workflow's path filter. A harness not wired to the code it covers is the same
+as no harness and harder to notice.
+
+### Status
+
+Fixed 2026-09-21. Integration suite 1,366 passed against SageMath 10.9; unit
+suite 1,209 at 100% coverage.

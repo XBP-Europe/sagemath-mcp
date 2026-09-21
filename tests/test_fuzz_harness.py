@@ -105,7 +105,13 @@ def test_the_workflow_runs_the_target_on_the_python_we_ship() -> None:
 
     workflow = (ROOT / ".github" / "workflows" / "fuzz.yml").read_text(encoding="utf-8")
     assert 'python-version: "3.12"' in workflow
-    assert "fuzz/fuzz_validate.py" in workflow
+    # Every target runs, and every file a target guards triggers the workflow.
+    # A harness that exists but is not wired to the code it covers is the same
+    # as no harness, and harder to notice.
+    for target in sorted(ROOT.glob("fuzz/fuzz_*.py")):
+        assert f"fuzz/{target.name}" in workflow, f"{target.name} is never run by CI"
+    for guarded in ("security.py", "codegen.py", "_sage_worker.py"):
+        assert guarded in workflow, f"a change to {guarded} would not trigger the fuzzers"
 
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     assert pyproject["project"]["requires-python"] == ">=3.12", (

@@ -25,6 +25,8 @@ on:
   pull_request:
     paths:
       - "src/sagemath_mcp/security.py"
+      - "src/sagemath_mcp/codegen.py"
+      - "src/sagemath_mcp/_sage_worker.py"
       - "src/sagemath_mcp/allowlist*.py"
       - "src/sagemath_mcp/star_exports*.py"
       - "fuzz/**"
@@ -45,6 +47,10 @@ jobs:
     name: Generative campaign
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      ITERATIONS: >-
+        ${{ inputs.iterations
+          || (github.event_name == 'schedule' && '2000000' || '50000') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
@@ -55,12 +61,16 @@ jobs:
           enable-cache: true
       - run: uv sync --extra dev
       - name: Fuzz the AST policy
-        # A pull request gets seconds; the weekly run gets half an hour. The
-        # harness fails if it judges fewer programs than it has templates, so
-        # a generator that stops producing parseable code cannot report clean.
+        # A pull request gets seconds; the weekly run gets half an hour. Each
+        # harness fails if it judges too little, so a generator that stops
+        # producing usable input cannot report clean.
         run: |
           uv run python fuzz/fuzz_validate.py --iterations "${ITERATIONS}"
-        env:
-          ITERATIONS: >-
-            ${{ inputs.iterations
-              || (github.event_name == 'schedule' && '2000000' || '50000') }}
+      - name: Fuzz the codegen gates
+        # The higher-consequence surface: generated templates run under
+        # trusted_policy(), which permits sage_eval.
+        run: |
+          uv run python fuzz/fuzz_codegen.py --iterations "${ITERATIONS}"
+      - name: Fuzz the worker protocol
+        run: |
+          uv run python fuzz/fuzz_protocol.py --iterations "${ITERATIONS}"

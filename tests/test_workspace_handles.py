@@ -13,13 +13,21 @@ unknown handle cannot be fabricated to reach someone else's state.
 
 from __future__ import annotations
 
+import string
 from pathlib import Path
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from sagemath_mcp import runtime, server
 from sagemath_mcp.config import SageSettings
-from sagemath_mcp.session import WORKSPACE_TOKEN_PREFIX, SageProcessError, SageSessionManager
+from sagemath_mcp.session import (
+    DEFAULT_SESSION_NAME,
+    WORKSPACE_TOKEN_PREFIX,
+    SageProcessError,
+    SageSessionManager,
+)
 
 from .conftest import FakeContext
 
@@ -241,3 +249,77 @@ def test_no_tool_interpolates_a_raw_session_argument() -> None:
         "a tool interpolates its raw `session` argument, which may be a "
         "workspace token (a bearer credential):\n" + "\n".join(offenders)
     )
+
+
+# --- Key composition --------------------------------------------------------
+
+
+def test_a_scope_may_not_contain_the_separator() -> None:
+    """Two distinct pairs composed to one storage key, so two clients would
+    have shared a worker and its namespace:
+
+        key_for("A", "x")          -> "A::x"
+        key_for("A::x", "default") -> "A::x"
+
+    The default workspace keying on the bare scope is what allows it, and that
+    shortcut cannot change: it is what keeps persisted journal filenames the
+    same as before named sessions existed.
+
+    Not reachable today -- the scope is the MCP session id, fastmcp issues a
+    hex UUID and answers a client-supplied `Mcp-Session-Id` with 404 (measured
+    2026-09-21). That is an invariant of a dependency, asserted nowhere here,
+    guarding the only thing the key scheme exists to do (REVIEW_ACTIONS 93).
+    """
+    from sagemath_mcp.session import SageProcessError, SageSessionManager
+
+    with pytest.raises(SageProcessError, match="may not contain"):
+        SageSessionManager.key_for("A::x", DEFAULT_SESSION_NAME)
+    with pytest.raises(SageProcessError, match="may not contain"):
+        SageSessionManager.key_for("A::x", "anything")
+
+
+@given(
+    scope_a=st.text(alphabet=string.ascii_letters + string.digits + "-_", min_size=1, max_size=12),
+    scope_b=st.text(alphabet=string.ascii_letters + string.digits + "-_", min_size=1, max_size=12),
+    name_a=st.text(alphabet=string.ascii_letters + string.digits + "-_ ", min_size=0, max_size=12),
+    name_b=st.text(alphabet=string.ascii_letters + string.digits + "-_ ", min_size=0, max_size=12),
+)
+def test_distinct_workspaces_never_share_a_key(
+    scope_a: str, scope_b: str, name_a: str, name_b: str
+) -> None:
+    """Injectivity, which is the whole isolation guarantee: two workspaces that
+    differ in scope or in normalised name must not compose to one key.
+
+    Names normalise -- stripped, and empty becomes the default -- so the
+    comparison is between normalised pairs, not raw arguments.
+    """
+    from sagemath_mcp.session import SageSessionManager
+
+    def normalised(name: str) -> str:
+        return (name or DEFAULT_SESSION_NAME).strip() or DEFAULT_SESSION_NAME
+
+    pair_a = (scope_a, normalised(name_a))
+    pair_b = (scope_b, normalised(name_b))
+    key_a = SageSessionManager.key_for(*pair_a)
+    key_b = SageSessionManager.key_for(*pair_b)
+    if pair_a != pair_b:
+        assert key_a != key_b, f"{pair_a} and {pair_b} both key to {key_a!r}"
+    else:
+        assert key_a == key_b
+
+
+@given(name=st.text(min_size=1, max_size=40))
+def test_an_unminted_handle_is_always_refused(name: str) -> None:
+    """Fail closed: a handle-shaped name that was never minted must raise, not
+    open a fresh workspace under the caller's own scope. Opening one would be
+    the worse outcome -- the caller would think they had reached a workspace."""
+    from sagemath_mcp.session import (
+        WORKSPACE_TOKEN_PREFIX,
+        SageProcessError,
+        SageSessionManager,
+    )
+
+    manager = SageSessionManager()
+    handle = WORKSPACE_TOKEN_PREFIX + name
+    with pytest.raises(SageProcessError, match="Unknown or expired"):
+        manager.resolve_key("scope", handle)

@@ -1692,14 +1692,30 @@ def test_shell_out_methods_are_refused_on_the_unparseable_path_too(code: str) ->
         _validated_expression(code)
 
 
-def test_latex_the_function_and_its_harmless_methods_still_work() -> None:
-    """The 1,387 refusals that relaxation was for stay fixed."""
+def test_latex_the_function_still_works() -> None:
+    """The 1,387 refusals that relaxation was for stay fixed -- and they were
+    the *calls*, which is the part that matters and is unchanged.
+
+    Amended 2026-09-21 (item 92). This used to assert that
+    `latex.extra_preamble()` and `latex.matrix_delimiters(...)` validate too,
+    on the grounds that those two are harmless. They are, today, and for a
+    reason that is a property of this server rather than of the object:
+    nothing here ever compiles LaTeX, so setting a preamble is inert.
+
+    What made that untenable is the shape, not those two methods. `latex` has
+    thirteen public attributes; four run a toolchain, and `latex.has_file`
+    ran `call("kpsewhich %s" % name, shell=True)` as the container user on
+    10.9. Refusing four by name is the enumeration item 79 had to abandon for
+    the `sage` tree -- the list is only ever as good as what someone thought
+    of, and a fourteenth attribute in some future Sage would not be on it.
+
+    So attribute access on `latex` is now deny-by-default. Measured against
+    the corpus, that costs 49 examples and keeps 1,408 calls.
+    """
     for code in (
         "latex(x^2 + 1)",
         "str(latex(matrix([[1, 2], [3, 4]])))",
         "latex(pi)",
-        "latex.extra_preamble()",        # builds a string
-        "latex.matrix_delimiters('[', ']')",  # sets state
     ):
         validate_module(ast.parse(code))
 

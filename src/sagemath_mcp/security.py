@@ -293,6 +293,23 @@ class SecurityPolicy:
     # object has a dangerous method by those names, and `f.vars` is the variable
     # list of a QEPCAD formula. Symmetry is not a security justification.
     forbidden_attribute_only_names: tuple[str, ...] = ("eval",)
+
+    #: Names a caller may CALL but may not reach into. `latex(expr)` builds a
+    #: string and the corpus does it 1,408 times; `latex` is also an object
+    #: with thirteen public attributes, four of which run a toolchain --
+    #: `latex.eval()` and `latex.has_file()` shell out, and `has_file` ran
+    #: `call("kpsewhich %s" % name, shell=True)` as the container user on 10.9.
+    #:
+    #: Those four were refused by name, which is the enumeration shape item 79
+    #: had to abandon for the `sage` tree: the list is only ever as good as the
+    #: attributes someone thought of, and a future Sage adding a fourteenth
+    #: would not be on it. The other nine are inert preamble and formatting
+    #: settings -- inert because nothing here ever compiles LaTeX, which is a
+    #: property of this server today rather than of the object.
+    #:
+    #: So attribute access on these names is deny-by-default. Measured against
+    #: the corpus it costs 58 examples and keeps 1,408.
+    call_only_names: tuple[str, ...] = ("latex",)
     # Method names that are dangerous whoever owns them. `remove`, `rmdir`,
     # `unlink`, `walk` and `system` were here for `os.remove` and `os.system`,
     # and they were redundant twice over: `os` is a forbidden attribute parent
@@ -1160,6 +1177,26 @@ def validate_module(
     # decided the chain was a permitted star export. Only the root of such a
     # chain is exempted, so a bare `sage` -- or a root under any other chain --
     # stays refused; this is the `operator.le` treatment, for the same reason.
+    # Names the caller bound to a value of its OWN -- an assignment, a def, a
+    # parameter -- as opposed to a name an import brought in. The distinction
+    # only matters for `call_only_names`, and it matters absolutely: `latex =
+    # 1` gives the caller their own object, whose attributes are theirs, while
+    # `from <module> import *` binds the REAL `latex` and would hand back the
+    # attribute surface the call-only rule exists to close.
+    #
+    # That was not hypothetical. `sage.schemes.toric.fano_variety` is on the
+    # curated star-export list and re-exports `latex`, so
+    # `from sage.schemes.toric.fano_variety import *` followed by
+    # `latex.engine` returned the real bound method (REVIEW_ACTIONS 92).
+    assigned_here: set[str] = set()
+    for node in ast.walk(module):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+            assigned_here.add(node.id)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            assigned_here.add(node.name)
+        elif isinstance(node, ast.arg):
+            assigned_here.add(node.arg)
+
     permitted_chain_nodes = _permitted_chain_nodes(module, policy)
     exempt_module_names |= permitted_chain_nodes
     # The `attrcall` in `attrcall('degree')` earns the same treatment when its
@@ -1387,6 +1424,21 @@ def validate_module(
         # os.listdir, os.environ and os.chmod were not -- and the README claimed
         # subprocess.*, pathlib.* and socket.* were blocked when none of them were.
         if isinstance(node, ast.Attribute):
+            # Call-only names: the name itself is offered, reaching into it is
+            # not. Checked on the immediate parent, so `latex.anything` is
+            # refused while `latex(expr)` and a caller's own `latex` are not.
+            if (
+                isinstance(node.value, ast.Name)
+                and node.value.id in policy.call_only_names
+                and node.value.id not in assigned_here
+            ):
+                _raise_violation(
+                    f"'{node.value.id}' may be called but not reached into: "
+                    f"{node.value.id}(expr) builds a string, while its attributes "
+                    "run a LaTeX toolchain",
+                    code=code,
+                    policy=policy,
+                )
             segments = _attribute_segments(node)
             # A chain the caller rooted in their own value is not a module path.
             # `sh = 2; sh.bit_length()` is arithmetic; `sage.misc.sh.sh('id')` is

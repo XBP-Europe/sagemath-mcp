@@ -27,7 +27,8 @@ nothing at all.
 the generated allowlist offers it or the caller's own code bound it. That closed
 a run of bypasses which shared one shape — a name nobody had thought to forbid —
 and it changes what callers may do: no imports, no external CAS interfaces, no
-`show`/`latex`/`html`, and `x, y, z, t` predefined where Sage predefines only
+`show`/`html` (and `latex` callable but not reachable into), and `x, y, z, t`
+predefined where Sage predefines only
 `x`. See `SECURITY.md` for the model and `CHANGELOG.md` for the breaking
 details. It also created a new risk in the opposite direction — refusing
 legitimate mathematics — which `tests/test_math_coverage.py` exists to catch.

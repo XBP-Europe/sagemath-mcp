@@ -88,12 +88,49 @@ def test_the_campaign_refuses_to_report_clean_over_nothing() -> None:
     harness.JUDGED = 0
     harness.check = lambda _data: None  # nothing is ever judged
     with pytest.raises(AssertionError, match="would mean nothing"):
-        harness._local_campaign()
+        harness._local_campaign(5000)
 
 
-def test_the_build_script_names_the_target_that_exists() -> None:
-    """`build.sh` globs `fuzz/fuzz_*.py`; a rename that misses the glob would
-    build no fuzzers and still exit 0."""
-    build = (ROOT / ".clusterfuzzlite" / "build.sh").read_text(encoding="utf-8")
-    assert "fuzz/fuzz_*.py" in build
-    assert list(ROOT.glob("fuzz/fuzz_*.py")), "the glob in build.sh matches no target"
+def test_the_workflow_runs_the_target_on_the_python_we_ship() -> None:
+    """The reason ClusterFuzzLite was removed the day it was added: its base
+    image ships Python 3.11, this package requires >=3.12, and PEP 701 rewrote
+    f-string parsing in 3.12. Fuzzing an AST policy on a different parser than
+    the one we ship measures a configuration nobody runs -- and f-strings are
+    exactly where this campaign's one false positive came from.
+
+    So the workflow pins the version, and this fails if that pin drifts away
+    from `requires-python`.
+    """
+    import tomllib
+
+    workflow = (ROOT / ".github" / "workflows" / "fuzz.yml").read_text(encoding="utf-8")
+    assert 'python-version: "3.12"' in workflow
+    assert "fuzz/fuzz_validate.py" in workflow
+
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    assert pyproject["project"]["requires-python"] == ">=3.12", (
+        "the floor moved; the fuzz workflow still pins 3.12"
+    )
+
+
+def test_a_finding_replays_from_its_seed() -> None:
+    """A fuzzer whose findings cannot be reproduced is a rumour generator."""
+    harness = _harness()
+    harness.JUDGED = 0
+    harness._local_campaign(200, seed=7)
+    first = harness.JUDGED
+    harness.JUDGED = 0
+    harness._local_campaign(200, seed=7)
+    assert harness.JUDGED == first
+
+
+def test_the_campaign_actually_parses_most_of_what_it_generates() -> None:
+    """Judged-versus-generated is the honest measure of a generator. A ratio
+    near zero means the campaign is fuzzing the parser, not the policy."""
+    harness = _harness()
+    harness.JUDGED = 0
+    harness._local_campaign(2000, seed=1)
+    assert harness.JUDGED > 2000 * 0.5, (
+        f"only {harness.JUDGED}/2000 generated programs parsed; the campaign is "
+        "measuring syntax errors rather than the policy"
+    )

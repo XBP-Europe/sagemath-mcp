@@ -5,6 +5,20 @@
 # 79 and 90 are all the same shape, a spelling nobody enumerated. Enumerated
 # cases and property tests are both bounded by what a person thought to write;
 # this is not.
+#
+# **Why not ClusterFuzzLite.** It was wired up first and removed the same day.
+# `gcr.io/oss-fuzz-base/base-builder-python` ships Python 3.11, this package
+# requires >=3.12, and `compile_python_fuzzer` is bound to the image's own
+# interpreter, so the build failed outright. Lowering the floor to suit the
+# tooling would be the tail wagging the dog, and running the fuzzer on 3.11
+# anyway would be worse than not running it: PEP 701 rewrote f-string parsing
+# in 3.12, so the policy would face a different parser for exactly the
+# construct that produced this campaign's one false positive. A coverage-guided
+# fuzzer on the wrong interpreter tests a configuration nobody ships.
+#
+# So the campaign runs on the Python the server requires, and trades coverage
+# guidance for being about the real thing. This leaves Scorecard's Fuzzing
+# check at 0, which is the correct answer to the question it asks.
 name: Fuzz
 
 on:
@@ -14,53 +28,39 @@ on:
       - "src/sagemath_mcp/allowlist*.py"
       - "src/sagemath_mcp/star_exports*.py"
       - "fuzz/**"
-      - ".clusterfuzzlite/**"
       - ".github/workflows/fuzz.yml"
   schedule:
-    # Weekly, with a longer budget than a PR can afford.
+    # Weekly, with a budget no pull request could afford.
     - cron: "37 4 * * 1"
   workflow_dispatch:
+    inputs:
+      iterations:
+        description: "Programs to generate"
+        default: "2000000"
 
 permissions: {}
 
 jobs:
   campaign:
-    # The deterministic campaign, which needs no fuzzing engine and so runs on
-    # every relevant PR in seconds. It fails if it judges fewer programs than
-    # it has templates: "clean" over nothing looks identical to "clean" over
-    # everything, and an earlier version of this harness printed the former.
-    name: Deterministic campaign
+    name: Generative campaign
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
+          # The version the package requires. Fuzzing an AST policy on any
+          # other one measures a parser we do not ship.
           python-version: "3.12"
           enable-cache: true
       - run: uv sync --extra dev
       - name: Fuzz the AST policy
-        run: uv run python fuzz/fuzz_validate.py
-
-  clusterfuzzlite:
-    # The real thing: coverage-guided, with a corpus that persists between
-    # runs. Pull requests get a short budget; the weekly run gets a long one.
-    name: ClusterFuzzLite
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: read
-    steps:
-      - name: Build fuzzers
-        uses: google/clusterfuzzlite/actions/build_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1
-        with:
-          language: python
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          sanitizer: address
-      - name: Run fuzzers
-        uses: google/clusterfuzzlite/actions/run_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          fuzz-seconds: ${{ github.event_name == 'schedule' && 1800 || 300 }}
-          mode: ${{ github.event_name == 'schedule' && 'batch' || 'code-change' }}
-          sanitizer: address
-          output-sarif: true
+        # A pull request gets seconds; the weekly run gets half an hour. The
+        # harness fails if it judges fewer programs than it has templates, so
+        # a generator that stops producing parseable code cannot report clean.
+        run: |
+          uv run python fuzz/fuzz_validate.py --iterations "${ITERATIONS}"
+        env:
+          ITERATIONS: >-
+            ${{ inputs.iterations
+              || (github.event_name == 'schedule' && '2000000' || '50000') }}

@@ -5154,9 +5154,19 @@ that refused every `del` would pass the other three.
 oracles fire on planted holes, because a fuzz target is the easiest thing in a
 repository to let rot.
 
-`.clusterfuzzlite/` and `.github/workflows/fuzz.yml` run it continuously:
-code-change mode on pull requests touching the policy, a 30-minute batch
-weekly.
+`.github/workflows/fuzz.yml` runs it continuously: 50,000 programs on a pull
+request touching the policy, two million weekly.
+
+ClusterFuzzLite was wired up first and removed the same day, which is worth
+recording rather than quietly dropping. Its base image ships Python 3.11, this
+package requires >=3.12, and `compile_python_fuzzer` is bound to the image's
+own interpreter, so the build failed outright. Running it on 3.11 anyway would
+have been worse than not running it: PEP 701 rewrote f-string parsing in 3.12,
+so the policy would have faced a different parser for exactly the construct
+that produced this campaign's one false positive. Coverage guidance on the
+wrong interpreter is not a trade worth making, and neither is lowering the
+floor to suit the tooling. Scorecard's Fuzzing check therefore stays at 0,
+which is the correct answer to the question it asks.
 
 ### Status
 

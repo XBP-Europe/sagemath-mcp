@@ -7,6 +7,145 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-09-22
+
+**A security release, and the first one found mostly by machine.**
+
+0.8.3 closed a sandbox escape that a review found. This one closes five things
+a *fuzzer* found, in surfaces nothing had generated input for: the AST policy,
+the codegen gates, the worker's protocol, the session keys and the monitoring
+metrics. Two of them a caller could trigger by accident -- `del Integer` made
+`2 + 2` fail for the rest of a session, and a malformed protocol frame killed
+the worker outright, taking every variable with it.
+
+The security fix proper is `del`: it was counted as *binding* a name, and
+`_bound_names` walks unreachable code, so `if False: del eval` bought the
+allowlist exemption for thirteen names. None reached execution -- the
+namespace scrub and the restricted builtins held -- which is the layering
+`SECURITY.md` describes working as described. The first lock is supposed to
+hold too.
+
+Two changes make the policy stricter in exchange for being honest about what
+it enumerates. `latex` is callable and no longer reachable into: four of its
+thirteen attributes run a LaTeX toolchain, refusing those four by name was the
+shape item 79 had to abandon, and deny-by-default costs 48 corpus examples
+against the 1,408 calls it keeps. The monitoring redaction became an allowlist
+for the same reason.
+
+One change goes the other way. `sage.<module>.<name>` is accepted where the
+module is already a permitted star export -- the same object by a longer
+name -- which recovered 284 corpus examples. Acceptance lands at **98.8908%**
+against an enforced floor of 98.50%.
+
+The rest is infrastructure that should have existed already: continuous
+fuzzing of five surfaces, a documented and tested way to verify a release, a
+coherent dependency pipeline, and tests that derive the numbers this project
+quotes about itself rather than trusting the prose. Three of those numbers
+were wrong when checked.
+
+### Security
+
+- **`del` counted as binding a name, which bought the allowlist exemption.**
+  `_bound_names` treated `ast.Del` as creating a name, and it walks
+  unreachable code, so `if False: del eval` followed by `eval("1")`
+  validated -- item 37's trap, closed for the `sage` root and left open for
+  every other name. Thirteen names were reachable this way, including `os`,
+  `sys`, `subprocess` and `pickle`. **None of them executed:** the namespace
+  scrub and the restricted builtins are the second lock and both held, which
+  is the layering `SECURITY.md` describes. The first lock is supposed to hold
+  too. Found by a new generative fuzz campaign over `validate_code`, not by
+  review. See REVIEW_ACTIONS 90.
+
+### Added
+
+- **A structural guard for helpers, not just tools.** The test that keeps
+  caller strings out of generated code walked only `@tool`-decorated
+  functions, so a tool handing a string to a helper that interpolates it was
+  invisible -- and generated code runs under `trusted_policy()`. Four helpers
+  interpolate a parameter and all four are safe (three are prompts producing
+  text; `_savefig_snippet` takes a dict lookup behind a `Literal`), but a
+  fifth would have been found the hard way. Also fuzzes the two codegen gates
+  that had not been: `_validated_identifier` and `_encode_literal`.
+
+- **Fuzzing for the codegen gates and the worker protocol**, the two security
+  surfaces the first campaign did not reach. The codegen gates are the
+  higher-consequence one -- generated templates run under `trusted_policy()`,
+  which permits `sage_eval` -- and two of the three return text interpolated
+  **verbatim** into generated code, so the harness checks structure: no
+  newline, no added statement, no call the fragment did not itself bring.
+  150,000 fragments, clean. The import rewriter gained thirteen import shapes
+  in the existing campaign (214,844 programs, clean) plus property tests that
+  a star expands to exactly the screened names. All three harnesses run in CI
+  on changes to `security.py`, `codegen.py` or `_sage_worker.py`, and a test
+  fails if a harness exists that CI never runs.
+
+- **Continuous fuzzing of the AST policy.** `fuzz/fuzz_validate.py` asserts
+  that `validate_code` never raises anything but `SecurityViolation` and never
+  accepts a denied name in a read position, checked against the **parsed
+  tree** rather than the source text -- the first campaign to skip that
+  reported `f'{{name}}'` as a bypass, which is a literal brace with no name in
+  it. It runs on the Python the package requires -- 50,000 programs per pull
+  request touching the policy, two million weekly. ClusterFuzzLite was wired
+  up first and removed the same day: its base image ships Python 3.11, and
+  PEP 701 rewrote f-string parsing in 3.12, so a coverage-guided run there
+  would face a different parser for the very construct that produced this
+  campaign's one false positive. `tests/test_security_property.py` now
+  builds its contexts instead of listing seven of them, and
+  `tests/test_fuzz_harness.py` checks the target's oracles fire on planted
+  holes, because a fuzz target that cannot fail is worse than none.
+
+- **A documented, tested way to check a release.** Three badges claimed cosign
+  signing and SLSA provenance, and `SECURITY.md`'s threat model listed
+  "verify signed release images" as a mitigation, but nothing said how --
+  which matters more than usual here, because keyless verification fails
+  outright without `--certificate-identity*`, and the pattern that makes that
+  error go away fastest is `.*`, which passes for every identity Sigstore has
+  ever issued. `SECURITY.md` gains *Verifying a release* with commands for the
+  image signature and both provenance attestations, each run against the
+  published v0.8.3 first, and the signing badges now link to it instead of to
+  the workflow source. `tests/test_release_verification.py` applies the
+  documented signer pattern to a real release identity and to four it must
+  reject, so a loosened pattern fails review.
+
+### Changed
+
+- **The monitoring redaction is an allowlist, not a denylist.**
+  `public_snapshot()` popped three named free-text fields and published the
+  rest, so a field added to the metrics later would publish itself -- the
+  enumeration shape items 79 and 92 had to abandon, guarding the leak that
+  already happened twice (items 57, 58). A planted field came straight
+  through it. It did not reach the wire, because pydantic ignores unknown
+  keys, but that is a default rather than a decision and not the lock the
+  docstring claimed. Only the listed aggregate fields are copied out now.
+  See REVIEW_ACTIONS 95.
+
+- **`latex` is callable but not reachable into.** It is not a function but an
+  object with thirteen public attributes, four of which run a LaTeX
+  toolchain -- `latex.has_file` ran `call("kpsewhich %s" % name, shell=True)`
+  as the container user on 10.9. Those four were refused by name and the other
+  nine accepted, which is the enumeration shape item 79 had to abandon for the
+  `sage` tree: the list is only ever as good as the members someone thought
+  of. Attribute access on `latex` is now deny-by-default. `latex(expr)` is
+  untouched -- the corpus calls it 1,408 times -- and the change costs 48
+  examples, all typesetting rather than mathematics (98.9037% → 98.8908%,
+  floor 98.50%). **This reverses a prior deliberate relaxation:** the two
+  methods `latex.extra_preamble()` and `latex.matrix_delimiters(...)` used to
+  validate. See REVIEW_ACTIONS 92.
+
+- **`sage.<module>.<name>` is accepted where the module is already a permitted
+  star export.** Item 79 refused every attribute chain rooted at `sage` to
+  close a sandbox escape, and that root refusal stays. What changes is a
+  spelling: `from sage.rings.ideal import *` was already permitted -- the
+  module passes the star-export screen as a whole -- and already binds
+  `Katsura`, so `sage.rings.ideal.Katsura` names the same object by a longer
+  path and grants nothing new. One table authorizes both forms, so they cannot
+  drift apart. Thirteen modules were screened and admitted; `sage.env`,
+  `sage.symbolic.constants` and `sage.manifolds.utilities` screened clean and
+  were excluded by curation -- `sage.env` exports 75 filesystem paths, which is
+  the clearest reminder yet that a clean screen is a floor and not the
+  decision. Corpus acceptance 98.8340% → **98.9098%** (284 examples), floor
+  98.50%.
+
 ### Fixed
 
 - **`ROADMAP.md` said `REVIEW_ACTIONS.md` held 34 items, all closed.** It
@@ -17,9 +156,6 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   oversights. `tests/test_docs_counts.py` now derives the count from the file
   and checks the tool count, which appears in four documents at once. See
   REVIEW_ACTIONS 97.
-
-
-### Fixed
 
 - **Every Dependabot Python PR was red for the same structural reason.**
   `requirements-passagemath.txt` is a generated export of `uv.lock`, and the
@@ -51,28 +187,83 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   workflow is what holds. REVIEW_ACTIONS 96 records the five approaches other
   projects take and why each was not simply copied.
 
-
-### Changed
-
-- **The monitoring redaction is an allowlist, not a denylist.**
-  `public_snapshot()` popped three named free-text fields and published the
-  rest, so a field added to the metrics later would publish itself -- the
-  enumeration shape items 79 and 92 had to abandon, guarding the leak that
-  already happened twice (items 57, 58). A planted field came straight
-  through it. It did not reach the wire, because pydantic ignores unknown
-  keys, but that is a default rather than a decision and not the lock the
-  docstring claimed. Only the listed aggregate fields are copied out now.
-  See REVIEW_ACTIONS 95.
-
-
-### Fixed
-
 - **The bearer-token verifier raised where it should have refused.** A lone
   surrogate cannot be UTF-8 encoded, so `verify_token` raised
   `UnicodeEncodeError` -- a 500 from the one function whose job is answering
   yes or no. Not reachable over HTTP: header bytes decode as latin-1, and
   every byte sequence tried against a real server returned a clean 401
   (measured). It refuses now. See REVIEW_ACTIONS 94.
+
+- **Two clients could have composed to one storage key.** Keys are
+  `scope::name`, and the default workspace keys on the bare scope, so
+  `key_for("A", "x")` and `key_for("A::x", "default")` both produced `A::x` --
+  one client's named workspace and another's default, sharing a worker and its
+  namespace. Not reachable: the scope is the MCP session id, fastmcp issues a
+  hex UUID and refuses a client-supplied `Mcp-Session-Id` with 404 (measured).
+  But that invariant belongs to a dependency and was asserted nowhere here,
+  guarding the only thing the key scheme exists to do. The scope is now
+  checked; every existing key shape and journal filename is unchanged. See
+  REVIEW_ACTIONS 93.
+
+- **The documentation said `latex` was blocked; it was offered.** `USAGE.md`
+  listed it among names that "write, fetch or display" and `ROADMAP.md`
+  promised callers "no `show`/`latex`/`html`". Checked name by name, ten of
+  the eleven in that list were accurate and `latex` was the exception -- and
+  the false claim had survived long enough to be cited as the reason for a
+  curation decision in the previous release. Both documents now describe what
+  the policy does, and a test fails if they drift back.
+
+- **A star export handed back a call-only name.** The new rule exempted any
+  name the caller had bound, on the shadowing principle that `latex = 1` makes
+  the attributes yours. But a star export binds the *real* object, and
+  `sage.schemes.toric.fano_variety` is on the curated list and re-exports
+  `latex` -- so `from sage.schemes.toric.fano_variety import *` followed by
+  `latex.engine` returned the genuine bound method. The exemption is now for
+  names the caller **assigned**, which is what owning a value means.
+
+- **A malformed protocol frame killed the session.** The worker's loop went
+  straight to `message.get("type")`, so any well-formed JSON that is not an
+  object -- `[]`, `"s"`, `3`, `null`, `true` -- raised an uncaught
+  `AttributeError` and the loop died, discarding every variable in the
+  session and leaving the parent a closed pipe with no reason.
+  `{"type": "execute"}` with no `code` did the same through a `KeyError`.
+  Frames come from `session.py`, so this was not reachable from a caller; it
+  was one bug in that file away from a dead session with no diagnosis.
+  Parsing is now a pure `_read_frame` that answers instead of raising. See
+  REVIEW_ACTIONS 91.
+
+- **`del Integer` broke arithmetic for the rest of the session.** Deleting a
+  name the server provides was accepted, and the namespace persists between
+  calls -- so after one `del Integer`, `2 + 2` failed with a `NameError`,
+  because the Sage preparser rewrites every integer literal to `Integer(...)`.
+  `del x` removed a predefined symbol. Deleting a provided name is now
+  refused, with a message naming the assignment to use instead; deleting your
+  own variables is unchanged. The asymmetry is deliberate: assignment shadows
+  a name, deletion removes it. Costs 23 corpus examples, all doctests tidying
+  up a local they had just assigned (98.9098% → 98.9037%, floor 98.50%).
+
+- **A refusal that told callers to do the one thing they could not.** The
+  module-reach rule said "name the function directly" for every chain, and the
+  ceiling beside it recorded as settled fact that "every one of them has a
+  direct spelling". Measured for the first time: of the 1,090 examples it
+  refuses, **835 reach a leaf offered under no spelling at all** —
+  `sage.rings.ideal.Katsura` is mathematics, and there was no `Katsura` to
+  name. The message is now conditional: it names the spelling when one exists
+  (`name the function directly: 'ZZ'`) and says plainly when none does. The
+  one ceiling became three, counting three different things, so the false
+  claim cannot re-form inside a number sized for something else. See
+  REVIEW_ACTIONS 89.
+
+- **Releases published only `vX.Y.Z` and `latest`.** `docker/metadata-action`
+  ran on its defaults in both image jobs, so there was no `0.8.3` to pin a
+  deployment to and no `0.8` to track for security patches -- while the chart's
+  own comment tells operators to prefer a release tag over `latest`. Both jobs
+  now ask for the semver tags, and `scripts/check_image_tags.py` fails the
+  release between the metadata step and the push if any required tag is
+  missing. The shortfall was invisible from the repository and only observable
+  by pulling, and `type=semver` produces nothing on a branch, so the dry-run
+  dispatch could not have caught it. v0.8.3's own tags were backfilled by hand
+  and verify. See REVIEW_ACTIONS 88.
 
 ### Documentation
 
@@ -93,197 +284,6 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   rather than 4,366 and a suite of 1,375 tests rather than 1,320.
   `tests/test_docs_corpus_figures.py` now ties the prose to
   `doctest-corpus-stats.md` -- it caught a wrong number on its first run.
-
-
-### Fixed
-
-- **Two clients could have composed to one storage key.** Keys are
-  `scope::name`, and the default workspace keys on the bare scope, so
-  `key_for("A", "x")` and `key_for("A::x", "default")` both produced `A::x` --
-  one client's named workspace and another's default, sharing a worker and its
-  namespace. Not reachable: the scope is the MCP session id, fastmcp issues a
-  hex UUID and refuses a client-supplied `Mcp-Session-Id` with 404 (measured).
-  But that invariant belongs to a dependency and was asserted nowhere here,
-  guarding the only thing the key scheme exists to do. The scope is now
-  checked; every existing key shape and journal filename is unchanged. See
-  REVIEW_ACTIONS 93.
-
-### Added
-
-- **A structural guard for helpers, not just tools.** The test that keeps
-  caller strings out of generated code walked only `@tool`-decorated
-  functions, so a tool handing a string to a helper that interpolates it was
-  invisible -- and generated code runs under `trusted_policy()`. Four helpers
-  interpolate a parameter and all four are safe (three are prompts producing
-  text; `_savefig_snippet` takes a dict lookup behind a `Literal`), but a
-  fifth would have been found the hard way. Also fuzzes the two codegen gates
-  that had not been: `_validated_identifier` and `_encode_literal`.
-
-
-### Changed
-
-- **`latex` is callable but not reachable into.** It is not a function but an
-  object with thirteen public attributes, four of which run a LaTeX
-  toolchain -- `latex.has_file` ran `call("kpsewhich %s" % name, shell=True)`
-  as the container user on 10.9. Those four were refused by name and the other
-  nine accepted, which is the enumeration shape item 79 had to abandon for the
-  `sage` tree: the list is only ever as good as the members someone thought
-  of. Attribute access on `latex` is now deny-by-default. `latex(expr)` is
-  untouched -- the corpus calls it 1,408 times -- and the change costs 48
-  examples, all typesetting rather than mathematics (98.9037% → 98.8908%,
-  floor 98.50%). **This reverses a prior deliberate relaxation:** the two
-  methods `latex.extra_preamble()` and `latex.matrix_delimiters(...)` used to
-  validate. See REVIEW_ACTIONS 92.
-
-### Fixed
-
-- **The documentation said `latex` was blocked; it was offered.** `USAGE.md`
-  listed it among names that "write, fetch or display" and `ROADMAP.md`
-  promised callers "no `show`/`latex`/`html`". Checked name by name, ten of
-  the eleven in that list were accurate and `latex` was the exception -- and
-  the false claim had survived long enough to be cited as the reason for a
-  curation decision in the previous release. Both documents now describe what
-  the policy does, and a test fails if they drift back.
-
-- **A star export handed back a call-only name.** The new rule exempted any
-  name the caller had bound, on the shadowing principle that `latex = 1` makes
-  the attributes yours. But a star export binds the *real* object, and
-  `sage.schemes.toric.fano_variety` is on the curated list and re-exports
-  `latex` -- so `from sage.schemes.toric.fano_variety import *` followed by
-  `latex.engine` returned the genuine bound method. The exemption is now for
-  names the caller **assigned**, which is what owning a value means.
-
-
-### Fixed
-
-- **A malformed protocol frame killed the session.** The worker's loop went
-  straight to `message.get("type")`, so any well-formed JSON that is not an
-  object -- `[]`, `"s"`, `3`, `null`, `true` -- raised an uncaught
-  `AttributeError` and the loop died, discarding every variable in the
-  session and leaving the parent a closed pipe with no reason.
-  `{"type": "execute"}` with no `code` did the same through a `KeyError`.
-  Frames come from `session.py`, so this was not reachable from a caller; it
-  was one bug in that file away from a dead session with no diagnosis.
-  Parsing is now a pure `_read_frame` that answers instead of raising. See
-  REVIEW_ACTIONS 91.
-
-### Added
-
-- **Fuzzing for the codegen gates and the worker protocol**, the two security
-  surfaces the first campaign did not reach. The codegen gates are the
-  higher-consequence one -- generated templates run under `trusted_policy()`,
-  which permits `sage_eval` -- and two of the three return text interpolated
-  **verbatim** into generated code, so the harness checks structure: no
-  newline, no added statement, no call the fragment did not itself bring.
-  150,000 fragments, clean. The import rewriter gained thirteen import shapes
-  in the existing campaign (214,844 programs, clean) plus property tests that
-  a star expands to exactly the screened names. All three harnesses run in CI
-  on changes to `security.py`, `codegen.py` or `_sage_worker.py`, and a test
-  fails if a harness exists that CI never runs.
-
-
-### Security
-
-- **`del` counted as binding a name, which bought the allowlist exemption.**
-  `_bound_names` treated `ast.Del` as creating a name, and it walks
-  unreachable code, so `if False: del eval` followed by `eval("1")`
-  validated -- item 37's trap, closed for the `sage` root and left open for
-  every other name. Thirteen names were reachable this way, including `os`,
-  `sys`, `subprocess` and `pickle`. **None of them executed:** the namespace
-  scrub and the restricted builtins are the second lock and both held, which
-  is the layering `SECURITY.md` describes. The first lock is supposed to hold
-  too. Found by a new generative fuzz campaign over `validate_code`, not by
-  review. See REVIEW_ACTIONS 90.
-
-### Fixed
-
-- **`del Integer` broke arithmetic for the rest of the session.** Deleting a
-  name the server provides was accepted, and the namespace persists between
-  calls -- so after one `del Integer`, `2 + 2` failed with a `NameError`,
-  because the Sage preparser rewrites every integer literal to `Integer(...)`.
-  `del x` removed a predefined symbol. Deleting a provided name is now
-  refused, with a message naming the assignment to use instead; deleting your
-  own variables is unchanged. The asymmetry is deliberate: assignment shadows
-  a name, deletion removes it. Costs 23 corpus examples, all doctests tidying
-  up a local they had just assigned (98.9098% → 98.9037%, floor 98.50%).
-
-### Added
-
-- **Continuous fuzzing of the AST policy.** `fuzz/fuzz_validate.py` asserts
-  that `validate_code` never raises anything but `SecurityViolation` and never
-  accepts a denied name in a read position, checked against the **parsed
-  tree** rather than the source text -- the first campaign to skip that
-  reported `f'{{name}}'` as a bypass, which is a literal brace with no name in
-  it. It runs on the Python the package requires -- 50,000 programs per pull
-  request touching the policy, two million weekly. ClusterFuzzLite was wired
-  up first and removed the same day: its base image ships Python 3.11, and
-  PEP 701 rewrote f-string parsing in 3.12, so a coverage-guided run there
-  would face a different parser for the very construct that produced this
-  campaign's one false positive. `tests/test_security_property.py` now
-  builds its contexts instead of listing seven of them, and
-  `tests/test_fuzz_harness.py` checks the target's oracles fire on planted
-  holes, because a fuzz target that cannot fail is worse than none.
-
-
-### Changed
-
-- **`sage.<module>.<name>` is accepted where the module is already a permitted
-  star export.** Item 79 refused every attribute chain rooted at `sage` to
-  close a sandbox escape, and that root refusal stays. What changes is a
-  spelling: `from sage.rings.ideal import *` was already permitted -- the
-  module passes the star-export screen as a whole -- and already binds
-  `Katsura`, so `sage.rings.ideal.Katsura` names the same object by a longer
-  path and grants nothing new. One table authorizes both forms, so they cannot
-  drift apart. Thirteen modules were screened and admitted; `sage.env`,
-  `sage.symbolic.constants` and `sage.manifolds.utilities` screened clean and
-  were excluded by curation -- `sage.env` exports 75 filesystem paths, which is
-  the clearest reminder yet that a clean screen is a floor and not the
-  decision. Corpus acceptance 98.8340% → **98.9098%** (284 examples), floor
-  98.50%.
-
-### Fixed
-
-- **A refusal that told callers to do the one thing they could not.** The
-  module-reach rule said "name the function directly" for every chain, and the
-  ceiling beside it recorded as settled fact that "every one of them has a
-  direct spelling". Measured for the first time: of the 1,090 examples it
-  refuses, **835 reach a leaf offered under no spelling at all** —
-  `sage.rings.ideal.Katsura` is mathematics, and there was no `Katsura` to
-  name. The message is now conditional: it names the spelling when one exists
-  (`name the function directly: 'ZZ'`) and says plainly when none does. The
-  one ceiling became three, counting three different things, so the false
-  claim cannot re-form inside a number sized for something else. See
-  REVIEW_ACTIONS 89.
-
-
-### Added
-
-- **A documented, tested way to check a release.** Three badges claimed cosign
-  signing and SLSA provenance, and `SECURITY.md`'s threat model listed
-  "verify signed release images" as a mitigation, but nothing said how --
-  which matters more than usual here, because keyless verification fails
-  outright without `--certificate-identity*`, and the pattern that makes that
-  error go away fastest is `.*`, which passes for every identity Sigstore has
-  ever issued. `SECURITY.md` gains *Verifying a release* with commands for the
-  image signature and both provenance attestations, each run against the
-  published v0.8.3 first, and the signing badges now link to it instead of to
-  the workflow source. `tests/test_release_verification.py` applies the
-  documented signer pattern to a real release identity and to four it must
-  reject, so a loosened pattern fails review.
-
-### Fixed
-
-- **Releases published only `vX.Y.Z` and `latest`.** `docker/metadata-action`
-  ran on its defaults in both image jobs, so there was no `0.8.3` to pin a
-  deployment to and no `0.8` to track for security patches -- while the chart's
-  own comment tells operators to prefer a release tag over `latest`. Both jobs
-  now ask for the semver tags, and `scripts/check_image_tags.py` fails the
-  release between the metadata step and the push if any required tag is
-  missing. The shortfall was invisible from the repository and only observable
-  by pulling, and `type=semver` produces nothing on a branch, so the dry-run
-  dispatch could not have caught it. v0.8.3's own tags were backfilled by hand
-  and verify. See REVIEW_ACTIONS 88.
-
 
 ## [0.8.3] - 2026-09-20
 

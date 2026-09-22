@@ -2,7 +2,7 @@
   "manifest_version": "0.4",
   "name": "sagemath-mcp",
   "display_name": "SageMath",
-  "version": "0.8.3",
+  "version": "0.8.4",
   "description": "Stateful SageMath computations: symbolic calculus, number theory, linear algebra, graphs, groups, elliptic curves, plotting and claim verification.",
   "long_description": "Gives the model a sandboxed mathematical subset of SageMath through 40 tools. Each session gets its own Sage worker, so variables, functions and assumptions persist across tool calls. Caller code is deny-by-default: the breadth of Sage mathematics is reachable, but imports, external computer-algebra interfaces and the file, display and persistence primitives are not.\n\nThe Sage runtime comes from the passagemath distribution and is installed on first launch. That download is roughly 1 GB, so the first start is slow and needs a working network connection; later starts are immediate. For untrusted or multi-tenant use, run the hardened container instead of this bundle: a local install has your user's privileges, while the container adds operating-system isolation.",
   "author": {

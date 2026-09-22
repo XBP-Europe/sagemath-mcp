@@ -16,6 +16,21 @@ updates:
   # the command in its failure message.
   - package-ecosystem: "uv"
     directory: "/"
+    # Do not touch the generated export. Dependabot writes it without the
+    # project's flags -- measured on PR #152, 2,975 requirement lines against
+    # the 2,802 a real export produces -- so what it writes is wrong rather
+    # than merely stale, and the drift test refuses it either way. Excluded,
+    # the file is simply left alone and regenerated deliberately by
+    # `make passagemath-lock`.
+    #
+    # `exclude-paths` shipped in August 2025 and is the documented way to do
+    # this. It may not take effect here: dependabot-core#15102, open since
+    # 2026-05-21, reports the uv ecosystem ignoring it. Setting it costs
+    # nothing and states the intent where the next person will look; the
+    # `Regenerate the passagemath export` workflow is what actually holds,
+    # whether this is honoured or not.
+    exclude-paths:
+      - "requirements-passagemath.txt"
     schedule:
       interval: "weekly"
     groups:

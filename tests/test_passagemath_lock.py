@@ -199,6 +199,33 @@ def test_the_export_is_reachable_by_one_documented_command() -> None:
     )
 
 
+def test_dependabot_is_told_not_to_write_the_export() -> None:
+    """`exclude-paths` is the documented way to keep a bot out of a generated
+    file, and it shipped in August 2025.
+
+    It matters here because what Dependabot writes is *wrong*, not merely
+    stale: measured on #152, 2,975 requirement lines against the 2,802 a real
+    export produces, because it does not know the project's export flags.
+
+    It may not take effect. dependabot-core#15102, open since 2026-05-21,
+    reports the uv ecosystem ignoring `exclude-paths`. Setting it costs
+    nothing and states the intent where the next person looks; the
+    regeneration workflow below is what actually holds either way. This test
+    is about the intent being recorded in the config rather than only in a
+    comment somewhere.
+    """
+    import yaml
+
+    config = yaml.safe_load((ROOT / ".github" / "dependabot.yml").read_text(encoding="utf-8"))
+    python = [u for u in config["updates"] if u["package-ecosystem"] in {"uv", "pip"}]
+    assert python, "no Python ecosystem is configured"
+    excluded = {path for update in python for path in update.get("exclude-paths", [])}
+    assert EXPORTED.name in excluded, (
+        f"{EXPORTED.name} is generated from uv.lock; Dependabot must be told "
+        "not to write it"
+    )
+
+
 def test_the_export_can_be_regenerated_without_a_checkout() -> None:
     """The second half of a dependency bump has to be reachable by someone who
     is not sitting at a clone.

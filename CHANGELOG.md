@@ -32,6 +32,12 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   failure no longer needs a local checkout. It is not a Dependabot event, so
   it runs with an ordinary token -- the alternatives all wanted a stored PAT
   or `pull_request_target`. It refuses to run against the default branch.
+  Dependabot is also told not to write the file at all via `exclude-paths`,
+  which is the documented option for this and which an earlier note in
+  REVIEW_ACTIONS wrongly said did not exist. It may not take effect --
+  dependabot-core#15102 reports the uv ecosystem ignoring it -- so the
+  workflow is what holds. REVIEW_ACTIONS 96 records the five approaches other
+  projects take and why each was not simply copied.
 
 
 ### Changed

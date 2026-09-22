@@ -41,7 +41,10 @@ def test_the_review_item_count_is_current() -> None:
     assert f"{count} items" in roadmap, (
         f"REVIEW_ACTIONS.md holds {count} items; ROADMAP.md does not say so. "
         "Read it off the file rather than editing the prose to a plausible "
-        "number."
+        "number.\n"
+        "Yes, this means adding an item means editing that line. That is the "
+        "cost of the number being true, and it is one line against a count "
+        "that was wrong by a factor of three when nothing checked it."
     )
 
 

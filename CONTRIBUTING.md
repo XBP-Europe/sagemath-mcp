@@ -62,6 +62,14 @@ code, so they are listed here rather than discovered.
 - **Every tool must be documented.** A tool absent from `USAGE.md` and
   `README.md` fails `tests/test_tool_inventory.py`. The usage table drifted by
   four tools once, including the one the same page recommends in prose.
+- **A dependency bump has two steps.** Dependabot updates `pyproject.toml`
+  and `uv.lock` through the `uv` ecosystem. `requirements-passagemath.txt` is
+  a *generated export* of that lock, installed by `Dockerfile.passagemath`
+  with `--require-hashes`, and it does not update itself: run
+  `make passagemath-lock` and commit the result.
+  `tests/test_passagemath_lock.py` fails until you do, and names the command.
+  It is committed rather than generated at build time on purpose — a reviewer
+  can read the exact pinned set in the diff.
 - **Actions are pinned to a commit, with the version in a comment.** A tag is
   mutable, and a job here holds the secrets that publish to PyPI and GHCR.
   `tests/test_workflow_pins.py` fails on a mutable ref, and on a bare hash

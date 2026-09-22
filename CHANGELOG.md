@@ -7,6 +7,21 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Every Dependabot Python PR was red for the same structural reason.**
+  `requirements-passagemath.txt` is a generated export of `uv.lock`, and the
+  `pip` ecosystem scans `requirements*.txt` -- so Dependabot edited the
+  derived file without touching the lock, contradicting it and failing the
+  drift test every time (#141, #144, #150). The update was meaningless on its
+  own terms, too: changing the export while the lock stands still makes the
+  image install a set the lock does not describe. Python is now managed
+  through the **`uv` ecosystem**, which updates `pyproject.toml` and
+  `uv.lock`. A dependency bump has a documented second step,
+  `make passagemath-lock`, and `CONTRIBUTING.md` says so. See
+  REVIEW_ACTIONS 96.
+
+
 ### Changed
 
 - **The monitoring redaction is an allowlist, not a denylist.**

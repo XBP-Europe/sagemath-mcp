@@ -5922,14 +5922,32 @@ GitHub release -- so deleting and re-cutting it at the fixed commit was
 available, and is what happened. The images pushed by the failed run are
 superseded by the re-run's.
 
+### A second bug in the same step, found by the dry run
+
+With the checkout added, the dispatch was run before touching the tag -- and
+failed in the same job for a different reason:
+
+    check_image_tags.py: error: argument --suffix: expected one argument
+
+The step passed `--suffix "$SUFFIX"`, and on the passagemath job that value is
+`-passagemath`. argparse reads a leading dash as an option name, not a value,
+and exits 2. The missing checkout had been failing first, so this had never
+been reached.
+
+Two independent bugs in one step, neither of which a reading caught, both of
+which the dispatch would have caught the day the step was written. The fix is
+the `--suffix=` form, which binds the value whatever it starts with, and a
+test that exercises the parser rather than trusting the shell quoting to be
+read correctly by eye.
+
 ### The lesson worth keeping
 
 A guard that fails the release is only better than no guard if it fails for
 the right reason. This one had the right intent -- item 88's short tag set was
 real -- and shipped without being run once. The dry-run dispatch is not
 optional decoration; it is the only thing that exercises the publish path
-without a tag, and skipping it is what turned a missing step into a broken
-release.
+without a tag, and skipping it is what turned two small mistakes into a broken
+release. Running it found the second one in eleven minutes.
 
 ### Status
 

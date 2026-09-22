@@ -17,7 +17,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   skipped behind it. The images reached GHCR and PyPI never received 0.8.4.
   The job now checks out, and a test fails when any job runs a repository
   command without one. The dry-run dispatch exists to catch exactly this and
-  was not run. See REVIEW_ACTIONS 98.
+  was not run -- running it then found a *second* bug in the same step, which
+  the first had been hiding: `--suffix "$SUFFIX"` passes `-passagemath`, and
+  argparse reads a leading dash as an option name. Both are fixed, both have
+  tests. See REVIEW_ACTIONS 98.
 
 
 ## [0.8.4] - 2026-09-22

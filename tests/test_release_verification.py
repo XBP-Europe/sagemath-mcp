@@ -131,3 +131,50 @@ def test_the_recipe_warns_that_gh_prints_nothing_when_piped() -> None:
     # pass vacuously once, which is the worse direction.
     prose = " ".join(SECURITY.lower().split())
     assert "read the exit status, not the output" in prose
+
+
+def test_the_tag_guard_accepts_a_suffix_that_starts_with_a_dash() -> None:
+    """`-passagemath` looks like an option to argparse.
+
+    The workflow passed `--suffix "$SUFFIX"`, and on the passagemath job that
+    is `--suffix -passagemath`, which argparse rejects with
+    "expected one argument" and exit code 2. It failed the v0.8.4 release a
+    second time, behind the missing checkout (REVIEW_ACTIONS 98).
+
+    The fix is the `--suffix=` form, which binds the value whatever it starts
+    with. This exercises the parser directly rather than trusting the shell
+    quoting to be read correctly by eye.
+    """
+    import io
+    import sys
+
+    from check_image_tags import main
+
+    argv = [
+        "--image",
+        "ghcr.io/example/app",
+        "--ref-name",
+        "v1.2.3",
+        "--suffix=-passagemath",
+    ]
+    stdin = sys.stdin
+    sys.stdin = io.StringIO(
+        "\n".join(
+            f"ghcr.io/example/app:{tag}-passagemath"
+            for tag in ("v1.2.3", "1.2.3", "1.2", "latest")
+        )
+    )
+    try:
+        assert main(argv) == 0
+    finally:
+        sys.stdin = stdin
+
+
+def test_the_workflow_binds_the_suffix_with_an_equals_sign() -> None:
+    """Both call sites, because only one of them passes a value that starts
+    with a dash and the other would look fine forever."""
+    assert '--suffix "' not in WORKFLOW, (
+        "a space-separated --suffix breaks on the passagemath job, whose value "
+        "starts with a dash; use --suffix=\"$SUFFIX\""
+    )
+    assert WORKFLOW.count('--suffix="${SUFFIX:-}"') == 2

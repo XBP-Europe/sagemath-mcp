@@ -5813,3 +5813,59 @@ writing a file it gets wrong. The workflow is what holds either way.
 
 Fixed 2026-09-22. Coherence in #151, the export in #153, the record in #154,
 the friction and `exclude-paths` here.
+
+## 97. ROADMAP said 34 review items; there were 93 — low — DONE
+
+### What was wrong
+
+`ROADMAP.md`:
+
+> The 2026-08-13 review and the security rounds that followed are all recorded
+> in REVIEW_ACTIONS.md — **34 items**, each with its reproduction, fix and
+> regression test. **All are closed.**
+
+There are 93, numbered to 96. Two are not closed, and deliberately so: item 8
+is *accepted* (a client routing two questions to `evaluate_sage` rather than a
+specialised tool) and item 9 is *deferred* (a Jupyter kernel question).
+
+Wrong by nearly a factor of three, and wrong in the direction that flatters. A
+reader takes "34, all closed" as a finished piece of work; the file is a
+running ledger that has grown by 59 items since, most of them security. And a
+blanket "all are closed" erases two deliberate decisions rather than a
+backlog -- the accepted and the deferred read as oversights once they are
+counted as done.
+
+### Why it survived
+
+Nothing derives it. The corpus figures had the same problem and were fixed in
+item 94, but the tests added there only cover acceptance percentages and
+refusal counts -- the class was treated as "these numbers" rather than
+"numbers nothing regenerates", which is what it actually is.
+
+### The fix
+
+`tests/test_docs_counts.py` derives the count from the headings in
+`REVIEW_ACTIONS.md` and fails when the prose disagrees, and separately fails
+if the prose claims every item is closed while any is not.
+
+It also checks the tool count, which appears in four documents at once
+(`README.md`, `CLAUDE.md`, `USAGE.md`, `INSTALLATION.md`): a tool added
+without touching the prose would leave four numbers wrong together. The
+authority is `tests/fixtures/tool_inventory.json`, the snapshot that is
+already regenerated deliberately and reviewed in its diff.
+
+A count inside a sentence that dates itself is left alone, on the same terms
+the superseded corpus figures got in item 94 -- `ROADMAP.md` keeps a
+2026-08-13 competitive snapshot at 37 tools, and that is history rather than a
+claim about today.
+
+### How to verify
+
+Planting `34 items` fails `test_the_review_item_count_is_current`, checked by
+doing it. The date-exemption logic was verified directly against fabricated
+text: an undated wrong count fails, a dated one passes, and a date more than
+the window away does not rescue it.
+
+### Status
+
+Fixed 2026-09-22.

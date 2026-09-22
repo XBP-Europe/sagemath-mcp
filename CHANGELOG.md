@@ -9,6 +9,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`ROADMAP.md` said `REVIEW_ACTIONS.md` held 34 items, all closed.** It
+  holds 93, numbered to 96, and two are open on purpose -- item 8 accepted,
+  item 9 deferred. Wrong by nearly a factor of three and in the flattering
+  direction: a reader takes "34, all closed" as finished work rather than a
+  running ledger, and "all closed" turns two deliberate decisions into
+  oversights. `tests/test_docs_counts.py` now derives the count from the file
+  and checks the tool count, which appears in four documents at once. See
+  REVIEW_ACTIONS 97.
+
+
+### Fixed
+
 - **Every Dependabot Python PR was red for the same structural reason.**
   `requirements-passagemath.txt` is a generated export of `uv.lock`, and the
   `pip` ecosystem scans `requirements*.txt` -- so Dependabot edited the

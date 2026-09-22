@@ -7,6 +7,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The v0.8.4 release failed on a guard added in 0.8.4 itself.**
+  `docker-passagemath-manifest` assembles an index from already-pushed images
+  and has never checked the repository out; the tag guard from REVIEW_ACTIONS
+  88 called `scripts/check_image_tags.py` into an empty working directory, so
+  the job exited 2 and `publish`, `github-release` and `mcp-registry` were
+  skipped behind it. The images reached GHCR and PyPI never received 0.8.4.
+  The job now checks out, and a test fails when any job runs a repository
+  command without one. The dry-run dispatch exists to catch exactly this and
+  was not run. See REVIEW_ACTIONS 98.
+
+
 ## [0.8.4] - 2026-09-22
 
 **A security release, and the first one found mostly by machine.**

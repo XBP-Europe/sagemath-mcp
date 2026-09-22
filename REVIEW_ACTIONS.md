@@ -5773,7 +5773,43 @@ a click on a workflow rather than a local checkout, and the failing test, the
 Makefile and the workflow all name the same command. That is the honest shape
 of the trade -- the alternative was a standing credential.
 
+### What everyone else does
+
+Researched rather than assumed, because a problem this ordinary is unlikely to
+be unsolved. Five patterns, and the reason each was not simply copied:
+
+1. **A workflow that commits to the branch, with a PAT.** The common
+   Dependabot answer, and the one browniebroke.com documents for exactly this
+   file pair. The PAT is needed twice: to push, and because a push made with
+   `GITHUB_TOKEN` does not re-trigger CI. That post names the cost itself --
+   "isn't ideal". A standing credential in a repository whose release job
+   publishes to PyPI and GHCR is a poor trade for a weekly minute.
+2. **A drift gate and a manual fix.** `uv lock && git diff --exit-code`.
+   This is what we had.
+3. **`exclude-paths`.** GitHub's documented answer, shipped August 2025, and
+   I had told the owner no such option existed -- read off a docs page that
+   does not mention it. Now set. Caveat below.
+4. **pre-commit plus pre-commit.ci autofix.** Pushes to pull requests without
+   a PAT, which is genuinely better than (1). One public report describes it
+   failing in this exact shape: the export hook regenerates from the unchanged
+   lock and reverts the pull request's only edit. It also means another
+   service with write access.
+5. **Renovate.** The tool-level answer: it understands `uv.lock` natively and
+   `postUpgradeTasks` can regenerate a derived file. Two blockers here --
+   `postUpgradeTasks` is self-hosted-only on the Mend-hosted app, and
+   Renovate's `pip_requirements` manager does not regenerate
+   `--generate-hashes` output reliably, which is the one property this file
+   exists for.
+
+So the `workflow_dispatch` is (1) without the credential, paying for it in a
+click. That is the trade taken knowingly.
+
+**The `exclude-paths` caveat.** dependabot-core#15102, open since 2026-05-21,
+reports the uv ecosystem ignoring the option. It is set anyway: it costs
+nothing, it is the documented intent, and if it is honoured Dependabot stops
+writing a file it gets wrong. The workflow is what holds either way.
+
 ### Status
 
 Fixed 2026-09-22. Coherence in #151, the export in #153, the record in #154,
-and the remaining friction reduced rather than removed here.
+the friction and `exclude-paths` here.

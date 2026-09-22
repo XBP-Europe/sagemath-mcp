@@ -63,3 +63,39 @@ def test_every_pin_records_the_version_it_came_from(workflow: Path) -> None:
     assert not missing, (
         f"{workflow.name} pins a commit with no version comment:\n  " + "\n  ".join(missing)
     )
+
+
+def test_every_job_that_runs_a_repository_script_checks_the_repository_out() -> None:
+    """A job that calls `scripts/…` or `make` needs a working tree.
+
+    `docker-passagemath-manifest` assembles an index from images another job
+    already pushed, so it needs no source to *build* — and the tag guard added
+    in #130 put a `python3 scripts/check_image_tags.py` in it anyway. There
+    was no checkout, the script was not there, the job exited 2, and
+    `publish`, `github-release` and `mcp-registry` were skipped behind it.
+    v0.8.4 reached GHCR and never reached PyPI (REVIEW_ACTIONS 98).
+
+    Nothing caught it because the guard reads as configuration rather than as
+    code, and a job that needs no source to build does not obviously need a
+    checkout.
+    """
+    import yaml
+
+    uses_tree = re.compile(r"\b(?:python3?\s+)?scripts/[\w./-]+|^\s*make\s+[a-z]", re.MULTILINE)
+    offenders: list[str] = []
+    for workflow in WORKFLOWS:
+        config = yaml.safe_load(workflow.read_text(encoding="utf-8"))
+        for job_name, job in (config.get("jobs") or {}).items():
+            steps = job.get("steps") or []
+            checks_out = any("actions/checkout" in str(step.get("uses", "")) for step in steps)
+            if checks_out:
+                continue
+            for step in steps:
+                run = step.get("run") or ""
+                if uses_tree.search(run):
+                    offenders.append(
+                        f"{workflow.name}:{job_name} runs a repository command "
+                        "with no checkout"
+                    )
+                    break
+    assert not offenders, "\n  ".join(["", *offenders])

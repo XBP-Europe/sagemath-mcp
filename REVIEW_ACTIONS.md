@@ -5869,3 +5869,68 @@ the window away does not rescue it.
 ### Status
 
 Fixed 2026-09-22.
+
+## 98. The v0.8.4 release failed on a guard I added — medium — DONE
+
+### What happened
+
+`v0.8.4` was tagged, the release ran, and `docker-passagemath-manifest` exited
+2:
+
+    python3: can't open file '.../scripts/check_image_tags.py': No such file
+
+That job assembles a multi-arch index from images another job already pushed.
+It needs no source to build, so it has never checked the repository out. Item
+88 put a `python3 scripts/check_image_tags.py` guard in it anyway, into an
+empty working directory.
+
+`publish`, `github-release` and `mcp-registry` all run behind that job, so all
+three were skipped. The release ended half-published: the primary image and
+both per-arch passagemath images reached GHCR, and **PyPI never received
+0.8.4** and no GitHub release was created.
+
+Mine, introduced in #130, and the first release to run it -- #130 merged after
+v0.8.3 was tagged.
+
+### Why nothing caught it
+
+Three layers each had a reason not to:
+
+- **The dry-run dispatch exists for exactly this** and I never ran one. The
+  guard has no `if: DO_PUSH` condition, so a dispatch would have failed on it
+  in the same place, for free, before the tag existed.
+- **No test looked.** The guard reads as configuration rather than as code,
+  and a job that needs no source to *build* does not obviously need a
+  checkout.
+- **Review did not, because I wrote it and merged it.** Scorecard's
+  Code-Review check has been 0/10 for this repository the whole time, and this
+  is the first instance where that scored zero and something broke.
+
+### The fix
+
+`actions/checkout` added to the job, with the reason written next to it --
+otherwise it reads as a redundant step in a job that builds nothing.
+
+`tests/test_workflow_pins.py::test_every_job_that_runs_a_repository_script_checks_the_repository_out`
+fails when any job runs a `scripts/…` or `make` command without a checkout.
+Verified by removing the checkout again and watching it fail.
+
+### What it cost
+
+The tag had to be moved. Nothing had consumed `v0.8.4` -- no PyPI file, no
+GitHub release -- so deleting and re-cutting it at the fixed commit was
+available, and is what happened. The images pushed by the failed run are
+superseded by the re-run's.
+
+### The lesson worth keeping
+
+A guard that fails the release is only better than no guard if it fails for
+the right reason. This one had the right intent -- item 88's short tag set was
+real -- and shipped without being run once. The dry-run dispatch is not
+optional decoration; it is the only thing that exercises the publish path
+without a tag, and skipping it is what turned a missing step into a broken
+release.
+
+### Status
+
+Fixed 2026-09-22.

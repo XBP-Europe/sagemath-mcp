@@ -91,7 +91,19 @@ def test_the_workflow_asks_for_the_tags_the_guard_requires() -> None:
     configured to meet it, in both image jobs."""
     assert WORKFLOW.count("type=semver,pattern={{version}}") == 2
     assert WORKFLOW.count("type=semver,pattern={{major}}.{{minor}}") == 2
-    assert WORKFLOW.count("scripts/check_image_tags.py") == 2
+    # Invocations, not mentions. This counted occurrences in the file and
+    # broke when a comment named the script -- a test that fails because the
+    # code around it was explained is measuring the wrong thing.
+    import yaml
+
+    config = yaml.safe_load(WORKFLOW)
+    invocations = sum(
+        1
+        for job in config["jobs"].values()
+        for step in (job.get("steps") or [])
+        if "scripts/check_image_tags.py" in (step.get("run") or "")
+    )
+    assert invocations == 2, f"the tag guard runs in {invocations} jobs, expected 2"
 
 
 def test_no_bare_major_tag_is_promised() -> None:

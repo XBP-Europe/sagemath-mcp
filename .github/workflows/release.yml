@@ -522,6 +522,15 @@ jobs:
     env:
       DO_PUSH: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
     steps:
+      # This job assembles an index from images another job already pushed, so
+      # it needs no source to build -- but it does run a repository script,
+      # and without a checkout there is nothing to run. Its absence failed
+      # the v0.8.4 release outright: the tag guard added in #130 called
+      # `scripts/check_image_tags.py` into an empty working directory, the
+      # job exited 2, and `publish`, `github-release` and `mcp-registry` were
+      # skipped behind it (REVIEW_ACTIONS 98).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
       - name: Extract metadata (tags with the -passagemath suffix)
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0

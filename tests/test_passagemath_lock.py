@@ -197,3 +197,36 @@ def test_the_export_is_reachable_by_one_documented_command() -> None:
     assert "make passagemath-lock" in contributing, (
         "CONTRIBUTING.md does not tell a contributor how to regenerate the export"
     )
+
+
+def test_the_export_can_be_regenerated_without_a_checkout() -> None:
+    """The second half of a dependency bump has to be reachable by someone who
+    is not sitting at a clone.
+
+    Nothing that opens a pull request here can regenerate the export.
+    Dependabot writes the file without the project's flags -- 2,975
+    requirement lines against the 2,802 a real export produces, measured on
+    #152 -- and its pull requests run with a read-only token by design, so CI
+    cannot fix it on the branch either without a stored credential.
+
+    `workflow_dispatch` is not a Dependabot event, so it runs with an ordinary
+    token and needs no secret. This fails if that workflow is removed or stops
+    calling the one documented command (REVIEW_ACTIONS 96).
+    """
+    workflow = ROOT / ".github" / "workflows" / "regenerate-export.yml"
+    assert workflow.is_file(), "the one-click export regeneration workflow is missing"
+    text = workflow.read_text(encoding="utf-8")
+    assert "workflow_dispatch" in text
+    assert "make passagemath-lock" in text, (
+        "the workflow must call the same command the Makefile and the failing "
+        "test name, so there is one spelling of it rather than two"
+    )
+    assert "contents: write" in text
+
+
+def test_the_regeneration_workflow_refuses_the_default_branch() -> None:
+    """The export belongs to a change, and a change arrives by pull request.
+    Pushing a regenerated file straight to the default branch would skip the
+    review that committing the file exists to enable."""
+    text = (ROOT / ".github" / "workflows" / "regenerate-export.yml").read_text(encoding="utf-8")
+    assert "default_branch" in text and "exit 1" in text

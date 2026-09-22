@@ -26,6 +26,13 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the 2,802 a real export produces) and has no way to learn them. The
   remaining options are written up in REVIEW_ACTIONS 96.
 
+- **One click for the second half of a dependency bump.** A
+  `workflow_dispatch` workflow runs `make passagemath-lock` on a branch you
+  name and pushes if the file changed, so clearing a Dependabot PR's drift
+  failure no longer needs a local checkout. It is not a Dependabot event, so
+  it runs with an ordinary token -- the alternatives all wanted a stored PAT
+  or `pull_request_target`. It refuses to run against the default branch.
+
 
 ### Changed
 

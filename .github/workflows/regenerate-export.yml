@@ -1,0 +1,93 @@
+name: Regenerate the passagemath export
+
+# One click for the second half of a dependency bump.
+#
+# `requirements-passagemath.txt` is an export of `uv.lock`, installed by
+# `Dockerfile.passagemath` with `--require-hashes`, and it is committed on
+# purpose: a reviewer can read the exact pinned set in the diff. Nothing that
+# opens a pull request here can regenerate it. Dependabot writes the file
+# without the project's export flags -- measured on PR #152, 2,975 requirement
+# lines against the 2,802 a real export produces -- and has no way to learn
+# them, so a Dependabot Python PR is red on `test_the_export_matches_the_
+# lockfile` until a human runs `make passagemath-lock` on the branch.
+#
+# This is that command, on a branch you name. Four options were written up in
+# REVIEW_ACTIONS 96 and this is the fifth, chosen because it is the only one
+# that costs nothing standing:
+#
+#   - Regenerating from CI on the pull_request event cannot work: Dependabot's
+#     PRs run with a read-only token by design. The routes around it are
+#     `pull_request_target` or a stored PAT, and both leave a credential or an
+#     untrusted-checkout hazard in place permanently to save a weekly minute.
+#   - Running the updates on our own schedule duplicates Dependabot and hits a
+#     second problem: a pull request opened with `GITHUB_TOKEN` does not
+#     trigger other workflows, so it would arrive unchecked.
+#   - Dropping the committed export removes the drift class and the
+#     reviewability that justified committing it.
+#
+# `workflow_dispatch` is not a Dependabot event, so this runs with an ordinary
+# `GITHUB_TOKEN` and needs no secret at all.
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to regenerate the export on (e.g. dependabot/uv/python-deps-abc123)"
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  regenerate:
+    name: Export from the lock
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Refuse to rewrite the default branch
+        # The export belongs to a change, and a change arrives by pull
+        # request. Pushing a regenerated file straight to main would skip the
+        # review this file exists to enable.
+        env:
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          if [ "$BRANCH" = "${{ github.event.repository.default_branch }}" ]; then
+            echo "::error title=Refused::Run this on the pull request's branch, not the default branch."
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.branch }}
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Export from the lock
+        # The same command the Makefile and the failing test both name, so
+        # there is one spelling of this and not two.
+        run: make passagemath-lock
+
+      - name: Commit if it changed
+        env:
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          if git diff --quiet -- requirements-passagemath.txt; then
+            echo "::notice title=Already current::The export already matches uv.lock; nothing to do."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add requirements-passagemath.txt
+          git commit -m "Regenerate requirements-passagemath.txt from uv.lock
+
+          Dependabot writes this file without the project's export flags, so
+          its version never matches. Regenerated with \`make passagemath-lock\`
+          (REVIEW_ACTIONS 96)."
+          git push origin "HEAD:$BRANCH"
+          echo "::notice title=Pushed::The export now matches uv.lock on $BRANCH."

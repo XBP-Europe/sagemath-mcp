@@ -5750,9 +5750,30 @@ The options, none of them free:
 - **Stop committing the export.** Removes the class, loses the reviewability
   that made committing it worth doing.
 
-Unresolved deliberately: each of these trades something real, and the choice
-is the repository owner's rather than mine.
+### Settled, with a fifth option
+
+The four above were the ones on the table, and each pays permanently for a
+weekly minute. The friction is really "check out the branch and run one
+command", so the answer is to make that one click rather than to restructure
+what the file is.
+
+`.github/workflows/regenerate-export.yml` takes a branch name, runs
+`make passagemath-lock` on it, and pushes if the file changed.
+`workflow_dispatch` is **not** a Dependabot event, so it runs with an ordinary
+`GITHUB_TOKEN` -- no stored PAT, no `pull_request_target`, no untrusted
+checkout, and no secret of any kind. Dependabot stays exactly as it is.
+
+It refuses to run against the default branch: the export belongs to a change,
+a change arrives by pull request, and pushing a regenerated file straight to
+`main` would skip the review that committing the file exists to enable.
+
+What this does not do is make the red go away on its own. A Dependabot Python
+PR still arrives failing that one test; the difference is that clearing it is
+a click on a workflow rather than a local checkout, and the failing test, the
+Makefile and the workflow all name the same command. That is the honest shape
+of the trade -- the alternative was a standing credential.
 
 ### Status
 
-Partially fixed 2026-09-22. Coherence yes; the recurring red no.
+Fixed 2026-09-22. Coherence in #151, the export in #153, the record in #154,
+and the remaining friction reduced rather than removed here.

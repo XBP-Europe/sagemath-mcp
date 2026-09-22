@@ -70,6 +70,13 @@ code, so they are listed here rather than discovered.
   `tests/test_passagemath_lock.py` fails until you do, and names the command.
   It is committed rather than generated at build time on purpose — a reviewer
   can read the exact pinned set in the diff.
+
+  **This applies to Dependabot's PRs too**, and they cannot do it themselves:
+  Dependabot regenerates the export without the project's flags, so its
+  version never matches. Expect a Dependabot Python PR to be red on that one
+  test until someone checks the branch out and runs the command. If the PR is
+  otherwise unwanted, #153 is the pattern for doing the whole bump by hand
+  instead.
 - **Actions are pinned to a commit, with the version in a comment.** A tag is
   mutable, and a job here holds the secrets that publish to PyPI and GHCR.
   `tests/test_workflow_pins.py` fails on a mutable ref, and on a bare hash

@@ -40,9 +40,14 @@ legitimate mathematics — which `tests/test_math_coverage.py` exists to catch.
 The live queue is [TODO.md](TODO.md); this section says only what shape it is in.
 
 The 2026-08-13 review and the security rounds that followed are all recorded in
-[REVIEW_ACTIONS.md](REVIEW_ACTIONS.md) — 34 items, each with its reproduction,
-fix and regression test. All are closed; item 7's distribution half resolved on
-2026-08-24 (below).
+[REVIEW_ACTIONS.md](REVIEW_ACTIONS.md) — 93 items, each with its reproduction,
+fix and regression test. All but two are closed: item 8 is *accepted* (a client
+routing two questions to `evaluate_sage` rather than a specialised tool) and
+item 9 is *deferred* (a Jupyter kernel question). Item 7's distribution half
+resolved on 2026-08-24 (below).
+
+That count is derived by `tests/test_docs_counts.py` rather than maintained by
+hand; it said 34 for long enough to be wrong by a factor of nearly three.
 
 **The 2026-09-06 external review is fully worked through** (two rounds, merged in
 PR #61). Every concrete finding is closed, each with a regression test; the

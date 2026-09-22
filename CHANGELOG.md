@@ -7,6 +7,20 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Documentation
+
+- **`SUPPORT.md` now states what this project does not have.** The OpenSSF
+  Scorecard reports `Code-Review 0/10`, and that is accurate rather than a
+  scoring artefact: one account opens and merges everything, including every
+  security fix. `main` requires seven status checks but no approving review,
+  and administrator enforcement is off. The note says so, says what the strict
+  automated gates do and do not buy, and cites the case where it already cost
+  something -- the v0.8.4 release failed twice on a guard written and merged
+  unreviewed, which CI could not catch because the fault was in the release
+  workflow itself. `tests/test_support_claims.py` fails if the disclosure is
+  deleted while nothing changed, or if it overstates the protection.
+
+
 ### Added
 
 - **One command to record the Zenodo DOI.** Issue #92 has been blocked on the

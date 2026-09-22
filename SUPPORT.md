@@ -94,6 +94,38 @@ agreement. If you need one, or need the runtime pinned to a different Sage
 version than the project ships, the maintainers can be reached at
 sagemath-mcp-maintainers@proton.me.
 
+## Code review, and what this project does not have
+
+The OpenSSF Scorecard reports **Code-Review 0/10** for this repository. That
+is accurate, not a scoring artefact, and it is worth stating plainly rather
+than leaving a reader to infer it from a badge.
+
+**No second person reads a change before it lands.** One account opens and
+merges everything, including every security fix. `main` is protected and
+requires seven status checks to pass, but it does not require an approving
+review, and administrator enforcement is off — so the gates are the automated
+ones, and the maintainer can in principle bypass those too.
+
+What that buys, honestly: the automated gates here are unusually strict for a
+project this size. 100% statement and branch coverage is enforced, not
+aspirational. Tool schemas and descriptions are snapshotted. The security
+policy is fuzzed on five surfaces. Every security fix is written test-first,
+verified against real SageMath, and recorded in
+[REVIEW_ACTIONS.md](REVIEW_ACTIONS.md) with its reproduction. Several bugs in
+this project were caught by those gates rather than by anyone reading the
+code.
+
+What it does not buy, and where it has already cost something: **the v0.8.4
+release failed twice on a guard the maintainer wrote and merged unreviewed.**
+CI could not catch it, because the fault was in the release workflow itself,
+which only a tag push or a manual dry run exercises. A second reader might
+have asked "does that job check out the repository?" — and the answer was no.
+That episode is written up as item 98 in `REVIEW_ACTIONS.md`.
+
+If you are evaluating this project for something that matters, weigh that
+directly: the tests are strong and the record is candid, and there is still
+exactly one person deciding what is correct.
+
 ## Good first issues
 
 Issues labelled

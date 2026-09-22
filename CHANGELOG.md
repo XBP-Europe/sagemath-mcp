@@ -18,8 +18,13 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   image install a set the lock does not describe. Python is now managed
   through the **`uv` ecosystem**, which updates `pyproject.toml` and
   `uv.lock`. A dependency bump has a documented second step,
-  `make passagemath-lock`, and `CONTRIBUTING.md` says so. See
-  REVIEW_ACTIONS 96.
+  `make passagemath-lock`, and `CONTRIBUTING.md` says so.
+
+  This fixes the incoherence but **not** the recurring red: the first PR
+  after the switch still failed the drift test, because Dependabot
+  regenerates the export without the project's flags (2,975 lines against
+  the 2,802 a real export produces) and has no way to learn them. The
+  remaining options are written up in REVIEW_ACTIONS 96.
 
 
 ### Changed

@@ -13,9 +13,7 @@ We currently support the latest released version of the `sagemath-mcp` package. 
 Three badges at the top of the README claim this project signs and attests what
 it publishes. Until now none of them said how to check that, which makes a
 signature worth roughly what an unchecked signature is worth. Every command
-below was run end to end against v0.8.3, whose tag scheme and signing identity
-are the ones every release since uses; the version in the examples tracks the
-current release.
+below was run against v0.8.4, the release the examples name.
 
 Keyless Sigstore signatures need the expected signer spelled out. `cosign
 verify` without `--certificate-identity*` refuses to run; with a loose pattern

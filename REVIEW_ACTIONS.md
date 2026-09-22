@@ -5639,3 +5639,80 @@ for the resource.
 ### Status
 
 Fixed 2026-09-21. Unit suite 1,274 at 100% coverage.
+
+## 96. Every Dependabot PR was red for the same structural reason — low — DONE
+
+### What was wrong
+
+`requirements-passagemath.txt` is a **generated export** of `uv.lock`, which
+`Dockerfile.passagemath` installs with `--require-hashes`. Dependabot's `pip`
+ecosystem scans `requirements*.txt`, found that one, and edited it -- without
+touching the lock it derives from.
+
+So every grouped Python update contradicted the lock and failed
+`test_the_export_matches_the_lockfile`. Three in a row: #141, #144, #150.
+
+The update was also meaningless on its own terms. Changing the export while
+the lock stands still does not upgrade anything; it makes the image install a
+set the lock does not describe, which is precisely what that test exists to
+prevent.
+
+### Why it mattered more than the noise
+
+A dependency PR that is always red teaches a reviewer to wave the next one
+through, and the next one is not always harmless: **#141 was lifting the
+`fastmcp<4` cap**, buried among 23 updates. Caught by reading the diff, not
+by the red -- and twice in this sequence the red turned out to be a cancelled
+job rather than a test failure, so the signal was not even reliably a signal.
+
+### The fix
+
+Dependabot now manages Python through the **`uv` ecosystem**, which updates
+`pyproject.toml` and `uv.lock` -- where a version actually lives here. The
+`pip` ecosystem is gone, so nothing edits the derived file.
+
+The export still needs regenerating after a lock change, by one documented
+command:
+
+    make passagemath-lock
+
+The drift test names it in its failure message, and `CONTRIBUTING.md` now
+says a dependency bump has two steps.
+
+### What was deliberately not done
+
+Generating the export during the image build would remove the drift class
+entirely, and was rejected: committing it is what lets a reviewer read the
+exact pinned set in the diff, which is a supply-chain property worth more
+than the convenience. `--require-hashes` against a file nobody can see in
+review is a weaker guarantee than the same flag against one they can.
+
+Auto-committing the regenerated export onto Dependabot branches was also
+rejected for now. It needs a workflow with `contents: write` reacting to
+Dependabot, and the token Dependabot PRs run with is read-only by design;
+the routes around that are `pull_request_target` or a stored PAT, both of
+which trade a weekly chore for a standing credential.
+
+### A test of mine that broke on this
+
+`test_the_fastmcp_cap_covers_both_packages`, added the day before, looked the
+ecosystem up by the literal name `"pip"` and raised `StopIteration` once it
+was gone -- so it stopped checking the caps it exists to check. It now selects
+by what an ecosystem manages rather than by one spelling. Breaking loudly was
+the better failure of the two available, but neither was intended.
+
+### How to verify
+
+`tests/test_passagemath_lock.py` --
+`test_dependabot_updates_the_lock_and_not_the_generated_export` asserts the
+`uv` ecosystem is configured and `pip` is not, and
+`test_the_export_is_reachable_by_one_documented_command` fails if the Makefile
+target or the CONTRIBUTING line disappears, since a command that only exists
+inside a failing test's message is not documentation.
+
+The config was validated against the SchemaStore dependabot schema: `uv` is
+among the 33 permitted ecosystems.
+
+### Status
+
+Fixed 2026-09-22.

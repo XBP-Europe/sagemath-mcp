@@ -1,6 +1,20 @@
 version: 2
 updates:
-  - package-ecosystem: "pip"
+  # `uv`, not `pip`. The pip ecosystem scans `requirements*.txt`, and the only
+  # one here -- `requirements-passagemath.txt` -- is a *generated export* of
+  # `uv.lock` that `Dockerfile.passagemath` installs with `--require-hashes`.
+  # Dependabot edited that file without touching the lock it derives from, so
+  # every grouped update contradicted the lock and failed
+  # `test_the_export_matches_the_lockfile`: PRs #141, #144 and #150, all red
+  # for the same structural reason. A dependency PR that is always red is
+  # worse than none, because it trains a reviewer to wave the next one
+  # through -- and #141 was lifting the fastmcp cap.
+  #
+  # The uv ecosystem updates `pyproject.toml` and `uv.lock`, which is where a
+  # version actually lives here. The export is then regenerated with
+  # `make passagemath-lock`; CONTRIBUTING.md says so, and the drift test names
+  # the command in its failure message.
+  - package-ecosystem: "uv"
     directory: "/"
     schedule:
       interval: "weekly"

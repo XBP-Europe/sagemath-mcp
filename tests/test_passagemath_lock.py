@@ -125,10 +125,21 @@ def test_the_fastmcp_cap_covers_both_packages() -> None:
     import yaml
 
     config = yaml.safe_load((ROOT / ".github" / "dependabot.yml").read_text(encoding="utf-8"))
-    pip = next(u for u in config["updates"] if u["package-ecosystem"] == "pip")
+    # By what it manages, not by one ecosystem name: this test named "pip",
+    # and item 96 moved Python to the `uv` ecosystem, so it raised
+    # StopIteration instead of checking the caps it exists to check. A test
+    # that breaks on a rename is better than one that silently passes, but
+    # neither is what was wanted here.
+    python = [
+        update
+        for update in config["updates"]
+        if update["package-ecosystem"] in {"uv", "pip", "poetry", "pip-compile"}
+    ]
+    assert python, "no Python ecosystem is configured for Dependabot"
     ignored = {
         entry["dependency-name"]
-        for entry in pip.get("ignore", [])
+        for update in python
+        for entry in update.get("ignore", [])
         if "version-update:semver-major" in entry.get("update-types", [])
     }
     assert {"fastmcp", "fastmcp-slim"} <= ignored, (
@@ -146,4 +157,43 @@ def test_the_two_fastmcp_packages_are_pinned_together() -> None:
     assert set(versions) == {"fastmcp", "fastmcp-slim"}, versions
     assert versions["fastmcp"] == versions["fastmcp-slim"], (
         f"fastmcp and fastmcp-slim are locked at different versions: {versions}"
+    )
+
+
+def test_dependabot_updates_the_lock_and_not_the_generated_export() -> None:
+    """`requirements-passagemath.txt` is derived, not authored.
+
+    It is exported from `uv.lock` and installed by `Dockerfile.passagemath`
+    with `--require-hashes`. Dependabot's `pip` ecosystem scans
+    `requirements*.txt` and edited it *without* touching the lock, so every
+    grouped update contradicted the lock and failed the drift test above --
+    #141, #144 and #150, all red for the same structural reason.
+
+    A dependency PR that is always red is worse than none: it teaches a
+    reviewer to wave the next one through, and #141 was lifting the fastmcp
+    cap (REVIEW_ACTIONS 96).
+
+    The `uv` ecosystem updates `pyproject.toml` and `uv.lock` instead, which
+    is where a version actually lives here.
+    """
+    import yaml
+
+    config = yaml.safe_load((ROOT / ".github" / "dependabot.yml").read_text(encoding="utf-8"))
+    ecosystems = {update["package-ecosystem"] for update in config["updates"]}
+    assert "uv" in ecosystems, "Python dependencies must be managed through the uv ecosystem"
+    assert "pip" not in ecosystems, (
+        "the pip ecosystem scans requirements*.txt and would edit the generated "
+        "export again; the only requirements file here is derived from uv.lock"
+    )
+
+
+def test_the_export_is_reachable_by_one_documented_command() -> None:
+    """The drift test tells you to run `make passagemath-lock`. That target
+    has to exist, and CONTRIBUTING has to mention it, or the instruction in a
+    failing test is the only place anyone learns it."""
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    assert "\npassagemath-lock:" in makefile
+    contributing = " ".join((ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8").split())
+    assert "make passagemath-lock" in contributing, (
+        "CONTRIBUTING.md does not tell a contributor how to regenerate the export"
     )

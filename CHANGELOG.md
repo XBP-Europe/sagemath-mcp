@@ -7,6 +7,20 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **One command to record the Zenodo DOI.** Issue #92 has been blocked on the
+  GitHub-Zenodo integration; it is now enabled, and Zenodo will mint a concept
+  DOI from the next published release (it does not archive retroactively, so
+  0.8.4 is not covered). `scripts/set_zenodo_doi.py` writes the number into
+  `CITATION.cff`, the README badge, `SUPPORT.md` and `CONTRIBUTING.md` in one
+  go, and `tests/test_zenodo_doi.py` fails if the four ever disagree -- four
+  hand-maintained copies of a number is the shape that drifted in
+  REVIEW_ACTIONS 94 and 97. The tests are meaningful before the DOI exists
+  too: they refuse a placeholder, because a placeholder renders as a real
+  badge and resolves to someone else's record.
+
+
 ### Fixed
 
 - **The v0.8.4 release failed on a guard added in 0.8.4 itself.**

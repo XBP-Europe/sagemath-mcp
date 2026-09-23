@@ -18,15 +18,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Documentation
 
-- **`ROADMAP.md` and `TODO.md` brought up to 0.8.4.** The test snapshot was
-  eleven tests stale, and `TODO.md`'s record of completed work stopped before
-  the fuzzing campaign — so the five surfaces, the four findings and the two
-  that the release itself tripped over were nowhere in the live queue's
-  narrative.
-
-
-### Documentation
-
+- **`TODO.md` and `ROADMAP.md` pruned to open work.** `TODO.md` said
+  completed items were not kept, then carried 600 lines of ticked boxes,
+  release narratives and decided-against ideas; it now holds the five open
+  items. `ROADMAP.md` drops the 2026-08-13 competitive snapshot, the adopted
+  and shipped survey items, and the "not planned" and niche-domain lists,
+  keeping the current state, what is open, the corpus figures and the design
+  notes. Shipped work is already in this file or in `REVIEW_ACTIONS.md`, and
+  the decisions not to do things stay in git history. `REVIEW_ACTIONS.md` is
+  left whole: it is the security record the code and tests cite.
 - **`SUPPORT.md` now states what this project does not have.** The OpenSSF
   Scorecard reports `Code-Review 0/10`, and that is accurate rather than a
   scoring artefact: one account opens and merges everything, including every

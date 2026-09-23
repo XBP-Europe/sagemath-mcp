@@ -8,9 +8,9 @@ linear algebra, ODEs, number theory, combinatorics, graph theory, group theory,
 elliptic curves, coding theory, boolean algebra, polynomial rings, geometry,
 probability, vector calculus, statistics, 2D/3D plotting, numeric root-finding,
 claim verification (`verify_claim`), incremental streaming, an MCP-level health
-probe and a documentation lookup. As of 2026-09-22 the suite collects 1,454
-tests; 1,288 of them run without Sage, at 100% statement and branch coverage,
-and the rest need the container, where the same 1,454 are collected and the
+probe and a documentation lookup. As of 2026-09-23 the suite collects 1,465
+tests; 1,298 of them run without Sage, at 100% statement and branch coverage,
+and the rest need the container, where the same 1,465 are collected and the
 Sage-only ones stop skipping. The extended CLI cases across Claude, Gemini and
 Codex run locally, since the keys are deliberately not in CI. Counts are a
 snapshot; the coverage floor is the part CI enforces.

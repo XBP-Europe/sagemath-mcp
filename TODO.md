@@ -23,6 +23,11 @@ out of date.
       ignores major bumps of `fastmcp` -- the cap is a reproduced regression,
       not staleness, and a weekly PR to undo it is noise that will eventually
       be merged by accident.
+      **Re-checked 2026-09-23 against 4.0.5**, which is still the newest
+      release: three calls on one connection, three session ids. Upstream
+      #5134 is open with no replies since 2026-09-16. The cap holds through a
+      blanket `uv lock --upgrade`, which is the case the ignore rules exist
+      for.
 - [ ] From the 2026-09-06 external review, in its recommended order (foundations
       before features; the fastmcp<4 cap and the verifier's exactness fixes from
       the same review already landed — REVIEW_ACTIONS 68, `tools/verify.py`):
@@ -276,6 +281,44 @@ prioritised. Correctness first, then packaging/adoption.
       inheriting a lesson a neighbouring one had already learned*: the namespace
       scrub resolved lazy imports and the star screen did not; the AST path had
       a `sage`-root guard and the token screen did not.
+
+      **Fuzzing campaign, 2026-09-21/22 — five surfaces, released in 0.8.4**
+      (items 90-97). The first findings here that came from generated input
+      rather than from review. The AST policy: `del` counted as *binding* a
+      name, and `_bound_names` walks unreachable code, so `if False: del eval`
+      bought the allowlist exemption for thirteen names (item 90). None
+      executed -- the namespace scrub and the restricted builtins held -- but
+      the first lock is supposed to hold too. The same rule made `del Integer`
+      break `2 + 2` for a whole session, since the preparser rewrites every
+      integer literal.
+
+      The worker protocol: any well-formed JSON that is not an object made
+      `[].get("type")` an uncaught `AttributeError`, so one malformed frame
+      killed the worker and discarded the session's namespace (item 91). The
+      session keys: `key_for("A", "x")` and `key_for("A::x", "default")`
+      composed to the same storage key, which would have had two clients
+      sharing a worker (item 93, latent -- session ids are UUIDs). The
+      monitoring redaction was publish-everything-except, so a field added
+      later would publish itself (item 95).
+
+      Clean, and worth recording as such: the codegen gates over 150,000
+      fragments, the import rewriter over 214,844 programs, the bearer-token
+      path, and the session resource against 4,000 generated scopes.
+
+      **The pattern, again.** Items 92 and 95 were both *enumerations that
+      cannot know what they have not been told* -- four dangerous `latex`
+      attributes refused by name while nine were accepted, three free-text
+      metrics fields popped while the rest were published. Both became
+      allowlists. That is the same lesson as the 2026-09-19 review, arriving
+      in a different subsystem, which is the argument for fixing the shape
+      rather than the instance.
+
+      **And one the machinery caught rather than a person.** v0.8.4 failed
+      twice on a guard added in that very release: a job with no checkout
+      running a repository script, and behind it an argparse flag swallowing
+      `-passagemath` as an option name (item 98). The dry-run dispatch exists
+      for exactly that and had not been run. `SUPPORT.md` now states plainly
+      that nothing here is reviewed by a second person.
 
 - [ ] **Clear the `sagemath-*` PyPI namespace question** with sage-devel now —
       Sage upstream owns `sagemath-standard`/`sagemath-symbolics`/… and this is a

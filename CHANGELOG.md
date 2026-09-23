@@ -7,6 +7,24 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **Dependencies refreshed**: `hypothesis` 6.168.0 → 6.168.1 and
+  `nest-asyncio2` 1.7.2 → 1.7.3, the only two upgrades available. The
+  `fastmcp` cap was re-tested rather than assumed: 4.0.5 is still the newest
+  release and still issues a fresh `Context.session_id` per tool call, so the
+  cap holds and the ignore rules kept it held through a blanket
+  `uv lock --upgrade`.
+
+### Documentation
+
+- **`ROADMAP.md` and `TODO.md` brought up to 0.8.4.** The test snapshot was
+  eleven tests stale, and `TODO.md`'s record of completed work stopped before
+  the fuzzing campaign — so the five surfaces, the four findings and the two
+  that the release itself tripped over were nowhere in the live queue's
+  narrative.
+
+
 ### Documentation
 
 - **`SUPPORT.md` now states what this project does not have.** The OpenSSF

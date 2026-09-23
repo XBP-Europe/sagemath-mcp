@@ -1174,9 +1174,9 @@ mpmath==1.3.0 \
     # via
     #   passagemath-modules
     #   sympy
-nest-asyncio2==1.7.2 \
-    --hash=sha256:1921d70b92cc4612c374928d081552efb59b83d91b2b789d935c665fa01729a8 \
-    --hash=sha256:f5dfa702f3f81f6a03857e9a19e2ba578c0946a4ad417b4c50a24d7ba641fe01
+nest-asyncio2==1.7.3 \
+    --hash=sha256:2bc87bdca654e719425145f5e84eaeb0080b013fdd47d65729a7d66243f4987c \
+    --hash=sha256:2e9a84d5d1efe6d020c72988d21aec569bac42d98af2ff6b9de24640c5d22a34
     # via ipykernel
 networkx==3.7 \
     --hash=sha256:e3fd2c13a7814cee3746340d8d7f8598a67f16a58bf47fb7f8793fab6efca1b0 \

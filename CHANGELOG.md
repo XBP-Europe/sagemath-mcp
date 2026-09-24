@@ -7,6 +7,23 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **A Zenodo DOI.** Zenodo archived v0.9.0, so the project is citable:
+  concept DOI [10.5281/zenodo.22939422](https://doi.org/10.5281/zenodo.22939422),
+  which always resolves to the newest release. It is recorded in
+  `CITATION.cff`, the README badge, SUPPORT.md and CONTRIBUTING.md by
+  `scripts/set_zenodo_doi.py`. Closes #92.
+
+### Fixed
+
+- **`scripts/set_zenodo_doi.py` was not idempotent on CONTRIBUTING.md.** Its
+  replacement pattern also matched the line after the note, so a second run
+  (to correct a DOI, say) deleted the blank line and merged the note into the
+  next paragraph. The first run was correct; `--check` flagged the second.
+  `test_recording_a_doi_twice_changes_nothing` now runs all four updaters
+  twice.
+
 ## [0.9.1] - 2026-09-24
 
 **A security patch for 0.9.0.** 0.9.0 introduced workspace minting for

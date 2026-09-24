@@ -20,6 +20,7 @@
 [![Provenance](https://img.shields.io/badge/provenance-SLSA%20%2B%20SBOM%20attested-blueviolet?logo=github)](https://github.com/XBP-Europe/sagemath-mcp/blob/main/SECURITY.md#verifying-a-release)
 [![PyPI attestations](https://img.shields.io/badge/PyPI-PEP%20740%20attested-blue?logo=pypi)](https://github.com/XBP-Europe/sagemath-mcp/blob/main/.github/workflows/release.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/XBP-Europe/sagemath-mcp/badge)](https://scorecard.dev/viewer/?uri=github.com/XBP-Europe/sagemath-mcp)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22939422.svg)](https://doi.org/10.5281/zenodo.22939422)
 [![Dependabot](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot)](https://github.com/XBP-Europe/sagemath-mcp/blob/main/.github/dependabot.yml)
 [![Last commit](https://img.shields.io/github/last-commit/XBP-Europe/sagemath-mcp.svg)](https://github.com/XBP-Europe/sagemath-mcp/commits/main)
 

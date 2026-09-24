@@ -93,9 +93,10 @@ def _contributing(doi: str, text: str) -> str:
         "newest release, and is the one to cite.\n"
     )
     if "archived by Zenodo" in text:
-        return re.sub(
-            r"\nEvery tag is archived by Zenodo[^\n]*\n(?:[^\n]*\n)?", note, text, count=1
-        )
+        # The note is one line. Matching an optional second line here ate the
+        # blank line after it, so a re-run merged the note into the next
+        # paragraph.
+        return re.sub(r"\nEvery tag is archived by Zenodo[^\n]*\n", note, text, count=1)
     marker = "## Releasing\n"
     index = text.index(marker) + len(marker)
     return text[:index] + note + text[index:]

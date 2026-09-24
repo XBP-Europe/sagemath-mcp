@@ -94,3 +94,30 @@ def test_the_issue_is_reachable_from_the_citation_file() -> None:
         return  # recorded; the comment has done its job
     assert "concept doi" in citation.lower()
     assert "zenodo" in citation.lower()
+
+
+def test_recording_a_doi_twice_changes_nothing() -> None:
+    """Re-running the script -- to correct a DOI, or just by habit -- must be a
+    no-op the second time. The CONTRIBUTING.md updater's replacement pattern
+    also swallowed the line after its note, so a second run deleted the blank
+    line and merged the note into the next paragraph. Found by `--check`
+    reporting a change straight after the first real run."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "set_zenodo_doi", ROOT / "scripts" / "set_zenodo_doi.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+
+    doi = "10.5281/zenodo.1234567"
+    updaters = {
+        "CITATION.cff": module._citation,
+        "README.md": module._readme,
+        "SUPPORT.md": module._support,
+        "CONTRIBUTING.md": module._contributing,
+    }
+    for name, update in updaters.items():
+        once = update(doi, (ROOT / name).read_text(encoding="utf-8"))
+        assert update(doi, once) == once, f"{name}: a second run changed the file"

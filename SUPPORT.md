@@ -11,7 +11,7 @@ answer. Written so that an evaluator can price the risk of depending on it.
 | Report a bug or ask for a feature | [GitHub Issues](https://github.com/XBP-Europe/sagemath-mcp/issues) — the templates ask for what a fix needs |
 | Report a sandbox escape or any security problem | **Privately**, per [SECURITY.md](SECURITY.md). Never in an issue or discussion |
 | Contribute code or docs | [CONTRIBUTING.md](CONTRIBUTING.md) |
-| Cite the software | [CITATION.cff](CITATION.cff), or GitHub's *Cite this repository* box |
+| Cite the software | [CITATION.cff](CITATION.cff), GitHub's *Cite this repository* box, or the concept DOI [10.5281/zenodo.22939422](https://doi.org/10.5281/zenodo.22939422), which always resolves to the newest release |
 
 Before asking, [USAGE.md](USAGE.md) is the manual and
 [docs/mcp_quickstart.md](docs/mcp_quickstart.md) a first-session walk-through;

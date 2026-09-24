@@ -51,8 +51,9 @@ What is still open, in short:
   passagemath extra and its `-passagemath` image narrow it, but they are pinned
   and optional rather than the primary path; conda-forge is submitted and
   waiting on review.
-- **Academic anchor.** No citable reference yet: the Zenodo DOI mints on the
-  next release, and a JOSS paper follows it.
+- **Academic anchor.** Citable since 2026-09-24 through the Zenodo concept DOI
+  10.5281/zenodo.22939422; a JOSS paper is next, and it needs evidence of
+  research use by others first.
 - **Audience.** Not yet announced where Sage users are (sage-devel, the Sage
   Zulip, CoCalc), and the `sagemath-*` PyPI namespace question is still to be
   raised with upstream.

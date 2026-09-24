@@ -527,7 +527,7 @@ async def test_plot3d_expression_renders_png(monkeypatch, label, expression):
     try:
         result = await S.plot3d_expression(expression, ctx=ctx)
         content = result.to_image_content()
-        assert content.mimeType == "image/png"
+        assert content.mime_type == "image/png"
         payload = content.data
         # Base64 of the PNG magic bytes.
         assert payload.startswith("iVBORw0KGgo"), f"{label}: not a PNG payload"

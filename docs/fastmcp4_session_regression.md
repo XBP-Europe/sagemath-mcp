@@ -1,8 +1,11 @@
 # fastmcp 4 loses session identity between tool calls
 
 Investigated 2026-09-16 against fastmcp **4.0.4** (and 4.0.3, which CI hit
-first), with **3.4.7** as the working comparison. This is why
-`pyproject.toml` still says `fastmcp>=3.4.7,<4`.
+first), with **3.4.7** as the working comparison. This kept `pyproject.toml`
+at `fastmcp>=3.4.7,<4` until **2026-09-24**, when the cap was lifted to
+`>=4.0.8,<5`. It was lifted by removing this server's dependence on a
+per-connection id (`runtime.client_scope`), not by an upstream fix. The rest
+of this document is the investigation as it stood, kept as the record.
 
 Reported upstream as **PrefectHQ/fastmcp#5134**.
 

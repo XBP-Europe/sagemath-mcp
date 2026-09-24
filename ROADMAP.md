@@ -47,8 +47,6 @@ count is derived by `tests/test_docs_counts.py` rather than maintained by hand.
 
 What is still open, in short:
 
-- **The `fastmcp<4` cap** stays until upstream issues one session id per
-  connection (PrefectHQ/fastmcp#5134).
 - **Install friction.** A Sage runtime is still about a gigabyte. The
   passagemath extra and its `-passagemath` image narrow it, but they are pinned
   and optional rather than the primary path; conda-forge is submitted and

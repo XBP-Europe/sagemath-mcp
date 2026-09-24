@@ -38,23 +38,19 @@ updates:
         patterns: ["*"]
     open-pull-requests-limit: 5
     ignore:
-      # fastmcp is capped at <4 deliberately, and Dependabot proposed lifting
-      # it to <5 in PR #141. The cap is not staleness: fastmcp 4.x issues a
-      # fresh `Context.session_id` on every tool call, on every transport, so
-      # no stateful server keeps a client's state between calls -- which is
-      # this server's entire premise. Reproduced against 4.0.4 (2026-09-16)
-      # and again against 4.0.5 (2026-09-21): three calls on one connection,
-      # three different ids. Reported as PrefectHQ/fastmcp#5134, still open.
-      #
-      # Remove this entry when a release reports one session id per connection
-      # AND `tests/test_cache_isolation.py` passes against it in the Sage
-      # container. docs/fastmcp4_session_regression.md has the reproduction;
-      # TODO.md tracks it. Patch and minor updates within 3.x still arrive.
+      # A fastmcp major changes what `Context.session_id` means: 3 -> 4 made it
+      # a fresh id per call on the 2026-07-28 protocol era, which silently cost
+      # every client its variables until this server stopped relying on it
+      # (docs/fastmcp4_session_regression.md). So the next major is adopted by
+      # hand, after `tests/test_cache_isolation.py` passes on it on both eras,
+      # never by a weekly PR that is one click from merged -- #141 proposed
+      # exactly that for 4.x before the server was ready. Patch and minor
+      # updates within 4.x still arrive.
       - dependency-name: "fastmcp"
         update-types: ["version-update:semver-major"]
       # And the package `fastmcp` is a thin wrapper over. They are released
-      # together at the same version -- `fastmcp==3.4.7` requires
-      # `fastmcp-slim[client,server]==3.4.7` -- so capping only the name above
+      # together at the same version -- `fastmcp==4.0.8` requires
+      # `fastmcp-slim[client,server]==4.0.8` -- so capping only the name above
       # left the sibling free. Dependabot proposed exactly that in PR #144:
       # `fastmcp-slim` 3.4.7 to 4.0.5 in the hash-locked requirements the
       # passagemath image installs, while `fastmcp` stayed at 3.4.7. That pair

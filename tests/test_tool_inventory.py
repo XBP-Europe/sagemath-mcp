@@ -222,21 +222,21 @@ async def test_every_tool_declares_its_annotations():
     missing = sorted(name for name, a in hints.items() if a is None)
     assert not missing, f"tools without annotations: {missing}"
 
-    destructive = {name for name, a in hints.items() if a.destructiveHint}
+    destructive = {name for name, a in hints.items() if a.destructive_hint}
     assert destructive == {
         "cancel_sage_session",
         "reset_sage_session",
         "stop_sage_session",
     }, "destructive means 'discards session state'; nothing else qualifies"
 
-    read_only = {name for name, a in hints.items() if a.readOnlyHint}
+    read_only = {name for name, a in hints.items() if a.read_only_hint}
     assert read_only == {"list_sage_sessions", "lookup_sage_doc"}
 
-    non_idempotent = {name for name, a in hints.items() if not a.idempotentHint}
+    non_idempotent = {name for name, a in hints.items() if not a.idempotent_hint}
     assert non_idempotent == {"evaluate_sage", "evaluate_sage_streaming"}, (
         "open-ended code is the only surface where repeating is not the same "
         "as doing it once"
     )
 
-    open_world = {name for name, a in hints.items() if a.openWorldHint}
+    open_world = {name for name, a in hints.items() if a.open_world_hint}
     assert not open_world, "nothing here reaches beyond the local Sage worker"

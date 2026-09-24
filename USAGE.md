@@ -785,8 +785,8 @@ server no id that lasts between calls: every request is a fresh connection. On
 such a connection a call that names a workspace (including the implicit
 `default`) is **refused**, not silently served an empty session. Call
 `start_sage_session` and pass the `workspace_token` it returns as `session`
-instead. A client on the handshake protocol, which every client uses with the
-current fastmcp 3 server, is unaffected.
+instead. A client on the handshake protocol is unaffected, over either
+transport.
 
 #### `check_sage_health`
 

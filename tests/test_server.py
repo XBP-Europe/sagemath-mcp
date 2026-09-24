@@ -743,7 +743,7 @@ async def test_plot_expression(monkeypatch):
     result = await server.plot_expression("sin(x)", ctx=ctx)
     # Returns MCP image content, not a JSON dict of base64: a client renders it.
     content = result.to_image_content()
-    assert content.mimeType == "image/png"
+    assert content.mime_type == "image/png"
     assert content.data == "aWdub3JlZA=="
 
 
@@ -752,7 +752,7 @@ async def test_plot_expression_svg(monkeypatch):
     session = StubSession("'aWdub3JlZA=='")
     await _stub_manager(monkeypatch, session)
     result = await server.plot_expression("sin(x)", image_format="svg", ctx=FakeContext())
-    assert result.to_image_content().mimeType == "image/svg+xml"
+    assert result.to_image_content().mime_type == "image/svg+xml"
 
 
 @pytest.mark.asyncio
@@ -1238,7 +1238,7 @@ async def test_plot3d_expression(monkeypatch):
     result = await server.plot3d_expression(
         expression="x^2 + y^2", ctx=ctx,
     )
-    assert result.to_image_content().mimeType == "image/png"
+    assert result.to_image_content().mime_type == "image/png"
 
 
 @pytest.mark.asyncio
@@ -1371,7 +1371,7 @@ async def test_plot_multi_expression(monkeypatch):
     result = await server.plot_multi_expression(
         expressions=["sin(x)", "cos(x)"], ctx=ctx,
     )
-    assert result.to_image_content().mimeType == "image/png"
+    assert result.to_image_content().mime_type == "image/png"
 
 
 @pytest.mark.asyncio

@@ -44,12 +44,12 @@ async def _connect_with_retry(
 async def _exercise(progress_cb: Callable[[float, float | None, str | None], None]) -> None:
     async with ClientSessionGroup() as group:
         session, initialize_result = await _connect_with_retry(group)
-        server_info = initialize_result.serverInfo
+        server_info = initialize_result.server_info
         print(f"Connected to {server_info.name} (version={server_info.version})")
 
         result1 = await session.call_tool("evaluate_sage", {"code": "value = 7"})
         print("evaluate_sage ->", result1.model_dump())
-        assert not result1.isError, f"assignment failed: {result1.model_dump()}"
+        assert not result1.is_error, f"assignment failed: {result1.model_dump()}"
 
         # Asserted, not just printed. Under fastmcp 4.0.3 the second call ran in
         # a fresh session, came back "'value' is not a name this server offers",
@@ -57,7 +57,7 @@ async def _exercise(progress_cb: Callable[[float, float | None, str | None], Non
         # exists to guard is the stateful one, so its failure must be loud.
         result2 = await session.call_tool("evaluate_sage", {"code": "value * 6"})
         print("stateful evaluate ->", result2.model_dump())
-        assert not result2.isError, f"stateful read failed: {result2.model_dump()}"
+        assert not result2.is_error, f"stateful read failed: {result2.model_dump()}"
         rendered = "".join(
             block.text for block in result2.content if getattr(block, "text", None)
         )

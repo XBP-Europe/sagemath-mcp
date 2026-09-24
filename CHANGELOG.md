@@ -9,6 +9,20 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **fastmcp 4: the `<4` cap is lifted, to `fastmcp>=4.0.8,<5`** (with
+  `mcp` 2.2). The cap was there because 4.x issues a fresh session id per
+  call. The server no longer depends on that id (see *Fixed*), so the upgrade
+  is safe. **What a client sees:** over stdio, nothing changes. Over HTTP, a
+  client on the handshake era sees nothing new either. A client on the
+  2026-07-28 era over HTTP must start a workspace and pass its
+  `workspace_token`, and a call by name gets a refusal that says so.
+  `tests/test_cache_isolation.py` now runs every test on both eras, with a
+  new direct confidentiality test and one that pins fastmcp's in-memory client
+  to each era. The CI smoke script had two mcp 2 field renames that would have
+  failed it (`serverInfo`, `isError`), and they are fixed. The conda recipe
+  follows, but it cannot build a new version until conda-forge carries 4.0.8
+  (it had 4.0.7 on 2026-09-24). Dependabot still ignores fastmcp *major*
+  bumps, now so that 5.x is adopted by hand.
 - **Dependencies refreshed**: `hypothesis` 6.168.0 → 6.168.1 and
   `nest-asyncio2` 1.7.2 → 1.7.3, the only two upgrades available. The
   `fastmcp` cap was re-tested rather than assumed: 4.0.5 is still the newest
@@ -82,11 +96,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
   Verified against real fastmcp 4.0.8 over stdio (variables persist in both
   `auto` and `legacy` client modes) and streamable-HTTP (named calls refused
-  on the new era, tokens work, legacy unchanged). The cap stays for now:
-  `tests/test_cache_isolation.py` uses fastmcp's in-memory client, which picks
-  the new era, and needs adapting before the cap can lift. Under fastmcp 3.4.7
-  nothing changes on HTTP, and stdio behaves the same because its id was
-  already stable per client.
+  on the new era, tokens work, legacy unchanged). This is what let the cap
+  lift (below).
 - **The v0.8.4 release failed on a guard added in 0.8.4 itself.**
   `docker-passagemath-manifest` assembles an index from already-pushed images
   and has never checked the repository out; the tag guard from REVIEW_ACTIONS

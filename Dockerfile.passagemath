@@ -25,7 +25,7 @@
 # copies -- the compiler never reaches the published image.
 # Pinned by digest to the multi-arch index (amd64 + arm64 resolve from it);
 # Dependabot refreshes it. The same digest is used for both stages below.
-FROM python:3.12-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254 AS builder
+FROM python:3.12-slim-bookworm@sha256:392307d22300de8b5986851a12d9176dfc0fc073e65bf6523ebd7dcbeb23564e AS builder
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential \
@@ -50,7 +50,7 @@ RUN python -m venv /opt/venv \
     && /opt/venv/bin/pip install --no-cache-dir --no-deps .
 
 # --- runtime stage -----------------------------------------------------------
-FROM python:3.12-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254
+FROM python:3.12-slim-bookworm@sha256:392307d22300de8b5986851a12d9176dfc0fc073e65bf6523ebd7dcbeb23564e
 
 # Same UID/GID as the `sage` user in sagemath/sagemath:10.9, so the Compose
 # file and the Helm chart (runAsUser/fsGroup 1001, tmpfs at /home/sage/.sage)

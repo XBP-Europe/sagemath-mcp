@@ -119,6 +119,12 @@ wait out, so the server stopped depending on the id instead.
 
 ### Fixed
 
+- **The release smoke tests now check both protocol eras.** The first 0.9.0
+  dry run failed on all three images: the smoke test addressed its workspace
+  by name through fastmcp's default client, which speaks the 2026-07-28
+  protocol and is now correctly refused there. The test now checks the
+  handshake era by name and the 2026-07-28 era by workspace token. Caught by
+  the dry run, before a tag existed.
 - **A client's variables no longer depend on the transport's session id.**
   fastmcp 4 answers `Context.session_id` with a new UUID on every call. This
   comes from the 2026-07-28 MCP protocol, where every request is its own

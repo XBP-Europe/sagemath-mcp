@@ -57,8 +57,8 @@ def anchor_to_process() -> str:
 def identity_is_per_request(ctx: Any) -> bool:
     """Is this call on a protocol era where the session id changes every call?
 
-    fastmcp 3.x has no `protocol_version` on the request context and speaks
-    only the handshake era, so the answer there is always no.
+    A context with no request, or a request with no protocol version, is
+    treated as the handshake era: nothing about it says the id will change.
     """
     version = getattr(getattr(ctx, "request_context", None), "protocol_version", None)
     return isinstance(version, str) and version >= PER_REQUEST_ERA

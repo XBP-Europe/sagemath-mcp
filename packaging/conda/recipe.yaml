@@ -45,12 +45,10 @@ requirements:
     - pip
   run:
     - python >=${{ python_min }}
-    # Capped below 4 upstream: under fastmcp 4.x `Context.session_id` is a fresh
-    # value on every tool call, so a stateful server loses a client's state
-    # between calls (PrefectHQ/fastmcp#5134). conda-forge carries 4.0.4 as its
-    # latest but still has 3.4.7, which is the floor this package needs and what
-    # the cap resolves to.
-    - fastmcp >=3.4.7,<4
+    # 4.0.8 is the floor this package is tested against. conda-forge carried
+    # 4.0.7 as its newest on 2026-09-24; its bot normally follows PyPI within
+    # a day or two, and the recipe cannot build until it does.
+    - fastmcp >=4.0.8,<5
     - pydantic >=2.13.4
     - anyio >=4.14.2
 

@@ -43,7 +43,9 @@ upstream tags.
 
 **Transports and clients.** stdio (the default; Claude Desktop, Claude Code and
 other local MCP hosts) and streamable HTTP behind the container. Any client that
-speaks the MCP protocol version fastmcp 3.x implements is expected to work; the
+speaks a protocol version fastmcp 4.x implements is expected to work -- the
+handshake era and the 2026-07-28 era both, with the difference that on the
+latter over HTTP a workspace is addressed by token (see USAGE.md); the
 `tests/cli_integration` harness exercises three real clients but runs locally,
 where the API keys live, not in CI.
 

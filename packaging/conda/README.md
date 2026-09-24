@@ -19,11 +19,11 @@ only copy kept here.
 ## Why it is buildable
 
 Every runtime dependency exists on conda-forge, including the one that caps the
-package (re-checked 2026-09-17):
+package (re-checked 2026-09-24):
 
 | Dependency | Required | On conda-forge |
 | --- | --- | --- |
-| `fastmcp` | `>=3.4.7,<4` | 3.4.7 still available; 4.0.4 is latest and the cap excludes it |
+| `fastmcp` | `>=4.0.8,<5` | 4.0.7 is latest; the next release's recipe waits on 4.0.8 reaching the feedstock |
 | `pydantic` | `>=2.13.4` | 2.13.5 |
 | `anyio` | `>=4.14.2` | 4.15.1 |
 | `hatchling` | `>=1.32.0` | 1.32.0 |

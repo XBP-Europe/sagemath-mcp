@@ -3619,6 +3619,15 @@ Two consequences worth keeping in mind:
   one shared session, which is the confidentiality failure that file exists to
   prevent, so it is not a safe workaround.
 
+**Cap lifted, 2026-09-24.** The root cause is the 2026-07-28 protocol era:
+the client picks it, and on it every request is its own connection, so no id
+can last between calls. The server now resolves its caller through
+`runtime.client_scope` instead: the process on stdio, a workspace token
+anywhere, and on the new era over HTTP an explicit refusal for calls addressed
+by name. `tests/test_cache_isolation.py` runs every test on both eras, plus a
+direct confidentiality test and one pinning that fastmcp's in-memory client
+really reaches each era. Dependency is now `fastmcp>=4.0.8,<5`.
+
 ## 69. Denylist derivation over-fires under a modularized Sage layout — medium — DONE
 
 ### What

@@ -66,7 +66,7 @@ def stdio(monkeypatch):
 
 
 async def test_stdio_keeps_variables_when_the_session_id_changes_every_call(sage_manager, stdio):
-    """The case the `fastmcp<4` cap exists for, on the transport most clients use."""
+    """The case that kept fastmcp capped below 4, on the transport most clients use."""
     await server.evaluate_sage("keeper = 41", ctx=RotatingContext())
     read = await server.evaluate_sage("keeper + 1", ctx=RotatingContext())
     assert read.result == "42"
@@ -131,7 +131,7 @@ async def test_the_session_resource_is_empty_without_an_identity(sage_manager, u
 @pytest.mark.parametrize(
     ("ctx", "expected"),
     [
-        (FakeContext(), False),  # fastmcp 3.x: no protocol_version at all
+        (FakeContext(), False),  # no request context at all
         (SimpleNamespace(request_context=None), False),
         (SimpleNamespace(request_context=SimpleNamespace(protocol_version="2025-11-25")), False),
         (SimpleNamespace(request_context=SimpleNamespace(protocol_version="2026-07-28")), True),
@@ -143,5 +143,5 @@ def test_the_per_request_era_is_read_off_the_protocol_version(ctx, expected):
 
 
 def test_on_the_handshake_era_the_transport_id_is_the_scope(unanchored):
-    """Unchanged from before this existed: the id fastmcp 3.x keeps stable."""
+    """Unchanged from before this existed: on the handshake era the id is stable."""
     assert runtime.client_scope(FakeContext("client-a"), "work") == "client-a"

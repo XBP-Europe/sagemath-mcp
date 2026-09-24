@@ -121,6 +121,10 @@ then you have not pinned what you checked.
 **The image signature** (Sigstore Cosign, keyless, against GitHub's OIDC identity
 and the public transparency log):
 
+Use cosign v3: v2 reports `no signatures found` for these images by default,
+because the release stores its signature in the newer bundle format
+(SECURITY.md has the detail and a container one-liner).
+
 ```bash
 cosign verify ghcr.io/xbp-europe/sagemath-mcp:vX.Y.Z \
   --certificate-identity="https://github.com/XBP-Europe/sagemath-mcp/.github/workflows/release.yml@refs/tags/vX.Y.Z" \

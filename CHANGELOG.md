@@ -7,6 +7,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Documentation
+
+- **The verification recipe is restated against the published 0.9.0**, and
+  now says to use cosign v3. cosign v2 reports `no signatures found` for these
+  images by default, because the release signs in the newer Sigstore bundle
+  format, and that output reads exactly like an unsigned image. Checked on
+  2026-09-24: v2.6.1 fails, v3.1.3 verifies both images (3 entries for the
+  primary, 2 for `-passagemath`, as documented). SLSA provenance, the image
+  SBOM and the wheel attestation verify with `gh`.
+
 ## [0.9.0] - 2026-09-24
 
 **fastmcp 4, and a server that no longer needs the transport to remember who

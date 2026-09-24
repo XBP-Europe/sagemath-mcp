@@ -98,7 +98,8 @@ contribution to an existing one. Keep it factual; cite software by URL. -->
 Other MCP servers for SageMath are small and mostly stateless: a
 three-tool TypeScript server that is explicitly stateless
 [@galoishlee_sagemath], a five-tool server over a Jupyter kernel with named
-sessions [@szeider_mcpsage], and wrappers with a handful of tools. The
+sessions [@szeider_mcpsage] that backs published neurosymbolic work on graph
+constructions [@seka_nesy2026], and wrappers with a handful of tools. The
 neighbouring servers draw more attention but wrap other engines: SymPy
 [@sympy_mcp], Wolfram|Alpha and Mathematica. None of those surveyed publishes
 a measurement of how much legitimate mathematics its interface refuses, which

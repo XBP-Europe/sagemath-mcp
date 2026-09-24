@@ -29,7 +29,7 @@ Ruff with line-length 100, target Python 3.12. Rules: E, F, W, B, UP, ASYNC, RUF
 - All async tests use `@pytest.mark.asyncio` (asyncio_mode is "auto")
 - Tests mirror source modules: `test_server.py`, `test_session.py`, `test_security.py`, `test_config.py`, etc.
 - `test_integration.py`, `test_use_cases.py` and most of `test_math_coverage.py` require the Sage container
-- Key fixtures: `python_settings` (injects `force_python_worker=True`), `FakeContext` (captures MCP context messages)
+- Key fixtures: `python_settings` (injects `force_python_worker=True`), `FakeContext` (records progress events; it has no `info`/`warning`/`error` on purpose, because the server sends no MCP log notifications)
 
 ## Architecture
 
@@ -37,7 +37,7 @@ Ruff with line-length 100, target Python 3.12. Rules: E, F, W, B, UP, ASYNC, RUF
 
 - `server.py` - Entry point: the `/health` route, `main()`, and the imports that register the tools. Re-exports the tool functions, so `from sagemath_mcp import server` keeps working.
 - `app.py` - The FastMCP object, instructions, lifespan and middleware. Owns `mcp` so tool modules can decorate against it without importing the module that imports them.
-- `runtime.py` - `SETTINGS`, `SESSION_MANAGER` and `resolve_session()`. Read the manager through this module (never `from .runtime import SESSION_MANAGER`) so tests can swap it.
+- `runtime.py` - `SETTINGS`, `SESSION_MANAGER` and `resolve_session()`. Read the manager through this module (never `from .runtime import SESSION_MANAGER`) so tests can swap it. Also `client_scope(ctx, session)`, the only place a tool may get its caller's identity: never read `ctx.session_id` directly, because on fastmcp 4's 2026-07-28 protocol era it is a fresh id per call. stdio anchors to the process (`anchor_to_process()`, called by `main()`), a workspace token resolves on its own, and a call by name on that era over HTTP is refused.
 - `codegen.py` - Building the Sage snippets: prelude, literal encoding, the validation gates and the numeric guards. Any caller string reaching a template must pass a gate — generated code runs under `trusted_policy()`, which permits `sage_eval`.
 - `tools/` - The 40 tools and 3 resources by domain: `session`, `core`, `calculus`, `algebra`, `discrete`, `stats`, `plotting`, `diagnostics`, `verify`. A module missing from `tools/__init__.py` registers nothing.
 - `session.py` - `SageSessionManager` (per-client session map with asyncio locks) and `SageSession` (spawns/manages `_sage_worker.py` subprocess via JSON stdin/stdout protocol).
@@ -81,7 +81,7 @@ it was violated:
 - Security fixes are written test-first, verified against **real Sage**, and recorded
   in `REVIEW_ACTIONS.md`.
 
-**Request flow:** MCP client -> a tool in `tools/` -> `SageSessionManager.get_or_create()` -> `SageSession.evaluate()` -> JSON request to `_sage_worker.py` subprocess -> AST validation -> exec in persistent namespace -> JSON response back.
+**Request flow:** MCP client -> a tool in `tools/` -> `runtime.client_scope()` -> `SageSessionManager.get()` -> `SageSession.evaluate()` -> JSON request to `_sage_worker.py` subprocess -> AST validation -> exec in persistent namespace -> JSON response back.
 
 **MCP tools (40, 33 Sage-backed):** `evaluate_sage` (core), `evaluate_sage_streaming`, `reset_sage_session`, `cancel_sage_session`, `interrupt_sage_session` (stops a computation but keeps variables -- prefer it over cancelling), and the named-workspace trio `start_sage_session`, `list_sage_sessions`, `stop_sage_session`, plus `verify_claim` (re-checks a stated claim through a proof ladder; verdicts `proved`/`refuted`/`supported`/`undecided`, always with evidence) and 29 math/domain helpers: `calculate_expression`, `solve_equation`, `differentiate_expression`, `integrate_expression`, `simplify_expression`, `expand_expression`, `factor_expression`, `limit_expression`, `series_expansion`, `symbolic_sum`, `matrix_multiply`, `matrix_operation`, `solve_ode`, `number_theory_operation`, `combinatorics_operation`, `statistics_summary`, `distribution_operation`, `plot_expression`, `plot3d_expression`, `plot_multi_expression`, `find_root`, `vector_calculus_operation`, `graph_operation`, `group_operation`, `elliptic_curve_operation`, `coding_theory_operation`, `boolean_algebra_operation`, `polynomial_ring_operation`, `geometry_operation`. Diagnostics: `check_sage_health` (MCP-level readiness probe), `lookup_sage_doc` (doc links + is-this-name-offered). Plus HTTP `/health` endpoint.
 

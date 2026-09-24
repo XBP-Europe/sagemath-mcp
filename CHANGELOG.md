@@ -55,6 +55,26 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **A client's variables no longer depend on the transport's session id.**
+  fastmcp 4 answers `Context.session_id` with a new UUID on every call. This
+  comes from the 2026-07-28 MCP protocol, where every request is its own
+  connection, so every stateful tool landed each call in a fresh, empty
+  session. That is what the `fastmcp<4` cap has been guarding against. Every
+  stateful tool now resolves its caller through `runtime.client_scope`:
+  - on **stdio**, where one process serves one client, the process is the
+    identity, minted per process so two servers never share a journal;
+  - a **workspace token** resolves on its own, as before;
+  - on the **2026-07-28 era over HTTP**, a call addressed by name is refused
+    with a pointer to `start_sage_session`, instead of silently getting a new
+    session.
+
+  Verified against real fastmcp 4.0.8 over stdio (variables persist in both
+  `auto` and `legacy` client modes) and streamable-HTTP (named calls refused
+  on the new era, tokens work, legacy unchanged). The cap stays for now:
+  `tests/test_cache_isolation.py` uses fastmcp's in-memory client, which picks
+  the new era, and needs adapting before the cap can lift. Under fastmcp 3.4.7
+  nothing changes on HTTP, and stdio behaves the same because its id was
+  already stable per client.
 - **The v0.8.4 release failed on a guard added in 0.8.4 itself.**
   `docker-passagemath-manifest` assembles an index from already-pushed images
   and has never checked the repository out; the tag guard from REVIEW_ACTIONS

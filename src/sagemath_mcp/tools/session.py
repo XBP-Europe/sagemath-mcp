@@ -62,7 +62,7 @@ async def reset_sage_session(
     """Reset the Sage session associated with the current MCP session."""
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required to reset state")
-    key = runtime.SESSION_MANAGER.resolve_key(ctx.session_id, session)
+    key = runtime.SESSION_MANAGER.resolve_key(runtime.client_scope(ctx, session), session)
     await runtime.SESSION_MANAGER.reset(key)
     await ctx.info(f"Sage session {_loggable(session)} reset")
     return ResetResponse()
@@ -84,7 +84,7 @@ async def interrupt_sage_session(
     """
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required to interrupt work")
-    key = runtime.SESSION_MANAGER.resolve_key(ctx.session_id, session)
+    key = runtime.SESSION_MANAGER.resolve_key(runtime.client_scope(ctx, session), session)
     interrupted = await runtime.SESSION_MANAGER.interrupt(key)
     if not interrupted:
         # No worker to signal: either nothing has run yet in this workspace, or
@@ -110,7 +110,7 @@ async def cancel_sage_session(
     """
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required to cancel work")
-    key = runtime.SESSION_MANAGER.resolve_key(ctx.session_id, session)
+    key = runtime.SESSION_MANAGER.resolve_key(runtime.client_scope(ctx, session), session)
     await runtime.SESSION_MANAGER.cancel(key)
     await ctx.warning(f"Sage session {_loggable(session)} cancelled and restarted")
     return ResetResponse(message="Session cancelled and restarted")
@@ -146,8 +146,11 @@ async def start_sage_session(
             f"A workspace name may not start with '{WORKSPACE_TOKEN_PREFIX}'; "
             "that prefix is reserved for server-issued handles."
         )
-    await runtime.resolve_session(ctx.session_id, name)
-    key = runtime.SESSION_MANAGER.resolve_key(ctx.session_id, name)
+    # Minting: on the per-request era this call's scope is a throwaway id, and
+    # that is fine -- the token returned below is the only way back in anyway.
+    scope = runtime.client_scope(ctx, name, minting=True)
+    await runtime.resolve_session(scope, name)
+    key = runtime.SESSION_MANAGER.resolve_key(scope, name)
     token = runtime.SESSION_MANAGER.mint_workspace_token(key)
     # The name is safe to log; the token is a secret and must never be.
     await ctx.info(f"Started Sage session '{name}'")
@@ -161,7 +164,7 @@ async def list_sage_sessions(ctx: Context | None = None) -> dict:
     """Report every workspace for this client, with liveness and statement counts."""
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required to list sessions")
-    sessions = await runtime.SESSION_MANAGER.list_for_scope(ctx.session_id)
+    sessions = await runtime.SESSION_MANAGER.list_for_scope(runtime.client_scope(ctx))
     return {"sessions": sessions, "count": len(sessions)}
 
 
@@ -173,7 +176,7 @@ async def stop_sage_session(
     """Terminate one workspace. Other workspaces are unaffected."""
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required to stop a session")
-    stopped = await runtime.SESSION_MANAGER.stop(ctx.session_id, name)
+    stopped = await runtime.SESSION_MANAGER.stop(runtime.client_scope(ctx, name), name)
     if not stopped:
         raise ToolError(f"No Sage session named {_loggable(name)} for this client")
     await ctx.info(f"Stopped Sage session {_loggable(name)}")
@@ -201,7 +204,11 @@ async def session_resource(scope: str, ctx: Context | None = None) -> str:
 
     if ctx is None or ctx.session_id is None:
         return _json.dumps([])
-    my_scope = ctx.session_id
+    try:
+        my_scope = runtime.client_scope(ctx)
+    except ToolError:
+        # No identity that lasts between calls: nothing is this caller's.
+        return _json.dumps([])
     snapshots = []
     for entry in runtime.SESSION_MANAGER.snapshot():
         entry_scope, workspace = SageSessionManager.split_key(str(entry["session_id"]))

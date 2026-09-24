@@ -71,7 +71,7 @@ async def number_theory_operation(
         )
     if operation in {"gcd", "lcm"} and b is None:
         raise ToolError(f"Operation '{operation}' requires both 'a' and 'b' arguments")
-    session = await runtime.resolve_session(ctx.session_id, session)
+    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
     op_code = {
         "is_prime": f"bool(is_prime({a}))",
         "factor_integer": f"str(factor({a}))",
@@ -128,7 +128,7 @@ async def combinatorics_operation(
     # answer from 9007199254740992 and reported it as fact.
     n = _exact_int(n, "n")
     k = _exact_int(k, "k") if k is not None else None
-    session = await runtime.resolve_session(ctx.session_id, session)
+    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
     op_code = {
         "binomial": f"int(binomial({n}, {k or 0}))",
         "permutations": f"int(Permutations({n}).cardinality())"
@@ -182,7 +182,7 @@ async def graph_operation(
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required")
     operation = operation.strip()
-    session = await runtime.resolve_session(ctx.session_id, session)
+    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
     # A named graph is an identifier, optionally already called with arguments.
     # Matching on a "Graph" suffix missed every parameterised constructor:
     # "CompleteGraph(4)" ends in ")", so it fell through to Graph(CompleteGraph(4))
@@ -255,7 +255,7 @@ async def group_operation(
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required")
     operation = operation.strip()
-    session = await runtime.resolve_session(ctx.session_id, session)
+    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
     ops = {
         "order": "int(_G.order())",
         "is_abelian": "bool(_G.is_abelian())",
@@ -305,7 +305,7 @@ async def elliptic_curve_operation(
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required")
     operation = operation.strip()
-    session = await runtime.resolve_session(ctx.session_id, session)
+    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
     ops = {
         "rank": "int(_E.rank())",
         "torsion_order": "int(_E.torsion_order())",
@@ -362,7 +362,7 @@ async def coding_theory_operation(
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required")
     operation = operation.strip()
-    session = await runtime.resolve_session(ctx.session_id, session)
+    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
     ops = {
         "length": "int(_C.length())",
         "dimension": "int(_C.dimension())",

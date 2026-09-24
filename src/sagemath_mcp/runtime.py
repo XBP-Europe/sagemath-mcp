@@ -8,11 +8,83 @@ which is what lets a test swap the manager for a pure-Python one.
 
 from __future__ import annotations
 
+import uuid
+from typing import Any
+
+from fastmcp.exceptions import ToolError
+
 from .config import DEFAULT_SETTINGS, SageSettings
-from .session import SageSessionManager
+from .session import DEFAULT_SESSION_NAME, WORKSPACE_TOKEN_PREFIX, SageSessionManager
 
 SETTINGS: SageSettings = DEFAULT_SETTINGS
 SESSION_MANAGER = SageSessionManager(SETTINGS)
+
+#: The client scope every call shares when this process serves exactly one
+#: client, which is what stdio means. `None` on HTTP, where one process serves
+#: many clients and the scope has to come from the transport.
+PROCESS_SCOPE: str | None = None
+
+#: The first protocol version whose requests each carry their own envelope. On
+#: this era the server builds a fresh connection per request, so nothing it can
+#: read lasts as long as the client session -- fastmcp 4 answers
+#: `Context.session_id` with a new UUID on every call. Protocol versions are
+#: ISO dates, so later eras compare greater.
+PER_REQUEST_ERA = "2026-07-28"
+
+PER_REQUEST_REFUSAL = (
+    "This connection speaks the 2026-07-28 MCP protocol, which gives the server "
+    "no identity that lasts from one call to the next, so a workspace cannot be "
+    "addressed by name here: each call would silently land in a fresh, empty "
+    "session. Call start_sage_session and pass the workspace_token it returns "
+    "as the `session` argument of every later call."
+)
+
+
+def anchor_to_process() -> str:
+    """Scope every call in this process to one client. For stdio only.
+
+    A stdio server process has exactly one client for its whole life, so the
+    process itself is the identity -- one that holds whatever the transport's
+    session id does between calls. The scope is minted per process rather than
+    fixed: two stdio servers running side by side, or one restarted, must not
+    share a journal file and restore each other's variables.
+    """
+    global PROCESS_SCOPE
+    PROCESS_SCOPE = f"stdio-{uuid.uuid4().hex}"
+    return PROCESS_SCOPE
+
+
+def identity_is_per_request(ctx: Any) -> bool:
+    """Is this call on a protocol era where the session id changes every call?
+
+    fastmcp 3.x has no `protocol_version` on the request context and speaks
+    only the handshake era, so the answer there is always no.
+    """
+    version = getattr(getattr(ctx, "request_context", None), "protocol_version", None)
+    return isinstance(version, str) and version >= PER_REQUEST_ERA
+
+
+def client_scope(ctx: Any, session: str = DEFAULT_SESSION_NAME, *, minting: bool = False) -> str:
+    """The client scope a call's workspaces live under.
+
+    Every tool resolves its caller through here rather than reading
+    `ctx.session_id` itself, because that id is only an identity on some
+    transports:
+
+    - **stdio**: the process scope, whatever the transport reports.
+    - **a workspace token**: any scope will do; the token resolves on its own.
+    - **the per-request era over HTTP**: refused for anything addressed by
+      name, rather than handing out a fresh session per call. `minting` is
+      the exception -- `start_sage_session` may key a new workspace to this
+      call's throwaway id, because the token it returns is the only way back.
+    - **otherwise**: the transport's session id, as it always was.
+    """
+    if PROCESS_SCOPE is not None:
+        return PROCESS_SCOPE
+    is_token = (session or "").strip().startswith(WORKSPACE_TOKEN_PREFIX)
+    if not (is_token or minting) and identity_is_per_request(ctx):
+        raise ToolError(PER_REQUEST_REFUSAL)
+    return ctx.session_id
 
 
 def get_session_manager() -> SageSessionManager:

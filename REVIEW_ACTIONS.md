@@ -5961,3 +5961,61 @@ release. Running it found the second one in eleven minutes.
 ### Status
 
 Fixed 2026-09-22.
+
+## 99. Minting on the 2026 era took its scope from a client-chosen header — low — DONE
+
+### What was wrong
+
+0.9.0 resolves a caller's workspace scope through `runtime.client_scope`. On
+the 2026-07-28 protocol era over HTTP there is no negotiated session, so a call
+addressed by name is refused, with one exception: `start_sage_session` mints a
+new workspace and returns a token for it. The minting path used
+`ctx.session_id` as the scope, on the reasoning that on that era the id is a
+throwaway fresh per call.
+
+It is not always fresh. With no negotiated session, fastmcp 4 falls back to the
+raw `mcp-session-id` **request header** (`fastmcp/server/context.py`), which the
+caller sets. So a 2026-era request carrying another client's handshake-era
+session id could call `start_sage_session("default")`, receive a token for that
+client's default workspace, and read or change its variables.
+
+### Why low, and why still a finding
+
+The precondition is the victim's session id: an unguessable id the server
+issues to that client alone, which this project already keeps out of every
+response and resource (items 57 and 58). On the handshake protocol, a live
+session id is already a bearer credential. Measured against real fastmcp 4.0.8
+over streamable HTTP:
+
+| With a stolen session id | Before | After |
+| --- | --- | --- |
+| handshake request, victim connected | read (the protocol's own bearer semantics) | unchanged |
+| handshake request, victim disconnected | refused, 404 | refused, 404 |
+| 2026-era `start_sage_session`, victim disconnected | **read, plus a lasting token** | refused (fresh scope) |
+
+So the path added reach: a leaked id outlived its own session, through a header
+nothing validates, and turned into a durable bearer token. It is the same shape
+as item 93's `key_for` check: an isolation property resting on a dependency's
+behaviour that nothing here asserted.
+
+### The fix
+
+Minting on the per-request era gets a scope the server generates
+(`minted-<128 random bits>`) and never reads `ctx.session_id`. The token
+returned is the only way back into that workspace, which was already the
+design; the scope just no longer comes from the caller.
+
+### How to verify
+
+`tests/test_session_identity.py::test_minting_does_not_adopt_a_client_chosen_scope`
+reproduces the read through a context whose session id is the victim's, and
+`test_each_mint_on_the_per_request_era_gets_its_own_workspace` pins that two
+mints claiming the same id stay apart. Both were written first and failed
+against 0.9.0's code. The HTTP probe was re-run against the fixed server over
+real fastmcp 4.0.8, and the integration suite ran in the SageMath 10.9
+container.
+
+### Status
+
+Fixed 2026-09-24, found by a review of the identity code 0.9.0 introduced.
+Shipped in 0.9.0 (from #170); the fix is unreleased.

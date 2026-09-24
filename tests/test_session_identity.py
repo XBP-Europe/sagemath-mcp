@@ -145,3 +145,55 @@ def test_the_per_request_era_is_read_off_the_protocol_version(ctx, expected):
 def test_on_the_handshake_era_the_transport_id_is_the_scope(unanchored):
     """Unchanged from before this existed: on the handshake era the id is stable."""
     assert runtime.client_scope(FakeContext("client-a"), "work") == "client-a"
+
+
+# -- minting must not take its scope from anything the client sent -----------
+
+
+class HeaderChosenContext(FakeContext):
+    """A 2026-era request whose session id the client chose.
+
+    On that era over HTTP there is no negotiated session, so fastmcp 4 falls
+    back to the raw `mcp-session-id` request header for `Context.session_id`
+    -- a value the caller sets to anything it likes, including another
+    client's handshake-era session id.
+    """
+
+    def __init__(self, chosen: str):
+        super().__init__(chosen)
+        self.request_context = SimpleNamespace(protocol_version=runtime.PER_REQUEST_ERA)
+
+
+async def test_minting_does_not_adopt_a_client_chosen_scope(sage_manager, unanchored):
+    """A stolen session id must not mint a token into its owner's workspace.
+
+    Reproduced against real fastmcp 4.0.8 over HTTP before the fix: a victim
+    on the handshake era stores a value; a 2026-era request carrying the
+    victim's id in its `mcp-session-id` header calls
+    `start_sage_session("default")`, gets a token for the victim's default
+    workspace, and reads the value -- even after the victim's transport
+    session has ended, when the id itself is answered with 404.
+    """
+    await server.evaluate_sage("secret = 7731", ctx=FakeContext("victim-session"))
+
+    attacker = HeaderChosenContext("victim-session")
+    started = await server.start_sage_session("default", ctx=attacker)
+    read = await server.evaluate_sage(
+        "'secret' in dir()", session=started.workspace_token, ctx=attacker
+    )
+    assert read.result == "False", (
+        "a client-chosen session id minted into another client's workspace"
+    )
+
+
+async def test_each_mint_on_the_per_request_era_gets_its_own_workspace(sage_manager, unanchored):
+    """Two mints from requests claiming the same id stay apart."""
+    first = await server.start_sage_session("work", ctx=HeaderChosenContext("same"))
+    await server.evaluate_sage(
+        "mine = 1", session=first.workspace_token, ctx=HeaderChosenContext("same")
+    )
+    second = await server.start_sage_session("work", ctx=HeaderChosenContext("same"))
+    probe = await server.evaluate_sage(
+        "'mine' in dir()", session=second.workspace_token, ctx=HeaderChosenContext("same")
+    )
+    assert probe.result == "False"

@@ -8,6 +8,7 @@ which is what lets a test swap the manager for a pure-Python one.
 
 from __future__ import annotations
 
+import secrets
 import uuid
 from typing import Any
 
@@ -75,15 +76,24 @@ def client_scope(ctx: Any, session: str = DEFAULT_SESSION_NAME, *, minting: bool
     - **a workspace token**: any scope will do; the token resolves on its own.
     - **the per-request era over HTTP**: refused for anything addressed by
       name, rather than handing out a fresh session per call. `minting` is
-      the exception -- `start_sage_session` may key a new workspace to this
-      call's throwaway id, because the token it returns is the only way back.
+      the exception: `start_sage_session` gets a brand-new scope the server
+      generates, because the token it returns is the only way back in.
     - **otherwise**: the transport's session id, as it always was.
+
+    Never `ctx.session_id` when minting on the per-request era. There is no
+    negotiated session on that era, so fastmcp falls back to the raw
+    `mcp-session-id` request header -- a value the caller chooses. Minting
+    under it let a client that knew another's session id mint a token into
+    that client's workspace, and keep it after the victim's session ended,
+    when the id itself is answered with 404 (REVIEW_ACTIONS 99).
     """
     if PROCESS_SCOPE is not None:
         return PROCESS_SCOPE
     is_token = (session or "").strip().startswith(WORKSPACE_TOKEN_PREFIX)
-    if not (is_token or minting) and identity_is_per_request(ctx):
-        raise ToolError(PER_REQUEST_REFUSAL)
+    if not is_token and identity_is_per_request(ctx):
+        if not minting:
+            raise ToolError(PER_REQUEST_REFUSAL)
+        return f"minted-{secrets.token_hex(16)}"
     return ctx.session_id
 
 

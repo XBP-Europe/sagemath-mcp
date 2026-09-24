@@ -7,6 +7,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- **Minting a workspace on the 2026-07-28 era no longer takes its scope from
+  the client** (REVIEW_ACTIONS 99, low). On that era over HTTP, fastmcp falls
+  back to the raw `mcp-session-id` request header for `Context.session_id`,
+  and `start_sage_session` minted under it. A client that knew another
+  client's session id could mint a token into that client's workspace and
+  keep it after the victim's session ended, when the id itself gets a 404.
+  Minting now uses a scope the server generates. It shipped in 0.9.0 and was
+  found by a review of the identity code that release introduced. Verified
+  against real fastmcp 4.0.8 over HTTP.
+
 ### Documentation
 
 - **The verification recipe is restated against the published 0.9.0**, and

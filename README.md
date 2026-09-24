@@ -214,7 +214,7 @@ variables.
                             │  MCP protocol (stdio or HTTP)
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  app.py + tools/ --- FastMCP 3.x                            │
+│  app.py + tools/ --- FastMCP 4.x                            │
 │  ┌─────────────┐  ┌──────────────┐                          │
 │  │ 40 MCP Tools│  │ 3 Resources  │   session.py routes each │
 │  └─────────────┘  └──────────────┘   client to its worker   │

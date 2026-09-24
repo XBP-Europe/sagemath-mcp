@@ -7,6 +7,34 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-24
+
+**fastmcp 4, and a server that no longer needs the transport to remember who
+you are.**
+
+This release moves to fastmcp 4 and the MCP SDK 2. The `<4` cap has held since
+2026-09-16 because fastmcp 4 issues a fresh session id on every call, so a
+stateful server silently lost a client's variables between calls. That turned
+out to be the 2026-07-28 protocol working as designed rather than a bug to
+wait out, so the server stopped depending on the id instead.
+
+### Upgrading
+
+- **stdio (Claude Desktop, Claude Code and other local hosts): nothing to do.**
+  The server process is the client's identity, so variables persist whatever
+  protocol version the client speaks.
+- **HTTP, handshake protocol: nothing to do.** Workspaces are still scoped to
+  the transport session.
+- **HTTP, 2026-07-28 protocol: address workspaces by token.** That protocol
+  gives the server no identity that lasts between calls, so a call that names
+  a workspace (including the implicit `default`) is refused with a message
+  saying so, rather than silently getting an empty session. Call
+  `start_sage_session` and pass the returned `workspace_token` as `session`.
+- **Log notifications are gone.** Every one repeated a result or error the
+  caller already receives; progress notifications are unchanged.
+- **Depending on the package:** it now requires `fastmcp>=4.0.8,<5`, which
+  brings `mcp` 2.x.
+
 ### Changed
 
 - **The server no longer sends MCP log notifications.** The 2026-07-28

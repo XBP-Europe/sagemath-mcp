@@ -269,16 +269,27 @@ jobs:
           from sagemath_mcp import server
 
           async def main() -> None:
-              async with Client(server.mcp) as client:
-                  first = await client.call_tool("evaluate_sage", {"code": "smoke = 41"})
-                  assert not first.is_error, first
-                  second = await client.call_tool("evaluate_sage", {"code": "smoke + 1"})
-                  assert not second.is_error, second
-                  text = "".join(
-                      block.text for block in second.content if getattr(block, "text", None)
-                  )
-                  assert "42" in text, f"stateful read returned {text!r}"
-                  print("stateful smoke: OK ->", text)
+              # Both protocol eras, because they keep state differently. The
+              # handshake era scopes a workspace to its session, so a plain call
+              # is enough; the 2026-07-28 era has no session that lasts between
+              # calls, so state lives behind a workspace token. fastmcp's
+              # default client picks the 2026 era, which is what failed the
+              # first 0.9.0 dry run when this only called by name.
+              for mode in ("legacy", "auto"):
+                  async with Client(server.mcp, mode=mode) as client:
+                      address = {}
+                      if mode == "auto":
+                          started = await client.call_tool("start_sage_session", {"name": "smoke"})
+                          address = {"session": started.data.workspace_token}
+                      first = await client.call_tool("evaluate_sage", {"code": "smoke = 41", **address})
+                      assert not first.is_error, first
+                      second = await client.call_tool("evaluate_sage", {"code": "smoke + 1", **address})
+                      assert not second.is_error, second
+                      text = "".join(
+                          block.text for block in second.content if getattr(block, "text", None)
+                      )
+                      assert "42" in text, f"{mode}: stateful read returned {text!r}"
+                      print(f"stateful smoke ({mode}): OK ->", text)
 
           asyncio.run(main())
           PY
@@ -428,17 +439,25 @@ jobs:
               return "".join(b.text for b in result.content if getattr(b, "text", None))
 
           async def main() -> None:
-              async with Client(server.mcp) as client:
-                  first = await client.call_tool("evaluate_sage", {"code": "smoke = 41"})
-                  assert not first.is_error, first
-                  second = await client.call_tool("evaluate_sage", {"code": "smoke + 1"})
-                  assert not second.is_error, second
-                  assert "42" in text_of(second), f"stateful read returned {text_of(second)!r}"
+              # Both protocol eras; see the primary image's smoke test for why.
+              for mode in ("legacy", "auto"):
+                  async with Client(server.mcp, mode=mode) as client:
+                      address = {}
+                      if mode == "auto":
+                          started = await client.call_tool("start_sage_session", {"name": "smoke"})
+                          address = {"session": started.data.workspace_token}
+                      first = await client.call_tool("evaluate_sage", {"code": "smoke = 41", **address})
+                      assert not first.is_error, first
+                      second = await client.call_tool("evaluate_sage", {"code": "smoke + 1", **address})
+                      assert not second.is_error, second
+                      assert "42" in text_of(second), f"{mode}: stateful read returned {text_of(second)!r}"
+                      print(f"passagemath stateful smoke ({mode}): OK ->", text_of(second))
+              async with Client(server.mcp, mode="legacy") as client:
                   maxima = await client.call_tool("evaluate_sage", {"code": "solve(x^2 - 4, x)"})
                   assert not maxima.is_error and "2" in text_of(maxima), maxima
                   gap = await client.call_tool("evaluate_sage", {"code": "SymmetricGroup(4).order()"})
                   assert not gap.is_error and "24" in text_of(gap), gap
-                  print("passagemath stateful smoke: OK ->", text_of(second), text_of(maxima), text_of(gap))
+                  print("passagemath backends: OK ->", text_of(maxima), text_of(gap))
 
           asyncio.run(main())
           PY

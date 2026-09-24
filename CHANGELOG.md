@@ -18,6 +18,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Documentation
 
+- **A JOSS paper skeleton** in `paper/` (`paper.md`, `paper.bib`), with every
+  section JOSS now requires, including State of the field, Software design,
+  Research impact and AI usage disclosure. Figures are read from the committed
+  benchmark and corpus artifacts. A `Paper draft` workflow builds it to PDF
+  with the Open Journals toolchain when `paper/` changes. It is not ready to
+  submit. JOSS requires evidence that others use the software in research,
+  which does not exist yet, and it also needs the Zenodo DOI and the author's
+  ORCID. `TODO.md` records all three.
+- **`ROADMAP.md` quoted 370,323 accepted corpus examples**; the 2026-09-21
+  sweep artifact says 370,275, and its totals add up. The percentage and
+  refusal count were right, which is why no test caught it: only those two are
+  checked.
 - **`TODO.md` and `ROADMAP.md` pruned to open work.** `TODO.md` said
   completed items were not kept, then carried 600 lines of ticked boxes,
   release narratives and decided-against ideas; it now holds the five open

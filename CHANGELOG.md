@@ -59,8 +59,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   fastmcp 4 answers `Context.session_id` with a new UUID on every call. This
   comes from the 2026-07-28 MCP protocol, where every request is its own
   connection, so every stateful tool landed each call in a fresh, empty
-  session. That is what the `fastmcp<4` cap has been guarding against. All 40
-  tools now resolve their caller through `runtime.client_scope`:
+  session. That is what the `fastmcp<4` cap has been guarding against. Every
+  stateful tool now resolves its caller through `runtime.client_scope`:
   - on **stdio**, where one process serves one client, the process is the
     identity, minted per process so two servers never share a journal;
   - a **workspace token** resolves on its own, as before;

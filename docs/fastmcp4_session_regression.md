@@ -103,6 +103,34 @@ the `connection.state.get(...)` read on the next call never hits. For HTTP,
 `connection.session_id` is also `None` and no `mcp-session-id` header is
 present, so it falls through to the same generated-UUID path.
 
+### Why the Connection does not persist: the protocol era (2026-09-24)
+
+A comment on #5134 traced it one level further, and the parts that matter were
+re-checked here against **4.0.8** (mcp 2.2.0). The client's first request
+decides the connection's protocol era (`serve_dual_era_loop` in
+`mcp/server/runner.py`): the `initialize` handshake opens a *legacy*
+connection, served by one `Connection` for the whole stream; a request carrying
+the 2026-07-28 per-request `_meta` envelope opens a *modern* one, where every
+request builds its own `Connection` and disposes of it afterwards. That is the
+modern protocol's design, not an oversight: each request carries its own
+envelope, and there is no object whose lifetime is the client session.
+
+fastmcp's own `Client` defaults to `mode="auto"`, which probes
+`server/discover` and adopts the modern era. So 3.4.7 → 4.x did not regress
+session handling so much as change which era the client speaks:
+
+| fastmcp 4.0.8, stdio, three calls | distinct session ids |
+| --- | ---: |
+| `Client(..., mode="auto")` | 3 |
+| `Client(..., mode="legacy")` | 1 |
+
+This changes what to wait for. `mode="legacy"` is a **client** setting, and the
+era is the client's choice; the server has no switch to refuse the modern era.
+On the modern era there is nothing to anchor a per-connection identity to, so
+an upstream "fix" is more likely to make `session_id` fail loudly there than to
+make it stable. The cap does not hurt meanwhile: 3.4.7 speaks only the
+handshake, so every client reaches this server on the legacy era.
+
 ## What it blocks here
 
 `tests/test_cache_isolation.py::test_two_clients_do_not_share_tool_results`
@@ -119,18 +147,25 @@ unstable session satisfies by accident.
 
 ## What would lift the cap
 
-Either upstream restores a stable per-connection identity, or this server stops
-depending on one. The second is partly built already: `start_sage_session`
-issues a portable `workspace_token` (the application-issued handle the
-2026-07-28 MCP spec recommends after retiring protocol-level sessions), and any
-client passing it is unaffected by this bug. What breaks is the zero-config
-default, where a client just calls `evaluate_sage` and expects its variables to
-still be there.
+This server stops depending on a per-connection identity. Waiting for upstream
+is no longer the plan: see the era section above for why that identity may not
+come back.
 
-A process-wide identity would fix stdio, where one process serves exactly one
-client — but it would merge every HTTP client into a single shared session,
-which is precisely the confidentiality failure `test_cache_isolation.py` exists
-to prevent. So it is not a safe general workaround.
+- **Explicit handles already work.** `start_sage_session` issues a portable
+  `workspace_token`, the application-issued handle the 2026-07-28 MCP spec
+  recommends after retiring protocol-level sessions, and any client passing it
+  is unaffected.
+- **stdio: the process is the client.** One stdio server process serves exactly
+  one client, so the default session can be anchored to the process.
+- **HTTP: no anchor, so say so.** One process serves many clients, so a
+  process-wide identity would merge them into a single shared session, which is
+  the confidentiality failure `test_cache_isolation.py` exists to prevent. With
+  no stable id, the default session cannot be honoured, and a call without a
+  `workspace_token` should get a refusal naming `start_sage_session` rather than
+  a silently fresh session each time.
+
+The cap lifts when those are in place and `tests/test_cache_isolation.py` passes
+under 4.x, in the Sage container, on both transports.
 
 ## Re-testing after an upstream fix
 

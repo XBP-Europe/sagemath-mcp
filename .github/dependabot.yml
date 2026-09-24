@@ -67,3 +67,14 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    ignore:
+      # Dockerfile.passagemath builds on python:3.12-slim on purpose: the
+      # passagemath pin and the generated allowlist/star-export artifact set
+      # are produced and verified under Python 3.12, and
+      # test_the_passagemath_image_is_built_natively_for_both_architectures
+      # holds the image to it. Dependabot proposed 3.14 in #172. A Python bump
+      # there means regenerating and reviewing that artifact set through the
+      # passagemath CI lane, so it is done by hand. Patch-level digest
+      # refreshes of the 3.12 image still arrive.
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]

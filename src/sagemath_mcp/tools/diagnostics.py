@@ -61,7 +61,7 @@ async def check_sage_health(
     backend = "pure-python" if runtime.SETTINGS.force_python_worker else "sagemath"
     started = time.perf_counter()
     try:
-        sage = await runtime.resolve_session(ctx.session_id, session)
+        sage = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
         result = await sage.evaluate(
             "1 + 1",
             want_latex=False,

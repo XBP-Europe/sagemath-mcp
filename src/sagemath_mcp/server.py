@@ -279,7 +279,12 @@ def main(argv: list[str] | None = None) -> None:  # pragma: no cover - CLI entry
     logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO))
 
     transport_kwargs: dict[str, object] = {}
-    if args.transport != "stdio":
+    if args.transport == "stdio":
+        # One client for the life of the process, so the process is its
+        # identity. Under fastmcp 4 the transport's session id changes every
+        # call, and this is what keeps a stdio client's variables regardless.
+        runtime.anchor_to_process()
+    else:
         transport_kwargs.update({"host": args.host, "port": args.port})
         # Binding to loopback does not keep a browser out, and this server's
         # supported posture is local with no authentication -- so there is no

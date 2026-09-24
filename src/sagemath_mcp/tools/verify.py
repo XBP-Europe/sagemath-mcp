@@ -293,7 +293,7 @@ async def verify_claim(
         raise ToolError(
             "'claim' must state a comparison, e.g. 'sin(x)**2 + cos(x)**2 == 1'"
         )
-    sage_session = await runtime.resolve_session(ctx.session_id, session)
+    sage_session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
     claim = _validated_expression(claim)
     rewritten = _exact_decimal_literals(claim)
     if rewritten != claim:

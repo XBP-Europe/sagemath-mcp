@@ -48,7 +48,7 @@ async def statistics_summary(
     # from the median calculation, which says nothing about what to send instead.
     if not data:
         raise ToolError("statistics_summary requires at least one value in 'data'")
-    session = await runtime.resolve_session(ctx.session_id, session)
+    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
     code = (
         _sage_prelude()
         + textwrap.dedent(
@@ -103,7 +103,7 @@ async def distribution_operation(
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
     operation = operation.strip()
-    session = await runtime.resolve_session(ctx.session_id, session)
+    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
     params_str = ", ".join(str(p) for p in parameters)
     # "normal" takes [mu, sigma]. The previous mapping passed parameters[0] as
     # sigma only when exactly one parameter was given and otherwise hardcoded

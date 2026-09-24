@@ -777,6 +777,17 @@ into a fresh workspace, and stopping a workspace invalidates its handles. The
 handle keeps its workspace only while that worker is alive (a server restart or
 an idle cull ends it); it is not a cross-restart recovery token.
 
+**Which identity a plain name uses.** Over **stdio** a server process has one
+client for its whole life, so every call it serves shares one scope, whatever
+session id the transport reports. Over **HTTP** the scope is the transport's
+session id. A client speaking the 2026-07-28 MCP protocol over HTTP gives the
+server no id that lasts between calls: every request is a fresh connection. On
+such a connection a call that names a workspace (including the implicit
+`default`) is **refused**, not silently served an empty session. Call
+`start_sage_session` and pass the `workspace_token` it returns as `session`
+instead. A client on the handshake protocol, which every client uses with the
+current fastmcp 3 server, is unaffected.
+
 #### `check_sage_health`
 
 The MCP-level readiness probe, for stdio clients that cannot reach the HTTP

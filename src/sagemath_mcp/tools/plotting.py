@@ -108,7 +108,7 @@ async def plot3d_expression(
 ) -> Image:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await runtime.resolve_session(ctx.session_id, session)
+    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
     code = (
         _sage_prelude([x_variable, y_variable])
         + textwrap.dedent(
@@ -183,7 +183,7 @@ async def plot_multi_expression(
 ) -> Image:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await runtime.resolve_session(ctx.session_id, session)
+    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
     code = (
         _sage_prelude([variable])
         + textwrap.dedent(
@@ -219,7 +219,7 @@ async def plot_expression(
 ) -> Image:
     if ctx is None or ctx.session_id is None:
         raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await runtime.resolve_session(ctx.session_id, session)
+    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
     code = (
         _sage_prelude([variable])
         + textwrap.dedent(
@@ -278,7 +278,7 @@ async def geometry_operation(
         raise ToolError(
             f"Operation 'distance' requires two points, got {len(points)}"
         )
-    session = await runtime.resolve_session(ctx.session_id, session)
+    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
     pts = _encode_literal(points)
     ops = {
         "distance": (

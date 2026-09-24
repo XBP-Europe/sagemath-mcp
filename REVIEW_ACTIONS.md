@@ -6018,4 +6018,4 @@ container.
 ### Status
 
 Fixed 2026-09-24, found by a review of the identity code 0.9.0 introduced.
-Shipped in 0.9.0 (from #170); the fix is unreleased.
+Shipped in 0.9.0 (from #170); fixed in 0.9.1.

@@ -7,6 +7,12 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-09-24
+
+**A security patch for 0.9.0.** 0.9.0 introduced workspace minting for
+clients on the 2026-07-28 protocol, and minted under a scope the client could
+choose. Upgrading needs no change on the client side.
+
 ### Security
 
 - **Minting a workspace on the 2026-07-28 era no longer takes its scope from

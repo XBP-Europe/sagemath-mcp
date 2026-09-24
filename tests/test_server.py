@@ -117,7 +117,6 @@ async def test_evaluate_sage_reports_progress(monkeypatch):
     payload: EvaluateResult = await server.evaluate_sage("x = 6", ctx=ctx)
 
     assert payload.result == "42"
-    assert ctx.info_messages
     assert ctx.progress_events
     assert ctx.progress_events[-1] == (1.0, 1.0, "Sage evaluation complete")
 
@@ -176,7 +175,6 @@ async def test_evaluate_sage_handles_cancel(monkeypatch):
         await server.evaluate_sage("long_calculation()", ctx=ctx)
 
     assert fake_session.cancelled is True
-    assert any("cancelled" in msg.lower() for msg in ctx.warning_messages)
 
 
 @pytest.mark.asyncio
@@ -198,8 +196,6 @@ async def test_evaluate_sage_process_error(monkeypatch):
     ctx = FakeContext()
     with pytest.raises(server.ToolError):
         await server.evaluate_sage("f()", ctx=ctx)
-
-    assert ctx.error_messages
 
 
 @pytest.mark.asyncio
@@ -408,8 +404,6 @@ async def test_evaluate_sage_security_violation(monkeypatch):
     ctx = FakeContext("violation")
     with pytest.raises(ToolError):
         await server.evaluate_sage("import os", ctx=ctx)
-
-    assert ctx.error_messages
 
 @pytest.mark.asyncio
 async def test_documentation_resource_unknown_scope():
@@ -1034,8 +1028,6 @@ async def test_evaluate_sage_security_violation_branch(monkeypatch):
     with pytest.raises(ToolError):
         await server.evaluate_sage("import os", ctx=ctx)
 
-    assert any("security policy" in msg.lower() for msg in ctx.error_messages)
-
 
 @pytest.mark.asyncio
 async def test_evaluate_sage_non_security_error_branch(monkeypatch):
@@ -1061,8 +1053,6 @@ async def test_evaluate_sage_non_security_error_branch(monkeypatch):
     with pytest.raises(ToolError):
         await server.evaluate_sage("x + 1", ctx=ctx)
 
-    assert any("SageMath error" in msg for msg in ctx.error_messages)
-
 
 @pytest.mark.asyncio
 async def test_evaluate_sage_process_error_with_cause(monkeypatch):
@@ -1083,8 +1073,6 @@ async def test_evaluate_sage_process_error_with_cause(monkeypatch):
     ctx = FakeContext("process-error-cause")
     with pytest.raises(ToolError):
         await server.evaluate_sage("1+1", ctx=ctx)
-
-    assert any("unavailable" in msg.lower() for msg in ctx.error_messages)
 
 
 # ---------------------------------------------------------------------------

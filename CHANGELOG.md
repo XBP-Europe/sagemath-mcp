@@ -9,6 +9,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **The server no longer sends MCP log notifications.** The 2026-07-28
+  protocol deprecates the logging capability (SEP-2577). On that era a log
+  message is delivered only if the client opts in per request, and fastmcp 4
+  warned on every call that sent one. None of the twelve messages carried
+  anything new: each repeated a tool's result or error ("Started Sage session
+  'x'", "SageMath error: …") that the caller already receives. They are
+  removed, and progress notifications, which are not deprecated, stay. Server
+  operators keep the Python logs, which already recorded the same events. The
+  test `FakeContext` no longer has logging methods, so a tool that starts
+  logging again fails the suite instead of passing quietly.
 - **fastmcp 4: the `<4` cap is lifted, to `fastmcp>=4.0.8,<5`** (with
   `mcp` 2.2). The cap was there because 4.x issues a fresh session id per
   call. The server no longer depends on that id (see *Fixed*), so the upgrade

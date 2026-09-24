@@ -183,8 +183,10 @@ async def test_a_handle_is_not_exposed_through_the_session_resource(manager):
 
 
 async def test_lifecycle_tools_never_echo_the_workspace_token(manager):
-    """The token is a bearer credential; no lifecycle op may put it in a log
-    notification or a response. Names are not secret and may still appear.
+    """The token is a bearer credential; no lifecycle op may put it in a
+    response. Names are not secret and may still appear. (Log notifications
+    were the other channel; the server no longer sends any, and `FakeContext`
+    has no logging methods, so one reappearing fails this suite outright.)
 
     Regression for an external review (REVIEW_ACTIONS 70): reset/interrupt/cancel
     interpolated the caller's `session` argument -- which now carries the token --
@@ -195,11 +197,7 @@ async def test_lifecycle_tools_never_echo_the_workspace_token(manager):
     await server.evaluate_sage("a = 1", session=token, ctx=ctx)
 
     def _assert_clean(context, response) -> None:
-        emitted = [
-            *context.info_messages,
-            *context.warning_messages,
-            getattr(response, "message", ""),
-        ]
+        emitted = [getattr(response, "message", "")]
         leaked = [m for m in emitted if token in (m or "")]
         assert not leaked, f"workspace token leaked: {leaked}"
 

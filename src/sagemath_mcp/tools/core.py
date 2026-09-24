@@ -35,7 +35,6 @@ from ..session import (
     SageProcessError,
 )
 from ..text import SESSION_ARG_DESC as _SESSION_ARG_DESC
-from ..text import loggable_session
 from .hints import COMPUTES, EVALUATES
 
 LOGGER = logging.getLogger(__name__)
@@ -116,7 +115,6 @@ async def evaluate_sage(
     # unrelated default state while the curves worker kept running.
     session_key = runtime.SESSION_MANAGER.resolve_key(runtime.client_scope(ctx, session), session)
     sage_session = await runtime.SESSION_MANAGER.get(session_key)
-    await ctx.info("Starting SageMath evaluation")
     progress_task = asyncio.create_task(_progress_heartbeat(ctx))
     try:
         worker_result = await sage_session.evaluate(
@@ -128,11 +126,6 @@ async def evaluate_sage(
     except asyncio.CancelledError:
         monitoring.record_failure("cancelled", is_security=False, details="evaluation cancelled")
         await runtime.SESSION_MANAGER.cancel(session_key)
-        # Masked: `session` may be a workspace token, which is a bearer
-        # credential and must never reach a notification (item 84).
-        await ctx.warning(
-            f"Sage evaluation cancelled; session {loggable_session(session)} restarted"
-        )
         raise
     except TimeoutError as exc:
         # A timeout escaped raw: no monitoring record, and the client saw an
@@ -142,7 +135,6 @@ async def evaluate_sage(
         # The message, not the class name: "Sage evaluation timed out after
         # 30.00s" tells an operator what to change; "TimeoutError" does not.
         monitoring.record_failure(str(exc), is_security=False, details="TimeoutError")
-        await ctx.error(f"SageMath evaluation timed out: {exc}")
         raise ToolError(str(exc)) from exc
     except SageEvaluationError as exc:
         monitoring.record_failure(
@@ -150,10 +142,6 @@ async def evaluate_sage(
             is_security=exc.error_type == "SecurityViolation",
             details=exc.traceback or exc.stdout,
         )
-        if exc.error_type == "SecurityViolation":
-            await ctx.error(f"Sage security policy violation: {exc}")
-        else:
-            await ctx.error(f"SageMath error: {exc}")
         raise ToolError(exc.args[0]) from exc
     except SageProcessError as exc:
         cause = getattr(exc, "__cause__", None)
@@ -163,7 +151,6 @@ async def evaluate_sage(
             is_security=False,
             details=details,
         )
-        await ctx.error("SageMath process became unavailable; restarting may help")
         raise ToolError(str(exc)) from exc
     finally:
         progress_task.cancel()

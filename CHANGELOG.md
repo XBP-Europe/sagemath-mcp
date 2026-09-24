@@ -7,6 +7,13 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Documentation
+
+- **The verification recipe is restated against the published 0.9.1.** cosign
+  v3.1.3 verifies both images (3 entries for the primary, 2 for
+  `-passagemath`). SLSA provenance, the image SBOM, the wheel attestation and
+  DISTRIBUTION.md's exact-identity recipe all verify.
+
 ### Added
 
 - **A Zenodo DOI.** Zenodo archived v0.9.0, so the project is citable:

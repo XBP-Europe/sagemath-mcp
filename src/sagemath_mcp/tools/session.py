@@ -64,7 +64,6 @@ async def reset_sage_session(
         raise ToolError("MCP context with session_id is required to reset state")
     key = runtime.SESSION_MANAGER.resolve_key(runtime.client_scope(ctx, session), session)
     await runtime.SESSION_MANAGER.reset(key)
-    await ctx.info(f"Sage session {_loggable(session)} reset")
     return ResetResponse()
 
 
@@ -89,9 +88,7 @@ async def interrupt_sage_session(
     if not interrupted:
         # No worker to signal: either nothing has run yet in this workspace, or
         # it has already exited. Not an error, but say which.
-        await ctx.info(f"No running Sage worker for session {_loggable(session)}")
         return ResetResponse(message=f"No running computation in session {_loggable(session)}")
-    await ctx.warning(f"Interrupted session {_loggable(session)}; state preserved")
     return ResetResponse(message=f"Interrupted session {_loggable(session)}; state preserved")
 
 
@@ -112,7 +109,6 @@ async def cancel_sage_session(
         raise ToolError("MCP context with session_id is required to cancel work")
     key = runtime.SESSION_MANAGER.resolve_key(runtime.client_scope(ctx, session), session)
     await runtime.SESSION_MANAGER.cancel(key)
-    await ctx.warning(f"Sage session {_loggable(session)} cancelled and restarted")
     return ResetResponse(message="Session cancelled and restarted")
 
 
@@ -153,7 +149,6 @@ async def start_sage_session(
     key = runtime.SESSION_MANAGER.resolve_key(scope, name)
     token = runtime.SESSION_MANAGER.mint_workspace_token(key)
     # The name is safe to log; the token is a secret and must never be.
-    await ctx.info(f"Started Sage session '{name}'")
     return WorkspaceHandle(
         message=f"Session '{name}' ready", workspace_token=token, name=name
     )
@@ -179,7 +174,6 @@ async def stop_sage_session(
     stopped = await runtime.SESSION_MANAGER.stop(runtime.client_scope(ctx, name), name)
     if not stopped:
         raise ToolError(f"No Sage session named {_loggable(name)} for this client")
-    await ctx.info(f"Stopped Sage session {_loggable(name)}")
     return ResetResponse(message=f"Session {_loggable(name)} stopped")
 
 

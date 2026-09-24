@@ -14,14 +14,12 @@ removed from here once they ship or are decided against.
       talk to CoCalc (hosted Sage). Lead with the doctest-corpus acceptance
       figure — the strongest single credibility claim.
 
-- [ ] **Citability.** The Zenodo webhook is installed and active (#92), so the
-      next release tag mints the first DOI. Then run
-      `scripts/set_zenodo_doi.py <concept DOI>` to write it into `CITATION.cff`
-      and the README badge, and close #92. Then the **JOSS paper**: the skeleton
-      is `paper/paper.md`, built to PDF by `.github/workflows/paper.yml`. It is
-      blocked on evidence of research use by others (JOSS requires it; our own
-      benchmarks are supporting material only), the DOI, and the author's
-      ORCID and sign-off on the AI usage disclosure.
+- [ ] **The JOSS paper.** The skeleton is `paper/paper.md`, built to PDF by
+      `.github/workflows/paper.yml`. The Zenodo concept DOI now exists
+      (10.5281/zenodo.22939422, recorded 2026-09-24), so what still blocks it
+      is evidence of research use by others (JOSS requires it; our own
+      benchmarks are supporting material only), and the author's ORCID and
+      sign-off on the AI usage disclosure.
 
 - [ ] **conda-forge.** Submitted as conda-forge/staged-recipes#34875 (#101),
       bumped to 0.8.4 and green, waiting on a reviewer. The recipe is

@@ -167,6 +167,8 @@ preparser behaviour. Run both.
 
 ## Releasing
 
+Every tag is archived by Zenodo and gets its own version DOI; the concept DOI [10.5281/zenodo.22939422](https://doi.org/10.5281/zenodo.22939422) always resolves to the newest release, and is the one to cite.
+
 `main` is protected and requires all CI checks, so a release cannot be pushed to it
 directly. The flow is:
 

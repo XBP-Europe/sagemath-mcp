@@ -24,14 +24,12 @@ bibliography: paper.bib
 OUTLINE STATUS. This is a skeleton, not a submission. JOSS asks for 750-1750
 words; the budget per section is in each OUTLINE note. Every figure quoted is
 read from a committed artifact, named beside it, so it can be re-checked
-before submission. Three things block submission, in order:
+before submission. Two things block submission, in order:
 
 1. Research impact (JOSS: "there must be evidence that the software is being
    used for research ... aspirational statements are not sufficient"). We have
    measurements of our own, not use by others. See that section.
-2. The Zenodo DOI, which the next release tag mints (#92). JOSS archives a
-   tagged release with a DOI at acceptance.
-3. The author ORCID above, and the author's own sign-off on the AI usage
+2. The author ORCID above, and the author's own sign-off on the AI usage
    disclosure, which JOSS treats as an ethical statement.
 
 Eligibility checked 2026-09-23: public since 2025-11-02 (JOSS minimum is six

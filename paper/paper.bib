@@ -2,7 +2,12 @@
 % submission, add DOIs where they exist (JOSS asks for them) -- SageMath has a
 % Zenodo concept DOI that should be looked up rather than typed from memory --
 % and replace the software-by-URL entries for peer servers with a paper where
-% one exists (szeider/mcp-sage is cited in a NeSy 2026 paper).
+% one exists. szeider/mcp-sage backs Seka & Szeider, "Neurosymbolic Discovery
+% of Algebraic Graph Constructions" (NeSy 2026, PMLR). The paper is not on
+% arXiv (searched 2026-09-24), so it is cited through its Zenodo supplementary
+% record below, which bundles mcp-sage. Swap in the PMLR entry once the
+% proceedings are out. Note: arXiv:2604.00898, which that record lists as
+% `isDerivedFrom`, is a different paper (Enumerating Two-Orbit Graphs).
 
 @software{sagemath,
   author = {{The Sage Developers}},
@@ -81,6 +86,16 @@
   title = {{mcp-sage}},
   year = {2026},
   url = {https://github.com/szeider/mcp-sage}
+}
+
+@misc{seka_nesy2026,
+  author = {Seka, David and Szeider, Stefan},
+  title = {{Neurosymbolic Discovery of Algebraic Graph Constructions:
+            Supplementary Material (NeSy 2026)}},
+  year = {2026},
+  publisher = {Zenodo},
+  version = {1.0.0},
+  doi = {10.5281/zenodo.21850460}
 }
 
 @software{sympy_mcp,

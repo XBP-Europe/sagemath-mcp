@@ -12,9 +12,8 @@ We currently support the latest released version of the `sagemath-mcp` package. 
 
 Three badges at the top of the README claim this project signs and attests what
 it publishes. Until now none of them said how to check that, which makes a
-signature worth roughly what an unchecked signature is worth. The commands
-below name v0.9.1, the current release. They were last run end to end against
-v0.9.0 (2026-09-24), and are re-run against each release after it publishes.
+signature worth roughly what an unchecked signature is worth. Every command
+below was run against v0.9.1, the release the examples name, on 2026-09-24.
 
 Use **cosign v3**. The release signs with it, and v3 stores the signature in
 the newer Sigstore bundle format. cosign v2 looks for the older layout by default and

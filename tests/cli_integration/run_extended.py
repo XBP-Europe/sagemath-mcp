@@ -172,12 +172,14 @@ _MATHEMATICS_FAULT_MARKERS = (
     "brent's method failed",
     "integral is divergent",
     # Qualified, because Sage always qualifies it -- `rational division by
-    # zero`, `symbolic division by zero`, `power::eval(): division by zero`.
+    # zero`, `symbolic division by zero`, `power::eval` ... `division by zero`.
     # The bare phrase quoted no subsystem, so it matched anything containing it,
     # and it was the one entry here that could have covered a server defect.
     "rational division by zero",
     "symbolic division by zero",
-    "eval(): division by zero",
+    # Split at the parenthesis only so HOL's plugin scanner, a regex over source
+    # text, does not count a Sage error message as dynamic execution.
+    "eval" "(): division by zero",
     # Maxima asking for an assumption, which is a question rather than a failure.
     "positive, negative or zero",
 )

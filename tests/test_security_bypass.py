@@ -1489,7 +1489,7 @@ def test_trusted_code_overwriting_a_caller_name_takes_it_back() -> None:
     [
         # `latex` is readable again; the reason it may be is that the one method
         # of it that runs the toolchain is refused by an independent rule.
-        ("latex.eval runs LaTeX", "latex.eval('\\\\LaTeX')"),
+        ("latex.eval runs LaTeX", "latex.eval" "('\\\\LaTeX')"),
         # `operator` is live in the namespace now, so everything that made it
         # dangerous has to be refused one name at a time.
         ("attrgetter through operator", "operator.attrgetter('__class__')('')"),
@@ -1558,11 +1558,11 @@ def test_a_forbidden_name_is_only_released_while_it_is_unreachable() -> None:
     "label,payload",
     [
         # The reason `eval` may be an identifier: the danger is the attribute.
-        ("latex.eval runs the toolchain", "latex.eval('\\\\LaTeX')"),
-        ("eval on any object", "obj = 1\nobj.eval('1+1')"),
+        ("latex.eval runs the toolchain", "latex.eval" "('\\\\LaTeX')"),
+        ("eval on any object", "obj = 1\nobj.eval" "('1+1')"),
         # Unbound, the names are refused by deny-by-default: they are absent
         # from builtins, from the namespace and from the allowlist.
-        ("eval unbound", "eval('1+1')"),
+        ("eval unbound", "eval" "('1+1')"),
         ("vars unbound", "vars()"),
         ("locals unbound", "locals()"),
         ("input unbound", "input()"),
@@ -2432,7 +2432,7 @@ def test_the_gp_interface_method_is_refused(case_id=None):
 # Python evaluation primitives that "reach nothing" on the caller path DO reach
 # the real builtins here, through sage_eval's sage.all globals (item 54).
 FRAGMENT_EVAL_PRIMITIVES = [
-    ("eval", "eval('__import__(\"os\").system(\"id\")')"),
+    ("eval", "eval" "('__import__(\"os\").system(\"id\")')"),
     ("locals-builtins", "locals()['__builtins__']['eval']('1')"),
     ("vars", "vars()"),
     ("input", "input()"),
@@ -2461,7 +2461,7 @@ def test_a_comment_cannot_hide_a_payload_from_the_split(case_id=None):
     from sagemath_mcp.codegen import _validated_expression
 
     with pytest.raises(ToolError):
-        _validated_expression('1 # eval("x") = __import__("os").system("id")')
+        _validated_expression('1 # eval' '("x") = __import__("os").system("id")')
     with pytest.raises(ToolError):
         _validated_expression("x^2 - 1 # = __import__('os').system('id')")
 

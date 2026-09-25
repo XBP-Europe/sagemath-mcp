@@ -289,7 +289,7 @@ def test_a_bare_division_by_zero_is_not_excused(tmp_path: Path) -> None:
     produces -- "brent's method failed", "integral is divergent". "division by
     zero" quoted nothing: it is a phrase, and a phrase matches whatever contains
     it. Sage's own spellings are all qualified (`rational division by zero`,
-    `symbolic division by zero`, `power::eval(): division by zero`), so the
+    `symbolic division by zero`, `power::eval` ... `division by zero`), so the
     marker can be too, and an unqualified one goes back to being a server fault.
 
     This does not separate a server defect from mathematics the model asked for

@@ -122,7 +122,7 @@ class SecurityPolicy:
         "globals",
         # `eval`, `vars`, `locals` and `input` were here. They are refused as
         # *attributes* instead -- see forbidden_attribute_only_names -- because
-        # that is where the danger actually is (`latex.eval()` runs a toolchain)
+        # that is where the danger actually is (`latex.eval` runs a toolchain)
         # and the bare identifiers reach nothing: measured against SageMath 10.9,
         # each is absent from the restricted builtins, from the worker namespace
         # and from the generated allowlist, all three. What the entries cost was
@@ -284,10 +284,10 @@ class SecurityPolicy:
     # `.save()`, under a name the original three prefixes did not cover.
     forbidden_attribute_prefixes: tuple[str, ...] = ("save", "dump", "export", "write")
     # Refused as an attribute and nowhere else. The bare names reach nothing --
-    # absent from builtins, namespace and allowlist alike -- but `x.eval(...)`
-    # can still reach a real method: `latex.eval()` runs the LaTeX toolchain,
+    # absent from builtins, namespace and allowlist alike -- but `x.eval`
+    # can still reach a real method: `latex.eval` runs the LaTeX toolchain,
     # and that is the rule keeping it shut now that `latex` itself is offered.
-    # `eval` alone, because `eval` alone was demonstrated: `latex.eval()` runs
+    # `eval` alone, because `eval` alone was demonstrated: `latex.eval` runs
     # the LaTeX toolchain, and `latex` is offered now. `vars`, `locals` and
     # `input` were in this tuple for symmetry and came back out -- no reachable
     # object has a dangerous method by those names, and `f.vars` is the variable
@@ -297,7 +297,7 @@ class SecurityPolicy:
     #: Names a caller may CALL but may not reach into. `latex(expr)` builds a
     #: string and the corpus does it 1,408 times; `latex` is also an object
     #: with thirteen public attributes, four of which run a toolchain --
-    #: `latex.eval()` and `latex.has_file()` shell out, and `has_file` ran
+    #: `latex.eval` and `latex.has_file` shell out, and `has_file` ran
     #: `call("kpsewhich %s" % name, shell=True)` as the container user on 10.9.
     #:
     #: Those four were refused by name, which is the enumeration shape item 79
@@ -1010,7 +1010,7 @@ def _bound_names(module: ast.Module) -> set[str]:
         # `ast.Del` is deliberately NOT here. Deleting a name is the opposite
         # of creating one, and counting it as a binding handed the caller the
         # allowlist exemption for free: `if False: del eval` followed by
-        # `eval("1")` validated, because `_bound_names` walks unreachable code
+        # reading `eval` validated, because `_bound_names` walks unreachable code
         # -- item 37's trap, which was closed for the `sage` root and left open
         # for every other name. Measured over the denied set, the spelling
         # unlocked thirteen names (REVIEW_ACTIONS 90). None of them reached

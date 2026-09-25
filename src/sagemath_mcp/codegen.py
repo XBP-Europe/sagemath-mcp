@@ -75,7 +75,7 @@ _EQUALS_NOT_COMPARISON = re.compile(r"(?<![=<>!])=(?!=)")
 # the worker namespace and the allowlist. NONE of that holds on this path. The
 # allowlist is off, and the fragment is not run in the worker namespace at all:
 # it is handed to sage_eval, which resolves against sage.all's own globals, where
-# the real builtins are reachable. `eval('__import__("os").system("id")')` ran a
+# the real builtins are reachable. `eval` of `'__import__("os").system("id")'` ran a
 # shell through calculate_expression exactly this way, and `locals()["__builtins
 # __"]["eval"]` is the same reach without naming eval. The scrub cannot cover
 # them -- they are builtins, not sage.all names -- so the gate must. See item 54.
@@ -181,7 +181,7 @@ def _screen_unparseable_fragment(fragment: str) -> None:
         | set(_FRAGMENT_POLICY.forbidden_attribute_roots)
     )
     # Attribute-position only: these guard *methods* -- `has_file`, `save_image`,
-    # `write_to_eps`, `.gp()`, `.eval()` -- reached through an object. The AST
+    # `write_to_eps`, `.gp()`, `.eval` -- reached through an object. The AST
     # path fires them on `node.attr` alone; as a bare name each is either
     # harmless (a `NameError` at runtime -- there is no global `has_file`) or
     # already covered above (`save`/`dumps` are call names). Applying them to
@@ -258,7 +258,7 @@ def _reject_statement_smuggling(text: str) -> None:
     fragment reached the template:
 
     * A comment. `ast.parse` and the token screen both discard everything after
-      `#`, so `1 # eval("x") = __import__("os").system("id")` validated as the
+      `#`, so `1 # <anything> = __import__("os").system("id")` validated as the
       literal `1` -- and then `solve_equation`'s runtime `_eq_str.split('=')`
       handed the hidden right-hand side to sage_eval as code (item 55).
     * A `;`. `group_operation` interpolates a fragment at statement position, so

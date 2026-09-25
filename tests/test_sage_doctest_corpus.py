@@ -625,7 +625,7 @@ def test_the_shadowing_rules_stay_emptied(corpus: Harvest) -> None:
     `compile`, `globals` and `getattr` -- primitives with no mathematical use.
     `eval`, `vars`, `locals` and `input` were released as *identifiers* once
     their absence from builtins, namespace and allowlist was asserted rather
-    than assumed; they stay refused as attributes, which is where `latex.eval()`
+    than assumed; they stay refused as attributes, which is where `latex.eval`
     lives.
 
     A rise here means the shadowing class has come back.

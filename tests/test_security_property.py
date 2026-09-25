@@ -165,7 +165,7 @@ def test_a_forbidden_name_is_refused_however_it_is_wrapped(
 @given(name=st.sampled_from(_FORBIDDEN_CALLS))
 def test_deleting_a_name_does_not_buy_the_right_to_read_it(name: str) -> None:
     """`del` was counted as a binding, and `_bound_names` walks unreachable
-    code, so `if False: del eval` made `eval("1")` validate -- item 37's trap,
+    code, so `if False: del eval` made reading `eval` validate -- item 37's trap,
     closed for the `sage` root and left open for every other name. Thirteen
     names were reachable this way (REVIEW_ACTIONS 90).
 

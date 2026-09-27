@@ -6,9 +6,9 @@ The most important functional test of the security guardrails: every
 the mathematics Sage itself documents. Generated on every run of
 `tests/test_sage_doctest_corpus.py`; counts only, never corpus text.
 
-- Generated: 2026-09-27 15:44:43 UTC
+- Generated: 2026-09-27 20:55:15 UTC
 - SageMath: 10.9 (`/home/sage/sage/local/var/lib/sage/venv-python3.12/lib/python3.12/site-packages/sage`)
-- Verdict fingerprint: `ff2631d8fabe180a71490e2d0b933226851a37e57c0f7a4c7d0e9697ec85e265`
+- Verdict fingerprint: `2c6a46de4a24e9720c56f02dae5f78dd99e06e6c66dbef1a45155d591751d5af`
 
 The fingerprint is a SHA-256 over every example's outcome, refusal
 messages in full. It changes whenever any single verdict changes, even
@@ -19,11 +19,11 @@ when every count above stays the same.
 | Source files | 3,168 |
 | Docstrings | 60,094 |
 | Examples | 432,878 |
-| Accepted | 370,275 |
-| Refused | 4,153 |
+| Accepted | 370,271 |
+| Refused | 4,157 |
 | Excluded (out of scope by design) | 58,268 |
 | Unparsed | 182 |
-| **Acceptance (in-scope)** | **98.8908%** |
+| **Acceptance (in-scope)** | **98.8898%** |
 | Required acceptance | 98.50% |
 | Required accepted examples | 250,000 |
 
@@ -36,7 +36,7 @@ ceiling, or `test_every_refusal_is_a_rule_we_meant_to_write` fails.
 | Count | Share of in-scope | Rule |
 | ---: | ---: | --- |
 | 1,927 | 0.5147% | `'X' is not offered: it spawns an external program, and this server does the same mathema` |
-| 1,120 | 0.2991% | `'X' is not a name this server offers` |
+| 1,124 | 0.3002% | `'X' is not a name this server offers` |
 | 596 | 0.1592% | `Reaching into the 'X' module is not permitted, and 'X' is not offered under any other sp` |
 | 209 | 0.0558% | `Reaching into the 'X' module is not permitted; name the function directly: 'X'` |
 | 92 | 0.0246% | `Access through 'X' is blocked ('X' is not permitted in Sage executions)` |

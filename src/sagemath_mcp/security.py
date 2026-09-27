@@ -509,6 +509,26 @@ def _refuse_dunder_name(node: ast.Name, ctx: _ValidationContext) -> None:
         )
 
 
+def _refuse_dunder_subscript(node: ast.Subscript, ctx: _ValidationContext) -> None:
+    """Refuse a subscript whose key is a dunder string, e.g. d['__builtins__'].
+
+    A subscript key is a Constant, not a Name or Attribute, so no other rule
+    inspects it: `d['__builtins__']` reads Python internals with none of them
+    firing. That is the step from a namespace dict -- anything that hands one
+    back -- to the real builtins (REVIEW_ACTIONS 101). Dunder keys are internals
+    access, never mathematics, so this refuses the class regardless of what the
+    base evaluates to. The attribute and name forms are refused by their own
+    rules; this is the subscript form.
+    """
+    key = node.slice
+    if isinstance(key, ast.Constant) and isinstance(key.value, str) and _is_dunder(key.value):
+        _raise_violation(
+            f"Access to dunder key '{key.value}' is blocked",
+            code=ctx.code,
+            policy=ctx.policy,
+        )
+
+
 def _refuse_unoffered_name(node: ast.Name, ctx: _ValidationContext) -> None:
     """Refuse reading a name that is neither offered nor the caller's own."""
     policy = ctx.policy
@@ -933,6 +953,7 @@ _NODE_RULES: dict[type[ast.AST], tuple[Callable[[Any, _ValidationContext], None]
         _refuse_deleting_a_provided_name,
         _refuse_forbidden_name_reference,
     ),
+    ast.Subscript: (_refuse_dunder_subscript,),
     ast.Call: (_refuse_forbidden_call,),
 }
 

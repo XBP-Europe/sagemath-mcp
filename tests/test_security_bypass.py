@@ -2744,3 +2744,85 @@ def test_a_refusal_still_names_the_alternative_when_there_is_one():
     with pytest.raises(SecurityViolation) as excinfo:
         validate_module(ast.parse(code), code=code)
     assert "name the function directly: 'ZZ'" in str(excinfo.value)
+
+
+# --- Two escapes through allowlisted names (REVIEW_ACTIONS 101/102) -------------
+#
+# Found by a security review on 2026-09-27 and verified against real SageMath:
+# both EXECUTED arbitrary commands before the fix, and both passed the
+# fragment gate, so they were reachable through every specialized tool too. The
+# shared root cause is that an allowlisted value can hand back a capability the
+# AST rules never see: a namespace dict (subscript keys are not Name/Attribute
+# nodes) or a live interface re-exported as an attribute of an allowlisted
+# module object.
+
+# 101: `sage_globals()` returns vars(sage.all); a dict subscript then reaches
+# sage_eval or the real builtins. Refused because the name is not offered.
+_NAMESPACE_RETURNING = (
+    "sage_globals",
+    "sage_globals()",
+    "sage_globals()['x']",
+)
+
+
+@pytest.mark.parametrize("payload", _NAMESPACE_RETURNING)
+def test_a_namespace_returning_callable_is_not_offered(payload: str) -> None:
+    with pytest.raises(SecurityViolation):
+        _validate(payload)
+
+
+# Defence in depth for the whole class: a dunder key is Python internals, not
+# mathematics, whatever object it is indexing.
+_DUNDER_SUBSCRIPTS = (
+    # The base is caller-bound, so only the dunder key can refuse it: on a
+    # namespace dict this is the step from vars() to the builtins.
+    "d = {}\nd['__builtins__']",
+    "d = {}\nd['__globals__']['x']",
+    "obj = 1\nobj['__class__']",
+    "d = {}\nd['__builtins__']['__import__']",
+)
+
+
+@pytest.mark.parametrize("payload", _DUNDER_SUBSCRIPTS)
+def test_a_dunder_string_subscript_key_is_refused(payload: str) -> None:
+    with pytest.raises(SecurityViolation):
+        _validate(payload)
+
+
+# 102: `desolvers` is an allowlisted module object that re-exports the live
+# MaximaLib interface as `.maxima`; Maxima shells out. The bare module name is
+# no longer offered, so the attribute is unreachable. `desolve` (the ODE
+# solver the solve_ode tool uses) is a separate top-level name and still works.
+_INTERFACE_REEXPORT = (
+    "desolvers",
+    "desolvers.maxima",
+    "desolvers.maxima('1+1')",
+)
+
+
+@pytest.mark.parametrize("payload", _INTERFACE_REEXPORT)
+def test_an_interface_reexported_by_a_module_is_not_reachable(payload: str) -> None:
+    with pytest.raises(SecurityViolation):
+        _validate(payload)
+
+
+@pytest.mark.asyncio
+async def test_the_two_reexport_escapes_are_refused_by_the_worker() -> None:
+    """End to end, against the real worker: both close, `desolve` still solves."""
+    pytest.importorskip("sage.all")
+    from sagemath_mcp.errors import SageEvaluationError
+    from sagemath_mcp.session import SageSession
+
+    session = SageSession("reexport-escapes", None)
+    try:
+        for payload in ("sage_globals", "desolvers.maxima('1+1')"):
+            with pytest.raises(SageEvaluationError):
+                await session.evaluate(payload, want_latex=False, capture_stdout=True)
+        # The mathematics the fix must not break: desolve still runs.
+        result = await session.evaluate(
+            "y = function('y')(x)\nstr(desolve(diff(y, x) - y, y))",
+            want_latex=False, capture_stdout=True,
+        )
+        assert "e^x" in result.result or "e^{x}" in result.result
+    finally:
+        await session.shutdown()

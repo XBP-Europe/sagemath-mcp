@@ -81,8 +81,8 @@ There are four layers, and only one of them is a boundary:
 | Layer | What it is | What it is not |
 |-------|-----------|----------------|
 | **Caller allowlist** (`allowlist.py`) | A caller may read only the names this server offers -- the mathematical names Sage preloads, safe builtins, and whatever they define themselves. Deny-by-default: an unrecognised name is refused rather than assumed harmless | Derived from today's namespace, so it does not retroactively catch something dangerous already in it |
-| AST policy (`security.py`) | Rejects disallowed imports, `eval`/`exec`, dunder access, indirection helpers, forbidden modules and known code-executing Sage helpers | **Not a boundary.** It is a denylist over a namespace thousands of names deep, and it has been bypassed and repaired repeatedly |
-| Worker namespace scrub (`_sage_worker.py`) | Removes known code-executing Sage helpers and external CAS interfaces from the worker's initial namespace | A backstop for spellings the policy misses, not a guarantee that Sage exposes no other route to the same capability |
+| AST policy (`security.py`, with the policy in `policy.py`) | Rejects disallowed imports, `eval`/`exec`, dunder access, indirection helpers, forbidden modules and known code-executing Sage helpers | **Not a boundary.** It is a denylist over a namespace thousands of names deep, and it has been bypassed and repaired repeatedly |
+| Worker namespace scrub (`scrub_catalog.py`, applied by `_sage_worker.py`) | Removes known code-executing Sage helpers and external CAS interfaces from the worker's initial namespace | A backstop for spellings the policy misses, not a guarantee that Sage exposes no other route to the same capability |
 | **The container** | With the supplied configuration: a read-only root filesystem and checkout, dropped capabilities, no new privileges, and deployment-specific resource limits | **This is the process and filesystem boundary.** Run it; it does not itself block network egress or make readable secrets safe |
 
 One property of the AST policy is worth stating plainly, because it decides

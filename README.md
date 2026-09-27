@@ -217,7 +217,7 @@ variables.
 ┌─────────────────────────────────────────────────────────────┐
 │  app.py + tools/ --- FastMCP 4.x                            │
 │  ┌─────────────┐  ┌──────────────┐                          │
-│  │ 40 MCP Tools│  │ 3 Resources  │   session.py routes each │
+│  │ 40 MCP Tools│  │ 3 Resources  │   manager.py routes each │
 │  └─────────────┘  └──────────────┘   client to its worker   │
 └───────────────────────────┬─────────────────────────────────┘
                             ▼   one subprocess per session
@@ -229,7 +229,7 @@ variables.
 ```
 
 **Request flow:** MCP client → a tool in `tools/` →
-`SageSessionManager.get_or_create()` → `SageSession.evaluate()` → JSON request to
+`SageSessionManager.get()` → `SageSession.evaluate()` → JSON request to
 the `_sage_worker.py` subprocess → AST validation → `exec()` in the persistent
 namespace → JSON response.
 

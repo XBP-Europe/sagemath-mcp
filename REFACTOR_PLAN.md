@@ -1,8 +1,8 @@
 # Plan: the 2026-09 structural refactor
 
-> **Status:** in progress on branch `refactor-2026-09`, one commit per step.
-> The progress record at the bottom says what has been done, what went
-> differently from this plan, and why.
+> **Status: done, 2026-09-27**, on branch `refactor-2026-09`, one commit per
+> step. The progress record at the bottom says what was done, what went
+> differently from this plan, and why; the outcome is summarised at the end.
 
 The `server.py` split (PR #38, recorded in `REFACTOR_SERVER_SPLIT.md`) left the
 tool modules in good shape but moved the weight elsewhere. Measured on
@@ -191,3 +191,43 @@ worker, the integration suite in the Sage container.
   classifier, and were moved by hand; and `test_every_documented_example_is_
   exercised` read `tests/test_*.py` non-recursively, so it had stopped seeing the
   moved tool tests while still passing -- it uses `rglob` now.
+- **Step 8** -- done. `CLAUDE.md`'s architecture section, `AGENTS.md`,
+  `TESTING.md`, `SECURITY.md`'s layer table and the README diagram describe the
+  new layout; the README's request flow also named a method that does not exist
+  (`get_or_create`; it is `get`). CHANGELOG has an Unreleased entry. Historical
+  records -- CHANGELOG entries, REVIEW_ACTIONS, the security-review report --
+  keep the paths they were written against.
+
+## Outcome
+
+| Measure | Before (`fdf7cc8`) | After |
+|---|---|---|
+| Largest function | `validate_module`, 577 lines, ~104 branches | `validate_module`, 146 lines, 23 |
+| `verify_claim` | 522 lines, 440 of them an f-string | 91 lines; the ladder is linted source |
+| Largest module | `security.py`, 1,706 lines | `security.py`, 1,110 |
+| `session.py` | 1,205 lines | 397 (+ `manager.py` 480, `journal.py` 210, `channel.py` 185) |
+| `_sage_worker.py` | 1,443 lines | 962 (+ `scrub_catalog.py` 502) |
+| `codegen.py` | 842 lines | gone: `gates` 424, `numeric` 98, `transport` 158, `prelude` 124 |
+| `tests/test_server.py` | 2,490 lines, 188 tests | 9 server tests; 179 in `tests/tools/` and `test_codegen.py` |
+| Tests collected | 1,492 | 1,496 (+4 guards: two lint, rule registration, frozen context) |
+| Corpus fingerprint | `ff2631d8...` | `ff2631d8...`, at every step |
+
+Every step kept 100% statement and branch coverage, the tool inventory and the
+generated-code golden file byte-identical, and passed the integration suite in
+the SageMath 10.9 container.
+
+## Left as found, on purpose
+
+- **The `interfaces` entry in the baked denylist.** The derivation no longer
+  produces it, and the pre-refactor code agrees. Stripping an extra name is the
+  safe direction; dropping it is a security decision, not a refactor.
+- **Cross-module imports of private names that did not move** -- `gates` and
+  the worker read `security._bound_names`, `prelude` reads `_SYMBOL_SHAPE` and
+  `_GREEK_NAMES`. Renaming them was not needed for any step, and each is a
+  one-line change when it is.
+- **The rest of the worker**, for the module-state reasons in step 6.
+- **`star_export_screen`, `dangerous_sage_names`, `rewrite_permitted_imports`
+  and `_execute`** are the largest functions now (114-146 lines). None is a
+  loop of independent rules the way `validate_module` was, so no mechanical
+  argument makes splitting them provably safe; each would need its own case.
+

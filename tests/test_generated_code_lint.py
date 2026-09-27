@@ -233,7 +233,7 @@ def test_every_documented_example_is_exercised(server_tree: ast.Module) -> None:
 
     corpus = "\n".join(
         path.read_text(encoding="utf-8")
-        for path in sorted(TESTS_DIR.glob("test_*.py"))
+        for path in sorted(TESTS_DIR.rglob("test_*.py"))
     )
 
     missing = sorted(example for example in examples if example not in corpus)

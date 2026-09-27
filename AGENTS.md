@@ -43,7 +43,7 @@
 ## Testing Expectations
 - Add new tests under `tests/`, mirroring the module under `src/`; mark async cases with `@pytest.mark.asyncio`.
 - Exercise both `make test` and `make integration-test` before landing changes; the latter requires the Sage container.
-- Cover MCP helper tools in `tests/test_server.py` and the code-building helpers (`evaluate_structured`, the prelude, the validation gates) in `tests/test_codegen.py`; use `tests/test_use_cases.py` for Sage-manual scenarios.
+- Cover MCP helper tools in `tests/tools/test_<domain>.py` (one per `tools/` module; server-level behaviour in `tests/test_server.py`) and the code-building helpers (`evaluate_structured`, the prelude, the validation gates) in `tests/test_codegen.py`; use `tests/test_use_cases.py` for Sage-manual scenarios.
 - CI enforces `--cov-fail-under=100`, so a new branch needs a test that reaches it.
 - Security work has a counterweight: every test in `tests/test_security_bypass.py`
   asserts something is **blocked**, so a policy that refused everything would

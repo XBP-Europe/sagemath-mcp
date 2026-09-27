@@ -15,7 +15,7 @@ make test                          # uv run pytest (pure Python, no Sage needed)
 make integration-test              # pytest inside Sage Docker container
 make build                         # Build wheel + sdist via scripts/build_release.py
 make sage-container                # Bootstrap the Sage Docker container
-uv run pytest tests/test_server.py -k "test_name"  # Run a single test
+uv run pytest tests/tools/test_core.py -k "test_name"  # Run a single test
 ```
 
 Unit tests run with `SAGEMATH_MCP_PURE_PYTHON=1` (uses Python `math` stdlib instead of Sage). Integration tests require `docker exec sage-mcp` and real Sage runtime.
@@ -27,7 +27,7 @@ Ruff with line-length 100, target Python 3.12. Rules: E, F, W, B, UP, ASYNC, RUF
 ## Testing
 
 - All async tests use `@pytest.mark.asyncio` (asyncio_mode is "auto")
-- Tests mirror source modules: `test_server.py`, `test_session.py`, `test_security.py`, `test_config.py`, etc.
+- Tests mirror source modules: `test_server.py`, `test_session.py`, `test_security.py`, `test_config.py`, etc. Tool tests live in `tests/tools/test_<domain>.py`, one per `tools/` module; `tests/stubs.py` holds `StubSession` and `_stub_manager`.
 - `test_integration.py`, `test_use_cases.py` and most of `test_math_coverage.py` require the Sage container
 - Key fixtures: `python_settings` (injects `force_python_worker=True`), `FakeContext` (records progress events; it has no `info`/`warning`/`error` on purpose, because the server sends no MCP log notifications)
 

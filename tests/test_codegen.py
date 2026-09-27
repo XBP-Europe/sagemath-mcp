@@ -14,7 +14,7 @@ from __future__ import annotations
 import pytest
 from fastmcp.exceptions import ToolError
 
-from sagemath_mcp import gates
+from sagemath_mcp import gates, numeric, transport
 from sagemath_mcp.gates import (
     _normalize_source,
     _screen_unparseable_fragment,
@@ -26,6 +26,8 @@ from sagemath_mcp.gates import (
 from sagemath_mcp.numeric import check_matrix, exact_int, reject_if_inexact
 from sagemath_mcp.prelude import sage_prelude
 from sagemath_mcp.tools.stats import _distribution_mean, _distribution_variance, _normal_parameters
+
+from .stubs import StubSession
 
 # distribution, parameters, mean, variance
 DISTRIBUTIONS = [
@@ -557,3 +559,94 @@ def test_the_token_screen_still_accepts_ordinary_sage_only_syntax():
     assert gates.encode_literal("[1..5]") == '"[1..5]"'
     assert gates.validated_expression("[1..5]") == "[1..5]"
     assert gates.validated_expression("[1,3..11]") == "[1,3..11]"
+
+
+@pytest.mark.asyncio
+async def test_evaluate_structured_parses_literal():
+    session = StubSession("[1, {'value': 2}]")
+    value = await transport.evaluate_structured(session, "ignored")
+    assert value == [1, {"value": 2}]
+    call = session.calls[-1]
+    assert call["want_latex"] is False
+    assert call["capture_stdout"] is False
+
+
+@pytest.mark.asyncio
+async def test_evaluate_structured_returns_none():
+    session = StubSession(None)
+    value = await transport.evaluate_structured(session, "ignored")
+    assert value is None
+
+
+@pytest.mark.asyncio
+async def test_evaluate_structured_falls_back_to_string():
+    session = StubSession("Decimal('1.234')")
+    value = await transport.evaluate_structured(session, "ignored")
+    assert value == "Decimal('1.234')"
+
+
+@pytest.mark.asyncio
+async def test_evaluate_structured_forwards_timeout():
+    session = StubSession("42")
+    await transport.evaluate_structured(session, "ignored", timeout_seconds=5.0)
+    call = session.calls[-1]
+    assert call["timeout_seconds"] == 5.0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (12, 12),
+        ("12", 12),
+        (12.0, 12),
+        ("1000000000000000000000000000000", 10**30),
+        ("1_000", 1000),
+    ],
+)
+async def test_exact_int_accepts_lossless_forms(value, expected):
+    assert numeric.exact_int(value, "a") == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "value",
+    [
+        1e30,                                # float: already through a double
+        10**30,                              # int: exact here, but unverifiable
+        1000000000000000019884624838656,     # the value a JS client actually sends
+        2**53 + 1,                           # first integer a double cannot hold
+    ],
+)
+async def test_exact_int_rejects_values_json_cannot_carry(value):
+    """Above 2^53 the server cannot tell an exact value from a rounded one.
+
+    A JavaScript client rounds BEFORE serialising and emits the rounded digits as
+    a JSON integer, so checking only floats missed the real case: 10^30 arrives
+    as the int 1000000000000000019884624838656 and looks ordinary.
+    """
+    with pytest.raises(ToolError, match="2\\^53"):
+        numeric.exact_int(value, "a")
+
+    # The message has to tell the caller what to do instead.
+    try:
+        numeric.exact_int(value, "a")
+    except ToolError as exc:
+        assert "decimal string" in str(exc)
+
+
+@pytest.mark.asyncio
+async def test_exact_int_accepts_any_size_as_a_string():
+    """Strings are exact by construction, so no ceiling applies."""
+    assert numeric.exact_int("1000000000000000000000000000000", "a") == 10**30
+    assert numeric.exact_int(str(2**200), "a") == 2**200
+
+
+@pytest.mark.asyncio
+async def test_exact_int_rejects_non_integers():
+    with pytest.raises(ToolError, match="whole number"):
+        numeric.exact_int(12.5, "a")
+    with pytest.raises(ToolError, match="not a decimal integer"):
+        numeric.exact_int("twelve", "a")
+    with pytest.raises(ToolError, match="boolean"):
+        numeric.exact_int(True, "a")

@@ -180,3 +180,14 @@ worker, the integration suite in the Sage container.
   `interfaces` -- the untouched pre-refactor code derives the same 258, so that
   is pre-existing, and the list was left as it was. Fingerprint unchanged;
   integration 1487 passed.
+- **Step 7** -- done. `tests/test_server.py` (2,490 lines, 188 tests) is now
+  `tests/tools/test_<domain>.py` for the seven tool modules, `tests/stubs.py`
+  for the shared `StubSession`/`_stub_manager`, the transport and numeric unit
+  tests in `test_codegen.py` beside the other tests of those modules, and 9
+  server-level tests left in `test_server.py`. Proof: the multiset of (test
+  name, outcome) is identical before and after over all 1,496 tests, and Sage
+  collects the same 1,496. Two things only a careful look found: two discrete
+  tests call their tool through `getattr(server, tool)`, invisible to the
+  classifier, and were moved by hand; and `test_every_documented_example_is_
+  exercised` read `tests/test_*.py` non-recursively, so it had stopped seeing the
+  moved tool tests while still passing -- it uses `rglob` now.

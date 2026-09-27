@@ -20,7 +20,7 @@ from sagemath_mcp.config import SageSettings
 from sagemath_mcp.manager import SageSessionManager
 
 from .conftest import FakeContext
-from .test_server import StubSession, _stub_manager
+from .stubs import StubSession, _stub_manager
 
 requires_sage = pytest.mark.skipif(
     shutil.which("sage") is None, reason="Sage executable not available"

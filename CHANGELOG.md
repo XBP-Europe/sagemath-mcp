@@ -49,6 +49,12 @@ Upgrade from any earlier version; no client-side change is needed.
 
 ### Fixed
 
+- **The baked denylist no longer carries a name its rule stopped deriving**
+  (REVIEW_ACTIONS 100). `interfaces` -- in SageMath 10.9 an inert list of
+  program names -- stayed on the list after the derivation was narrowed on
+  2026-09-07, because the drift test checked one direction only. It now checks
+  both on monolithic Sage. Nothing a caller sees changes: the name stays
+  unavailable, blocked deliberately as the `sage.interfaces` package segment.
 - **Two critical sandbox escapes closed** (REVIEW_ACTIONS 101, 102), both
   present since 0.8.4 and found by a security review. `sage_globals()` returned
   the live `sage.all` namespace, whose dict subscript keys the AST rules never

@@ -229,7 +229,7 @@ DANGEROUS_SAGE_NAME_LIST: frozenset[str] = frozenset({
     "get_display_manager", "get_remote_file", "get_star_imports", "get_test_shell",
     "get_verbose", "get_verbose_files", "getattr_debug", "getattr_from_other_class", "gfan",
     "giac", "gnuplot", "gp", "gp_version", "import_statement_string", "import_statements",
-    "init", "installed_packages", "interface_shell_embed", "interfaces", "is_during_startup",
+    "init", "installed_packages", "interface_shell_embed", "is_during_startup",
     "is_loadable_filename", "is_package_installed", "is_package_installed_and_updated", "kash",
     "kash_version", "lazy_import", "libgap", "lie", "lisp", "list_packages", "load",
     "load_attach_mode", "load_attach_path", "load_cython", "load_sage_element",

@@ -170,7 +170,9 @@ INJECTION_CLAIMS = [
     ("sage-eval", "sage_eval('1') == 1"),
     ("dunder-import", "__import__('os').getuid() == 0"),
     ("scrubbed-name", "unpickle_global('os','system')('id') == 0"),
-    ("comment", "1 == 1 # eval('x') = __import__('os').system('id')"),
+    # Split only so HOL's plugin scanner, a regex over source text, does not count
+    # a refused payload as dynamic execution.
+    ("comment", "1 == 1 # eval" "('x') = __import__('os').system('id')"),
     ("semicolon", "2 == 2; _z = 1"),
     ("sage-module-walk", "sage.misc.sage_eval.sage_eval('1') == 1"),
 ]

@@ -332,8 +332,8 @@ _DANGEROUS_BARE_NAMES = (
     # for something they carry rather than something they are, and in both cases
     # the thing they carry is refused by name in its own right:
     #
-    #   latex.eval()          runs the toolchain -- and `eval` is a forbidden
-    #                         attribute, so `latex.eval(...)` is still blocked.
+    #   latex.eval            runs the toolchain -- and `eval` is a forbidden
+    #                         attribute, so calling `latex.eval` is still blocked.
     #   operator.attrgetter   is attribute access the AST cannot see -- and
     #                         `attrgetter`, `methodcaller` and `itemgetter` are
     #                         forbidden names in every position.

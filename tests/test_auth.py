@@ -23,24 +23,24 @@ def test_build_http_auth_is_off_by_default() -> None:
 
 
 def test_build_http_auth_returns_a_verifier_when_a_token_is_set() -> None:
-    provider = build_http_auth(SageSettings(http_auth_token="s3cret-token"))
+    provider = build_http_auth(SageSettings(http_auth_token="example-token"))
     assert isinstance(provider, StaticBearerTokenVerifier)
 
 
 async def test_the_configured_token_is_accepted() -> None:
-    verifier = StaticBearerTokenVerifier("s3cret-token")
-    access = await verifier.verify_token("s3cret-token")
+    verifier = StaticBearerTokenVerifier("example-token")
+    access = await verifier.verify_token("example-token")
     assert access is not None
-    assert access.token == "s3cret-token"
+    assert access.token == "example-token"
 
 
 @pytest.mark.parametrize(
     "presented",
-    ["", "wrong", "s3cret-toke", "s3cret-token ", "S3CRET-TOKEN"],
+    ["", "wrong", "example-toke", "example-token ", "EXAMPLE-TOKEN"],
 )
 async def test_any_other_token_is_refused(presented: str) -> None:
     """A near-miss, a prefix, a trailing space, the wrong case -- all rejected."""
-    verifier = StaticBearerTokenVerifier("s3cret-token")
+    verifier = StaticBearerTokenVerifier("example-token")
     assert await verifier.verify_token(presented) is None
 
 

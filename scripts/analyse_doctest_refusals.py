@@ -40,7 +40,8 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 logging.disable(logging.CRITICAL)
 
-from sagemath_mcp.security import SecurityViolation, _bound_names, validate_module  # noqa: E402
+from sagemath_mcp.policy import SecurityViolation  # noqa: E402
+from sagemath_mcp.security import _bound_names, validate_module  # noqa: E402
 from tests.test_sage_doctest_corpus import (  # noqa: E402
     _docstrings,
     _examples,

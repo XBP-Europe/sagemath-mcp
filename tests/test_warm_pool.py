@@ -13,7 +13,9 @@ import asyncio
 import contextlib
 
 from sagemath_mcp.config import SageSettings
-from sagemath_mcp.session import _WARM_SPARE_ID, SageProcessError, SageSession, SageSessionManager
+from sagemath_mcp.errors import SageProcessError
+from sagemath_mcp.manager import _WARM_SPARE_ID, SageSessionManager
+from sagemath_mcp.session import SageSession
 
 
 def _settings(**kw) -> SageSettings:

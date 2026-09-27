@@ -7,6 +7,24 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **The internals are restructured; nothing a client sees changed.** A
+  behaviour-identical refactor (REFACTOR_PLAN.md): `codegen.py` became
+  `gates.py`, `numeric.py`, `transport.py` and `prelude.py`; `security.py`
+  split into the validator plus `policy.py`, `refusals.py` and `imports.py`,
+  and `validate_module` is now a context and 13 node rules registered by AST
+  type; `session.py` split into `session.py`, `manager.py`, `journal.py`,
+  `channel.py` and `errors.py`; the worker's scrub catalog is
+  `scrub_catalog.py`; the `verify_claim` ladder is a Sage source file under
+  `sage_code/`; the tool tests live in `tests/tools/`. Proven unchanged by the
+  tool inventory snapshot, a new byte-for-byte snapshot of the code every tool
+  sends to Sage (139 cases), and a new SHA-256 fingerprint over the validator's
+  verdict and message on all 432,878 doctest-corpus examples, identical from the
+  first step to the last. Code importing internal modules needs the new paths;
+  helpers used across modules lost their leading underscore
+  (`_encode_literal` is `encode_literal`, and so on).
+
 ### Documentation
 
 - **The verification recipe is restated against the published 0.9.1.** cosign

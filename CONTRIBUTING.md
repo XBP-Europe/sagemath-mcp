@@ -48,7 +48,7 @@ code, so they are listed here rather than discovered.
   updates them together; `uv lock --check` runs in CI.
 - **Caller strings may not reach generated code ungated.** Generated snippets run
   under a policy that permits `sage_eval`, so a parameter interpolated without
-  `_encode_literal`, `_validated_expression` or `_validated_identifier` is
+  `encode_literal`, `validated_expression` or `validated_identifier` is
   arbitrary execution. A structural test fails if one appears.
 - **README claims are tested.** The security table, the badge versions and the
   coverage number are all checked against the code and the workflows.
@@ -92,7 +92,7 @@ code, so they are listed here rather than discovered.
   `doctest-corpus-stats.md`; they had drifted two releases before anything
   noticed.
 - **A dangerous-module entry must remove something.** Listing a module in
-  `_DANGEROUS_SAGE_MODULES` that defines none of its own names protects nothing
+  `DANGEROUS_SAGE_MODULES` that defines none of its own names protects nothing
   while looking like protection; an integration test rejects that.
 
 ## Review

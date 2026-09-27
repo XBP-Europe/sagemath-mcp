@@ -9,7 +9,8 @@ import pytest
 
 from sagemath_mcp import runtime, server
 from sagemath_mcp.config import SageSettings
-from sagemath_mcp.session import SageProcessError, SageSessionManager
+from sagemath_mcp.errors import SageProcessError
+from sagemath_mcp.manager import SageSessionManager
 
 from .conftest import FakeContext
 

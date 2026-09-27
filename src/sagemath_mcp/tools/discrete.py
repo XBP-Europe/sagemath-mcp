@@ -16,18 +16,12 @@ from pydantic import Field
 
 from .. import runtime
 from ..app import mcp
-from ..codegen import (
-    _NAMED_GRAPH_RE,
-    _encode_literal,
-    _evaluate_structured,
-    _exact_int,
-    _sage_prelude,
-    _validated_expression,
-)
-from ..session import (
-    DEFAULT_SESSION_NAME,
-)
+from ..gates import NAMED_GRAPH_RE, encode_literal, validated_expression
+from ..manager import DEFAULT_SESSION_NAME
+from ..numeric import exact_int
+from ..prelude import sage_prelude
 from ..text import SESSION_ARG_DESC as _SESSION_ARG_DESC
+from ..transport import evaluate_structured
 from .hints import COMPUTES
 
 
@@ -58,11 +52,10 @@ async def number_theory_operation(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
+    runtime.require_context(ctx, "for stateful execution")
     operation = operation.strip()
-    a = _exact_int(a, "a")
-    b = _exact_int(b, "b") if b is not None else None
+    a = exact_int(a, "a")
+    b = exact_int(b, "b") if b is not None else None
     allowed_ops = {"is_prime", "factor_integer", "next_prime", "gcd", "lcm"}
     if operation not in allowed_ops:
         raise ToolError(
@@ -71,7 +64,7 @@ async def number_theory_operation(
         )
     if operation in {"gcd", "lcm"} and b is None:
         raise ToolError(f"Operation '{operation}' requires both 'a' and 'b' arguments")
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    session = await runtime.session_for(ctx, session)
     op_code = {
         "is_prime": f"bool(is_prime({a}))",
         "factor_integer": f"str(factor({a}))",
@@ -79,8 +72,8 @@ async def number_theory_operation(
         "gcd": f"int(gcd({a}, {b}))",
         "lcm": f"int(lcm({a}, {b}))",
     }
-    code = _sage_prelude() + op_code[operation] + "\n"
-    result = await _evaluate_structured(session, code)
+    code = sage_prelude() + op_code[operation] + "\n"
+    result = await evaluate_structured(session, code)
     return {"operation": operation, "result": result}
 
 
@@ -120,15 +113,14 @@ async def combinatorics_operation(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
+    runtime.require_context(ctx, "for stateful execution")
     operation = operation.strip()
     # A JavaScript client rounds before it serialises, so a number arriving above
     # 2^53 is already wrong: binomial(9007199254740993, 2) computed a plausible
     # answer from 9007199254740992 and reported it as fact.
-    n = _exact_int(n, "n")
-    k = _exact_int(k, "k") if k is not None else None
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    n = exact_int(n, "n")
+    k = exact_int(k, "k") if k is not None else None
+    session = await runtime.session_for(ctx, session)
     op_code = {
         "binomial": f"int(binomial({n}, {k or 0}))",
         "permutations": f"int(Permutations({n}).cardinality())"
@@ -143,8 +135,8 @@ async def combinatorics_operation(
     }
     if operation not in op_code:
         raise ToolError(f"Unknown operation '{operation}'. Use: {', '.join(op_code)}")
-    code = _sage_prelude() + op_code[operation] + "\n"
-    result = await _evaluate_structured(session, code)
+    code = sage_prelude() + op_code[operation] + "\n"
+    result = await evaluate_structured(session, code)
     return {"operation": operation, "result": result}
 
 
@@ -179,10 +171,9 @@ async def graph_operation(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required")
+    runtime.require_context(ctx)
     operation = operation.strip()
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    session = await runtime.session_for(ctx, session)
     # A named graph is an identifier, optionally already called with arguments.
     # Matching on a "Graph" suffix missed every parameterised constructor:
     # "CompleteGraph(4)" ends in ")", so it fell through to Graph(CompleteGraph(4))
@@ -190,10 +181,10 @@ async def graph_operation(
     # take parameters, so that was the majority of the catalogue.
     # Validated as an expression in its own right: this string is interpolated
     # into code that runs under the trusted policy, where sage_eval is allowed.
-    graph = _validated_expression(graph)
-    source = _exact_int(source, "source") if source is not None else None
-    target = _exact_int(target, "target") if target is not None else None
-    named = _NAMED_GRAPH_RE.match(graph.strip())
+    graph = validated_expression(graph)
+    source = exact_int(source, "source") if source is not None else None
+    target = exact_int(target, "target") if target is not None else None
+    named = NAMED_GRAPH_RE.match(graph.strip())
     if named:
         call = named.group("call") or "()"
         graph_code = f"_G = graphs.{named.group('name')}{call}"
@@ -223,8 +214,8 @@ async def graph_operation(
             f"Unknown operation '{operation}'. "
             f"Use: {', '.join(ops)}"
         )
-    code = _sage_prelude() + graph_code + "\n" + ops[operation] + "\n"
-    result = await _evaluate_structured(session, code)
+    code = sage_prelude() + graph_code + "\n" + ops[operation] + "\n"
+    result = await evaluate_structured(session, code)
     return {"operation": operation, "result": result}
 
 
@@ -252,10 +243,9 @@ async def group_operation(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required")
+    runtime.require_context(ctx)
     operation = operation.strip()
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    session = await runtime.session_for(ctx, session)
     ops = {
         "order": "int(_G.order())",
         "is_abelian": "bool(_G.is_abelian())",
@@ -271,8 +261,8 @@ async def group_operation(
             f"Unknown operation '{operation}'. "
             f"Use: {', '.join(ops)}"
         )
-    code = _sage_prelude() + f"_G = {_validated_expression(group)}\n" + ops[operation] + "\n"
-    result = await _evaluate_structured(session, code)
+    code = sage_prelude() + f"_G = {validated_expression(group)}\n" + ops[operation] + "\n"
+    result = await evaluate_structured(session, code)
     return {"group": group, "operation": operation, "result": result}
 
 
@@ -302,10 +292,9 @@ async def elliptic_curve_operation(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required")
+    runtime.require_context(ctx)
     operation = operation.strip()
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    session = await runtime.session_for(ctx, session)
     ops = {
         "rank": "int(_E.rank())",
         "torsion_order": "int(_E.torsion_order())",
@@ -319,14 +308,14 @@ async def elliptic_curve_operation(
             f"Unknown operation '{operation}'. "
             f"Use: {', '.join(ops)}"
         )
-    coefficients = [_exact_int(c, "coefficients") for c in coefficients]
+    coefficients = [exact_int(c, "coefficients") for c in coefficients]
     code = (
-        _sage_prelude()
-        + f"_E = EllipticCurve({_encode_literal(coefficients)})\n"
+        sage_prelude()
+        + f"_E = EllipticCurve({encode_literal(coefficients)})\n"
         + ops[operation]
         + "\n"
     )
-    result = await _evaluate_structured(session, code)
+    result = await evaluate_structured(session, code)
     return {"operation": operation, "result": result}
 
 
@@ -359,10 +348,9 @@ async def coding_theory_operation(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required")
+    runtime.require_context(ctx)
     operation = operation.strip()
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    session = await runtime.session_for(ctx, session)
     ops = {
         "length": "int(_C.length())",
         "dimension": "int(_C.dimension())",
@@ -379,10 +367,10 @@ async def coding_theory_operation(
             f"Use: {', '.join(ops)}"
         )
     code = (
-        _sage_prelude()
-        + f"_C = codes.{_validated_expression(code_type)}\n"
+        sage_prelude()
+        + f"_C = codes.{validated_expression(code_type)}\n"
         + ops[operation]
         + "\n"
     )
-    result = await _evaluate_structured(session, code)
+    result = await evaluate_structured(session, code)
     return {"operation": operation, "result": result}

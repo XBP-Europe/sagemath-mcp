@@ -43,11 +43,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from sagemath_mcp.security import (
-    SECURITY_POLICY,
-    SecurityViolation,
-    validate_code,
-)
+from sagemath_mcp.policy import SECURITY_POLICY, SecurityViolation
+from sagemath_mcp.security import validate_code
 
 #: Names the policy is supposed to refuse in a read position. Taken from the
 #: live policy rather than hard-coded, so a rule that stops denying one of

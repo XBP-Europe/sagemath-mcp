@@ -14,22 +14,20 @@ from __future__ import annotations
 import pytest
 from fastmcp.exceptions import ToolError
 
-from sagemath_mcp import codegen
-from sagemath_mcp.codegen import (
-    _check_matrix,
-    _declare_free_symbols,
-    _distribution_mean,
-    _distribution_variance,
-    _encode_literal,
-    _exact_int,
-    _normal_parameters,
+from sagemath_mcp import gates, numeric, transport
+from sagemath_mcp.gates import (
     _normalize_source,
-    _reject_if_inexact,
-    _sage_prelude,
     _screen_unparseable_fragment,
-    _validated_expression,
-    _validated_identifier,
+    declare_free_symbols,
+    encode_literal,
+    validated_expression,
+    validated_identifier,
 )
+from sagemath_mcp.numeric import check_matrix, exact_int, reject_if_inexact
+from sagemath_mcp.prelude import sage_prelude
+from sagemath_mcp.tools.stats import _distribution_mean, _distribution_variance, _normal_parameters
+
+from .stubs import StubSession
 
 # distribution, parameters, mean, variance
 DISTRIBUTIONS = [
@@ -118,19 +116,19 @@ def test_check_matrix_rejects_malformed_input(rows, message: str) -> None:
     reads like a real answer rather than a mistake.
     """
     with pytest.raises(ToolError, match=message):
-        _check_matrix(rows, "matrix")
+        check_matrix(rows, "matrix")
 
 
 def test_check_matrix_accepts_well_formed_matrices() -> None:
-    assert _check_matrix([[1, 2], [3, 4]], "matrix") is None
-    assert _check_matrix([[1.5]], "matrix") is None
+    assert check_matrix([[1, 2], [3, 4]], "matrix") is None
+    assert check_matrix([[1.5]], "matrix") is None
 
 
 def test_exact_int_accepts_the_documented_spellings() -> None:
-    assert _exact_int(7, "a") == 7
-    assert _exact_int("7", "a") == 7
-    assert _exact_int(7.0, "a") == 7
-    assert _exact_int("-12345678901234567890123", "a") == -12345678901234567890123
+    assert exact_int(7, "a") == 7
+    assert exact_int("7", "a") == 7
+    assert exact_int(7.0, "a") == 7
+    assert exact_int("-12345678901234567890123", "a") == -12345678901234567890123
 
 
 @pytest.mark.parametrize(
@@ -144,17 +142,17 @@ def test_exact_int_accepts_the_documented_spellings() -> None:
 )
 def test_exact_int_rejects_what_it_cannot_represent(value, message: str) -> None:
     with pytest.raises(ToolError, match=message):
-        _exact_int(value, "a")
+        exact_int(value, "a")
 
 
 def test_reject_if_inexact_guards_the_json_number_boundary() -> None:
     """Above 2^53 a JSON number stops being exact, so it must arrive as a string."""
     limit = 2**53
-    assert _reject_if_inexact(limit - 1, "a") == limit - 1
+    assert reject_if_inexact(limit - 1, "a") == limit - 1
     with pytest.raises(ToolError, match="2\\^53"):
-        _reject_if_inexact(limit + 1, "a")
+        reject_if_inexact(limit + 1, "a")
     with pytest.raises(ToolError, match="2\\^53"):
-        _reject_if_inexact(-(limit + 1), "a")
+        reject_if_inexact(-(limit + 1), "a")
 
 
 # ---------------------------------------------------------------------------
@@ -163,23 +161,23 @@ def test_reject_if_inexact_guards_the_json_number_boundary() -> None:
 
 
 def test_validated_expression_passes_non_strings_and_blanks_through() -> None:
-    assert _validated_expression(5) == 5
-    assert _validated_expression(None) is None
-    assert _validated_expression("   ") == "   "
+    assert validated_expression(5) == 5
+    assert validated_expression(None) is None
+    assert validated_expression("   ") == "   "
 
 
 def test_validated_expression_accepts_the_sage_equation_spelling() -> None:
     """A single '=' is not a Python expression but is the documented input."""
-    assert _validated_expression("x^2 - 1 = 0") == "x^2 - 1 = 0"
-    assert _validated_expression("x + y = 3") == "x + y = 3"
+    assert validated_expression("x^2 - 1 = 0") == "x^2 - 1 = 0"
+    assert validated_expression("x + y = 3") == "x + y = 3"
 
 
 def test_validated_expression_rejects_payloads_in_either_spelling() -> None:
     with pytest.raises(ToolError, match="security policy"):
-        _validated_expression("__import__('os').getuid()")
+        validated_expression("__import__('os').getuid()")
     # Unparseable, so screened at token level instead.
     with pytest.raises(ToolError, match="security policy"):
-        _validated_expression("R.<a> = os.getuid()")
+        validated_expression("R.<a> = os.getuid()")
 
 
 def test_screen_unparseable_fragment_reports_unreadable_input() -> None:
@@ -194,19 +192,19 @@ def test_screen_unparseable_fragment_allows_clean_sage_only_syntax() -> None:
 
 @pytest.mark.parametrize("name", ["x", "alpha", "t1", "_v"])
 def test_validated_identifier_accepts_identifiers(name: str) -> None:
-    assert _validated_identifier(name, "variable") == name
+    assert validated_identifier(name, "variable") == name
 
 
 @pytest.mark.parametrize("name", ["x', sage_eval('1'), 'y", "x y", "2x", "", "x-1", 5])
 def test_validated_identifier_rejects_everything_else(name) -> None:
     with pytest.raises(ToolError, match="plain identifier"):
-        _validated_identifier(name, "variable")
+        validated_identifier(name, "variable")
 
 
 def test_encode_literal_validates_strings_inside_lists() -> None:
-    assert _encode_literal(["x", "y"]) == '["x", "y"]'
+    assert encode_literal(["x", "y"]) == '["x", "y"]'
     with pytest.raises(ToolError, match="security policy"):
-        _encode_literal(["x", "__import__('os')"])
+        encode_literal(["x", "__import__('os')"])
 
 
 def test_normalize_source_strips_and_flattens() -> None:
@@ -216,7 +214,7 @@ def test_normalize_source_strips_and_flattens() -> None:
 
 
 def test_sage_prelude_declares_the_default_symbols() -> None:
-    prelude = _sage_prelude()
+    prelude = sage_prelude()
     for name in ("'x'", "'y'", "'z'", "'t'"):
         assert name in prelude
 
@@ -224,9 +222,9 @@ def test_sage_prelude_declares_the_default_symbols() -> None:
 def test_declare_free_symbols_handles_both_kinds_of_name() -> None:
     """Short index-style names are declared outright; longer ones only if Sage
     does not already define them, so `gamma` keeps meaning the function."""
-    declared = _declare_free_symbols("sum(k, k, 1, n)")
+    declared = declare_free_symbols("sum(k, k, 1, n)")
     assert "_sage_ns" in declared
-    assert _declare_free_symbols(None) == "" or "_sage_ns" in _declare_free_symbols(None)
+    assert declare_free_symbols(None) == "" or "_sage_ns" in declare_free_symbols(None)
 
 
 def test_validated_expression_screens_a_fragment_with_no_equals_to_rewrite() -> None:
@@ -236,14 +234,14 @@ def test_validated_expression_screens_a_fragment_with_no_equals_to_rewrite() -> 
     tokenizes cleanly, so it reaches the token screen rather than the
     unreadable-input error.
     """
-    assert _validated_expression("R.<a,b>") == "R.<a,b>"
+    assert validated_expression("R.<a,b>") == "R.<a,b>"
     with pytest.raises(ToolError, match="security policy"):
-        _validated_expression("R.<a,b> os.getuid()")
+        validated_expression("R.<a,b> os.getuid()")
 
 
 def test_validated_expression_allows_sage_generator_syntax_with_an_equals() -> None:
     """"=" is rewritten to "==", that still will not parse, and the tokens are clean."""
-    assert _validated_expression("R.<a,b> = QQ[]") == "R.<a,b> = QQ[]"
+    assert validated_expression("R.<a,b> = QQ[]") == "R.<a,b> = QQ[]"
 
 
 # The token screen guards fragments that the parseable (AST) path never sees.
@@ -281,7 +279,7 @@ TOKEN_SCREEN_ATTRIBUTE_ESCAPES = [
 )
 def test_screen_rejects_attribute_escapes_wrapped_in_sage_only_syntax(code: str) -> None:
     with pytest.raises(ToolError, match="security policy"):
-        _validated_expression(code)
+        validated_expression(code)
 
 
 def test_token_screen_rejects_every_dangerous_bare_name() -> None:
@@ -296,7 +294,7 @@ def test_token_screen_rejects_every_dangerous_bare_name() -> None:
     Call names (`sage_eval`, `open`, ...) and attribute parents (`os`, `pari`)
     are refused wherever they appear, so they are tested as bare tokens.
     """
-    from sagemath_mcp.codegen import _FRAGMENT_POLICY, _names_the_scrub_removes
+    from sagemath_mcp.gates import _FRAGMENT_POLICY, _names_the_scrub_removes
 
     names = (
         set(_FRAGMENT_POLICY.forbidden_call_names)
@@ -321,7 +319,7 @@ def test_token_screen_rejects_every_dangerous_attribute_name() -> None:
     guard *methods*, so the screen refuses them only in attribute position -- a
     NAME reached through a `.`, exactly as the AST path fires them on `node.attr`.
     """
-    from sagemath_mcp.codegen import _FRAGMENT_POLICY
+    from sagemath_mcp.gates import _FRAGMENT_POLICY
 
     attribute_names = (
         set(_FRAGMENT_POLICY.forbidden_attribute_names)
@@ -344,18 +342,18 @@ def test_token_screen_allows_ordinary_variables_with_a_persistence_prefix() -> N
     [0..2][1]` and friends once the Sage-only `[a..b]` routed them to the token
     screen; the AST path accepts them, so the screen must too.
     """
-    from sagemath_mcp.codegen import _FRAGMENT_POLICY
+    from sagemath_mcp.gates import _FRAGMENT_POLICY
 
     for prefix in _FRAGMENT_POLICY.forbidden_attribute_prefixes:
         # Bare name, used in Sage-only syntax so it truly reaches the screen.
         code = f"{prefix}_point + [0..2][0]"
-        assert _validated_expression(code) == code
+        assert validated_expression(code) == code
 
 
 def test_encode_literal_passes_non_string_values_straight_to_json() -> None:
     """Numbers carry no code, so there is nothing to validate."""
-    assert _encode_literal(5) == "5"
-    assert _encode_literal([1, 2.5]) == "[1, 2.5]"
+    assert encode_literal(5) == "5"
+    assert encode_literal([1, 2.5]) == "[1, 2.5]"
 
 
 def test_declare_free_symbols_with_only_short_names_emits_no_conditional_clause() -> None:
@@ -365,14 +363,14 @@ def test_declare_free_symbols_with_only_short_names_emits_no_conditional_clause(
     to resolve the bound to a function instead of a symbol. Short names
     therefore win, and need no hasattr check.
     """
-    declared = _declare_free_symbols("k + n")
+    declared = declare_free_symbols("k + n")
     assert "'k', 'n'" in declared
     assert "hasattr" not in declared, "a short name should not need the Sage-name check"
 
 
 def test_declare_free_symbols_guards_names_sage_might_already_define() -> None:
     """gamma, sin and friends must keep meaning the Sage object."""
-    declared = _declare_free_symbols("gamma(alpha)")
+    declared = declare_free_symbols("gamma(alpha)")
     assert "hasattr" in declared, "a spelled-out name must be checked before shadowing"
 
 
@@ -380,7 +378,7 @@ def test_declare_free_symbols_guards_names_sage_might_already_define() -> None:
 # Large integers on the way OUT
 # ---------------------------------------------------------------------------
 #
-# The input guard (_exact_int / _reject_if_inexact) was only half the problem.
+# The input guard (exact_int / reject_if_inexact) was only half the problem.
 # Results travel back as JSON numbers, and a JavaScript-based MCP client parses
 # those as IEEE doubles: the Claude CLI turned bell(30) =
 # 846749014511809332450147 into 846749014511809388871680 and displayed it as the
@@ -388,7 +386,7 @@ def test_declare_free_symbols_guards_names_sage_might_already_define() -> None:
 
 
 def test_large_integers_leave_as_decimal_strings() -> None:
-    from sagemath_mcp.codegen import _exactify_large_ints
+    from sagemath_mcp.transport import _exactify_large_ints
 
     limit = 2**53
     assert _exactify_large_ints(limit + 1) == str(limit + 1)
@@ -398,7 +396,7 @@ def test_large_integers_leave_as_decimal_strings() -> None:
 
 def test_integers_a_client_can_represent_are_left_as_numbers() -> None:
     """Only the ones that would be corrupted change shape."""
-    from sagemath_mcp.codegen import _exactify_large_ints
+    from sagemath_mcp.transport import _exactify_large_ints
 
     for value in (0, 1, -42, 2**53 - 1, -(2**53 - 1)):
         assert _exactify_large_ints(value) == value
@@ -411,7 +409,7 @@ def test_non_finite_floats_become_strings() -> None:
     nothing parseable. Send them as strings instead."""
     import json
 
-    from sagemath_mcp.codegen import _exactify_large_ints
+    from sagemath_mcp.transport import _exactify_large_ints
 
     assert _exactify_large_ints(float("inf")) == "Infinity"
     assert _exactify_large_ints(float("-inf")) == "-Infinity"
@@ -424,7 +422,7 @@ def test_non_finite_floats_become_strings() -> None:
 
 
 def test_finite_floats_are_left_untouched() -> None:
-    from sagemath_mcp.codegen import _exactify_large_ints
+    from sagemath_mcp.transport import _exactify_large_ints
 
     for value in (0.0, -1.5, 3.14, 1e300, -1e-300):
         assert _exactify_large_ints(value) == value
@@ -434,7 +432,7 @@ def test_finite_floats_are_left_untouched() -> None:
 def test_reconstruct_result_restores_a_dict_with_a_non_finite_float() -> None:
     """calculate_expression's shape: the whole dict used to collapse to a string
     because `ast.literal_eval` rejects the `inf`/`nan` tokens in a repr."""
-    from sagemath_mcp.codegen import _exactify_large_ints, _reconstruct_result
+    from sagemath_mcp.transport import _exactify_large_ints, _reconstruct_result
 
     parsed = _reconstruct_result("{'string': '-Infinity', 'numeric': -inf}")
     assert parsed == {"string": "-Infinity", "numeric": float("-inf")}
@@ -446,7 +444,7 @@ def test_reconstruct_result_restores_a_dict_with_a_non_finite_float() -> None:
 def test_reconstruct_result_handles_bare_and_nested_non_finite() -> None:
     import math
 
-    from sagemath_mcp.codegen import _reconstruct_result
+    from sagemath_mcp.transport import _reconstruct_result
 
     assert math.isnan(_reconstruct_result("nan"))
     assert _reconstruct_result("[1.0, inf, nan]")[1] == float("inf")
@@ -455,7 +453,7 @@ def test_reconstruct_result_handles_bare_and_nested_non_finite() -> None:
 
 def test_reconstruct_result_keeps_a_non_literal_as_the_raw_string() -> None:
     """A Sage object repr is not a literal; the caller keeps the string as-is."""
-    from sagemath_mcp.codegen import _UNRECONSTRUCTED, _reconstruct_result
+    from sagemath_mcp.transport import _UNRECONSTRUCTED, _reconstruct_result
 
     # A name that is not inf/nan, and a call, are both refused -> sentinel.
     assert _reconstruct_result("Rational(1, 2)") is _UNRECONSTRUCTED
@@ -465,7 +463,7 @@ def test_reconstruct_result_keeps_a_non_literal_as_the_raw_string() -> None:
 
 
 def test_reconstruct_result_still_parses_ordinary_finite_values() -> None:
-    from sagemath_mcp.codegen import _reconstruct_result
+    from sagemath_mcp.transport import _reconstruct_result
 
     assert _reconstruct_result("{'a': 42, 'b': [1, 2.5]}") == {"a": 42, "b": [1, 2.5]}
     assert _reconstruct_result("'just a string'") == "just a string"
@@ -473,7 +471,7 @@ def test_reconstruct_result_still_parses_ordinary_finite_values() -> None:
 
 def test_exactify_reaches_inside_containers() -> None:
     """Results are often lists and dicts: factorisations, bases, varieties."""
-    from sagemath_mcp.codegen import _exactify_large_ints
+    from sagemath_mcp.transport import _exactify_large_ints
 
     big = 2**60
     assert _exactify_large_ints([1, big]) == [1, str(big)]
@@ -483,7 +481,7 @@ def test_exactify_reaches_inside_containers() -> None:
 
 
 def test_exactify_leaves_other_types_alone() -> None:
-    from sagemath_mcp.codegen import _exactify_large_ints
+    from sagemath_mcp.transport import _exactify_large_ints
 
     assert _exactify_large_ints("already a string") == "already a string"
     assert _exactify_large_ints(1.5) == 1.5
@@ -501,17 +499,17 @@ def test_the_boundary_is_max_safe_integer_not_two_to_the_53() -> None:
     the "rejects above 2^53" guard still let the documented example through.
     """
     safe = 2**53 - 1
-    assert _reject_if_inexact(safe, "n") == safe
-    assert _reject_if_inexact(-safe, "n") == -safe
+    assert reject_if_inexact(safe, "n") == safe
+    assert reject_if_inexact(-safe, "n") == -safe
     for unsafe in (2**53, 2**53 + 1, -(2**53)):
         with pytest.raises(ToolError, match="2\\^53"):
-            _reject_if_inexact(unsafe, "n")
+            reject_if_inexact(unsafe, "n")
 
 
 def test_matrix_entries_keep_integers_exact() -> None:
-    from sagemath_mcp.codegen import _exact_matrix_entries
+    from sagemath_mcp.numeric import exact_matrix_entries
 
-    rows = _exact_matrix_entries([["9007199254740991", 2], [3.5, 4]], "m")
+    rows = exact_matrix_entries([["9007199254740991", 2], [3.5, 4]], "m")
     assert rows == [[9007199254740991, 2], [3.5, 4]]
     assert isinstance(rows[0][0], int)
     assert isinstance(rows[1][0], float), "a float entry must stay a float"
@@ -519,14 +517,14 @@ def test_matrix_entries_keep_integers_exact() -> None:
 
 def test_matrix_entries_refuse_a_number_that_has_already_been_rounded() -> None:
     """The schemas took float, so 9007199254740993 reached Sage as ...992.0."""
-    from sagemath_mcp.codegen import _exact_matrix_entries
+    from sagemath_mcp.numeric import exact_matrix_entries
 
     with pytest.raises(ToolError, match="2\\^53"):
-        _exact_matrix_entries([[2**53 + 1]], "m")
+        exact_matrix_entries([[2**53 + 1]], "m")
     with pytest.raises(ToolError, match="must be numbers"):
-        _exact_matrix_entries([[True]], "m")
+        exact_matrix_entries([[True]], "m")
     with pytest.raises(ToolError, match="list of rows"):
-        _exact_matrix_entries(["not a row"], "m")
+        exact_matrix_entries(["not a row"], "m")
 
 
 # --- The `sage` root, on the path that has no parse tree ----------------------
@@ -535,12 +533,12 @@ def test_matrix_entries_refuse_a_number_that_has_already_been_rounded() -> None:
 def test_the_token_screen_refuses_a_sage_root_like_the_ast_path_does():
     """A fragment that will not parse must not be a way around item 81.
 
-    `_validated_expression` parses the fragment and the AST path refuses a
+    `validated_expression` parses the fragment and the AST path refuses a
     `sage`-rooted chain. Sage-only syntax does not parse as Python, so the
     fragment falls through to the token screen instead -- which mirrored the
     call names and the attribute parents, but not the roots. Found by the same
     review as items 81 and 82: `[sage.misc.latex.png(1,'/tmp/x.png')..1]` was
-    accepted by both `_encode_literal` and `_validated_expression`, while the
+    accepted by both `encode_literal` and `validated_expression`, while the
     parseable spelling was correctly refused. It then reached `sage_eval` under
     the trusted policy, where `[X..1]` preparses to `ellipsis_range(X, ...)` and
     calls `X`.
@@ -550,14 +548,105 @@ def test_the_token_screen_refuses_a_sage_root_like_the_ast_path_does():
 
     for fragment in (parseable, unparseable):
         with pytest.raises(ToolError, match="sage"):
-            codegen._encode_literal(fragment)
+            gates.encode_literal(fragment)
         with pytest.raises(ToolError, match="sage"):
-            codegen._validated_expression(fragment)
+            gates.validated_expression(fragment)
 
 
 def test_the_token_screen_still_accepts_ordinary_sage_only_syntax():
     """The screen must not start refusing the syntax it exists for: `[1..5]`
     does not parse as Python either, and is ordinary mathematics."""
-    assert codegen._encode_literal("[1..5]") == '"[1..5]"'
-    assert codegen._validated_expression("[1..5]") == "[1..5]"
-    assert codegen._validated_expression("[1,3..11]") == "[1,3..11]"
+    assert gates.encode_literal("[1..5]") == '"[1..5]"'
+    assert gates.validated_expression("[1..5]") == "[1..5]"
+    assert gates.validated_expression("[1,3..11]") == "[1,3..11]"
+
+
+@pytest.mark.asyncio
+async def test_evaluate_structured_parses_literal():
+    session = StubSession("[1, {'value': 2}]")
+    value = await transport.evaluate_structured(session, "ignored")
+    assert value == [1, {"value": 2}]
+    call = session.calls[-1]
+    assert call["want_latex"] is False
+    assert call["capture_stdout"] is False
+
+
+@pytest.mark.asyncio
+async def test_evaluate_structured_returns_none():
+    session = StubSession(None)
+    value = await transport.evaluate_structured(session, "ignored")
+    assert value is None
+
+
+@pytest.mark.asyncio
+async def test_evaluate_structured_falls_back_to_string():
+    session = StubSession("Decimal('1.234')")
+    value = await transport.evaluate_structured(session, "ignored")
+    assert value == "Decimal('1.234')"
+
+
+@pytest.mark.asyncio
+async def test_evaluate_structured_forwards_timeout():
+    session = StubSession("42")
+    await transport.evaluate_structured(session, "ignored", timeout_seconds=5.0)
+    call = session.calls[-1]
+    assert call["timeout_seconds"] == 5.0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (12, 12),
+        ("12", 12),
+        (12.0, 12),
+        ("1000000000000000000000000000000", 10**30),
+        ("1_000", 1000),
+    ],
+)
+async def test_exact_int_accepts_lossless_forms(value, expected):
+    assert numeric.exact_int(value, "a") == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "value",
+    [
+        1e30,                                # float: already through a double
+        10**30,                              # int: exact here, but unverifiable
+        1000000000000000019884624838656,     # the value a JS client actually sends
+        2**53 + 1,                           # first integer a double cannot hold
+    ],
+)
+async def test_exact_int_rejects_values_json_cannot_carry(value):
+    """Above 2^53 the server cannot tell an exact value from a rounded one.
+
+    A JavaScript client rounds BEFORE serialising and emits the rounded digits as
+    a JSON integer, so checking only floats missed the real case: 10^30 arrives
+    as the int 1000000000000000019884624838656 and looks ordinary.
+    """
+    with pytest.raises(ToolError, match="2\\^53"):
+        numeric.exact_int(value, "a")
+
+    # The message has to tell the caller what to do instead.
+    try:
+        numeric.exact_int(value, "a")
+    except ToolError as exc:
+        assert "decimal string" in str(exc)
+
+
+@pytest.mark.asyncio
+async def test_exact_int_accepts_any_size_as_a_string():
+    """Strings are exact by construction, so no ceiling applies."""
+    assert numeric.exact_int("1000000000000000000000000000000", "a") == 10**30
+    assert numeric.exact_int(str(2**200), "a") == 2**200
+
+
+@pytest.mark.asyncio
+async def test_exact_int_rejects_non_integers():
+    with pytest.raises(ToolError, match="whole number"):
+        numeric.exact_int(12.5, "a")
+    with pytest.raises(ToolError, match="not a decimal integer"):
+        numeric.exact_int("twelve", "a")
+    with pytest.raises(ToolError, match="boolean"):
+        numeric.exact_int(True, "a")

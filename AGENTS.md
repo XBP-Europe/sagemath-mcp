@@ -26,8 +26,8 @@
   to compose them: it prefixes tool names, renaming every tool a client has configured.
 - Resolve workers through `runtime.resolve_session(...)`, never a module-level import of
   `SESSION_MANAGER`, which binds the manager that existed at import time.
-- Any caller string interpolated into generated code must pass `_encode_literal`,
-  `_validated_expression` or `_validated_identifier`. Generated code runs under
+- Any caller string interpolated into generated code must pass `encode_literal`,
+  `validated_expression` or `validated_identifier`. Generated code runs under
   `trusted_policy()`, which permits `sage_eval`, so an ungated string is arbitrary
   execution -- there is a test that fails if one appears.
 - Adding a tool changes the MCP contract, so refresh the snapshot deliberately:
@@ -38,12 +38,12 @@
   it or the caller's own code bound it. If you make a Sage name reachable, or
   bump the Sage version, run `make allowlist` and read the diff: each added name
   is a name every caller can now use. Anything that compiles, spawns, writes or
-  fetches belongs in `_DANGEROUS_BARE_NAMES` in `_sage_worker.py` instead.
+  fetches belongs in `DANGEROUS_BARE_NAMES` in `scrub_catalog.py` instead.
 
 ## Testing Expectations
 - Add new tests under `tests/`, mirroring the module under `src/`; mark async cases with `@pytest.mark.asyncio`.
 - Exercise both `make test` and `make integration-test` before landing changes; the latter requires the Sage container.
-- Cover MCP helper tools in `tests/test_server.py` and the code-building helpers (`_evaluate_structured`, the prelude, the validation gates) in `tests/test_codegen.py`; use `tests/test_use_cases.py` for Sage-manual scenarios.
+- Cover MCP helper tools in `tests/tools/test_<domain>.py` (one per `tools/` module; server-level behaviour in `tests/test_server.py`) and the code-building helpers (`evaluate_structured`, the prelude, the validation gates) in `tests/test_codegen.py`; use `tests/test_use_cases.py` for Sage-manual scenarios.
 - CI enforces `--cov-fail-under=100`, so a new branch needs a test that reaches it.
 - Security work has a counterweight: every test in `tests/test_security_bypass.py`
   asserts something is **blocked**, so a policy that refused everything would

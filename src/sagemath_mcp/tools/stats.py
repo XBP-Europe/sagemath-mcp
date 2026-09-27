@@ -17,19 +17,84 @@ from pydantic import Field
 
 from .. import runtime
 from ..app import mcp
-from ..codegen import (
-    _distribution_mean,
-    _distribution_variance,
-    _encode_literal,
-    _evaluate_structured,
-    _normal_parameters,
-    _sage_prelude,
-)
-from ..session import (
-    DEFAULT_SESSION_NAME,
-)
+from ..gates import encode_literal
+from ..manager import DEFAULT_SESSION_NAME
+from ..prelude import sage_prelude
 from ..text import SESSION_ARG_DESC as _SESSION_ARG_DESC
+from ..transport import evaluate_structured
 from .hints import COMPUTES
+
+
+def _normal_parameters(parameters: list[float]) -> tuple[float, float]:
+    """Return (mu, sigma) for the documented [mu, sigma] parameter list."""
+    if len(parameters) >= 2:
+        return float(parameters[0]), float(parameters[1])
+    if len(parameters) == 1:
+        # A single parameter is the standard deviation, matching how the
+        # previous implementation treated a one-element list.
+        return 0.0, float(parameters[0])
+    return 0.0, 1.0
+
+
+def _distribution_mean(distribution: str, parameters: list[float]) -> float:
+    """Analytic mean for the supported continuous distributions."""
+    p = [float(v) for v in parameters]
+    if distribution == "normal":
+        return _normal_parameters(p)[0]
+    if distribution == "exponential":
+        # Sage parameterises RealDistribution('exponential', mu) by the mean.
+        return p[0] if p else 1.0
+    if distribution == "uniform":
+        if len(p) < 2:
+            raise ToolError("uniform requires parameters [a, b]")
+        return (p[0] + p[1]) / 2
+    if distribution == "chi_squared":
+        return p[0] if p else 1.0
+    if distribution == "student_t":
+        nu = p[0] if p else 1.0
+        if nu <= 1:
+            raise ToolError("student_t mean is undefined for degrees of freedom <= 1")
+        return 0.0
+    if distribution == "beta":
+        if len(p) < 2:
+            raise ToolError("beta requires parameters [a, b]")
+        return p[0] / (p[0] + p[1])
+    if distribution == "gamma":
+        if len(p) < 2:
+            raise ToolError("gamma requires parameters [shape, scale]")
+        return p[0] * p[1]
+    raise ToolError(f"No analytic mean available for distribution '{distribution}'")
+
+
+def _distribution_variance(distribution: str, parameters: list[float]) -> float:
+    """Analytic variance for the supported continuous distributions."""
+    p = [float(v) for v in parameters]
+    if distribution == "normal":
+        return _normal_parameters(p)[1] ** 2
+    if distribution == "exponential":
+        mu = p[0] if p else 1.0
+        return mu**2
+    if distribution == "uniform":
+        if len(p) < 2:
+            raise ToolError("uniform requires parameters [a, b]")
+        return (p[1] - p[0]) ** 2 / 12
+    if distribution == "chi_squared":
+        return 2 * (p[0] if p else 1.0)
+    if distribution == "student_t":
+        nu = p[0] if p else 1.0
+        if nu <= 2:
+            raise ToolError("student_t variance is undefined for degrees of freedom <= 2")
+        return nu / (nu - 2)
+    if distribution == "beta":
+        if len(p) < 2:
+            raise ToolError("beta requires parameters [a, b]")
+        a, b = p[0], p[1]
+        return a * b / ((a + b) ** 2 * (a + b + 1))
+    if distribution == "gamma":
+        if len(p) < 2:
+            raise ToolError("gamma requires parameters [shape, scale]")
+        return p[0] * p[1] ** 2
+    raise ToolError(f"No analytic variance available for distribution '{distribution}'")
 
 
 @mcp.tool(annotations=COMPUTES, description=(
@@ -42,18 +107,17 @@ async def statistics_summary(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
+    runtime.require_context(ctx, "for stateful execution")
     # Without this the generated code raised a bare "list index out of range"
     # from the median calculation, which says nothing about what to send instead.
     if not data:
         raise ToolError("statistics_summary requires at least one value in 'data'")
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    session = await runtime.session_for(ctx, session)
     code = (
-        _sage_prelude()
+        sage_prelude()
         + textwrap.dedent(
             f"""
-        _data = {_encode_literal(data)}
+        _data = {encode_literal(data)}
         _n = len(_data)
         _mean = float(mean(_data))
         _sorted = sorted(_data)
@@ -74,7 +138,7 @@ async def statistics_summary(
         """
         )
     )
-    return await _evaluate_structured(session, code)
+    return await evaluate_structured(session, code)
 
 
 @mcp.tool(
@@ -100,10 +164,9 @@ async def distribution_operation(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
+    runtime.require_context(ctx, "for stateful execution")
     operation = operation.strip()
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    session = await runtime.session_for(ctx, session)
     params_str = ", ".join(str(p) for p in parameters)
     # "normal" takes [mu, sigma]. The previous mapping passed parameters[0] as
     # sigma only when exactly one parameter was given and otherwise hardcoded
@@ -140,7 +203,7 @@ async def distribution_operation(
         }
         if operation not in op_code:
             raise ToolError(f"Unknown operation '{operation}' for Poisson distribution")
-        code = _sage_prelude() + op_code.get(operation, "None") + "\n"
+        code = sage_prelude() + op_code.get(operation, "None") + "\n"
     elif distribution in dist_map:
         dist_expr = dist_map[distribution]
         # Only the normal distribution carries a location parameter here; for
@@ -172,11 +235,11 @@ async def distribution_operation(
                 f"Unknown operation '{operation}'. "
                 "Use: pdf, cdf, quantile, mean, variance, sample"
             )
-        code = _sage_prelude() + f"_d = {dist_expr}\n" + op_code[operation] + "\n"
+        code = sage_prelude() + f"_d = {dist_expr}\n" + op_code[operation] + "\n"
     else:
         raise ToolError(
             f"Unknown distribution '{distribution}'. "
             "Use: normal, exponential, poisson, chi_squared, student_t, uniform, beta, gamma"
         )
-    result = await _evaluate_structured(session, code)
+    result = await evaluate_structured(session, code)
     return {"distribution": distribution, "operation": operation, "result": result}

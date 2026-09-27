@@ -40,7 +40,7 @@ async def sage_manager(monkeypatch):
     """
     from sagemath_mcp import runtime
     from sagemath_mcp.config import SageSettings
-    from sagemath_mcp.session import SageSessionManager
+    from sagemath_mcp.manager import SageSessionManager
 
     manager = SageSessionManager(
         # startup_code matters: without it the worker runs the default

@@ -4,28 +4,27 @@ from __future__ import annotations
 
 import ast
 import contextlib
-import importlib
 import io
 import json
 import os
 import sys
 import time
 import traceback
-from types import ModuleType, SimpleNamespace
+from types import SimpleNamespace
 from typing import Any
 
+from sagemath_mcp import scrub_catalog
 from sagemath_mcp._artifacts import ALLOWED_CALLER_NAMES
+from sagemath_mcp.imports import rewrite_permitted_imports
+from sagemath_mcp.policy import SECURITY_POLICY, trusted_policy
+from sagemath_mcp.refusals import native_equivalent
 from sagemath_mcp.security import (
-    SECURITY_POLICY,
     _bound_names,
     _looks_like_an_undeclared_symbol,
-    _native_equivalent,
     attrcall_attribute_violation,
     check_source_length,
     injects_session_names,
     normalize_caller_code,
-    rewrite_permitted_imports,
-    trusted_policy,
     validate_module,
 )
 from sagemath_mcp.symbols import PREDEFINED_SYMBOLS
@@ -141,7 +140,7 @@ def _auto_declarable_symbols(
             continue
         if not _looks_like_an_undeclared_symbol(name):
             continue
-        if id(node) in called and _native_equivalent(name) is not None:
+        if id(node) in called and native_equivalent(name) is not None:
             continue
         result.add(name)
     return frozenset(result)
@@ -218,496 +217,17 @@ def _build_namespace() -> dict[str, Any]:
     return ns
 
 
-# Sage's namespace is thousands of names deep and includes plenty that execute
-# code, run a shell, compile, download or touch arbitrary paths. Listing them one
-# by one is a losing game -- `cython(get_remote_file(url))` was reachable, and so
-# were `sh`, `fortran` and `loads` -- so entries are removed by where they come
-# from. A new helper added to any of these modules is unreachable from the day it
-# lands, without anyone remembering to add its name.
-_DANGEROUS_SAGE_MODULES = (
-    "sage.misc.cython",          # compiles and imports arbitrary code
-    "sage.misc.inline_fortran",  # same, for Fortran
-    "sage.misc.sh",              # runs a shell
-    "sage.misc.remote_file",     # downloads
-    "sage.misc.persist",         # pickle load/save: code execution from bytes
-    "sage.misc.sage_eval",       # evaluates strings
-    "sage.repl.load",            # executes files
-    "sage.repl.attach",          # executes files, and keeps doing it
-    "sage.misc.attached_files",
-    "sage.misc.explain_pickle",
-    "sage.misc.edit_module",     # launches an editor
-    "sage.misc.trace",           # drops into the debugger
-    "sage.misc.dev_tools",
-    "sage.misc.package",         # inspects the installation
-    "sage.misc.lazy_import",     # binds any module attribute to a name
-    "sage.misc.fpickle",         # unpickle_function executes what it is given
-    "sage.misc.session",         # load_session unpickles a whole session
-    "sage.misc.verbose",         # set_verbose_files writes where it is told
-    "sage.misc.temporary_file",  # creates files outside our control
-    # Modules whose job is resolving an attribute from a name. Listed wholesale
-    # rather than by name because that has now missed three rounds running --
-    # Python's `operator`, then `attrcall`, then `raw_getattr`/`getattr_debug` --
-    # and because a source scan cannot find them: 807 of the allowlisted names
-    # are compiled Cython with no readable source, `attrcall` among them.
-    "sage.misc.call",        # attrcall, call_method, AttrCallObject
-    "sage.cpython.getattr",  # raw_getattr: getattr without the descriptor protocol
-    "sage.cpython.debug",    # getattr_debug: a full getattr equivalent
-    # Sage's rich-output subsystem. `show` and `view` were removed by name for
-    # writing files and launching viewers; these are the rest of it.
-    # `get_display_manager()` hands back an object carrying `switch_backend` and
-    # `graphics_from_save`, which takes a caller-supplied callable -- neither
-    # exploitable on 10.9, since no backend class is reachable to switch to, but
-    # the subsystem has no purpose over MCP, where results are strings and plots
-    # are base64 PNGs from the plot tools.
-    "sage.repl.rich_output.display_manager",
-    "sage.repl.rich_output.pretty_print",
-    # `maxima_calculus` is a MaximaLib interface bound in the namespace, and an
-    # interface object answers to *every* attribute name: it builds a Maxima
-    # call out of whatever you ask for, so `hasattr` is True for `system`,
-    # `unlink`, `popen`, `fork` and the rest at once. That is why no name-based
-    # attribute rule could have covered it, and why the fix is to stop offering
-    # the object. It reached the namespace because `sage.interfaces.all` does
-    # not re-export it, so the interface scrub never saw it.
-    "sage.interfaces.maxima_lib",
-    # `logstr` and `preparser` come from here, and both are REPL plumbing with
-    # no mathematical content. Found by the same sweep.
-    "sage.repl.interpreter",
-    # `Pari`, `PariRing` and `PariGroup` are constructors that funnel a
-    # caller-controlled string into the `pari` singleton the bare-name list
-    # already removes: `sage.rings.pari_ring` holds a module-level `from
-    # sage.libs.pari import pari` and does `self.__x = pari(x)`, so `Pari('
-    # system("id")')` ran a shell as the container user even though the name
-    # `pari` was gone. `sage.groups.pari_group` does the same. Removing the name
-    # is not removing the capability; removing the constructors is. See item 50.
-    "sage.rings.pari_ring",       # defines Pari, PariRing
-    "sage.groups.pari_group",     # defines PariGroup
-    # `libgap` is an in-process GAP interface, and an interface object answers to
-    # *every* attribute name -- `libgap.Exec("id")` and
-    # `libgap.function_factory("Exec")("id")` both shelled out, because only
-    # `libgap.eval` was ever refused. Same shape as `maxima_calculus` above: no
-    # name-based attribute rule can cover an object that fabricates attributes on
-    # demand, so the object has to go. See item 51.
-    "sage.libs.gap.libgap",       # defines Gap, libgap
-    # `Dokchitser(...).gp()` returns the `gp` interpreter the interface scrub
-    # removes -- GP shells out through `system(...)`. Stripping the constructor
-    # stops a caller reconstructing it; the `.gp` method is also refused as a
-    # forbidden attribute. See item 53.
-    "sage.lfunctions.dokchitser", # defines Dokchitser, reduce_load_dokchitser
-)
-
-# Names bound in the namespace that no provenance rule catches, because their
-# provenance is not a Sage module at all or is one we otherwise want.
-#
-# `operator` is the important one. Every attribute rule this server has is
-# enforced on the AST -- parent and attribute both read out of the source --
-# and `attrgetter` takes its path as a runtime string, so none of it applies:
-#
-#     operator.attrgetter("misc.persist.unpickle_global")(sage)
-#
-# returned the real function, which is arbitrary code execution. Sage binds
-# `sage` itself along with 21 other module objects, so one string-path
-# primitive reaches the whole tree; `getattr`, `setattr` and `vars` were
-# already refused, which is what left `operator` as the only way in.
-#
-# The rest each demonstrated a concrete capability under 10.9: `pari` a shell,
-# `oeis` a network request, and the display helpers files written to disk.
-_DANGEROUS_BARE_NAMES = (
-    # `pari` belongs here rather than in the provenance list above, and the
-    # distinction is not cosmetic: `pari('system("id")')` runs a shell, but
-    # listing `sage.libs.pari.all` removed nothing at all. That derivation takes
-    # only names *defined* in a module -- it has to, since `sage.misc.persist`
-    # also has `Integer` in scope -- and `pari`, `pari_gen` and `PariError` are
-    # every one of them defined in `cypari2`. An integration test now fails on
-    # any provenance entry that matches nothing, because an entry that looks
-    # like protection and is not is worse than no entry.
-    "pari",         # pari('system("id")') ran a shell command as the container user
-    "warnings",     # a module object, and a module object has __builtins__
-    "oeis",         # queries oeis.org: egress from a sandbox with no network need
-    "install_doc",  # writes documentation to a caller-chosen path
-    "show",         # renders to a file and tries to launch a viewer
-    "view",         # same
-    "animate",      # writes an animation file
-    "html",         # renders to disk
-    # `latex` and `operator` were here and are not any more. Both were removed
-    # for something they carry rather than something they are, and in both cases
-    # the thing they carry is refused by name in its own right:
-    #
-    #   latex.eval            runs the toolchain -- and `eval` is a forbidden
-    #                         attribute, so calling `latex.eval` is still blocked.
-    #   operator.attrgetter   is attribute access the AST cannot see -- and
-    #                         `attrgetter`, `methodcaller` and `itemgetter` are
-    #                         forbidden names in every position.
-    #
-    # What the removal cost, measured against SageMath's own doctests: `latex`
-    # was the single most-refused name in the corpus at 1,387 uses, while
-    # `(x^2+1)._latex_()` was allowed and returns the identical string -- the
-    # policy blocked the idiom and shipped the result. `operator.le` is how a
-    # poset is built, 206 times. See REVIEW_ACTIONS.md item 46.
-    "search_src",   # reads the installation
-    "search_doc",
-    "reference",
-    "Profiler",
-    # passagemath surfaces three CAS-interface names monolithic Sage does not:
-    # `Maxima`/`Mathics3` are interface classes (a `Maxima()` instance evaluates
-    # arbitrary Maxima input) and `mathics3` an interface object. Absent from
-    # monolithic Sage's namespace, so listing them is a no-op there and denylists
-    # them under passagemath -- verified they are not in the monolithic allowlist.
-    # See docs/passagemath_evaluation.md §5.
-    "Maxima",
-    "Mathics3",
-    "mathics3",
-    # passagemath defines this lazy-import startup helper in `sage.misc.
-    # lazy_import` (a dangerous-provenance module), so the derivation flags it;
-    # monolithic Sage does not define it at all. A bare-name entry (not the
-    # auto-regenerated baked list) so `make denylist` cannot drop it, and it is a
-    # no-op on monolithic where the name is absent.
-    "commence_startup",
-    # passagemath 10.8.11 exports `inline_plots` from `sage.repl.interpreter`
-    # (a dangerous-provenance module: it is the interactive shell), so the
-    # derivation flags it. It toggles kitty-terminal image rendering on the
-    # running IPython shell -- nothing a worker has -- but the rule is the module,
-    # not the body. Same shape as `commence_startup`: a bare-name entry so
-    # `make denylist` cannot drop it, and a no-op on monolithic Sage, which does
-    # not define it.
-    "inline_plots",
-)
-
-# Sage's interfaces to other computer algebra systems. Each one spawns the real
-# program, and those programs have their own shell escapes:
-#     gp('system("id")')      wrote a file as the container user
-#     maxima('system("id")')  did the same
-# sage.interfaces.all is Sage's own list of them, so everything it exports is
-# removed -- including whatever a future release adds, which a hand-written list
-# of names would miss.
-_EXTERNAL_INTERFACE_EXPORTS = "sage.interfaces.all"
-
-
-# The names those modules and sage.interfaces.all actually define, baked in.
-#
-# Deriving this at startup meant importing sixteen modules in every worker, and
-# on slower CI hardware that pushed the first evaluation past its timeout -- a
-# hardening step is not allowed to cost the thing it protects. The derivation
-# still exists below and a test re-runs it against the installed Sage, so a
-# version that adds or renames a helper fails the suite rather than the user.
-_DANGEROUS_SAGE_NAME_LIST: frozenset[str] = frozenset({
-    "AttrCallObject", "AttributeErrorMessage", "Axiom", "DisplayException", "DisplayManager",
-    "Dokchitser", "ECM", "EmptyNewstyleClass", "EmptyOldstyleClass", "FriCAS", "Gap", "Gap3",
-    "Genus2reduction", "Gfan", "Giac", "Gp", "InlineFortran", "InterfaceShellTransformer",
-    "Kash", "Khoca", "LazyImport", "LiE", "Lisp", "Macaulay2", "Magma", "Maple", "Mathematica",
-    "Mathics", "Matlab", "MaximaLib", "MaximaLibElement", "MaximaLibElementFunction", "Mupad",
-    "Mwrank", "Octave", "OutputTypeException", "PSage", "PackageInfo", "Pari", "PariGroup",
-    "PariRing", "PickleDict", "PickleExplainer", "PickleInstance", "PickleObject", "R",
-    "Regina", "RichReprWarning", "Sage", "SageCrashHandler", "SageNotebookInteractiveShell",
-    "SagePickler", "SagePreparseTransformer", "SageShellOverride", "SageTerminalApp",
-    "SageTerminalInteractiveShell", "SageTestShell", "SageUnpickler", "SequencePrettyPrinter",
-    "Sh", "Singular", "TestAppendList", "TestAppendNonlist", "TestBuild", "TestBuildSetstate",
-    "TestGlobalFunnyName", "TestGlobalNewName", "TestGlobalOldName", "TestReduceGetinitargs",
-    "TestReduceNoGetinitargs", "add_attached_file", "atomic_dir", "atomic_write", "attach",
-    "attached_files", "attrcall", "attributes", "axiom", "call_method", "call_pickled_function",
-    "check_pickle", "clean_namespace", "code_ctor", "compile_and_load", "cython",
-    "cython_compile", "cython_import", "cython_import_all", "cython_lambda", "db", "db_save",
-    "detach", "dir_with_other_class", "dummy_integrate", "dumps", "ecm", "edit", "edit_devel",
-    "ensure_startup_finished", "explain_pickle", "explain_pickle_string", "file_and_line",
-    "find_objects_from_name", "finish_startup", "fortran", "four_ti_2", "fricas", "frobby",
-    "gap", "gap3", "gap3_version", "gap_reset_workspace", "genus2reduction",
-    "get_display_manager", "get_remote_file", "get_star_imports", "get_test_shell",
-    "get_verbose", "get_verbose_files", "getattr_debug", "getattr_from_other_class", "gfan",
-    "giac", "gnuplot", "gp", "gp_version", "import_statement_string", "import_statements",
-    "init", "installed_packages", "interface_shell_embed", "interfaces", "is_during_startup",
-    "is_loadable_filename", "is_package_installed", "is_package_installed_and_updated", "kash",
-    "kash_version", "lazy_import", "libgap", "lie", "lisp", "list_packages", "load",
-    "load_attach_mode", "load_attach_path", "load_cython", "load_sage_element",
-    "load_sage_object", "load_session", "load_submodules", "load_wrap", "loads", "logstr",
-    "macaulay2", "magma", "magma_free", "make_None", "maple", "mathematica", "mathics",
-    "matlab", "matlab_version", "max_at_to_sage", "max_harmonic_to_sage",
-    "max_pochhammer_to_sage", "max_to_sr", "max_to_string", "maxima", "maxima_calculus",
-    "maxima_lib", "mdiff_to_sage", "mlist_to_sage", "modified_file_iterator", "mqapply_to_sage",
-    "mrat_to_sage", "mupad", "mwrank", "name_is_valid", "octave", "package_manifest",
-    "package_versions", "parse_max_string", "pickleMethod", "pickleModule", "pickle_function",
-    "picklejar", "pip_installed_packages", "pip_remote_version", "pkgname_split", "polymake",
-    "povray", "preparser", "pretty_print", "pyobject_to_max", "qepcad", "qepcad_formula",
-    "qepcad_version", "r", "r_version", "raw_getattr", "read_data", "reduce_code",
-    "reduce_load_MaximaLib", "reduce_load_dokchitser", "regina", "register_unpickle_override",
-    "reload_attached_files_if_modified", "reset", "reset_load_attach_path", "restricted_output",
-    "runsnake", "sage0", "sage0_version", "sage_eval", "sage_rat", "sageobj", "sanitize",
-    "save", "save_cache_file", "save_session", "scilab", "set_edit_template", "set_editor",
-    "set_verbose", "set_verbose_files", "sh", "shortrepr", "show", "show_identifiers",
-    "singular", "singular_version", "spkg_type", "spyx_tmp", "sr_to_max", "stdout_to_string",
-    "tachyon_rt", "template_fields", "test_fake_startup", "test_max_equal", "test_max_notequal",
-    "test_max_relation", "tmp_dir", "tmp_filename", "trace", "type_debug", "unpickleMethod",
-    "unpickleModule", "unpickle_all", "unpickle_appends", "unpickle_build",
-    "unpickle_extension", "unpickle_function", "unpickle_global", "unpickle_instantiate",
-    "unpickle_newobj", "unpickle_persistent", "unset_verbose_files", "verbose",
-})
-
-
-def _dangerous_sage_names() -> frozenset[str]:
-    """Names defined by the dangerous modules, resolved from those modules only.
-
-    The first version of this walked the whole namespace reading ``__module__``
-    off every entry. That is how you find them, but Sage's namespace is built
-    from lazy imports and reading an attribute resolves one: worker startup went
-    from instant to 1.8 seconds, and the delay landed inside the caller's first
-    evaluation. Importing fifteen small modules and asking what each defines
-    costs nothing and touches nothing else.
-    """
-    names: set[str] = set()
-    # Several of these cannot be imported on their own -- `sage.interfaces.
-    # maxima_lib` raises `module 'sage' has no attribute 'functions'` unless the
-    # library is already up. The loop below swallows an ImportError and moves on,
-    # which is how `maxima_calculus` stayed reachable after its module was
-    # listed: the entry looked like protection and contributed nothing. Loading
-    # sage.all first costs a second here and this function runs offline, in the
-    # generator and the drift test, never at worker startup.
-    sage_all = None
-    with contextlib.suppress(Exception):
-        sage_all = importlib.import_module("sage.all")
-
-    failed: list[str] = []
-    try:
-        interfaces = importlib.import_module(_EXTERNAL_INTERFACE_EXPORTS)
-    except Exception:
-        interfaces = None
-        failed.append(_EXTERNAL_INTERFACE_EXPORTS)
-    if interfaces is not None:
-        # Every public name here is a CAS interface -- unless the runtime's layout
-        # re-exports ordinary mathematics through it. Monolithic Sage does not
-        # (74 names, all interfaces); passagemath's modularized `sage.interfaces.
-        # all` re-exports `Integer`, `parent`, `prod`, `Hom`, ..., and adding
-        # those unconditionally poisoned the danger set so nine star-export
-        # modules failed on a name like `parent`. Drop a name only when it
-        # *provably* resolves to a home outside `sage.interfaces`: a real
-        # interface either lives under `sage.interfaces` or fails to resolve (an
-        # optional interface absent from this runtime), and is kept either way,
-        # so this cannot weaken the danger set -- verified a no-op on monolithic.
-        for name, value in vars(interfaces).items():
-            if name.startswith("_"):
-                continue
-            try:
-                resolved = (
-                    value._get_object() if type(value).__name__ == "LazyImport" else value
-                )
-            except Exception:
-                names.add(name)  # optional interface absent from this runtime; keep, harmless
-                continue
-            home = getattr(resolved, "__module__", None)
-            if isinstance(home, str) and (
-                home == "sage.interfaces" or home.startswith("sage.interfaces.")
-            ):
-                names.add(name)
-            # Anything else is not an interface object: a re-exported *module*
-            # (`math`, `os`, `operator` -- no `__module__` to place it) or ordinary
-            # mathematics whose value is defined elsewhere (`parent` ->
-            # `sage.structure.element`). passagemath's `sage.interfaces.all`
-            # re-exports all of those; dropping them is what keeps `math`/`operator`
-            # offered and off the danger set. The real interfaces (`Maxima`, `gp`,
-            # `Gap`, `Singular`, ...) resolve into `sage.interfaces` and are kept.
-
-    for module_name in _DANGEROUS_SAGE_MODULES:
-        try:
-            module = importlib.import_module(module_name)
-        except Exception:
-            failed.append(module_name)
-            continue
-        for name, value in vars(module).items():
-            if name.startswith("_"):
-                continue
-            # Defined here, not merely imported here: sage.misc.persist also has
-            # Integer and ZZ in scope, and removing those would break the maths
-            # this server exists to do.
-            home = getattr(value, "__module__", None)
-            if isinstance(home, str) and (
-                home == module_name or home.startswith(module_name + ".")
-            ):
-                names.add(name)
-
-    # Second pass, over the namespace itself, because the first pass can only
-    # see a name where it is *defined*. Two shapes escape it:
-    #
-    #   sage/calculus/all.py:  from .calculus import maxima as maxima_calculus
-    #   sage/all.py:           lazy_import('sage.x', 'y')
-    #
-    # An alias is defined nowhere, and a LazyImport reports
-    # `sage.misc.lazy_import` as its type's module -- so every provenance check
-    # in this file classifies it as harmless and moves on. `maxima_calculus` is
-    # what that cost: a live MaximaLib interface, offered to callers, answering
-    # to `system`, `unlink`, `popen` and every other attribute an interface
-    # object fabricates on demand.
-    #
-    # Resolving the namespace is the 1.8-second cost this function exists to
-    # keep out of worker startup, and it is free here: this runs in the
-    # generator and the drift test, never at start.
-    for name, value in list(vars(sage_all).items()) if sage_all else []:
-        if name.startswith("_") or name in names:
-            continue
-        try:
-            resolved = value._get_object() if type(value).__name__ == "LazyImport" else value
-            home = getattr(resolved, "__module__", None)
-        except Exception:
-            continue
-        if isinstance(home, str) and any(
-            home == module or home.startswith(module + ".")
-            for module in (*_DANGEROUS_SAGE_MODULES, _EXTERNAL_INTERFACE_EXPORTS)
-        ):
-            names.add(name)
-
-    if failed:
-        # Not raised: the drift test needs a value to compare. Reported, because
-        # a module that cannot be imported protects nothing, and silence here is
-        # what let that happen once already.
-        print(
-            f"could not import for denylist derivation: {', '.join(failed)}",
-            file=sys.stderr,
-        )
-    return frozenset(names)
-
-
-def _star_export_screen(
-    module_name: str,
-    policy: Any = SECURITY_POLICY,
-    expected_drops: frozenset[str] = frozenset(),
-    dropped_out: set[str] | None = None,
-) -> frozenset[str] | None:
-    """The public names of *module_name* safe to expose via a star import, or
-    None if any of them is not.
-
-    Clean-modules-only, deliberately: a module is vetted whole or excluded
-    entirely, never filtered down to a safe subset. That is what makes a listed
-    module safe even if this screen misses a danger category -- there is nothing
-    left in it to miss. It is the exact opposite trade from a denylist, and the
-    same one the allowlist makes.
-
-    The danger basis is the namespace scrub's, name for name:
-    ``_dangerous_sage_names`` (what the dangerous modules and the CAS interfaces
-    define), ``_DANGEROUS_BARE_NAMES``, the policy's forbidden call/attribute
-    sets and write-prefixes, and -- the one a name-only check misses -- the home
-    module of the *value*, so a re-export like ``from sage.matroids.advanced
-    import *`` handing back ``lazy_import`` is caught by where lazy_import lives.
-    Runs offline, in the generator and the drift test, never at worker start.
-
-    ``expected_drops`` is the *reviewed* exception to clean-as-a-whole, and it
-    is deliberately narrow (item 77). Sage's documented public entry points
-    re-export import machinery: ``sage.matroids.advanced`` ends its imports with
-    ``lazy_import``, ``sage.combinat.matrices.latin`` with ``libgap``. Failing
-    those modules whole costs their mathematics -- 345 corpus examples -- for a
-    name the caller could never have used anyway, since the scrub deletes it
-    from the namespace and the validator refuses it by name.
-
-    It is a permission, not a prediction: a dangerous name *in* the set is
-    dropped, a dangerous name *outside* it still fails the module whole, and a
-    listed name the module does not export changes nothing. That asymmetry is
-    the point. The property worth keeping is that a future Sage adding a
-    different dangerous export to a listed module stops the generator with its
-    name rather than dropping it silently, and that holds. Requiring the set to
-    match exactly would not add safety -- dropping a name can only remove
-    something a caller might have had, never add one -- and it breaks across
-    runtimes, since passagemath's ``sage.matroids.advanced`` re-exports no
-    ``lazy_import`` at all and is clean as a whole there. The generator writes
-    out what it actually dropped per runtime, so the artifact stays exact even
-    though the curated input is shared. An empty set, the default, is the
-    original clean-as-a-whole rule exactly. ``dropped_out``, when given, is
-    filled with the names actually dropped, which is what the generator writes
-    into the artifact.
-    """
-    try:
-        module = importlib.import_module(module_name)
-    except Exception:
-        return None
-    exported = getattr(module, "__all__", None)
-    if exported is None:
-        exported = [name for name in vars(module) if not name.startswith("_")]
-
-    dangerous = _dangerous_sage_names() | set(_DANGEROUS_BARE_NAMES)
-    forbidden = (
-        set(policy.forbidden_call_names)
-        | set(policy.forbidden_attribute_only_names)
-        | set(policy.forbidden_attribute_names)
-        | set(policy.forbidden_attribute_parents)
-    )
-    screened: set[str] = set()
-    dropped: set[str] = set()
-
-    def reject(name: str) -> bool:
-        """True when the module fails; False when *name* is a reviewed drop."""
-        if name not in expected_drops:
-            return True
-        dropped.add(name)
-        return False
-
-    for name in exported:
-        if not isinstance(name, str) or name.startswith("_") or not name.isidentifier():
-            return None
-        value = vars(module).get(name)
-        # Resolve a lazy import before judging it. A `LazyImport` is a proxy:
-        # it is not a `ModuleType` however module-like its target, and it
-        # proxies no `__module__`, so the two checks below both read it as
-        # harmless. `sage.graphs.generators.distance_regular` exports
-        # `codes = LazyImport('sage.coding', 'codes_catalog')`, which is a
-        # MODULE -- so the screen baked a module object into the curated star
-        # list, the one thing items 61/62/63 say it must never hand a caller.
-        # Worse, the provenance check was blind for *every* lazy re-export, so
-        # a lazily-imported dangerous helper would have screened clean.
-        # `_dangerous_sage_names` above already resolves lazy imports for
-        # exactly this reason, in two places; this is the third (item 85).
-        if type(value).__name__ == "LazyImport":
-            try:
-                value = value._get_object()
-            except Exception:
-                # FAIL CLOSED. This was `contextlib.suppress(Exception)`, which
-                # left `value` as the unresolved proxy and sent it straight back
-                # into the two checks that cannot see through one -- reverting
-                # to the blind path this resolution exists to close. The commit
-                # calling that "the conservative direction" had it backwards.
-                # Resolution failure is realistic: resolving a lazy import at
-                # generation time can hit a circular import. A name that cannot
-                # be screened is not a name to admit (REVIEW_ACTIONS 87).
-                return None
-        # A re-exported module object is DROPPED, not a reason to fail the module.
-        # `dirichlet` re-exports `sage.modules.free_module_element`, which reaches
-        # `sage.env.os`, so binding it is a pivot into the whole tree -- but the
-        # star expansion binds the explicit screened names, so a dropped name is
-        # never imported, and item 62 refuses the pivot at the validator even if
-        # one were. That makes a module object the one danger category it is safe
-        # to filter out: item 61 failed the whole module for it (losing
-        # `real_roots`, `dims`, `pbori` for a single `time`/`operator`), and this
-        # keeps the mathematics while still never handing a caller a module. Every
-        # OTHER danger still fails the module whole (clean-as-a-whole), because a
-        # module is the ONLY pivot -- a bound class or function is bounded by the
-        # AST rules. Checked before the name-based screens so a re-export named
-        # `operator` or `sage` (both forbidden parents) is dropped, not a failure.
-        # See REVIEW_ACTIONS item 63.
-        if isinstance(value, ModuleType):
-            continue
-        if name in dangerous or name in forbidden:
-            if reject(name):
-                return None
-            continue
-        if any(name.startswith(prefix) for prefix in policy.forbidden_attribute_prefixes):
-            if reject(name):
-                return None
-            continue
-        home = getattr(value, "__module__", "") or ""
-        if isinstance(home, str) and any(
-            home == bad or home.startswith(bad + ".") for bad in _DANGEROUS_SAGE_MODULES
-        ):
-            if reject(name):
-                return None
-            continue
-        screened.add(name)
-    if dropped_out is not None:
-        dropped_out.clear()
-        dropped_out.update(dropped)
-    return frozenset(screened) if screened else None
-
-
 def _strip_dangerous_sage_names(ns: dict[str, Any]) -> int:
     """Remove Sage helpers that execute, compile, fetch or write.
 
     Uses the baked-in list: this runs at every worker start, and re-deriving it
-    there cost more than the protection was worth.
+    there cost more than the protection was worth. The lists are read through
+    the `scrub_catalog` module at call time, not bound at import, so what a test
+    puts there is what the strip removes.
     """
     removed = 0
-    for name in (*_DANGEROUS_SAGE_NAME_LIST, *_DANGEROUS_BARE_NAMES):
+    denied = (*scrub_catalog.DANGEROUS_SAGE_NAME_LIST, *scrub_catalog.DANGEROUS_BARE_NAMES)
+    for name in denied:
         if name in ns:
             del ns[name]
             removed += 1
@@ -716,7 +236,7 @@ def _strip_dangerous_sage_names(ns: dict[str, Any]) -> int:
     # every path that goes through a generated template.
     if not PURE_PYTHON:
         with contextlib.suppress(Exception):
-            _strip_from_sage_all((*_DANGEROUS_SAGE_NAME_LIST, *_DANGEROUS_BARE_NAMES))
+            _strip_from_sage_all(denied)
     return removed
 
 
@@ -770,7 +290,7 @@ def _strip_from_sage_all(names: Any) -> int:
     and the same for `cython`, `sh`, `attrcall`, `os` and `maxima_calculus`.
     Every name the denylist removes was reachable that way. Nothing was
     *exploitable*: a caller string reaching a template must first pass
-    `_validated_expression`, which enforces the allowlist. But that made the
+    `validated_expression`, which enforces the allowlist. But that made the
     gate the only lock on that path rather than the second, and this file's
     whole model is that the object should not be there either.
 
@@ -1158,7 +678,6 @@ def _split_code(
                                is_expr=True, injects=injects, auto_symbols=auto_symbols)
     return SimpleNamespace(bound_here=bound_here, prefix=module, tail=None,
                            is_expr=False, injects=injects, auto_symbols=auto_symbols)
-
 
 
 class _StreamingStdout(io.StringIO):

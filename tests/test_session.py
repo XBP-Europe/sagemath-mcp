@@ -7,12 +7,9 @@ from pathlib import Path
 import pytest
 
 from sagemath_mcp.config import SageSettings
-from sagemath_mcp.session import (
-    SageEvaluationError,
-    SageProcessError,
-    SageSession,
-    SageSessionManager,
-)
+from sagemath_mcp.errors import SageEvaluationError, SageProcessError
+from sagemath_mcp.manager import SageSessionManager
+from sagemath_mcp.session import SageSession
 from sagemath_mcp.tools import core as core_tools
 
 
@@ -268,7 +265,7 @@ async def test_session_launch_fails_without_sage(monkeypatch, python_settings):
         force_python_worker=False,
     )
     session = SageSession("no-sage", settings)
-    from sagemath_mcp.session import SageProcessError
+    from sagemath_mcp.errors import SageProcessError
 
     with pytest.raises(SageProcessError, match="Unable to locate Sage"):
         await session.ensure_started()
@@ -277,7 +274,7 @@ async def test_session_launch_fails_without_sage(monkeypatch, python_settings):
 @pytest.mark.asyncio
 async def test_session_evaluate_worker_terminated(monkeypatch, python_settings):
     """Worker returns empty bytes (terminated unexpectedly)."""
-    from sagemath_mcp.session import SageProcessError
+    from sagemath_mcp.errors import SageProcessError
 
     session = SageSession("terminated", python_settings)
     fake_process = _FakeProcess()
@@ -1547,7 +1544,7 @@ async def test_a_stalled_callback_cannot_grow_the_queue_without_limit(tmp_path):
     The read loop deliberately gives no backpressure, so output produced faster
     than a callback consumes it queued without limit until the process died.
     """
-    from sagemath_mcp.session import _MAX_QUEUED_STDOUT_CHARS
+    from sagemath_mcp.channel import _MAX_QUEUED_STDOUT_CHARS
 
     settings = SageSettings(force_python_worker=True, eval_timeout=30.0)
     session = SageSession("flooded", settings)
@@ -1570,7 +1567,7 @@ async def test_a_stalled_callback_cannot_grow_the_queue_without_limit(tmp_path):
 
         # Blank lines cost no characters but still cost an entry each: the
         # character budget alone let ten thousand of them through.
-        from sagemath_mcp.session import _MAX_QUEUED_STDOUT_LINES
+        from sagemath_mcp.channel import _MAX_QUEUED_STDOUT_LINES
 
         for _ in range(_MAX_QUEUED_STDOUT_LINES * 10):
             session._offer_stdout_line(queue, "")

@@ -14,14 +14,11 @@ import ast
 
 import pytest
 
+from sagemath_mcp import scrub_catalog
 from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
-from sagemath_mcp.security import (
-    SECURITY_POLICY,
-    SecurityViolation,
-    _bound_names,
-    rewrite_permitted_imports,
-    validate_module,
-)
+from sagemath_mcp.imports import rewrite_permitted_imports
+from sagemath_mcp.policy import SECURITY_POLICY, SecurityViolation
+from sagemath_mcp.security import _bound_names, validate_module
 
 # (id, payload). Every one of these reached outside the sandbox.
 BYPASS_PAYLOADS = [
@@ -197,12 +194,12 @@ def test_specialized_tool_rejects_an_aliased_payload() -> None:
     """The public path, not just the validator.
 
     calculate_expression embeds its argument into generated code that runs under
-    the trusted policy, so a fragment that escapes _validated_expression is not
+    the trusted policy, so a fragment that escapes validated_expression is not
     validated again downstream.
     """
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp.codegen import _validated_expression
+    from sagemath_mcp.gates import validated_expression
 
     for payload in (
         "(lambda f=open: f('/etc/passwd').readline())()",
@@ -210,20 +207,20 @@ def test_specialized_tool_rejects_an_aliased_payload() -> None:
         "(lambda m=os: m.getuid())()",
     ):
         with pytest.raises(ToolError, match="security policy"):
-            _validated_expression(payload)
+            validated_expression(payload)
 
 
 def test_unparseable_fragments_are_screened_not_waved_through() -> None:
     """A fragment that will not parse used to skip validation entirely."""
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp.codegen import _validated_expression
+    from sagemath_mcp.gates import validated_expression
 
     # Still accepted: the documented equation spelling is not a Python expression.
-    assert _validated_expression("x^2 - 1 = 0") == "x^2 - 1 = 0"
+    assert validated_expression("x^2 - 1 = 0") == "x^2 - 1 = 0"
     # Screened at token level once no parse tree is available.
     with pytest.raises(ToolError):
-        _validated_expression("R.<a> = os.getuid()")
+        validated_expression("R.<a> = os.getuid()")
 
 
 # --- Item 18: caller strings interpolated into TRUSTED code -----------------
@@ -271,7 +268,7 @@ async def test_trusted_templates_reject_sage_eval_payloads(
 
     from sagemath_mcp import runtime, server
     from sagemath_mcp.config import SageSettings
-    from sagemath_mcp.session import SageSessionManager
+    from sagemath_mcp.manager import SageSessionManager
 
     from .conftest import FakeContext
 
@@ -286,19 +283,19 @@ async def test_trusted_templates_reject_sage_eval_payloads(
 
 
 def test_prelude_rejects_names_that_are_not_identifiers() -> None:
-    """_sage_prelude quotes each name into generated code.
+    """sage_prelude quotes each name into generated code.
 
     A name carrying a quote escapes that string literal, which is the same
     injection one level down.
     """
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp.codegen import _sage_prelude
+    from sagemath_mcp.prelude import sage_prelude
 
     with pytest.raises(ToolError):
-        _sage_prelude(["x', sage_eval('1+1'), 'y"])
+        sage_prelude(["x', sage_eval('1+1'), 'y"])
     # Ordinary names still work.
-    assert "'a'" in _sage_prelude(["a"])
+    assert "'a'" in sage_prelude(["a"])
 
 
 # --- Reaching a forbidden function through an attribute chain -----------------
@@ -416,60 +413,58 @@ def test_the_namespace_scrub_removes_a_modules_own_definitions() -> None:
     """
     from sagemath_mcp import _sage_worker
 
-    names = _sage_worker._dangerous_sage_names.__wrapped__ if hasattr(
-        _sage_worker._dangerous_sage_names, "__wrapped__"
-    ) else _sage_worker._dangerous_sage_names
+    names = scrub_catalog.dangerous_sage_names.__wrapped__ if hasattr(
+        scrub_catalog.dangerous_sage_names, "__wrapped__"
+    ) else scrub_catalog.dangerous_sage_names
 
-    original = _sage_worker._DANGEROUS_SAGE_MODULES
-    original_list = _sage_worker._DANGEROUS_SAGE_NAME_LIST
+    original = scrub_catalog.DANGEROUS_SAGE_MODULES
+    original_list = scrub_catalog.DANGEROUS_SAGE_NAME_LIST
     try:
-        _sage_worker._DANGEROUS_SAGE_MODULES = ("json.encoder",)
+        scrub_catalog.DANGEROUS_SAGE_MODULES = ("json.encoder",)
         found = names()
         assert "JSONEncoder" in found, "a module's own definitions were not collected"
 
         # Stripping reads the baked-in list, not the derivation: that is what
         # keeps worker startup free.
-        _sage_worker._DANGEROUS_SAGE_NAME_LIST = frozenset({"JSONEncoder"})
+        scrub_catalog.DANGEROUS_SAGE_NAME_LIST = frozenset({"JSONEncoder"})
         namespace = {"JSONEncoder": object(), "Integer": object()}
         removed = _sage_worker._strip_dangerous_sage_names(namespace)
         assert removed == 1
         assert "JSONEncoder" not in namespace
         assert "Integer" in namespace, "unrelated names must survive"
     finally:
-        _sage_worker._DANGEROUS_SAGE_MODULES = original
-        _sage_worker._DANGEROUS_SAGE_NAME_LIST = original_list
+        scrub_catalog.DANGEROUS_SAGE_MODULES = original
+        scrub_catalog.DANGEROUS_SAGE_NAME_LIST = original_list
 
 
 def test_the_scrub_only_takes_what_a_module_defines() -> None:
     """sage.misc.persist has Integer and ZZ in scope; removing those would break
     the mathematics this server exists to do."""
-    from sagemath_mcp import _sage_worker
 
-    original = _sage_worker._DANGEROUS_SAGE_MODULES
+    original = scrub_catalog.DANGEROUS_SAGE_MODULES
     try:
         # json.encoder imports `re`; `re` is not defined there, so it must not
         # be collected merely for being in scope.
-        _sage_worker._DANGEROUS_SAGE_MODULES = ("json.encoder",)
-        assert "re" not in _sage_worker._dangerous_sage_names()
+        scrub_catalog.DANGEROUS_SAGE_MODULES = ("json.encoder",)
+        assert "re" not in scrub_catalog.dangerous_sage_names()
     finally:
-        _sage_worker._DANGEROUS_SAGE_MODULES = original
+        scrub_catalog.DANGEROUS_SAGE_MODULES = original
 
 
 def test_the_scrub_ignores_a_module_it_cannot_import() -> None:
     """A missing module must not break startup."""
-    from sagemath_mcp import _sage_worker
 
-    original = _sage_worker._DANGEROUS_SAGE_MODULES
-    original_exports = _sage_worker._EXTERNAL_INTERFACE_EXPORTS
+    original = scrub_catalog.DANGEROUS_SAGE_MODULES
+    original_exports = scrub_catalog.EXTERNAL_INTERFACE_EXPORTS
     try:
         # Both sources must be neutralised: with Sage installed the interface
         # export list still contributes its 74 names, which is the point of it.
-        _sage_worker._DANGEROUS_SAGE_MODULES = ("definitely.not.a.module",)
-        _sage_worker._EXTERNAL_INTERFACE_EXPORTS = "definitely.not.a.module"
-        assert _sage_worker._dangerous_sage_names() == frozenset()
+        scrub_catalog.DANGEROUS_SAGE_MODULES = ("definitely.not.a.module",)
+        scrub_catalog.EXTERNAL_INTERFACE_EXPORTS = "definitely.not.a.module"
+        assert scrub_catalog.dangerous_sage_names() == frozenset()
     finally:
-        _sage_worker._DANGEROUS_SAGE_MODULES = original
-        _sage_worker._EXTERNAL_INTERFACE_EXPORTS = original_exports
+        scrub_catalog.DANGEROUS_SAGE_MODULES = original
+        scrub_catalog.EXTERNAL_INTERFACE_EXPORTS = original_exports
 
 
 # --- Sage's interfaces to other CAS programs ---------------------------------
@@ -512,7 +507,6 @@ def test_the_interface_export_list_is_attributed_by_value_home() -> None:
     import sys
     import types
 
-    from sagemath_mcp import _sage_worker
 
     fake = types.ModuleType("fake_interfaces_all")
 
@@ -534,19 +528,19 @@ def test_the_interface_export_list_is_attributed_by_value_home() -> None:
     fake.ordinary_reexport = ordinary_reexport
     fake.absent_interface = LazyImport()
 
-    original_exports = _sage_worker._EXTERNAL_INTERFACE_EXPORTS
-    original_modules = _sage_worker._DANGEROUS_SAGE_MODULES
+    original_exports = scrub_catalog.EXTERNAL_INTERFACE_EXPORTS
+    original_modules = scrub_catalog.DANGEROUS_SAGE_MODULES
     sys.modules["fake_interfaces_all"] = fake
     try:
-        _sage_worker._EXTERNAL_INTERFACE_EXPORTS = "fake_interfaces_all"
-        _sage_worker._DANGEROUS_SAGE_MODULES = ()
-        found = _sage_worker._dangerous_sage_names()
+        scrub_catalog.EXTERNAL_INTERFACE_EXPORTS = "fake_interfaces_all"
+        scrub_catalog.DANGEROUS_SAGE_MODULES = ()
+        found = scrub_catalog.dangerous_sage_names()
         assert "RealInterface" in found, "an interface under sage.interfaces was dropped"
         assert "absent_interface" in found, "an unresolvable interface must be kept"
         assert "ordinary_reexport" not in found, "a foreign re-export must be dropped"
     finally:
-        _sage_worker._EXTERNAL_INTERFACE_EXPORTS = original_exports
-        _sage_worker._DANGEROUS_SAGE_MODULES = original_modules
+        scrub_catalog.EXTERNAL_INTERFACE_EXPORTS = original_exports
+        scrub_catalog.DANGEROUS_SAGE_MODULES = original_modules
         del sys.modules["fake_interfaces_all"]
 
 
@@ -584,7 +578,7 @@ def test_caller_code_cannot_import_anything(label, payload) -> None:
 
 def test_generated_code_may_still_import_what_its_templates_need() -> None:
     """The prelude does `from sage.all import *`; templates use base64 and io."""
-    from sagemath_mcp.security import trusted_policy
+    from sagemath_mcp.policy import trusted_policy
 
     for code in (
         "from sage.all import *\n1",
@@ -616,7 +610,7 @@ def test_even_generated_code_may_not_import_a_forbidden_module() -> None:
     code now that callers cannot import at all, which is exactly why it needs a
     test of its own.
     """
-    from sagemath_mcp.security import trusted_policy
+    from sagemath_mcp.policy import trusted_policy
 
     for code in (
         "from sage.all import os as m",
@@ -652,7 +646,7 @@ def test_caller_code_cannot_persist_to_disk(label, payload) -> None:
 def test_generated_plot_templates_may_still_render_to_a_buffer() -> None:
     """The plots render with .savefig(BytesIO) -- a prefix rule that broke that
     would take all three plotting tools with it."""
-    from sagemath_mcp.security import trusted_policy
+    from sagemath_mcp.policy import trusted_policy
 
     code = "_fig.savefig(_buf, format='png')"
     validate_module(ast.parse(code), code=code, policy=trusted_policy())
@@ -950,7 +944,7 @@ def test_a_star_import_cannot_hand_a_caller_a_module_object() -> None:
 
     # `dims` is admitted again, but the module object `dirichlet` was dropped
     # from what it binds -- present in the module, absent from the star.
-    screened = _sage_worker._star_export_screen("sage.modular.dims")
+    screened = scrub_catalog.star_export_screen("sage.modular.dims")
     assert screened is not None and "dirichlet" not in screened
     assert "sage.modular.dims" in STAR_EXPORTS
     assert "dirichlet" not in STAR_EXPORTS["sage.modular.dims"]
@@ -1095,10 +1089,10 @@ def test_the_modules_that_define_attribute_plumbing_are_all_scrubbed() -> None:
     allowlisted names are compiled Cython with no readable source, and
     `attrcall` is one of them.
     """
-    from sagemath_mcp._sage_worker import _DANGEROUS_SAGE_MODULES
+    from sagemath_mcp.scrub_catalog import DANGEROUS_SAGE_MODULES
 
     for module in ("sage.misc.call", "sage.cpython.getattr", "sage.cpython.debug"):
-        assert module in _DANGEROUS_SAGE_MODULES, (
+        assert module in DANGEROUS_SAGE_MODULES, (
             f"{module} defines attribute-by-name plumbing and must be scrubbed wholesale"
         )
 
@@ -1377,9 +1371,9 @@ def test_the_namespace_is_resealed_however_the_tool_call_ends(
     namespace: dict = {"__builtins__": _sage_worker._restricted_builtins()}
     # `dangerous_helper` stands in for a name `from sage.all import *` restores
     # mid-call: the generated code below binds it, exactly as the prelude would.
-    original_list = _sage_worker._DANGEROUS_SAGE_NAME_LIST
+    original_list = scrub_catalog.DANGEROUS_SAGE_NAME_LIST
     original_error = _sage_worker._STARTUP_ERROR
-    _sage_worker._DANGEROUS_SAGE_NAME_LIST = frozenset({"dangerous_helper"})
+    scrub_catalog.DANGEROUS_SAGE_NAME_LIST = frozenset({"dangerous_helper"})
     _sage_worker._STARTUP_ERROR = None
     try:
         _sage_worker._execute(
@@ -1389,7 +1383,7 @@ def test_the_namespace_is_resealed_however_the_tool_call_ends(
     except BaseException:  # the worker returns rather than raises, but be safe
         pass
     finally:
-        _sage_worker._DANGEROUS_SAGE_NAME_LIST = original_list
+        scrub_catalog.DANGEROUS_SAGE_NAME_LIST = original_list
         _sage_worker._STARTUP_ERROR = original_error
 
 
@@ -1668,7 +1662,7 @@ TOKEN_SCREEN_SHELL_AND_WRITE_ESCAPES = [
 def test_shell_out_methods_are_refused_on_the_unparseable_path_too(code: str) -> None:
     """The AST path refuses `latex.has_file(...)`; the token fallback must as well.
 
-    `_validated_expression` runs full AST validation only when the fragment
+    `validated_expression` runs full AST validation only when the fragment
     parses as a Python expression. Wrapping the call in Sage-only syntax the
     Python parser rejects -- the ellipsis range `[1..2]` -- makes `ast.parse`
     fail, so the fragment falls to `_screen_unparseable_fragment`, a token-level
@@ -1686,10 +1680,10 @@ def test_shell_out_methods_are_refused_on_the_unparseable_path_too(code: str) ->
     """
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp.codegen import _validated_expression
+    from sagemath_mcp.gates import validated_expression
 
     with pytest.raises(ToolError, match="security policy"):
-        _validated_expression(code)
+        validated_expression(code)
 
 
 def test_latex_the_function_still_works() -> None:
@@ -1880,7 +1874,7 @@ def test_the_import_rewrite_is_inert_when_the_allowlist_is_off() -> None:
     """
     from dataclasses import replace
 
-    from sagemath_mcp.security import rewrite_permitted_imports
+    from sagemath_mcp.imports import rewrite_permitted_imports
 
     module = ast.parse("import numpy as np\nnp.array([1, 2])")
     relaxed = replace(SECURITY_POLICY, enforce_name_allowlist=False)
@@ -2171,11 +2165,11 @@ def test_a_tool_parameter_cannot_name_what_the_scrub_removes(fragment: str) -> N
     """
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp.codegen import _validated_expression
+    from sagemath_mcp.gates import validated_expression
 
     # The gate wraps the violation for the client, so this is what a caller sees.
     with pytest.raises(ToolError, match="Rejected by the security policy"):
-        _validated_expression(fragment)
+        validated_expression(fragment)
 
 
 @pytest.mark.parametrize(
@@ -2196,9 +2190,9 @@ def test_the_mathematics_tool_parameters_carry_still_passes(fragment: str) -> No
     `graphs.PetersenGraph` -- which is exactly what the fragment policy exists
     to permit.
     """
-    from sagemath_mcp.codegen import _validated_expression
+    from sagemath_mcp.gates import validated_expression
 
-    _validated_expression(fragment)
+    validated_expression(fragment)
 
 
 @pytest.mark.parametrize(
@@ -2206,7 +2200,7 @@ def test_the_mathematics_tool_parameters_carry_still_passes(fragment: str) -> No
     [
         # Sage-only syntax the Python parser rejects, so the token screen runs
         # instead of the AST path -- with a scrubbed name riding along. Written
-        # without a `;`, which _validated_expression now refuses outright before
+        # without a `;`, which validated_expression now refuses outright before
         # the screen ever runs (see test_a_semicolon_cannot_smuggle_a_statement).
         "R.<xx> = QQ[unpickle_global]",
         "unpickle_global('os','system')('id') if R.<y> = QQ[] else 0",
@@ -2230,10 +2224,10 @@ def test_the_token_screen_refuses_scrubbed_names_too(fragment: str) -> None:
     """
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp.codegen import _validated_expression
+    from sagemath_mcp.gates import validated_expression
 
     with pytest.raises(ToolError, match=r"is blocked|not a name this server offers"):
-        _validated_expression(fragment)
+        validated_expression(fragment)
 
 
 def test_the_scrub_covers_sage_eval_and_not_only_the_namespace() -> None:
@@ -2251,7 +2245,7 @@ def test_the_scrub_covers_sage_eval_and_not_only_the_namespace() -> None:
     `maxima_calculus` -- every name the denylist removes.
 
     Nothing was exploitable: a caller string reaching a template must pass
-    `_validated_expression` first, which enforces the allowlist, and a
+    `validated_expression` first, which enforces the allowlist, and a
     structural test already refuses any template that interpolates without a
     gate. What it meant was that the gate was the *only* lock on that path
     rather than the second, while this file's whole model is that the object
@@ -2324,10 +2318,10 @@ def test_a_tool_parameter_cannot_walk_the_sage_module_tree(fragment: str) -> Non
     """
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp.codegen import _validated_expression
+    from sagemath_mcp.gates import validated_expression
 
     with pytest.raises(ToolError, match="Rejected by the security policy"):
-        _validated_expression(fragment)
+        validated_expression(fragment)
 
 
 @pytest.mark.parametrize(
@@ -2348,9 +2342,9 @@ def test_the_sage_root_backstop_leaves_ordinary_parameters_alone(fragment: str) 
     is untouched -- the rule keys on the root name `sage`, which no legitimate
     tool parameter uses.
     """
-    from sagemath_mcp.codegen import _validated_expression
+    from sagemath_mcp.gates import validated_expression
 
-    _validated_expression(fragment)
+    validated_expression(fragment)
 
 
 # --- 2026-08-16 review, items 49-56 -----------------------------------------
@@ -2447,10 +2441,10 @@ FRAGMENT_EVAL_PRIMITIVES = [
 def test_the_fragment_gate_refuses_the_evaluation_primitives(case_id, fragment):
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp.codegen import _validated_expression
+    from sagemath_mcp.gates import validated_expression
 
     with pytest.raises(ToolError):
-        _validated_expression(fragment)
+        validated_expression(fragment)
 
 
 def test_a_comment_cannot_hide_a_payload_from_the_split(case_id=None):
@@ -2458,22 +2452,22 @@ def test_a_comment_cannot_hide_a_payload_from_the_split(case_id=None):
     hidden right-hand side (item 55). Comments are refused at the gate."""
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp.codegen import _validated_expression
+    from sagemath_mcp.gates import validated_expression
 
     with pytest.raises(ToolError):
-        _validated_expression('1 # eval' '("x") = __import__("os").system("id")')
+        validated_expression('1 # eval' '("x") = __import__("os").system("id")')
     with pytest.raises(ToolError):
-        _validated_expression("x^2 - 1 # = __import__('os').system('id')")
+        validated_expression("x^2 - 1 # = __import__('os').system('id')")
 
 
 def test_a_semicolon_cannot_smuggle_a_statement(case_id=None):
     """A fragment is one expression; `;` made it two once interpolated (item 56)."""
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp.codegen import _validated_expression
+    from sagemath_mcp.gates import validated_expression
 
     with pytest.raises(ToolError):
-        _validated_expression("SymmetricGroup(5); _z = save(1, '/tmp/x')")
+        validated_expression("SymmetricGroup(5); _z = save(1, '/tmp/x')")
 
 
 def test_a_newline_is_folded_out_so_it_cannot_break_a_statement(case_id=None):
@@ -2481,12 +2475,12 @@ def test_a_newline_is_folded_out_so_it_cannot_break_a_statement(case_id=None):
     become a statement break (item 56). The gate folds it to a space, which
     turns a two-statement payload into a syntax error rather than an injection,
     while a genuinely wrapped single expression still passes."""
-    from sagemath_mcp.codegen import _validated_expression
+    from sagemath_mcp.gates import validated_expression
 
     # A wrapped single expression survives, folded.
-    assert _validated_expression("2 +\n2") == "2 + 2"
+    assert validated_expression("2 +\n2") == "2 + 2"
     # The returned value never contains a newline, whatever came in.
-    folded = _validated_expression("SymmetricGroup(5)\n_z = 1")
+    folded = validated_expression("SymmetricGroup(5)\n_z = 1")
     assert "\n" not in folded
 
 
@@ -2520,10 +2514,10 @@ def test_an_untokenizable_fragment_is_still_rejected(case_id=None):
     it refuses it on its own terms."""
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp.codegen import _validated_expression
+    from sagemath_mcp.gates import validated_expression
 
     with pytest.raises(ToolError):
-        _validated_expression("matrix([1, 2")
+        validated_expression("matrix([1, 2")
 
 
 def test_the_guarded_attrcall_delegates_only_after_the_screen() -> None:
@@ -2553,7 +2547,8 @@ async def test_an_injection_does_not_unlock_withheld_names() -> None:
     not a blanket pass: the interfaces stay refused afterwards, by the same
     withheld rule as before."""
     pytest.importorskip("sage.all")
-    from sagemath_mcp.session import SageEvaluationError, SageSession
+    from sagemath_mcp.errors import SageEvaluationError
+    from sagemath_mcp.session import SageSession
 
     session = SageSession("inject-withheld", None)
     try:
@@ -2611,7 +2606,7 @@ def test_a_sage_rooted_chain_is_refused(code):
 
     Enumerating dangerous segments is what failed: the list will always be one
     module behind whatever Sage adds next. The root is refused instead, which is
-    the same rule `codegen._refuse_scrubbed_names` has applied to tool
+    the same rule `gates._refuse_scrubbed_names` has applied to tool
     parameters since the `sage.all.unpickle_global` bypass.
     """
     with pytest.raises(SecurityViolation) as excinfo:
@@ -2638,7 +2633,7 @@ def test_the_sage_root_refusal_says_what_to_do_instead():
 
 
 def test_trusted_generated_code_may_still_reach_sage():
-    from sagemath_mcp.security import trusted_policy
+    from sagemath_mcp.policy import trusted_policy
 
     """The prelude does `import sage.all as _sage_ns` and reads attributes off
     it; refusing the root for generated code would break every specialised
@@ -2700,7 +2695,7 @@ _REACH_STILL_REFUSED = (
     "sage.rings.ideal.unpickle_global",
     # Aliasing the root, which was item 52's escape.
     "f = sage\nf.rings.ideal.Katsura",
-    # A chain with the right segments and no root at all. `_attribute_segments`
+    # A chain with the right segments and no root at all. `attribute_segments`
     # omits a root that is not a Name, so this reads as
     # `sage.rings.ideal.Katsura` while `.sage` is an attribute of whatever the
     # subscript returned -- the permit has to be tied to a real Name root, not

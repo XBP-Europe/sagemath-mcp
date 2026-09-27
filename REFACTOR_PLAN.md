@@ -211,6 +211,7 @@ worker, the integration suite in the Sage container.
 | `tests/test_server.py` | 2,490 lines, 188 tests | 9 server tests; 179 in `tests/tools/` and `test_codegen.py` |
 | Tests collected | 1,492 | 1,496 (+4 guards: two lint, rule registration, frozen context) |
 | Corpus fingerprint | `ff2631d8...` | `ff2631d8...`, at every step |
+| Mutation score (validator, policy, refusals, imports) | 63.73% (499/783), measured after 4a | 63.78% (500/784) |
 
 Every step kept 100% statement and branch coverage, the tool inventory and the
 generated-code golden file byte-identical, and passed the integration suite in

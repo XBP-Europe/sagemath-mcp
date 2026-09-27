@@ -63,6 +63,14 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      # CodeQL refuses to run `init` and `analyze` at different versions
+      # ("Loaded a configuration file for version '4.38.1', but running
+      # version '4.38.2'"), and Dependabot bumps each action path in its own
+      # PR. So #187 and #190 were each red alone and had to be merged as one.
+      # Grouped, the three paths move together.
+      codeql-action:
+        patterns: ["github/codeql-action/*"]
   - package-ecosystem: "docker"
     directory: "/"
     schedule:

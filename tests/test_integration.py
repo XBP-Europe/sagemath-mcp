@@ -8,8 +8,10 @@ import pytest_asyncio
 
 from sagemath_mcp import runtime, server
 from sagemath_mcp.config import SageSettings
+from sagemath_mcp.errors import SageEvaluationError
+from sagemath_mcp.manager import SageSessionManager
 from sagemath_mcp.monitoring import reset_metrics
-from sagemath_mcp.session import SageEvaluationError, SageSession, SageSessionManager
+from sagemath_mcp.session import SageSession
 
 from .conftest import FakeContext
 

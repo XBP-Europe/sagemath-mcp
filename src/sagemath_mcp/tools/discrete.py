@@ -17,11 +17,9 @@ from pydantic import Field
 from .. import runtime
 from ..app import mcp
 from ..gates import NAMED_GRAPH_RE, encode_literal, validated_expression
+from ..manager import DEFAULT_SESSION_NAME
 from ..numeric import exact_int
 from ..prelude import sage_prelude
-from ..session import (
-    DEFAULT_SESSION_NAME,
-)
 from ..text import SESSION_ARG_DESC as _SESSION_ARG_DESC
 from ..transport import evaluate_structured
 from .hints import COMPUTES

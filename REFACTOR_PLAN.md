@@ -140,3 +140,26 @@ worker, the integration suite in the Sage container.
   import regrouping ate the name after a `# noqa` inside a parenthesised import;
   ruff caught it as undefined names, the step was reverted and re-run.
   Fingerprint unchanged; integration 1485 passed; both fuzz campaigns clean.
+- **Step 4b** -- done. `validate_module` is a pre-pass, a frozen
+  `_ValidationContext` and 13 rule functions registered by node type in
+  `_NODE_RULES`. Different from the plan: dispatch is by node type rather than
+  every rule on every node -- same rules, same order per node, cheaper -- which
+  made each rule's leading `isinstance` unreachable, so those clauses went. One
+  comment was attached to the wrong block (the note on forbidden references sat
+  above the `del` rule inserted between it and its rule) and now heads its rule.
+  Fingerprint unchanged. **Mutation:** 63.73% (499/783) before, 62.24%
+  (488/784) after. No earlier mutant changed outcome; all 12 new survivors were
+  on new lines and equivalent as tested (11 on a string annotation's `|`, one on
+  `frozen=True`). A follow-up commit kills them with two tests that pin real
+  invariants, each checked by planting the mutation.
+- **Step 5** -- done, reshaped. Planned as three extractions; done as
+  `journal.py` (`JournalMixin`), `channel.py` (`WorkerChannelMixin`),
+  `errors.py`, and the whole manager moved to `manager.py`. Mixins rather than
+  composition, because tests and tools call `session.save_journal()`,
+  `manager.warm_up()` and the rest directly, and a mixin keeps every name on
+  `self`. The warm pool stayed inside the manager rather than becoming a third
+  mixin: it constructs `SageSession`, so as a mixin imported by `session.py` it
+  would have needed an import inside the function. The mixins and the manager log
+  under `sagemath_mcp.session`, as before. One slip: the import-retargeting
+  script excluded files *named* `session.py`, which skipped `tools/session.py`;
+  collection failed at once and it was fixed. Integration 1487 passed.

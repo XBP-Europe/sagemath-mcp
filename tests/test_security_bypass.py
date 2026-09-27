@@ -267,7 +267,7 @@ async def test_trusted_templates_reject_sage_eval_payloads(
 
     from sagemath_mcp import runtime, server
     from sagemath_mcp.config import SageSettings
-    from sagemath_mcp.session import SageSessionManager
+    from sagemath_mcp.manager import SageSessionManager
 
     from .conftest import FakeContext
 
@@ -2549,7 +2549,8 @@ async def test_an_injection_does_not_unlock_withheld_names() -> None:
     not a blanket pass: the interfaces stay refused afterwards, by the same
     withheld rule as before."""
     pytest.importorskip("sage.all")
-    from sagemath_mcp.session import SageEvaluationError, SageSession
+    from sagemath_mcp.errors import SageEvaluationError
+    from sagemath_mcp.session import SageSession
 
     session = SageSession("inject-withheld", None)
     try:

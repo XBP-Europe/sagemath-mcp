@@ -15,7 +15,7 @@ from typing import Any
 from fastmcp.exceptions import ToolError
 
 from .config import DEFAULT_SETTINGS, SageSettings
-from .session import DEFAULT_SESSION_NAME, WORKSPACE_TOKEN_PREFIX, SageSessionManager
+from .manager import DEFAULT_SESSION_NAME, WORKSPACE_TOKEN_PREFIX, SageSessionManager
 
 SETTINGS: SageSettings = DEFAULT_SETTINGS
 SESSION_MANAGER = SageSessionManager(SETTINGS)

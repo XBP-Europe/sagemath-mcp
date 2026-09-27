@@ -31,8 +31,9 @@ from pathlib import Path
 import pytest
 
 from sagemath_mcp import runtime, server
+from sagemath_mcp.manager import SageSessionManager
 from sagemath_mcp.prelude import sage_prelude
-from sagemath_mcp.session import SageSessionManager, WorkerResult
+from sagemath_mcp.session import WorkerResult
 
 from .conftest import FakeContext
 

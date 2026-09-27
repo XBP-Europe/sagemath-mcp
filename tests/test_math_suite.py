@@ -5,8 +5,9 @@ import uuid
 import pytest
 
 from sagemath_mcp.config import SageSettings
+from sagemath_mcp.errors import SageEvaluationError
 from sagemath_mcp.policy import SECURITY_POLICY
-from sagemath_mcp.session import SageEvaluationError, SageSession
+from sagemath_mcp.session import SageSession
 
 
 @pytest.fixture(scope="module")

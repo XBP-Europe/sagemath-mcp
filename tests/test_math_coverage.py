@@ -982,7 +982,7 @@ async def test_the_tools_declare_a_symbol_the_way_SR_does() -> None:
     """
     from sagemath_mcp import server
     from sagemath_mcp.config import SageSettings
-    from sagemath_mcp.session import SageSessionManager
+    from sagemath_mcp.manager import SageSessionManager
 
     from . import conftest
 
@@ -1034,7 +1034,7 @@ async def test_the_tools_declare_a_symbol_the_way_SR_does() -> None:
 
         # And a typo stays an error rather than becoming a symbol, which is the
         # whole reason this is narrower than SR.
-        from sagemath_mcp.session import SageEvaluationError
+        from sagemath_mcp.errors import SageEvaluationError
 
         for typo in ("sinn(3)", "foobar + 1", "pi2*2"):
             with pytest.raises(SageEvaluationError, match="is not defined"):
@@ -1112,7 +1112,7 @@ async def test_an_unvetted_star_import_stays_refused() -> None:
     """The subsystem is a curated exception, not an opening of imports. A module
     that is not on the list -- and a name a listed module does not export -- are
     both still refused."""
-    from sagemath_mcp.session import SageEvaluationError
+    from sagemath_mcp.errors import SageEvaluationError
 
     session = await _session("starimport-deny")
     try:
@@ -1166,7 +1166,7 @@ async def test_a_dropped_name_is_still_refused_after_its_star_import() -> None:
     them by name afterwards, which is what makes the drop cost the caller
     nothing. If either ever stopped being refused, the drop would be a hole.
     """
-    from sagemath_mcp.session import SageEvaluationError
+    from sagemath_mcp.errors import SageEvaluationError
 
     session = await _session("starimport-dropped-deny")
     try:
@@ -1233,7 +1233,7 @@ async def test_the_third_pass_star_imports_compute() -> None:
     refuses. So this checks both halves again on the new shapes -- the
     mathematics runs, and the dropped name is still refused afterwards.
     """
-    from sagemath_mcp.session import SageEvaluationError
+    from sagemath_mcp.errors import SageEvaluationError
 
     session = await _session("starimport-third-pass")
     try:

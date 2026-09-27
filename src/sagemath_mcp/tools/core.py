@@ -21,16 +21,13 @@ from pydantic import Field
 from .. import monitoring, runtime
 from ..app import mcp
 from ..config import DEFAULT_SETTINGS
+from ..errors import SageEvaluationError, SageProcessError
 from ..gates import encode_literal
+from ..manager import DEFAULT_SESSION_NAME
 from ..models import (
     EvaluateResult,
 )
 from ..prelude import sage_prelude
-from ..session import (
-    DEFAULT_SESSION_NAME,
-    SageEvaluationError,
-    SageProcessError,
-)
 from ..text import SESSION_ARG_DESC as _SESSION_ARG_DESC
 from ..transport import evaluate_structured
 from .hints import COMPUTES, EVALUATES

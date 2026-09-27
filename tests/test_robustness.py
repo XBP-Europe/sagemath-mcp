@@ -24,7 +24,9 @@ import pytest
 
 from sagemath_mcp import monitoring, runtime, server
 from sagemath_mcp.config import SageSettings
-from sagemath_mcp.session import SageProcessError, SageSession, SageSessionManager
+from sagemath_mcp.errors import SageProcessError
+from sagemath_mcp.manager import SageSessionManager
+from sagemath_mcp.session import SageSession
 
 from .conftest import FakeContext
 
@@ -136,7 +138,7 @@ async def test_a_helper_tool_failure_is_recorded(sage_manager, monkeypatch):
     matters -- `evaluate_structured` recording the failure -- everywhere.
     Before the fix the helper tools recorded nothing at all, pass or fail.
     """
-    from sagemath_mcp.session import SageEvaluationError
+    from sagemath_mcp.errors import SageEvaluationError
 
     async def raises_security(self, *args, **kwargs):
         raise SageEvaluationError(

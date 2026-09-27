@@ -8,14 +8,11 @@ from fastmcp.exceptions import ToolError
 
 from sagemath_mcp import app, numeric, runtime, server, transport
 from sagemath_mcp.config import SageSettings
+from sagemath_mcp.errors import SageEvaluationError, SageProcessError
+from sagemath_mcp.manager import SageSessionManager
 from sagemath_mcp.models import EvaluateResult
 from sagemath_mcp.monitoring import reset_metrics
-from sagemath_mcp.session import (
-    SageEvaluationError,
-    SageProcessError,
-    SageSessionManager,
-    WorkerResult,
-)
+from sagemath_mcp.session import WorkerResult
 from sagemath_mcp.tools import core as core_tools
 from sagemath_mcp.tools import discrete as combinatorics_module
 
@@ -1007,7 +1004,7 @@ async def test_evaluate_sage_no_session_id():
 @pytest.mark.asyncio
 async def test_evaluate_sage_security_violation_branch(monkeypatch):
     """Cover lines 185-189: SageEvaluationError with SecurityViolation type."""
-    from sagemath_mcp.session import SageEvaluationError
+    from sagemath_mcp.errors import SageEvaluationError
 
     class FakeSession:
         async def evaluate(self, *args, **kwargs):
@@ -1032,7 +1029,7 @@ async def test_evaluate_sage_security_violation_branch(monkeypatch):
 @pytest.mark.asyncio
 async def test_evaluate_sage_non_security_error_branch(monkeypatch):
     """Cover line 189: SageEvaluationError with non-security error type."""
-    from sagemath_mcp.session import SageEvaluationError
+    from sagemath_mcp.errors import SageEvaluationError
 
     class FakeSession:
         async def evaluate(self, *args, **kwargs):

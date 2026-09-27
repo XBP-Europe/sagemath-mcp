@@ -71,7 +71,7 @@ async def evaluate_structured(
     Imported lazily to avoid a load-order dependency on session.py's error
     types being importable at module import time.
     """
-    from .session import SageEvaluationError, SageProcessError
+    from .errors import SageEvaluationError, SageProcessError
 
     try:
         worker_result = await session.evaluate(

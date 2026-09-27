@@ -16,17 +16,17 @@ from pydantic import Field
 
 from .. import monitoring, runtime
 from ..app import mcp
+from ..manager import (
+    DEFAULT_SESSION_NAME,
+    WORKSPACE_TOKEN_PREFIX,
+    SageSessionManager,
+)
 from ..models import (
     DocumentationLink,
     MonitoringSnapshot,
     ResetResponse,
     SessionSnapshot,
     WorkspaceHandle,
-)
-from ..session import (
-    DEFAULT_SESSION_NAME,
-    WORKSPACE_TOKEN_PREFIX,
-    SageSessionManager,
 )
 from ..text import SESSION_ARG_DESC as _SESSION_ARG_DESC
 from ..text import loggable_session

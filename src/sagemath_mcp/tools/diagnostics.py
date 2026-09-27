@@ -20,7 +20,8 @@ from pydantic import Field
 from .. import runtime
 from ..allowlist import ALLOWED_CALLER_NAMES
 from ..app import mcp
-from ..session import DEFAULT_SESSION_NAME, SageEvaluationError, SageProcessError
+from ..errors import SageEvaluationError, SageProcessError
+from ..manager import DEFAULT_SESSION_NAME
 from ..text import SESSION_ARG_DESC as _SESSION_ARG_DESC
 from .hints import COMPUTES, READS
 

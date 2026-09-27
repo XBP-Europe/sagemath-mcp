@@ -1,6 +1,5 @@
 import ast
 import logging
-import re
 from pathlib import Path
 
 import pytest
@@ -823,4 +822,25 @@ def test_every_node_rule_is_registered():
     assert set(registered) == set(defined)
     for name, fn in defined.items():
         annotation = inspect.signature(fn).parameters["node"].annotation
-        assert registered[name] == set(re.findall(r"ast\.(\w+)", annotation)), name
+        # Spelled as a union of the registered types, nothing else.
+        assert set(annotation.split(" | ")) == {f"ast.{t}" for t in registered[name]}, name
+
+
+def test_the_validation_context_cannot_be_changed_by_a_rule():
+    """The rules run one after another over one context; none may alter it.
+
+    That is what makes their order the only thing that decides a refusal, and
+    it is why `_ValidationContext` is frozen.
+    """
+    import dataclasses
+
+    from sagemath_mcp.policy import SECURITY_POLICY
+    from sagemath_mcp.security import _ValidationContext
+
+    ctx = _ValidationContext(
+        policy=SECURITY_POLICY, code="", bound=set(), withheld_names=frozenset(),
+        exempt_module_names=set(), assigned_here=set(), permitted_chain_nodes=set(),
+        called_names=set(), injects_names=False,
+    )
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        ctx.code = "changed"

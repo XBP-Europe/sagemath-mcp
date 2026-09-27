@@ -423,7 +423,7 @@ def trusted_policy(policy: SecurityPolicy | None = None) -> SecurityPolicy:
     validator has approved the AST. Server-generated code is not attacker
     controlled, so it may use it -- but only after the *user* fragments
     interpolated into it have been validated in their own right. See
-    server._validated_expression.
+    gates.validated_expression.
 
     Everything else in the policy still applies: generated code cannot import
     os, reach dunders, or call the other forbidden builtins.

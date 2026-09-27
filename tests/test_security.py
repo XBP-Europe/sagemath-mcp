@@ -1,5 +1,6 @@
 import ast
 import logging
+import re
 from pathlib import Path
 
 import pytest
@@ -799,3 +800,27 @@ def test_the_docs_do_not_claim_latex_is_blocked() -> None:
     assert "`show`/`latex`/`html`" not in roadmap
     assert "`show`, `view`, `latex`, `html`" not in usage
     assert "callable but not reachable into" in usage
+
+
+def test_every_node_rule_is_registered():
+    """A rule missing from `_NODE_RULES` would never run, and nothing else fails.
+
+    Each `_refuse_*` function must be registered for exactly the AST types its
+    `node` annotation names -- the annotation is what its body assumes.
+    """
+    import inspect
+
+    from sagemath_mcp import security
+
+    defined = {
+        name: fn for name, fn in vars(security).items()
+        if name.startswith("_refuse_") and inspect.isfunction(fn)
+    }
+    registered: dict[str, set[str]] = {}
+    for node_type, rules in security._NODE_RULES.items():
+        for rule in rules:
+            registered.setdefault(rule.__name__, set()).add(node_type.__name__)
+    assert set(registered) == set(defined)
+    for name, fn in defined.items():
+        annotation = inspect.signature(fn).parameters["node"].annotation
+        assert registered[name] == set(re.findall(r"ast\.(\w+)", annotation)), name

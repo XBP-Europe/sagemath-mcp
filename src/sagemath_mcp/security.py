@@ -6,6 +6,9 @@ import ast
 import logging
 import re
 import textwrap
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
 
 from .imports import attribute_segments
 from .policy import SECURITY_POLICY, SecurityPolicy, SecurityViolation
@@ -358,6 +361,582 @@ def check_source_length(
         )
 
 
+@dataclass(frozen=True)
+class _ValidationContext:
+    """What the node rules may read about the snippet as a whole.
+
+    Computed once by `validate_module` before the walk. Every rule only reads
+    it; none of them changes anything, which is what lets them run one at a
+    time in a fixed order.
+    """
+
+    policy: SecurityPolicy
+    code: str | None
+    bound: set[str]
+    withheld_names: frozenset[str] | set[str]
+    exempt_module_names: set[int]
+    assigned_here: set[str]
+    permitted_chain_nodes: set[int]
+    called_names: set[int]
+    injects_names: bool
+
+
+def _refuse_import(node: ast.Import | ast.ImportFrom, ctx: _ValidationContext) -> None:
+    """Refuse an import statement unless the policy allows imports."""
+    policy = ctx.policy
+    code = ctx.code
+    if not policy.allow_imports:
+        modules = []
+        if isinstance(node, ast.Import):
+            modules = [alias.name for alias in node.names]
+        else:
+            # ImportFrom, by the check above. `from . import x` has no
+            # module at all, which the empty check below rejects.
+            modules = [node.module] if node.module is not None else []
+        if not modules:
+            _raise_violation(
+                "Relative imports are disabled for Sage executions",
+                code=code,
+                policy=policy,
+            )
+        # A `from <vetted> import a, b` is permitted when every name is on
+        # the module's screened list -- the star expansion above produces
+        # exactly this, and a caller may also write it out. A name the
+        # screen dropped is not on the list, so spelling out a dirty member
+        # of an otherwise-listed module does not smuggle it in.
+        star_permitted = (
+            isinstance(node, ast.ImportFrom)
+            and node.module in policy.star_export_modules
+            and all(
+                alias.name in policy.star_export_modules[node.module]
+                for alias in node.names
+            )
+        )
+        if not star_permitted and not all(
+            _is_allowed_import(mod, policy) for mod in modules
+        ):
+            # Say what to do instead. Gemini opens numerical work with
+            # `import numpy as np` or `from sage.all import *`, was told only
+            # that imports are disabled, and did not recover across three
+            # cases -- while the same questions passed on a client that
+            # happened not to write the line. The namespace already holds
+            # everything the import was for, which is a fix the caller can
+            # act on; "disabled" is not.
+            advice = next(
+                (found for found in (import_alternative(mod) for mod in modules)
+                 if found),
+                None,
+            )
+            _raise_violation(
+                "Import statements are disabled for Sage executions. "
+                + (f"Use {advice}. " if advice else
+                   "SageMath is already loaded: use matrix, vector, RDF, srange, "
+                   "numerical_integral, desolve_odeint and the rest directly. ")
+                + "An import that would change nothing is dropped rather than "
+                "refused, so this one is asking for something the server does "
+                "not offer",
+                code=code,
+                policy=policy,
+            )
+        # An allowed module can re-export a forbidden one. `sage` is on the
+        # allowlist and `from sage.all import os as m` bound the real os
+        # module under a fresh name, which then passed every later rule
+        # because the name being read was `m`. Judge what is imported, not
+        # only where it comes from.
+        for alias in node.names:
+            root = alias.name.split(".", 1)[0]
+            if (
+                root in policy.forbidden_attribute_parents
+                or root in policy.forbidden_call_names
+            ):
+                _raise_violation(
+                    f"Importing '{alias.name}' is blocked "
+                    f"('{root}' is not permitted in Sage executions)",
+                    code=code,
+                    policy=policy,
+                )
+
+
+def _refuse_global_statement(node: ast.Global, ctx: _ValidationContext) -> None:
+    """Refuse a ``global`` statement."""
+    policy = ctx.policy
+    code = ctx.code
+    if policy.forbid_global_stmt:
+        _raise_violation(
+            "Global statements are not permitted in Sage executions",
+            code=code,
+            policy=policy,
+        )
+
+
+def _refuse_nonlocal_statement(node: ast.Nonlocal, ctx: _ValidationContext) -> None:
+    """Refuse a ``nonlocal`` statement."""
+    policy = ctx.policy
+    code = ctx.code
+    if policy.forbid_nonlocal_stmt:
+        _raise_violation(
+            "Nonlocal statements are not permitted in Sage executions",
+            code=code,
+            policy=policy,
+        )
+
+
+# Dunder access is the shortest path out of the sandbox:
+# ().__class__.__bases__[0].__subclasses__() reaches subprocess.Popen,
+# and __builtins__ reaches __import__ by attribute or by subscript.
+# Blocking the whole namespace closes both in one rule.
+def _refuse_dunder_attribute(node: ast.Attribute, ctx: _ValidationContext) -> None:
+    """Refuse a dunder attribute."""
+    policy = ctx.policy
+    code = ctx.code
+    if _is_dunder(node.attr):
+        _raise_violation(
+            f"Access to dunder attribute '{node.attr}' is blocked",
+            code=code,
+            policy=policy,
+        )
+
+
+def _refuse_dunder_name(node: ast.Name, ctx: _ValidationContext) -> None:
+    """Refuse a dunder name, except the preparser's own temporaries."""
+    policy = ctx.policy
+    code = ctx.code
+    if _is_dunder(node.id) and not _is_preparser_temp(node):
+        _raise_violation(
+            f"Access to dunder name '{node.id}' is blocked",
+            code=code,
+            policy=policy,
+        )
+
+
+def _refuse_unoffered_name(node: ast.Name, ctx: _ValidationContext) -> None:
+    """Refuse reading a name that is neither offered nor the caller's own."""
+    policy = ctx.policy
+    code = ctx.code
+    bound = ctx.bound
+    withheld_names = ctx.withheld_names
+    exempt_module_names = ctx.exempt_module_names
+    called_names = ctx.called_names
+    injects_names = ctx.injects_names
+    if (
+        policy.enforce_name_allowlist
+        and isinstance(node.ctx, ast.Load)
+        and (node.id in withheld_names or (
+            node.id not in bound
+            and node.id not in policy.allowed_names
+            # `A.inject_variables()` creates names while the snippet runs,
+            # and no static analysis can know them: they are whatever the
+            # object's `variable_names()` says. `R.<u, v> = QQ[]` is covered
+            # because the preparser binds statically, but
+            # `R = PolynomialRing(QQ, 'u,v'); R.inject_variables(); u^2 + v`
+            # is the same mathematics written the other way and was refused.
+            #
+            # So a snippet that asks for an injection has the *allowlist*
+            # half of this rule suspended -- and only that half. The
+            # withheld check above still applies, which is the half with the
+            # security content: every name that is live and not offered is
+            # still refused, whatever the snippet contains. What suspending
+            # buys is names that are not live at all, and those are either
+            # the injected ones or a NameError.
+            and not injects_names
+        ))
+        # `operator` in `operator.le` is live and deliberately not offered as
+        # a value: reading it on its own stays refused, and reading one of
+        # its permitted functions does not.
+        and id(node) not in exempt_module_names
+    ):
+        # Deny-by-default. Every bypass so far was a name no rule mentioned;
+        # here an unrecognised name is refused instead of assumed harmless.
+        #
+        # The message matters as much as the refusal. Clients are models that
+        # retry on what they are told, and the common case by far is not an
+        # attack or a typo -- it is an undeclared symbol. Only four symbols
+        # exist without being declared, so `diff(x^2*w^3, x, w)` is ordinary
+        # mathematics that needs `var('w')` first. Sending that caller to the
+        # allowlist points them at a fix they cannot perform and costs an
+        # exchange; naming the fix they can perform usually costs none.
+        equivalent = native_equivalent(node.id)
+        if equivalent and id(node) in called_names:
+            # Being *called* settles it. A lone `r` is a radius far more
+            # often than the R interface, so the symbol message wins for
+            # `f(x, r)` -- but `r("'abc'")` is calling the interface, and
+            # telling that caller to `var('r')` sends them somewhere with no
+            # answer in it. 135 refusals in SageMath's own doctests are that
+            # exact line.
+            _raise_violation(
+                f"'{node.id}' is not offered: it spawns an external program, "
+                f"and this server does the same mathematics in process. "
+                f"Use {equivalent}.",
+                code=code,
+                policy=policy,
+            )
+        if _looks_like_an_undeclared_symbol(node.id):
+            _raise_violation(
+                f"'{node.id}' is not defined. This server predefines the symbols "
+                f"{_PREDEFINED_LIST}, so declare it first with "
+                f"var('{node.id}') -- or assign it a value.",
+                code=code,
+                policy=policy,
+            )
+        if equivalent:
+            # The name is withheld on purpose and the mathematics is not.
+            # Saying which spelling works ends the exchange; saying only
+            # "not offered" invites another spelling of the same thing.
+            _raise_violation(
+                f"'{node.id}' is not offered: it spawns an external program, "
+                f"and this server does the same mathematics in process. "
+                f"Use {equivalent}.",
+                code=code,
+                policy=policy,
+            )
+        # The first sentence is the rule the corpus sweep keys on; what
+        # follows it is advice, and the best advice is the spelling that
+        # works. A name Sage never had gets that; anything else gets the
+        # two honest possibilities.
+        spelling = sage_spelling(node.id)
+        _raise_violation(
+            f"'{node.id}' is not a name this server offers. "
+            + (f"SageMath spells it {spelling}." if spelling else
+               "If it is a typo, check the spelling; if it is a SageMath "
+               "function that should be available, it needs to be added to "
+               "the allowlist"),
+            code=code,
+            policy=policy,
+        )
+
+
+# Reaching the attribute is the capability; calling it is one thing you
+# can do next. Guarding only `Call(func=Attribute(...))` meant
+# `f = latex.has_file; f(payload)` passed, and each of those spellings
+# ran a shell on 10.9. That gap was as old as the list itself -- `popen`
+# and `rmtree` were reachable the same way.
+def _refuse_forbidden_attribute(node: ast.Attribute, ctx: _ValidationContext) -> None:
+    """Refuse a forbidden attribute, called or not."""
+    policy = ctx.policy
+    code = ctx.code
+    if node.attr in policy.forbidden_attribute_names:
+        _raise_violation(
+            f"Access to forbidden attribute '{node.attr}' is blocked",
+            code=code,
+            policy=policy,
+        )
+
+
+# A forbidden module is forbidden entirely. Requiring the attribute to
+# ALSO be on a list of eighteen names meant os.system was blocked while
+# os.listdir, os.environ and os.chmod were not -- and the README claimed
+# subprocess.*, pathlib.* and socket.* were blocked when none of them were.
+def _refuse_forbidden_attribute_chain(node: ast.Attribute, ctx: _ValidationContext) -> None:
+    """Refuse reaching into a call-only name, a forbidden module or a forbidden parent."""
+    policy = ctx.policy
+    code = ctx.code
+    bound = ctx.bound
+    assigned_here = ctx.assigned_here
+    permitted_chain_nodes = ctx.permitted_chain_nodes
+    # Call-only names: the name itself is offered, reaching into it is
+    # not. Checked on the immediate parent, so `latex.anything` is
+    # refused while `latex(expr)` and a caller's own `latex` are not.
+    if (
+        isinstance(node.value, ast.Name)
+        and node.value.id in policy.call_only_names
+        and node.value.id not in assigned_here
+    ):
+        _raise_violation(
+            f"'{node.value.id}' may be called but not reached into: "
+            f"{node.value.id}(expr) builds a string, while its attributes "
+            "run a LaTeX toolchain",
+            code=code,
+            policy=policy,
+        )
+    segments = attribute_segments(node)
+    # A chain the caller rooted in their own value is not a module path.
+    # `sh = 2; sh.bit_length()` is arithmetic; `sage.misc.sh.sh('id')` is
+    # a shell. The root has to be a name the caller created *and* one
+    # this server does not otherwise offer -- `sage` is offered, so
+    # `if False: sage = 1` cannot buy the exemption (item 37's trap).
+    root = segments[0] if segments else ""
+    caller_owned = bool(
+        policy.enforce_name_allowlist
+        and root
+        and root in bound
+        and root not in policy.allowed_names
+    )
+    # `operator.le` and the rest of the permitted arithmetic: a
+    # whole-chain exemption for exactly the named (module, attr) pairs.
+    permitted_pair = (
+        len(segments) == 2
+        and (segments[0], segments[1]) in policy.allowed_module_attributes
+    )
+    if (
+        segments
+        and segments[0] in policy.forbidden_attribute_roots
+        and not _star_export_spelling(node, policy)
+        and id(node) not in permitted_chain_nodes
+    ):
+        # Checked before anything else, and regardless of what the
+        # caller bound: a caller-owned alias for the root was item 52's
+        # escape, and the root here is offered anyway.
+        raise SecurityViolation(reach_refusal(segments))
+    if not permitted_pair:
+        # Every segment is inspected, not just segments[:-1]. Checking
+        # only the parents let two escapes through:
+        #   items 49/50/56: `m = sage.env.os` binds the real os module
+        #     under a fresh name -- `os` was the TERMINAL segment, never
+        #     reached -- and `m.system(...)` then ran unchecked. Same for
+        #     `f = sage.misc.persist` and `sage.env.sys.modules['os']`.
+        #   item 52: the caller_owned exemption skipped the WHOLE chain,
+        #     so `s = sage; s.misc.persist.unpickle_global(...)` walked
+        #     past `persist` on the strength of the caller-owned root `s`.
+        # A terminal forbidden name is a module only when the chain is a
+        # module path (rooted at an offered name); as a plain
+        # object.method it is real mathematics -- `A.trace()`,
+        # `(x+y).operator()`, `E.pari()` -- so those are left alone.
+        last = len(segments) - 1
+        for index, segment in enumerate(segments):
+            if segment not in policy.forbidden_attribute_parents:
+                continue
+            if index == last:
+                # Only five forbidden parents are ALSO ordinary methods
+                # on a mathematical object -- trace, sh, operator, pari,
+                # oeis (`A.trace()`, `(x+y).operator()`, `E.pari()`).
+                # Every other one -- os, sys, subprocess, socket, shutil,
+                # pathlib, persist, cython, warnings, builtins, ... -- has
+                # no method meaning at all, so a terminal one is a module
+                # reference WHATEVER the root is. The old rule waved it
+                # through whenever the root was not offered, on the theory
+                # that a non-allowlisted root meant `<expr>.method`. That
+                # is false when the root is a bound *module object*:
+                # `dirichlet.free_module_element.sage.env.os` reached the
+                # real os module with `os` as the terminal, past this very
+                # branch, and `alias.system('id')` then ran a shell (item
+                # 61). The star-export screen no longer lets a module bind
+                # to a caller name, but the validator refuses the pivot
+                # too now -- the object should not be reachable either.
+                if segment in _TERMINAL_METHOD_NAMES:
+                    # A plain object.method -- one or two segments -- or a
+                    # longer method-on-method chain not rooted at an
+                    # offered module name. The genuine module path
+                    # `sage.misc.trace` / `sage.misc.sh` (rooted at the
+                    # offered `sage`, three-plus segments) still falls
+                    # through to the refusal below.
+                    module_path = len(segments) >= 2 and root in policy.allowed_names
+                    if len(segments) <= 2 or not module_path:
+                        continue
+            elif index == 0 and caller_owned:
+                # The caller rebound a name that happens to be a
+                # forbidden parent. Only the ROOT is theirs -- a
+                # forbidden parent deeper in the chain is an attribute of
+                # a real object (`s.misc.persist` after `s = sage`) and
+                # stays refused.
+                continue
+            _raise_violation(
+                f"Access through '{segment}' is blocked "
+                f"('{segment}' is not permitted in Sage executions)",
+                code=code,
+                policy=policy,
+            )
+
+
+def _refuse_deleting_a_provided_name(node: ast.Name, ctx: _ValidationContext) -> None:
+    """Refuse deleting a name this server provides."""
+    policy = ctx.policy
+    code = ctx.code
+    if isinstance(node.ctx, ast.Del):
+        # You may delete what you brought, not what the server provided.
+        #
+        # Deleting differs from assigning, which is why shadowing is fine
+        # and this is not: `Integer = 1` replaces the name with the
+        # caller's own value, while `del Integer` removes it from a
+        # namespace that persists across calls. The Sage preparser rewrites
+        # every integer literal to `Integer(...)`, so `del Integer` makes
+        # `2 + 2` fail for the rest of the session -- verified against a
+        # real worker, and about as confusing a failure as this server can
+        # produce. `del x` breaks the predefined symbols the tools and
+        # `evaluate_sage` are documented to agree on (`symbols.py`).
+        #
+        # A name the caller created is theirs to delete, and a name that
+        # was never there raises NameError as it always did.
+        if policy.enforce_name_allowlist and (
+            node.id in policy.allowed_names or node.id in PREDEFINED_SYMBOLS
+        ):
+            restore = (
+                f", and {node.id} = var('{node.id}') restores the symbol"
+                if node.id in PREDEFINED_SYMBOLS
+                else ""
+            )
+            _raise_violation(
+                f"Deleting '{node.id}' is not permitted: it is a name this "
+                "server provides, and the session keeps its namespace "
+                "between calls, so removing it would break later work. "
+                f"Assign to it instead if you want your own value{restore}",
+                code=code,
+                policy=policy,
+            )
+
+
+# A forbidden builtin is forbidden wherever it is REFERENCED, not only
+# where it is called. Checking ast.Call.func alone let the name be
+# aliased first and called through the alias:
+#     f = open;                    f('/etc/passwd').readline()
+#     (lambda f=open: f('/etc/passwd').readline())()
+# Both returned the first line of /etc/passwd, through evaluate_sage and
+# through calculate_expression. Any expression that stores, defaults,
+# or packs the name into a container works the same way, so the check
+# belongs on the Name node itself.
+# The same reasoning applies to the forbidden MODULES, and the first fix
+# missed them: the attribute rule above inspects an ast.Attribute chain,
+# so it saw os.getuid() but not
+#     m = os;                      m.getuid()
+#     from sage.all import os as m;m.getuid()
+# Both returned the container uid from real SageMath. Once the module
+# object is bound to an unremarkable name there is no chain left to
+# inspect, so the module name has to be unreadable in the first place.
+def _refuse_forbidden_name_reference(node: ast.Name, ctx: _ValidationContext) -> None:
+    """Refuse reading a forbidden root, function or module by name."""
+    policy = ctx.policy
+    code = ctx.code
+    bound = ctx.bound
+    exempt_module_names = ctx.exempt_module_names
+    if isinstance(node.ctx, ast.Load):
+        # A root whose tree cannot be traversed has no business being read
+        # either: what comes back is a module object, and handing a caller
+        # one is the pivot items 61/62/63 exist to prevent. Reading it bare
+        # buys nothing anyway -- every attribute of it is refused above --
+        # so this closes the invariant rather than trading anything for it.
+        if (
+            node.id in policy.forbidden_attribute_roots
+            and id(node) not in exempt_module_names
+        ):
+            _raise_violation(
+                f"Reaching into the '{node.id}' module is not permitted; "
+                "name the function directly",
+                code=code,
+                policy=policy,
+            )
+        # A screened `attrcall('degree')` exempts its own func node here,
+        # the way `operator` is exempted inside `operator.le`.
+        if node.id in policy.forbidden_call_names and id(node) not in exempt_module_names:
+            equivalent = native_equivalent(node.id)
+            _raise_violation(
+                f"Reference to forbidden name '{node.id}' is blocked"
+                + (f". Use {equivalent}." if equivalent else ""),
+                code=code,
+                policy=policy,
+            )
+        if (
+            node.id in policy.forbidden_attribute_parents
+            and id(node) not in exempt_module_names
+            # A path segment is not a variable. `sh` and `trace` are on this
+            # list to cut `sage.misc.sh.sh('id')` and
+            # `sage.misc.trace.trace(code)`, and without this a caller could
+            # not write `sh = 2; sh + 1`. Only a name they created, and only
+            # one this server does not otherwise offer -- so `sage` cannot
+            # be claimed this way, which is what item 37 turned on.
+            and not (
+                policy.enforce_name_allowlist
+                and node.id in bound
+                and node.id not in policy.allowed_names
+            )
+        ):
+            _raise_violation(
+                f"Reference to forbidden module '{node.id}' is blocked",
+                code=code,
+                policy=policy,
+            )
+
+
+# A forbidden name is forbidden however it is spelled. Checking bare
+# names and Call.func left the same functions reachable through an
+# attribute chain rooted at the permitted `sage`:
+#     sage.misc.sage_eval.sage_eval("__import__('os').getuid()")
+# returned the container uid. What matters is the final name, not
+# whether a dot precedes it.
+def _refuse_forbidden_function_attribute(node: ast.Attribute, ctx: _ValidationContext) -> None:
+    """Refuse a forbidden function reached as an attribute."""
+    policy = ctx.policy
+    code = ctx.code
+    if (
+        node.attr in policy.forbidden_call_names
+        or node.attr in policy.forbidden_attribute_only_names
+    ):
+        _raise_violation(
+            f"Access to forbidden function '{node.attr}' is blocked",
+            code=code,
+            policy=policy,
+        )
+
+
+# Anything that persists: .dump(), .save_image(), .export_jmol() and the
+# rest of the family write to a path the caller chooses.
+def _refuse_persistence_attribute(node: ast.Attribute, ctx: _ValidationContext) -> None:
+    """Refuse the attributes that write files (save, dump, export, write, ...)."""
+    policy = ctx.policy
+    code = ctx.code
+    if any(
+        node.attr.startswith(prefix) for prefix in policy.forbidden_attribute_prefixes
+    ):
+        _raise_violation(
+            f"Access to '{node.attr}' is blocked: writing files is not "
+            "available to caller code",
+            code=code,
+            policy=policy,
+        )
+
+
+def _refuse_forbidden_call(node: ast.Call, ctx: _ValidationContext) -> None:
+    """Refuse calling a forbidden function or attribute."""
+    policy = ctx.policy
+    code = ctx.code
+    exempt_module_names = ctx.exempt_module_names
+    func = node.func
+    if (
+        isinstance(func, ast.Name)
+        and func.id in policy.forbidden_call_names
+        and id(func) not in exempt_module_names
+    ):
+        equivalent = native_equivalent(func.id)
+        _raise_violation(
+            f"Call to forbidden function '{func.id}' is blocked"
+            + (f". Use {equivalent}." if equivalent else ""),
+            code=code,
+            policy=policy,
+        )
+    # Kept for bare calls such as system(...) that arrive via a star
+    # import rather than through a module attribute.
+    if isinstance(func, ast.Attribute) and func.attr in policy.forbidden_attribute_names:
+        _raise_violation(
+            f"Call to forbidden attribute '{func.attr}' is blocked",
+            code=code,
+            policy=policy,
+        )
+
+
+# The node rules, by the AST type each one guards. Within a type the order is the
+# order the rules were written in, which decides the first refusal a snippet
+# with several faults is given; test_every_node_rule_is_registered checks that
+# none is left out.
+_NODE_RULES: dict[type[ast.AST], tuple[Callable[[Any, _ValidationContext], None], ...]] = {
+    ast.Import: (_refuse_import,),
+    ast.ImportFrom: (_refuse_import,),
+    ast.Global: (_refuse_global_statement,),
+    ast.Nonlocal: (_refuse_nonlocal_statement,),
+    ast.Attribute: (
+        _refuse_dunder_attribute,
+        _refuse_forbidden_attribute,
+        _refuse_forbidden_attribute_chain,
+        _refuse_forbidden_function_attribute,
+        _refuse_persistence_attribute,
+    ),
+    ast.Name: (
+        _refuse_dunder_name,
+        _refuse_unoffered_name,
+        _refuse_deleting_a_provided_name,
+        _refuse_forbidden_name_reference,
+    ),
+    ast.Call: (_refuse_forbidden_call,),
+}
+
+
 def validate_module(
     module: ast.Module,
     *,
@@ -477,456 +1056,25 @@ def validate_module(
     # same session -- ask a Sage object to put names into the namespace?
     injects_names = session_injects_names or injects_session_names(module)
 
+    ctx = _ValidationContext(
+        policy=policy,
+        code=code,
+        bound=bound,
+        withheld_names=withheld_names,
+        exempt_module_names=exempt_module_names,
+        assigned_here=assigned_here,
+        permitted_chain_nodes=permitted_chain_nodes,
+        called_names=called_names,
+        injects_names=injects_names,
+    )
+
+    # One walk, and for each node only the rules for its type, in the order they
+    # are listed in _NODE_RULES. A node has exactly one type, so the rules that can
+    # fire on it -- and so the first refusal a snippet gets -- are the same as when
+    # this was a single loop of `if isinstance(node, ...)` blocks.
     for node in ast.walk(module):
-        if isinstance(node, (ast.Import, ast.ImportFrom)) and not policy.allow_imports:
-            modules = []
-            if isinstance(node, ast.Import):
-                modules = [alias.name for alias in node.names]
-            else:
-                # ImportFrom, by the check above. `from . import x` has no
-                # module at all, which the empty check below rejects.
-                modules = [node.module] if node.module is not None else []
-            if not modules:
-                _raise_violation(
-                    "Relative imports are disabled for Sage executions",
-                    code=code,
-                    policy=policy,
-                )
-            # A `from <vetted> import a, b` is permitted when every name is on
-            # the module's screened list -- the star expansion above produces
-            # exactly this, and a caller may also write it out. A name the
-            # screen dropped is not on the list, so spelling out a dirty member
-            # of an otherwise-listed module does not smuggle it in.
-            star_permitted = (
-                isinstance(node, ast.ImportFrom)
-                and node.module in policy.star_export_modules
-                and all(
-                    alias.name in policy.star_export_modules[node.module]
-                    for alias in node.names
-                )
-            )
-            if not star_permitted and not all(
-                _is_allowed_import(mod, policy) for mod in modules
-            ):
-                # Say what to do instead. Gemini opens numerical work with
-                # `import numpy as np` or `from sage.all import *`, was told only
-                # that imports are disabled, and did not recover across three
-                # cases -- while the same questions passed on a client that
-                # happened not to write the line. The namespace already holds
-                # everything the import was for, which is a fix the caller can
-                # act on; "disabled" is not.
-                advice = next(
-                    (found for found in (import_alternative(mod) for mod in modules)
-                     if found),
-                    None,
-                )
-                _raise_violation(
-                    "Import statements are disabled for Sage executions. "
-                    + (f"Use {advice}. " if advice else
-                       "SageMath is already loaded: use matrix, vector, RDF, srange, "
-                       "numerical_integral, desolve_odeint and the rest directly. ")
-                    + "An import that would change nothing is dropped rather than "
-                    "refused, so this one is asking for something the server does "
-                    "not offer",
-                    code=code,
-                    policy=policy,
-                )
-            # An allowed module can re-export a forbidden one. `sage` is on the
-            # allowlist and `from sage.all import os as m` bound the real os
-            # module under a fresh name, which then passed every later rule
-            # because the name being read was `m`. Judge what is imported, not
-            # only where it comes from.
-            for alias in node.names:
-                root = alias.name.split(".", 1)[0]
-                if (
-                    root in policy.forbidden_attribute_parents
-                    or root in policy.forbidden_call_names
-                ):
-                    _raise_violation(
-                        f"Importing '{alias.name}' is blocked "
-                        f"('{root}' is not permitted in Sage executions)",
-                        code=code,
-                        policy=policy,
-                    )
-        if isinstance(node, ast.Global) and policy.forbid_global_stmt:
-            _raise_violation(
-                "Global statements are not permitted in Sage executions",
-                code=code,
-                policy=policy,
-            )
-        if isinstance(node, ast.Nonlocal) and policy.forbid_nonlocal_stmt:
-            _raise_violation(
-                "Nonlocal statements are not permitted in Sage executions",
-                code=code,
-                policy=policy,
-            )
-        # Dunder access is the shortest path out of the sandbox:
-        # ().__class__.__bases__[0].__subclasses__() reaches subprocess.Popen,
-        # and __builtins__ reaches __import__ by attribute or by subscript.
-        # Blocking the whole namespace closes both in one rule.
-        if isinstance(node, ast.Attribute) and _is_dunder(node.attr):
-            _raise_violation(
-                f"Access to dunder attribute '{node.attr}' is blocked",
-                code=code,
-                policy=policy,
-            )
-        if isinstance(node, ast.Name) and _is_dunder(node.id) and not _is_preparser_temp(node):
-            _raise_violation(
-                f"Access to dunder name '{node.id}' is blocked",
-                code=code,
-                policy=policy,
-            )
-
-        if (
-            policy.enforce_name_allowlist
-            and isinstance(node, ast.Name)
-            and isinstance(node.ctx, ast.Load)
-            and (node.id in withheld_names or (
-                node.id not in bound
-                and node.id not in policy.allowed_names
-                # `A.inject_variables()` creates names while the snippet runs,
-                # and no static analysis can know them: they are whatever the
-                # object's `variable_names()` says. `R.<u, v> = QQ[]` is covered
-                # because the preparser binds statically, but
-                # `R = PolynomialRing(QQ, 'u,v'); R.inject_variables(); u^2 + v`
-                # is the same mathematics written the other way and was refused.
-                #
-                # So a snippet that asks for an injection has the *allowlist*
-                # half of this rule suspended -- and only that half. The
-                # withheld check above still applies, which is the half with the
-                # security content: every name that is live and not offered is
-                # still refused, whatever the snippet contains. What suspending
-                # buys is names that are not live at all, and those are either
-                # the injected ones or a NameError.
-                and not injects_names
-            ))
-            # `operator` in `operator.le` is live and deliberately not offered as
-            # a value: reading it on its own stays refused, and reading one of
-            # its permitted functions does not.
-            and id(node) not in exempt_module_names
-        ):
-            # Deny-by-default. Every bypass so far was a name no rule mentioned;
-            # here an unrecognised name is refused instead of assumed harmless.
-            #
-            # The message matters as much as the refusal. Clients are models that
-            # retry on what they are told, and the common case by far is not an
-            # attack or a typo -- it is an undeclared symbol. Only four symbols
-            # exist without being declared, so `diff(x^2*w^3, x, w)` is ordinary
-            # mathematics that needs `var('w')` first. Sending that caller to the
-            # allowlist points them at a fix they cannot perform and costs an
-            # exchange; naming the fix they can perform usually costs none.
-            equivalent = native_equivalent(node.id)
-            if equivalent and id(node) in called_names:
-                # Being *called* settles it. A lone `r` is a radius far more
-                # often than the R interface, so the symbol message wins for
-                # `f(x, r)` -- but `r("'abc'")` is calling the interface, and
-                # telling that caller to `var('r')` sends them somewhere with no
-                # answer in it. 135 refusals in SageMath's own doctests are that
-                # exact line.
-                _raise_violation(
-                    f"'{node.id}' is not offered: it spawns an external program, "
-                    f"and this server does the same mathematics in process. "
-                    f"Use {equivalent}.",
-                    code=code,
-                    policy=policy,
-                )
-            if _looks_like_an_undeclared_symbol(node.id):
-                _raise_violation(
-                    f"'{node.id}' is not defined. This server predefines the symbols "
-                    f"{_PREDEFINED_LIST}, so declare it first with "
-                    f"var('{node.id}') -- or assign it a value.",
-                    code=code,
-                    policy=policy,
-                )
-            if equivalent:
-                # The name is withheld on purpose and the mathematics is not.
-                # Saying which spelling works ends the exchange; saying only
-                # "not offered" invites another spelling of the same thing.
-                _raise_violation(
-                    f"'{node.id}' is not offered: it spawns an external program, "
-                    f"and this server does the same mathematics in process. "
-                    f"Use {equivalent}.",
-                    code=code,
-                    policy=policy,
-                )
-            # The first sentence is the rule the corpus sweep keys on; what
-            # follows it is advice, and the best advice is the spelling that
-            # works. A name Sage never had gets that; anything else gets the
-            # two honest possibilities.
-            spelling = sage_spelling(node.id)
-            _raise_violation(
-                f"'{node.id}' is not a name this server offers. "
-                + (f"SageMath spells it {spelling}." if spelling else
-                   "If it is a typo, check the spelling; if it is a SageMath "
-                   "function that should be available, it needs to be added to "
-                   "the allowlist"),
-                code=code,
-                policy=policy,
-            )
-        # Reaching the attribute is the capability; calling it is one thing you
-        # can do next. Guarding only `Call(func=Attribute(...))` meant
-        # `f = latex.has_file; f(payload)` passed, and each of those spellings
-        # ran a shell on 10.9. That gap was as old as the list itself -- `popen`
-        # and `rmtree` were reachable the same way.
-        if isinstance(node, ast.Attribute) and node.attr in policy.forbidden_attribute_names:
-            _raise_violation(
-                f"Access to forbidden attribute '{node.attr}' is blocked",
-                code=code,
-                policy=policy,
-            )
-
-        # A forbidden module is forbidden entirely. Requiring the attribute to
-        # ALSO be on a list of eighteen names meant os.system was blocked while
-        # os.listdir, os.environ and os.chmod were not -- and the README claimed
-        # subprocess.*, pathlib.* and socket.* were blocked when none of them were.
-        if isinstance(node, ast.Attribute):
-            # Call-only names: the name itself is offered, reaching into it is
-            # not. Checked on the immediate parent, so `latex.anything` is
-            # refused while `latex(expr)` and a caller's own `latex` are not.
-            if (
-                isinstance(node.value, ast.Name)
-                and node.value.id in policy.call_only_names
-                and node.value.id not in assigned_here
-            ):
-                _raise_violation(
-                    f"'{node.value.id}' may be called but not reached into: "
-                    f"{node.value.id}(expr) builds a string, while its attributes "
-                    "run a LaTeX toolchain",
-                    code=code,
-                    policy=policy,
-                )
-            segments = attribute_segments(node)
-            # A chain the caller rooted in their own value is not a module path.
-            # `sh = 2; sh.bit_length()` is arithmetic; `sage.misc.sh.sh('id')` is
-            # a shell. The root has to be a name the caller created *and* one
-            # this server does not otherwise offer -- `sage` is offered, so
-            # `if False: sage = 1` cannot buy the exemption (item 37's trap).
-            root = segments[0] if segments else ""
-            caller_owned = bool(
-                policy.enforce_name_allowlist
-                and root
-                and root in bound
-                and root not in policy.allowed_names
-            )
-            # `operator.le` and the rest of the permitted arithmetic: a
-            # whole-chain exemption for exactly the named (module, attr) pairs.
-            permitted_pair = (
-                len(segments) == 2
-                and (segments[0], segments[1]) in policy.allowed_module_attributes
-            )
-            if (
-                segments
-                and segments[0] in policy.forbidden_attribute_roots
-                and not _star_export_spelling(node, policy)
-                and id(node) not in permitted_chain_nodes
-            ):
-                # Checked before anything else, and regardless of what the
-                # caller bound: a caller-owned alias for the root was item 52's
-                # escape, and the root here is offered anyway.
-                raise SecurityViolation(reach_refusal(segments))
-            if not permitted_pair:
-                # Every segment is inspected, not just segments[:-1]. Checking
-                # only the parents let two escapes through:
-                #   items 49/50/56: `m = sage.env.os` binds the real os module
-                #     under a fresh name -- `os` was the TERMINAL segment, never
-                #     reached -- and `m.system(...)` then ran unchecked. Same for
-                #     `f = sage.misc.persist` and `sage.env.sys.modules['os']`.
-                #   item 52: the caller_owned exemption skipped the WHOLE chain,
-                #     so `s = sage; s.misc.persist.unpickle_global(...)` walked
-                #     past `persist` on the strength of the caller-owned root `s`.
-                # A terminal forbidden name is a module only when the chain is a
-                # module path (rooted at an offered name); as a plain
-                # object.method it is real mathematics -- `A.trace()`,
-                # `(x+y).operator()`, `E.pari()` -- so those are left alone.
-                last = len(segments) - 1
-                for index, segment in enumerate(segments):
-                    if segment not in policy.forbidden_attribute_parents:
-                        continue
-                    if index == last:
-                        # Only five forbidden parents are ALSO ordinary methods
-                        # on a mathematical object -- trace, sh, operator, pari,
-                        # oeis (`A.trace()`, `(x+y).operator()`, `E.pari()`).
-                        # Every other one -- os, sys, subprocess, socket, shutil,
-                        # pathlib, persist, cython, warnings, builtins, ... -- has
-                        # no method meaning at all, so a terminal one is a module
-                        # reference WHATEVER the root is. The old rule waved it
-                        # through whenever the root was not offered, on the theory
-                        # that a non-allowlisted root meant `<expr>.method`. That
-                        # is false when the root is a bound *module object*:
-                        # `dirichlet.free_module_element.sage.env.os` reached the
-                        # real os module with `os` as the terminal, past this very
-                        # branch, and `alias.system('id')` then ran a shell (item
-                        # 61). The star-export screen no longer lets a module bind
-                        # to a caller name, but the validator refuses the pivot
-                        # too now -- the object should not be reachable either.
-                        if segment in _TERMINAL_METHOD_NAMES:
-                            # A plain object.method -- one or two segments -- or a
-                            # longer method-on-method chain not rooted at an
-                            # offered module name. The genuine module path
-                            # `sage.misc.trace` / `sage.misc.sh` (rooted at the
-                            # offered `sage`, three-plus segments) still falls
-                            # through to the refusal below.
-                            module_path = len(segments) >= 2 and root in policy.allowed_names
-                            if len(segments) <= 2 or not module_path:
-                                continue
-                    elif index == 0 and caller_owned:
-                        # The caller rebound a name that happens to be a
-                        # forbidden parent. Only the ROOT is theirs -- a
-                        # forbidden parent deeper in the chain is an attribute of
-                        # a real object (`s.misc.persist` after `s = sage`) and
-                        # stays refused.
-                        continue
-                    _raise_violation(
-                        f"Access through '{segment}' is blocked "
-                        f"('{segment}' is not permitted in Sage executions)",
-                        code=code,
-                        policy=policy,
-                    )
-
-        # A forbidden builtin is forbidden wherever it is REFERENCED, not only
-        # where it is called. Checking ast.Call.func alone let the name be
-        # aliased first and called through the alias:
-        #     f = open;                    f('/etc/passwd').readline()
-        #     (lambda f=open: f('/etc/passwd').readline())()
-        # Both returned the first line of /etc/passwd, through evaluate_sage and
-        # through calculate_expression. Any expression that stores, defaults,
-        # or packs the name into a container works the same way, so the check
-        # belongs on the Name node itself.
-        # The same reasoning applies to the forbidden MODULES, and the first fix
-        # missed them: the attribute rule above inspects an ast.Attribute chain,
-        # so it saw os.getuid() but not
-        #     m = os;                      m.getuid()
-        #     from sage.all import os as m;m.getuid()
-        # Both returned the container uid from real SageMath. Once the module
-        # object is bound to an unremarkable name there is no chain left to
-        # inspect, so the module name has to be unreadable in the first place.
-        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Del):
-            # You may delete what you brought, not what the server provided.
-            #
-            # Deleting differs from assigning, which is why shadowing is fine
-            # and this is not: `Integer = 1` replaces the name with the
-            # caller's own value, while `del Integer` removes it from a
-            # namespace that persists across calls. The Sage preparser rewrites
-            # every integer literal to `Integer(...)`, so `del Integer` makes
-            # `2 + 2` fail for the rest of the session -- verified against a
-            # real worker, and about as confusing a failure as this server can
-            # produce. `del x` breaks the predefined symbols the tools and
-            # `evaluate_sage` are documented to agree on (`symbols.py`).
-            #
-            # A name the caller created is theirs to delete, and a name that
-            # was never there raises NameError as it always did.
-            if policy.enforce_name_allowlist and (
-                node.id in policy.allowed_names or node.id in PREDEFINED_SYMBOLS
-            ):
-                restore = (
-                    f", and {node.id} = var('{node.id}') restores the symbol"
-                    if node.id in PREDEFINED_SYMBOLS
-                    else ""
-                )
-                _raise_violation(
-                    f"Deleting '{node.id}' is not permitted: it is a name this "
-                    "server provides, and the session keeps its namespace "
-                    "between calls, so removing it would break later work. "
-                    f"Assign to it instead if you want your own value{restore}",
-                    code=code,
-                    policy=policy,
-                )
-        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
-            # A root whose tree cannot be traversed has no business being read
-            # either: what comes back is a module object, and handing a caller
-            # one is the pivot items 61/62/63 exist to prevent. Reading it bare
-            # buys nothing anyway -- every attribute of it is refused above --
-            # so this closes the invariant rather than trading anything for it.
-            if (
-                node.id in policy.forbidden_attribute_roots
-                and id(node) not in exempt_module_names
-            ):
-                _raise_violation(
-                    f"Reaching into the '{node.id}' module is not permitted; "
-                    "name the function directly",
-                    code=code,
-                    policy=policy,
-                )
-            # A screened `attrcall('degree')` exempts its own func node here,
-            # the way `operator` is exempted inside `operator.le`.
-            if node.id in policy.forbidden_call_names and id(node) not in exempt_module_names:
-                equivalent = native_equivalent(node.id)
-                _raise_violation(
-                    f"Reference to forbidden name '{node.id}' is blocked"
-                    + (f". Use {equivalent}." if equivalent else ""),
-                    code=code,
-                    policy=policy,
-                )
-            if (
-                node.id in policy.forbidden_attribute_parents
-                and id(node) not in exempt_module_names
-                # A path segment is not a variable. `sh` and `trace` are on this
-                # list to cut `sage.misc.sh.sh('id')` and
-                # `sage.misc.trace.trace(code)`, and without this a caller could
-                # not write `sh = 2; sh + 1`. Only a name they created, and only
-                # one this server does not otherwise offer -- so `sage` cannot
-                # be claimed this way, which is what item 37 turned on.
-                and not (
-                    policy.enforce_name_allowlist
-                    and node.id in bound
-                    and node.id not in policy.allowed_names
-                )
-            ):
-                _raise_violation(
-                    f"Reference to forbidden module '{node.id}' is blocked",
-                    code=code,
-                    policy=policy,
-                )
-
-        # A forbidden name is forbidden however it is spelled. Checking bare
-        # names and Call.func left the same functions reachable through an
-        # attribute chain rooted at the permitted `sage`:
-        #     sage.misc.sage_eval.sage_eval("__import__('os').getuid()")
-        # returned the container uid. What matters is the final name, not
-        # whether a dot precedes it.
-        if isinstance(node, ast.Attribute) and (
-            node.attr in policy.forbidden_call_names
-            or node.attr in policy.forbidden_attribute_only_names
-        ):
-            _raise_violation(
-                f"Access to forbidden function '{node.attr}' is blocked",
-                code=code,
-                policy=policy,
-            )
-
-        # Anything that persists: .dump(), .save_image(), .export_jmol() and the
-        # rest of the family write to a path the caller chooses.
-        if isinstance(node, ast.Attribute) and any(
-            node.attr.startswith(prefix) for prefix in policy.forbidden_attribute_prefixes
-        ):
-            _raise_violation(
-                f"Access to '{node.attr}' is blocked: writing files is not "
-                "available to caller code",
-                code=code,
-                policy=policy,
-            )
-        if isinstance(node, ast.Call):
-            func = node.func
-            if (
-                isinstance(func, ast.Name)
-                and func.id in policy.forbidden_call_names
-                and id(func) not in exempt_module_names
-            ):
-                equivalent = native_equivalent(func.id)
-                _raise_violation(
-                    f"Call to forbidden function '{func.id}' is blocked"
-                    + (f". Use {equivalent}." if equivalent else ""),
-                    code=code,
-                    policy=policy,
-                )
-            # Kept for bare calls such as system(...) that arrive via a star
-            # import rather than through a module attribute.
-            if isinstance(func, ast.Attribute) and func.attr in policy.forbidden_attribute_names:
-                _raise_violation(
-                    f"Call to forbidden attribute '{func.attr}' is blocked",
-                    code=code,
-                    policy=policy,
-                )
+        for rule in _NODE_RULES.get(type(node), ()):
+            rule(node, ctx)
 
     if policy.log_violations:
         LOGGER.debug(

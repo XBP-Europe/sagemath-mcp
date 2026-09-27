@@ -37,7 +37,7 @@ Ruff with line-length 100, target Python 3.12. Rules: E, F, W, B, UP, ASYNC, RUF
 
 - `server.py` - Entry point: the `/health` route, `main()`, and the imports that register the tools. Re-exports the tool functions, so `from sagemath_mcp import server` keeps working.
 - `app.py` - The FastMCP object, instructions, lifespan and middleware. Owns `mcp` so tool modules can decorate against it without importing the module that imports them.
-- `runtime.py` - `SETTINGS`, `SESSION_MANAGER` and `resolve_session()`. Read the manager through this module (never `from .runtime import SESSION_MANAGER`) so tests can swap it. Also `client_scope(ctx, session)`, the only place a tool may get its caller's identity: never read `ctx.session_id` directly, because on fastmcp 4's 2026-07-28 protocol era it is a fresh id per call. stdio anchors to the process (`anchor_to_process()`, called by `main()`), a workspace token resolves on its own, and a call by name on that era over HTTP is refused.
+- `runtime.py` - `SETTINGS`, `SESSION_MANAGER`, `resolve_session()`, and the two calls every tool makes: `require_context(ctx, purpose)` first, `session_for(ctx, name)` for its worker. Read the manager through this module (never `from .runtime import SESSION_MANAGER`) so tests can swap it. Also `client_scope(ctx, session)`, the only place a tool may get its caller's identity: never read `ctx.session_id` directly, because on fastmcp 4's 2026-07-28 protocol era it is a fresh id per call. stdio anchors to the process (`anchor_to_process()`, called by `main()`), a workspace token resolves on its own, and a call by name on that era over HTTP is refused.
 - `gates.py` - The gates between a caller's string and a generated template: `encode_literal`, `validated_expression`, `validated_identifier`, `declare_free_symbols`. Any caller string reaching a template must pass one -- generated code runs under `trusted_policy()`, which permits `sage_eval`.
 - `numeric.py` - Exact-number guards for arguments (`exact_int`, `exact_matrix_entries`, ...): refuse what a JavaScript client has already rounded.
 - `prelude.py` - `sage_prelude()`, the header every generated snippet starts with.
@@ -64,6 +64,12 @@ it was violated:
   deleted, not exempted.
 - Tool names, schemas and descriptions are snapshotted (`tests/test_tool_inventory.py`).
   Changing a tool means regenerating it deliberately: `python -m tests.test_tool_inventory --write`.
+- So is the Sage code every tool sends (`tests/test_generated_code_golden.py`, fixture
+  `tests/fixtures/generated_code.txt`). Changing a template means regenerating it
+  deliberately: `python -m tests.test_generated_code_golden --write` -- and reading the diff.
+- The corpus sweep writes a verdict fingerprint into `doctest-corpus-stats.md`: a SHA-256
+  over every example's verdict and full message. A change to the validator that is meant
+  to be behaviour-preserving must leave it unchanged; one that is not moves it on purpose.
 - Any caller string interpolated into generated Sage must pass `encode_literal`,
   `validated_expression` or `validated_identifier`. Generated code runs under
   `trusted_policy()`, which permits `sage_eval`, so an ungated string is arbitrary

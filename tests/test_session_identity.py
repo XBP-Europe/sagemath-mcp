@@ -27,7 +27,7 @@ import pytest
 from fastmcp.exceptions import ToolError
 
 from sagemath_mcp import runtime, server
-from sagemath_mcp.session import WORKSPACE_TOKEN_PREFIX
+from sagemath_mcp.manager import WORKSPACE_TOKEN_PREFIX
 
 from .conftest import FakeContext
 

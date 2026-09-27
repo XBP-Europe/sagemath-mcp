@@ -6,8 +6,9 @@ import types
 
 import pytest
 
+from sagemath_mcp import scrub_catalog
 from sagemath_mcp._sage_worker import _split_code
-from sagemath_mcp.security import SECURITY_POLICY, SecurityViolation
+from sagemath_mcp.policy import SECURITY_POLICY, SecurityViolation
 
 
 def _run_split(code: str):
@@ -487,7 +488,6 @@ def test_the_denylist_derivation_resolves_lazy_imports(monkeypatch) -> None:
     import importlib
     import types
 
-    from sagemath_mcp import _sage_worker
 
     hidden = types.FunctionType(
         (lambda: None).__code__, {}, "unpickle_global", None, None
@@ -524,9 +524,9 @@ def test_the_denylist_derivation_resolves_lazy_imports(monkeypatch) -> None:
             return fake_sage_all
         return real_import(name, *args, **kwargs)
 
-    monkeypatch.setattr(_sage_worker.importlib, "import_module", only_sage_all)
+    monkeypatch.setattr(scrub_catalog.importlib, "import_module", only_sage_all)
 
-    derived = _sage_worker._dangerous_sage_names()
+    derived = scrub_catalog.dangerous_sage_names()
 
     assert "wrapped_danger" in derived, "a LazyImport hid its provenance again"
     assert "plain_danger" in derived
@@ -935,7 +935,6 @@ def test_star_export_screen_accepts_a_clean_module(monkeypatch):
     import sys
     import types
 
-    from sagemath_mcp import _sage_worker
 
     clean = types.ModuleType("fake.clean")
     clean.__all__ = ["Widget", "gadget"]
@@ -945,7 +944,7 @@ def test_star_export_screen_accepts_a_clean_module(monkeypatch):
     clean.gadget.__module__ = "fake.clean"
     monkeypatch.setitem(sys.modules, "fake.clean", clean)
 
-    screened = _sage_worker._star_export_screen("fake.clean")
+    screened = scrub_catalog.star_export_screen("fake.clean")
     assert screened == frozenset({"Widget", "gadget"})
 
 
@@ -955,7 +954,6 @@ def test_star_export_screen_rejects_a_module_with_any_dangerous_name(monkeypatch
     import sys
     import types
 
-    from sagemath_mcp import _sage_worker
 
     dirty = types.ModuleType("fake.dirty")
     dirty.__all__ = ["Widget", "save_thing"]  # save* is a forbidden prefix
@@ -965,7 +963,7 @@ def test_star_export_screen_rejects_a_module_with_any_dangerous_name(monkeypatch
     dirty.save_thing.__module__ = "fake.dirty"
     monkeypatch.setitem(sys.modules, "fake.dirty", dirty)
 
-    assert _sage_worker._star_export_screen("fake.dirty") is None
+    assert scrub_catalog.star_export_screen("fake.dirty") is None
 
 
 def test_star_export_screen_rejects_a_re_exported_dangerous_object(monkeypatch):
@@ -974,7 +972,6 @@ def test_star_export_screen_rejects_a_re_exported_dangerous_object(monkeypatch):
     import sys
     import types
 
-    from sagemath_mcp import _sage_worker
 
     reexport = types.ModuleType("fake.reexport")
     reexport.__all__ = ["Widget", "borrowed"]
@@ -982,10 +979,10 @@ def test_star_export_screen_rejects_a_re_exported_dangerous_object(monkeypatch):
     reexport.Widget.__module__ = "fake.reexport"
     reexport.borrowed = lambda: None
     # Home is one of the dangerous modules.
-    reexport.borrowed.__module__ = _sage_worker._DANGEROUS_SAGE_MODULES[0]
+    reexport.borrowed.__module__ = scrub_catalog.DANGEROUS_SAGE_MODULES[0]
     monkeypatch.setitem(sys.modules, "fake.reexport", reexport)
 
-    assert _sage_worker._star_export_screen("fake.reexport") is None
+    assert scrub_catalog.star_export_screen("fake.reexport") is None
 
 
 def test_star_export_screen_drops_a_re_exported_module_object(monkeypatch):
@@ -1005,7 +1002,6 @@ def test_star_export_screen_drops_a_re_exported_module_object(monkeypatch):
     import sys
     import types
 
-    from sagemath_mcp import _sage_worker
 
     pivot = types.ModuleType("fake.pivot")
     # `operator` is both a module object AND a forbidden-parent name: it must be
@@ -1017,7 +1013,7 @@ def test_star_export_screen_drops_a_re_exported_module_object(monkeypatch):
     pivot.operator = types.ModuleType("operator")
     monkeypatch.setitem(sys.modules, "fake.pivot", pivot)
 
-    screened = _sage_worker._star_export_screen("fake.pivot")
+    screened = scrub_catalog.star_export_screen("fake.pivot")
     assert screened == frozenset({"Widget"})
     assert "submodule" not in screened
     assert "operator" not in screened
@@ -1029,7 +1025,6 @@ def test_star_export_screen_still_fails_whole_for_a_non_module_danger(monkeypatc
     import sys
     import types
 
-    from sagemath_mcp import _sage_worker
 
     dirty = types.ModuleType("fake.stilldirty")
     dirty.__all__ = ["Widget", "submodule", "save_thing"]  # save* is a write prefix
@@ -1040,13 +1035,12 @@ def test_star_export_screen_still_fails_whole_for_a_non_module_danger(monkeypatc
     dirty.save_thing.__module__ = "fake.stilldirty"
     monkeypatch.setitem(sys.modules, "fake.stilldirty", dirty)
 
-    assert _sage_worker._star_export_screen("fake.stilldirty") is None
+    assert scrub_catalog.star_export_screen("fake.stilldirty") is None
 
 
 def test_star_export_screen_returns_none_for_an_unimportable_module():
-    from sagemath_mcp import _sage_worker
 
-    assert _sage_worker._star_export_screen("nope.not.a.module") is None
+    assert scrub_catalog.star_export_screen("nope.not.a.module") is None
 
 
 def test_star_export_screen_reads_dir_when_all_is_absent(monkeypatch):
@@ -1055,7 +1049,6 @@ def test_star_export_screen_reads_dir_when_all_is_absent(monkeypatch):
     import sys
     import types
 
-    from sagemath_mcp import _sage_worker
 
     mod = types.ModuleType("fake.noall")
     mod.Public = type("Public", (), {})
@@ -1063,7 +1056,7 @@ def test_star_export_screen_reads_dir_when_all_is_absent(monkeypatch):
     mod._private = 1
     monkeypatch.setitem(sys.modules, "fake.noall", mod)
 
-    assert _sage_worker._star_export_screen("fake.noall") == frozenset({"Public"})
+    assert scrub_catalog.star_export_screen("fake.noall") == frozenset({"Public"})
 
 
 def test_star_export_screen_rejects_a_forbidden_export_name(monkeypatch):
@@ -1072,7 +1065,6 @@ def test_star_export_screen_rejects_a_forbidden_export_name(monkeypatch):
     import sys
     import types
 
-    from sagemath_mcp import _sage_worker
 
     mod = types.ModuleType("fake.forbidden")
     mod.__all__ = ["eval"]  # forbidden_attribute_only_names
@@ -1080,7 +1072,7 @@ def test_star_export_screen_rejects_a_forbidden_export_name(monkeypatch):
     mod.eval.__module__ = "fake.forbidden"
     monkeypatch.setitem(sys.modules, "fake.forbidden", mod)
 
-    assert _sage_worker._star_export_screen("fake.forbidden") is None
+    assert scrub_catalog.star_export_screen("fake.forbidden") is None
 
 
 def test_star_export_screen_rejects_a_malformed_all_entry(monkeypatch):
@@ -1089,12 +1081,11 @@ def test_star_export_screen_rejects_a_malformed_all_entry(monkeypatch):
     import sys
     import types
 
-    from sagemath_mcp import _sage_worker
 
     mod = types.ModuleType("fake.malformed")
     mod.__all__ = ["_private"]
     monkeypatch.setitem(sys.modules, "fake.malformed", mod)
-    assert _sage_worker._star_export_screen("fake.malformed") is None
+    assert scrub_catalog.star_export_screen("fake.malformed") is None
 
 
 def test_shield_moves_the_protocol_off_descriptor_one():
@@ -1242,7 +1233,6 @@ def test_star_export_screen_drops_only_the_names_the_review_listed(monkeypatch):
     import sys
     import types
 
-    from sagemath_mcp import _sage_worker
 
     mod = types.ModuleType("fake.reviewed")
     mod.__all__ = ["Matroid", "save_thing"]  # save* is a write prefix: dangerous
@@ -1253,10 +1243,10 @@ def test_star_export_screen_drops_only_the_names_the_review_listed(monkeypatch):
     monkeypatch.setitem(sys.modules, "fake.reviewed", mod)
 
     # Unlisted, the danger still fails the module whole.
-    assert _sage_worker._star_export_screen("fake.reviewed") is None
+    assert scrub_catalog.star_export_screen("fake.reviewed") is None
     # Listed, it is dropped and the mathematics survives.
     dropped: set[str] = set()
-    screened = _sage_worker._star_export_screen(
+    screened = scrub_catalog.star_export_screen(
         "fake.reviewed", expected_drops=frozenset({"save_thing"}), dropped_out=dropped
     )
     assert screened == frozenset({"Matroid"})
@@ -1276,7 +1266,6 @@ def test_star_export_screen_fails_when_a_different_danger_appears(monkeypatch):
     import sys
     import types
 
-    from sagemath_mcp import _sage_worker
 
     mod = types.ModuleType("fake.regressed")
     mod.__all__ = ["Matroid", "save_thing", "gap_thing"]
@@ -1285,11 +1274,11 @@ def test_star_export_screen_fails_when_a_different_danger_appears(monkeypatch):
     mod.save_thing = lambda: None                 # dangerous: write prefix
     mod.save_thing.__module__ = "fake.regressed"
     mod.gap_thing = type("GapThing", (), {})      # dangerous: home module
-    mod.gap_thing.__module__ = next(iter(_sage_worker._DANGEROUS_SAGE_MODULES))
+    mod.gap_thing.__module__ = next(iter(scrub_catalog.DANGEROUS_SAGE_MODULES))
     monkeypatch.setitem(sys.modules, "fake.regressed", mod)
 
     assert (
-        _sage_worker._star_export_screen(
+        scrub_catalog.star_export_screen(
             "fake.regressed", expected_drops=frozenset({"save_thing"})
         )
         is None
@@ -1310,7 +1299,6 @@ def test_a_permitted_drop_that_is_not_needed_changes_nothing(monkeypatch):
     import sys
     import types
 
-    from sagemath_mcp import _sage_worker
 
     mod = types.ModuleType("fake.stale")
     mod.__all__ = ["Matroid"]
@@ -1319,7 +1307,7 @@ def test_a_permitted_drop_that_is_not_needed_changes_nothing(monkeypatch):
     monkeypatch.setitem(sys.modules, "fake.stale", mod)
 
     dropped: set[str] = set()
-    assert _sage_worker._star_export_screen(
+    assert scrub_catalog.star_export_screen(
         "fake.stale", expected_drops=frozenset({"gone_away"}), dropped_out=dropped
     ) == frozenset({"Matroid"})
     assert dropped == set(), "nothing was dangerous, so nothing was dropped"
@@ -1332,18 +1320,17 @@ def test_star_export_screen_drops_a_dangerous_name_by_home_module(monkeypatch):
     import sys
     import types
 
-    from sagemath_mcp import _sage_worker
 
     mod = types.ModuleType("fake.homed")
     mod.__all__ = ["LatinSquare", "libgap_like"]
     mod.LatinSquare = type("LatinSquare", (), {})
     mod.LatinSquare.__module__ = "fake.homed"
     mod.libgap_like = type("GapLike", (), {})
-    mod.libgap_like.__module__ = next(iter(_sage_worker._DANGEROUS_SAGE_MODULES))
+    mod.libgap_like.__module__ = next(iter(scrub_catalog.DANGEROUS_SAGE_MODULES))
     monkeypatch.setitem(sys.modules, "fake.homed", mod)
 
-    assert _sage_worker._star_export_screen("fake.homed") is None
-    assert _sage_worker._star_export_screen(
+    assert scrub_catalog.star_export_screen("fake.homed") is None
+    assert scrub_catalog.star_export_screen(
         "fake.homed", expected_drops=frozenset({"libgap_like"})
     ) == frozenset({"LatinSquare"})
 
@@ -1357,9 +1344,8 @@ def test_star_export_screen_drops_a_dangerous_name_by_name(monkeypatch):
     import sys
     import types
 
-    from sagemath_mcp import _sage_worker
 
-    denied = sorted(_sage_worker._DANGEROUS_BARE_NAMES)[0]
+    denied = sorted(scrub_catalog.DANGEROUS_BARE_NAMES)[0]
     mod = types.ModuleType("fake.named")
     mod.__all__ = ["Matroid", denied]
     mod.Matroid = type("Matroid", (), {})
@@ -1368,8 +1354,8 @@ def test_star_export_screen_drops_a_dangerous_name_by_name(monkeypatch):
     getattr(mod, denied).__module__ = "fake.named"
     monkeypatch.setitem(sys.modules, "fake.named", mod)
 
-    assert _sage_worker._star_export_screen("fake.named") is None
-    assert _sage_worker._star_export_screen(
+    assert scrub_catalog.star_export_screen("fake.named") is None
+    assert scrub_catalog.star_export_screen(
         "fake.named", expected_drops=frozenset({denied})
     ) == frozenset({"Matroid"})
 
@@ -1386,14 +1372,13 @@ def test_star_export_screen_resolves_a_lazy_import_before_judging_it(monkeypatch
     module `sage.coding.codes_catalog` -- the screen handed a caller a module
     object, which is precisely the pivot items 61/62/63 exist to prevent.
 
-    `_dangerous_sage_names` in this same file already resolves lazy imports, in
+    `dangerous_sage_names` in this same file already resolves lazy imports, in
     two places, for exactly this reason. The star screen was the one that
     forgot.
     """
     import sys
     import types
 
-    from sagemath_mcp import _sage_worker
 
     target = types.ModuleType("some.lazily.imported.module")
 
@@ -1411,7 +1396,7 @@ def test_star_export_screen_resolves_a_lazy_import_before_judging_it(monkeypatch
     mod.lazy_module = LazyImport(target)
     monkeypatch.setitem(sys.modules, "fake.lazy", mod)
 
-    screened = _sage_worker._star_export_screen("fake.lazy")
+    screened = scrub_catalog.star_export_screen("fake.lazy")
     assert screened == frozenset({"Widget"}), (
         "a lazily-imported MODULE must be dropped like any other module object"
     )
@@ -1426,9 +1411,8 @@ def test_star_export_screen_sees_through_a_lazy_import_to_a_dangerous_home(monke
     import sys
     import types
 
-    from sagemath_mcp import _sage_worker
 
-    dangerous_home = next(iter(_sage_worker._DANGEROUS_SAGE_MODULES))
+    dangerous_home = next(iter(scrub_catalog.DANGEROUS_SAGE_MODULES))
     unpickler = type("Unpickler", (), {})
     unpickler.__module__ = dangerous_home
 
@@ -1446,7 +1430,7 @@ def test_star_export_screen_sees_through_a_lazy_import_to_a_dangerous_home(monke
     mod.looks_harmless = LazyImport(unpickler)
     monkeypatch.setitem(sys.modules, "fake.lazydanger", mod)
 
-    assert _sage_worker._star_export_screen("fake.lazydanger") is None, (
+    assert scrub_catalog.star_export_screen("fake.lazydanger") is None, (
         "a lazy re-export whose target lives in a dangerous module must fail "
         "the module, exactly as the eager spelling does"
     )
@@ -1463,14 +1447,13 @@ def test_star_export_screen_fails_the_module_when_a_lazy_import_will_not_resolve
     at generation time can hit a circular import, as it did while this was
     being investigated.
 
-    `_dangerous_sage_names` in this file gets the same situation right -- on
+    `dangerous_sage_names` in this file gets the same situation right -- on
     failure it ADDS the name to the danger set. A screen must fail closed
     (REVIEW_ACTIONS 87).
     """
     import sys
     import types
 
-    from sagemath_mcp import _sage_worker
 
     class LazyImport:
         def _get_object(self):
@@ -1483,7 +1466,7 @@ def test_star_export_screen_fails_the_module_when_a_lazy_import_will_not_resolve
     mod.looks_harmless = LazyImport()
     monkeypatch.setitem(sys.modules, "fake.unresolvable", mod)
 
-    assert _sage_worker._star_export_screen("fake.unresolvable") is None, (
+    assert scrub_catalog.star_export_screen("fake.unresolvable") is None, (
         "a lazy import that will not resolve cannot be screened, so the module "
         "must fail rather than be judged on its proxy"
     )

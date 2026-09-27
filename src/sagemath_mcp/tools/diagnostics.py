@@ -20,7 +20,8 @@ from pydantic import Field
 from .. import runtime
 from ..allowlist import ALLOWED_CALLER_NAMES
 from ..app import mcp
-from ..session import DEFAULT_SESSION_NAME, SageEvaluationError, SageProcessError
+from ..errors import SageEvaluationError, SageProcessError
+from ..manager import DEFAULT_SESSION_NAME
 from ..text import SESSION_ARG_DESC as _SESSION_ARG_DESC
 from .hints import COMPUTES, READS
 
@@ -56,12 +57,11 @@ async def check_sage_health(
     exercises the real path -- worker spawn, protocol round trip, evaluation --
     not just process liveness.
     """
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required to check health")
+    runtime.require_context(ctx, "to check health")
     backend = "pure-python" if runtime.SETTINGS.force_python_worker else "sagemath"
     started = time.perf_counter()
     try:
-        sage = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+        sage = await runtime.session_for(ctx, session)
         result = await sage.evaluate(
             "1 + 1",
             want_latex=False,

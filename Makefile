@@ -36,14 +36,14 @@ sage-container:
 # purpose: the generator imports src/sagemath_mcp/allowlist.py, so a single
 # redirect would truncate its own input before it runs. Review the diff --
 # every new name is a name callers can reach.
-# Regenerate the baked denylist from _DANGEROUS_SAGE_MODULES. Adding a module to
+# Regenerate the baked denylist from DANGEROUS_SAGE_MODULES. Adding a module to
 # that tuple does nothing until this runs -- the worker strips by the baked list,
 # not by re-deriving at startup, because deriving resolves Sage's lazy imports
 # and cost 1.8s inside the caller's first evaluation.
 denylist:
 	docker exec sage-mcp bash -lc 'cd /workspace && PYTHONPATH=/workspace/src sage -python scripts/generate_denylist.py --emit' > /tmp/sagemath-mcp-denylist.txt
 	python3 scripts/generate_denylist.py --apply /tmp/sagemath-mcp-denylist.txt
-	@git --no-pager diff --stat src/sagemath_mcp/_sage_worker.py
+	@git --no-pager diff --stat src/sagemath_mcp/scrub_catalog.py
 
 allowlist:
 	docker exec sage-mcp bash -lc 'cd /workspace && sage -python scripts/generate_allowlist.py > /tmp/allowlist_new.py'

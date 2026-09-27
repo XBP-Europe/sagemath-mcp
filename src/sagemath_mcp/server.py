@@ -15,10 +15,8 @@ from . import (
 )
 from .app import mcp
 from .config import DEFAULT_SETTINGS  # noqa: F401 - part of this module's long-standing surface
-from .session import (
-    DEFAULT_SESSION_NAME,
-    SageProcessError,
-)
+from .errors import SageProcessError
+from .manager import DEFAULT_SESSION_NAME
 
 # The tool functions are re-exported here because `sagemath_mcp.server` is the
 # documented import surface: the console script, `python -m sagemath_mcp.server`,
@@ -137,7 +135,7 @@ async def readiness_check(request: object) -> object:
     """
     from starlette.responses import JSONResponse
 
-    from .session import SageEvaluationError
+    from .errors import SageEvaluationError
 
     backend = "pure-python" if runtime.SETTINGS.force_python_worker else "sagemath"
     started = time.perf_counter()

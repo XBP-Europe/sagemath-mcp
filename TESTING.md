@@ -13,11 +13,12 @@ that gap.
 | File | Needs Sage | Covers |
 |------|-----------|--------|
 | `test_session.py` | no | Stateful execution, reset/cancel, timeouts, idle culling |
-| `test_server.py` | no | MCP bindings, progress events, error surfacing, doc resources |
+| `test_server.py` | no | Server-level behaviour: the lifespan and cull loop, the progress heartbeat, the `/health` route |
+| `tools/test_<domain>.py` | no | One file per `tools/` module: each tool's bindings, validation, error surfacing and progress events |
 | `test_security.py` | no | AST policy: blocked imports, calls, attributes |
 | `test_config.py` | no | Environment overrides and invalid values |
 | `test_generated_code_lint.py` | no | Static checks over the Sage code the package generates, and the guard that every caller string reaching a template passes a validation gate |
-| `test_codegen.py` | no | The code-building helpers: distribution moments, matrix and integer guards, validation gates |
+| `test_codegen.py` | no | The code-building helpers: validation gates (`gates.py`), matrix and integer guards (`numeric.py`), the prelude, result reconstruction (`transport.py`), distribution moments |
 | `test_sage_worker.py` | no | Worker protocol, the streaming stdout buffer, interrupt and startup-failure paths |
 | `test_security_bypass.py` | no | Every sandbox escape found so far, each one a regression test |
 | `test_cache_isolation.py` | no | Two clients must not share cached tool responses |

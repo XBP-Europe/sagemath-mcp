@@ -22,12 +22,8 @@ from hypothesis import strategies as st
 
 from sagemath_mcp import runtime, server
 from sagemath_mcp.config import SageSettings
-from sagemath_mcp.session import (
-    DEFAULT_SESSION_NAME,
-    WORKSPACE_TOKEN_PREFIX,
-    SageProcessError,
-    SageSessionManager,
-)
+from sagemath_mcp.errors import SageProcessError
+from sagemath_mcp.manager import DEFAULT_SESSION_NAME, WORKSPACE_TOKEN_PREFIX, SageSessionManager
 
 from .conftest import FakeContext
 
@@ -268,7 +264,8 @@ def test_a_scope_may_not_contain_the_separator() -> None:
     2026-09-21). That is an invariant of a dependency, asserted nowhere here,
     guarding the only thing the key scheme exists to do (REVIEW_ACTIONS 93).
     """
-    from sagemath_mcp.session import SageProcessError, SageSessionManager
+    from sagemath_mcp.errors import SageProcessError
+    from sagemath_mcp.manager import SageSessionManager
 
     with pytest.raises(SageProcessError, match="may not contain"):
         SageSessionManager.key_for("A::x", DEFAULT_SESSION_NAME)
@@ -291,7 +288,7 @@ def test_distinct_workspaces_never_share_a_key(
     Names normalise -- stripped, and empty becomes the default -- so the
     comparison is between normalised pairs, not raw arguments.
     """
-    from sagemath_mcp.session import SageSessionManager
+    from sagemath_mcp.manager import SageSessionManager
 
     def normalised(name: str) -> str:
         return (name or DEFAULT_SESSION_NAME).strip() or DEFAULT_SESSION_NAME
@@ -311,11 +308,8 @@ def test_an_unminted_handle_is_always_refused(name: str) -> None:
     """Fail closed: a handle-shaped name that was never minted must raise, not
     open a fresh workspace under the caller's own scope. Opening one would be
     the worse outcome -- the caller would think they had reached a workspace."""
-    from sagemath_mcp.session import (
-        WORKSPACE_TOKEN_PREFIX,
-        SageProcessError,
-        SageSessionManager,
-    )
+    from sagemath_mcp.errors import SageProcessError
+    from sagemath_mcp.manager import WORKSPACE_TOKEN_PREFIX, SageSessionManager
 
     manager = SageSessionManager()
     handle = WORKSPACE_TOKEN_PREFIX + name

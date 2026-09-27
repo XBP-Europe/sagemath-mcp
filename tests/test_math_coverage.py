@@ -44,7 +44,8 @@ import shutil
 import pytest
 
 from sagemath_mcp import runtime
-from sagemath_mcp.security import SECURITY_POLICY, SecurityViolation, _bound_names, validate_module
+from sagemath_mcp.policy import SECURITY_POLICY, SecurityViolation
+from sagemath_mcp.security import _bound_names, validate_module
 
 requires_sage = pytest.mark.skipif(
     shutil.which("sage") is None, reason="Sage executable not available"
@@ -614,11 +615,11 @@ def test_the_predefined_symbols_are_the_same_everywhere() -> None:
     through `evaluate_sage` did not. Both now read the same constant, and this
     fails if anyone gives one of them its own list again.
     """
-    from sagemath_mcp import codegen
+    from sagemath_mcp.prelude import sage_prelude
     from sagemath_mcp.symbols import PREDEFINED_SYMBOLS
 
     assert PREDEFINED_SYMBOLS == ("x", "y", "z", "t")
-    prelude = codegen._sage_prelude()
+    prelude = sage_prelude()
     for symbol in PREDEFINED_SYMBOLS:
         assert f"'{symbol}'" in prelude, (
             f"the generated prelude no longer declares {symbol!r}, so the tools and "
@@ -805,7 +806,8 @@ def test_a_withheld_name_names_the_spelling_that_works() -> None:
     """
     import ast
 
-    from sagemath_mcp.security import SecurityViolation, validate_module
+    from sagemath_mcp.policy import SecurityViolation
+    from sagemath_mcp.security import validate_module
 
     expected = [
         ("gap('SymmetricGroup(5)')", "SymmetricGroup"),
@@ -980,7 +982,7 @@ async def test_the_tools_declare_a_symbol_the_way_SR_does() -> None:
     """
     from sagemath_mcp import server
     from sagemath_mcp.config import SageSettings
-    from sagemath_mcp.session import SageSessionManager
+    from sagemath_mcp.manager import SageSessionManager
 
     from . import conftest
 
@@ -1032,7 +1034,7 @@ async def test_the_tools_declare_a_symbol_the_way_SR_does() -> None:
 
         # And a typo stays an error rather than becoming a symbol, which is the
         # whole reason this is narrower than SR.
-        from sagemath_mcp.session import SageEvaluationError
+        from sagemath_mcp.errors import SageEvaluationError
 
         for typo in ("sinn(3)", "foobar + 1", "pi2*2"):
             with pytest.raises(SageEvaluationError, match="is not defined"):
@@ -1110,7 +1112,7 @@ async def test_an_unvetted_star_import_stays_refused() -> None:
     """The subsystem is a curated exception, not an opening of imports. A module
     that is not on the list -- and a name a listed module does not export -- are
     both still refused."""
-    from sagemath_mcp.session import SageEvaluationError
+    from sagemath_mcp.errors import SageEvaluationError
 
     session = await _session("starimport-deny")
     try:
@@ -1164,7 +1166,7 @@ async def test_a_dropped_name_is_still_refused_after_its_star_import() -> None:
     them by name afterwards, which is what makes the drop cost the caller
     nothing. If either ever stopped being refused, the drop would be a hole.
     """
-    from sagemath_mcp.session import SageEvaluationError
+    from sagemath_mcp.errors import SageEvaluationError
 
     session = await _session("starimport-dropped-deny")
     try:
@@ -1231,7 +1233,7 @@ async def test_the_third_pass_star_imports_compute() -> None:
     refuses. So this checks both halves again on the new shapes -- the
     mathematics runs, and the dropped name is still refused afterwards.
     """
-    from sagemath_mcp.session import SageEvaluationError
+    from sagemath_mcp.errors import SageEvaluationError
 
     session = await _session("starimport-third-pass")
     try:

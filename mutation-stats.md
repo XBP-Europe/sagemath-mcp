@@ -1,23 +1,24 @@
 # Mutation-testing statistics
 
-The mutation score of the AST security policy (`src/sagemath_mcp/security.py`).
-cosmic-ray applies each deliberate weakening and runs the security suite; a
+The mutation score of the AST security policy (`security.py`, `policy.py`,
+`refusals.py`, `imports.py`). cosmic-ray applies each deliberate weakening
+and runs the security suite; a
 mutant is *killed* when a test fails, *survives* when they all pass. A high
 score means the tests exercise the policy's logic, not just its lines. Never
 CI-gated; run with `make mutation`.
 
-- Generated: 2026-09-06
-- Scope: `src/sagemath_mcp/security.py` (allowlist.py is generated data, guarded
-  by the Sage-agreement integration test instead)
+- Generated: 2026-09-27 (after the 2026-09 refactor)
+- Scope: `security.py`, `policy.py`, `refusals.py`, `imports.py` (allowlist.py
+  is generated data, guarded by the Sage-agreement integration test instead)
 
 | Metric | Value |
 | --- | ---: |
-| Mutants generated | 696 |
-| Mutants run | 696 |
-| Killed | 426 |
-| Surviving | 270 |
-| **Mutation score** | **61.21%** |
-| Survival rate | 38.79% |
+| Mutants generated | 784 |
+| Mutants run | 784 |
+| Killed | 500 |
+| Surviving | 284 |
+| **Mutation score** | **63.78%** |
+| Survival rate | 36.22% |
 
 ## Surviving mutants, by operator
 
@@ -29,21 +30,21 @@ never evaluated, so no test can kill it.
 
 | Operator | Surviving |
 | --- | ---: |
-| `ReplaceBinaryOperator_BitOr` | 209 |
+| `ReplaceBinaryOperator_BitOr` | 220 |
 | `NumberReplacer` | 28 |
-| `ReplaceComparisonOperator` | 13 |
+| `ReplaceComparisonOperator` | 15 |
 | `ReplaceBinaryOperator_Mul` | 4 |
+| `AddNot` | 3 |
 | `ReplaceContinueWithBreak` | 3 |
-| `AddNot` | 2 |
 | `ReplaceTrueWithFalse` | 2 |
+| `ExceptionReplacer` | 2 |
 | `ReplaceFalseWithTrue` | 2 |
 | `ReplaceAndWithOr` | 2 |
 | `ReplaceOrWithAnd` | 2 |
-| `ExceptionReplacer` | 2 |
 | `ReplaceBinaryOperator_Sub` | 1 |
 
-Excluding the 209 equivalent type-annotation mutants, the
-effective mutation score is **87.47%** (426/487).
+Excluding the 220 equivalent type-annotation mutants, the
+effective mutation score is **88.65%** (500/564).
 
 The remaining survivors are a mix: some are still near-equivalent (a
 `== "s"` turned to `is "s"` compares interned strings the same way; a

@@ -15,7 +15,7 @@ make test                          # uv run pytest (pure Python, no Sage needed)
 make integration-test              # pytest inside Sage Docker container
 make build                         # Build wheel + sdist via scripts/build_release.py
 make sage-container                # Bootstrap the Sage Docker container
-uv run pytest tests/test_server.py -k "test_name"  # Run a single test
+uv run pytest tests/tools/test_core.py -k "test_name"  # Run a single test
 ```
 
 Unit tests run with `SAGEMATH_MCP_PURE_PYTHON=1` (uses Python `math` stdlib instead of Sage). Integration tests require `docker exec sage-mcp` and real Sage runtime.
@@ -27,7 +27,7 @@ Ruff with line-length 100, target Python 3.12. Rules: E, F, W, B, UP, ASYNC, RUF
 ## Testing
 
 - All async tests use `@pytest.mark.asyncio` (asyncio_mode is "auto")
-- Tests mirror source modules: `test_server.py`, `test_session.py`, `test_security.py`, `test_config.py`, etc.
+- Tests mirror source modules: `test_server.py`, `test_session.py`, `test_security.py`, `test_config.py`, etc. Tool tests live in `tests/tools/test_<domain>.py`, one per `tools/` module; `tests/stubs.py` holds `StubSession` and `_stub_manager`.
 - `test_integration.py`, `test_use_cases.py` and most of `test_math_coverage.py` require the Sage container
 - Key fixtures: `python_settings` (injects `force_python_worker=True`), `FakeContext` (records progress events; it has no `info`/`warning`/`error` on purpose, because the server sends no MCP log notifications)
 
@@ -37,14 +37,20 @@ Ruff with line-length 100, target Python 3.12. Rules: E, F, W, B, UP, ASYNC, RUF
 
 - `server.py` - Entry point: the `/health` route, `main()`, and the imports that register the tools. Re-exports the tool functions, so `from sagemath_mcp import server` keeps working.
 - `app.py` - The FastMCP object, instructions, lifespan and middleware. Owns `mcp` so tool modules can decorate against it without importing the module that imports them.
-- `runtime.py` - `SETTINGS`, `SESSION_MANAGER` and `resolve_session()`. Read the manager through this module (never `from .runtime import SESSION_MANAGER`) so tests can swap it. Also `client_scope(ctx, session)`, the only place a tool may get its caller's identity: never read `ctx.session_id` directly, because on fastmcp 4's 2026-07-28 protocol era it is a fresh id per call. stdio anchors to the process (`anchor_to_process()`, called by `main()`), a workspace token resolves on its own, and a call by name on that era over HTTP is refused.
-- `codegen.py` - Building the Sage snippets: prelude, literal encoding, the validation gates and the numeric guards. Any caller string reaching a template must pass a gate — generated code runs under `trusted_policy()`, which permits `sage_eval`.
+- `runtime.py` - `SETTINGS`, `SESSION_MANAGER`, `resolve_session()`, and the two calls every tool makes: `require_context(ctx, purpose)` first, `session_for(ctx, name)` for its worker. Read the manager through this module (never `from .runtime import SESSION_MANAGER`) so tests can swap it. Also `client_scope(ctx, session)`, the only place a tool may get its caller's identity: never read `ctx.session_id` directly, because on fastmcp 4's 2026-07-28 protocol era it is a fresh id per call. stdio anchors to the process (`anchor_to_process()`, called by `main()`), a workspace token resolves on its own, and a call by name on that era over HTTP is refused.
+- `gates.py` - The gates between a caller's string and a generated template: `encode_literal`, `validated_expression`, `validated_identifier`, `declare_free_symbols`. Any caller string reaching a template must pass one -- generated code runs under `trusted_policy()`, which permits `sage_eval`.
+- `numeric.py` - Exact-number guards for arguments (`exact_int`, `exact_matrix_entries`, ...): refuse what a JavaScript client has already rounded.
+- `prelude.py` - `sage_prelude()`, the header every generated snippet starts with.
+- `transport.py` - `evaluate_structured()`: run a snippet, record metrics, rebuild the literal answer.
+- `sage_code/` - Sage code kept as source and sent verbatim after its marker line (the `verify_claim` ladder).
 - `tools/` - The 40 tools and 3 resources by domain: `session`, `core`, `calculus`, `algebra`, `discrete`, `stats`, `plotting`, `diagnostics`, `verify`. A module missing from `tools/__init__.py` registers nothing.
-- `session.py` - `SageSessionManager` (per-client session map with asyncio locks) and `SageSession` (spawns/manages `_sage_worker.py` subprocess via JSON stdin/stdout protocol).
+- `session.py` - `SageSession`: one worker subprocess (`_sage_worker.py`), its launch, evaluation over the JSON stdin/stdout protocol, interrupt, restart and shutdown. It mixes in `JournalMixin` (`journal.py`: persisting and replaying the code journal) and `WorkerChannelMixin` (`channel.py`: stdout progress events and matching each response to its request).
+- `manager.py` - `SageSessionManager`: every client's workspaces -- storage keys, workspace-token aliases, admission against `max_sessions`, the warm pool of pre-started spares, culling. `errors.py` holds `SageProcessError` and `SageEvaluationError`.
 - `_sage_worker.py` - Subprocess worker that executes code in a persistent namespace. Handles execute/reset/shutdown commands. Validates AST before compilation.
-- `security.py` - AST validator enforcing `SecurityPolicy`. **Caller code is deny-by-default**: a name is refused unless the allowlist offers it or the caller's own code bound it. On top of that it blocks imports outright, `eval`/`exec`, dunder access, string-path attribute primitives (`attrgetter` and friends, which defeat every AST attribute rule), forbidden modules and known code-executing Sage helpers. Configurable via env vars.
+- `scrub_catalog.py` - What the worker removes from Sage's namespace: `DANGEROUS_SAGE_MODULES`, `DANGEROUS_BARE_NAMES`, the baked `DANGEROUS_SAGE_NAME_LIST` (regenerated by `make denylist`) and `star_export_screen`. The worker applies it; the catalog is data plus derivation.
+- `security.py` - AST validator enforcing `SecurityPolicy`. **Caller code is deny-by-default**: a name is refused unless the allowlist offers it or the caller's own code bound it. On top of that it blocks imports outright, `eval`/`exec`, dunder access, string-path attribute primitives (`attrgetter` and friends, which defeat every AST attribute rule), forbidden modules and known code-executing Sage helpers. `validate_module` is a pre-pass that builds a frozen `_ValidationContext`, then one walk applying the 13 node rules registered by AST type in `_NODE_RULES` -- the order within a type decides the first refusal. Split out of it: `policy.py` (`SecurityPolicy`, its `SAGEMATH_MCP_SECURITY_*` overrides, `trusted_policy`), `refusals.py` (refusal messages and spelling hints) and `imports.py` (`rewrite_permitted_imports`, the curated exception to the import ban).
 - `allowlist.py` - **Generated, never hand-edited.** The names caller code may read, produced from the installed Sage by `scripts/generate_allowlist.py` (`make allowlist`, which writes through a temp file because the generator imports the module it replaces). The generator **classifies rather than accepts**: it fails generation on any surviving name it cannot place as mathematics -- a module object from outside `sage`, or a value of foreign provenance not in `_VETTED_FOREIGN`/`_SAFE_MODULE_NAMES` -- so a dangerous helper a future Sage adds stops the generator with its name instead of being allowlisted silently. An integration test and a weekly job fail when it and the installed Sage disagree.
-- `star_exports.py` - **Generated, never hand-edited.** The curated `from <module> import *` exception to the import ban: internal SageMath modules whose public names are all ordinary mathematics, mapped to the exact names each star may bind. Produced by `scripts/generate_star_exports.py`, which screens each candidate module clean-as-a-whole with `_star_export_screen` (same danger basis as the namespace scrub). `rewrite_permitted_imports` expands a vetted star into these names before validation; nothing is added to the allowlist. `test_the_star_exports_match_this_sage` fails when a Sage upgrade makes a listed module dirty.
+- `star_exports.py` - **Generated, never hand-edited.** The curated `from <module> import *` exception to the import ban: internal SageMath modules whose public names are all ordinary mathematics, mapped to the exact names each star may bind. Produced by `scripts/generate_star_exports.py`, which screens each candidate module clean-as-a-whole with `star_export_screen` (same danger basis as the namespace scrub). `rewrite_permitted_imports` expands a vetted star into these names before validation; nothing is added to the allowlist. `test_the_star_exports_match_this_sage` fails when a Sage upgrade makes a listed module dirty.
 - `symbols.py` - `PREDEFINED_SYMBOLS`, the one source of truth for `x, y, z, t`. Read by the worker, the generated prelude and the refusal message; a test asserts they agree, because them disagreeing is what made the tools and `evaluate_sage` accept different mathematics.
 - `text.py` - Strings shared between the tool modules and the app. They are part of the tool contract, so they live where both can reach them without a cycle.
 - `config.py` - `SageSettings` dataclass driven by `SAGEMATH_MCP_*` environment variables.
@@ -58,19 +64,25 @@ it was violated:
   deleted, not exempted.
 - Tool names, schemas and descriptions are snapshotted (`tests/test_tool_inventory.py`).
   Changing a tool means regenerating it deliberately: `python -m tests.test_tool_inventory --write`.
-- Any caller string interpolated into generated Sage must pass `_encode_literal`,
-  `_validated_expression` or `_validated_identifier`. Generated code runs under
+- So is the Sage code every tool sends (`tests/test_generated_code_golden.py`, fixture
+  `tests/fixtures/generated_code.txt`). Changing a template means regenerating it
+  deliberately: `python -m tests.test_generated_code_golden --write` -- and reading the diff.
+- The corpus sweep writes a verdict fingerprint into `doctest-corpus-stats.md`: a SHA-256
+  over every example's verdict and full message. A change to the validator that is meant
+  to be behaviour-preserving must leave it unchanged; one that is not moves it on purpose.
+- Any caller string interpolated into generated Sage must pass `encode_literal`,
+  `validated_expression` or `validated_identifier`. Generated code runs under
   `trusted_policy()`, which permits `sage_eval`, so an ungated string is arbitrary
   execution. A structural test enforces this.
 - `evaluate_sage` preparses caller code (Sage semantics: `2^3` is 8; `x`, `y`, `z`, `t` predefined). Shared indentation is stripped first, so a snippet pasted out of a markdown block is accepted.
   Generated templates are **not** preparsed and must not use `^` — a lint enforces that.
 - The worker strips Sage helpers that execute, compile, fetch or pickle, plus every
-  external CAS interface, from a baked-in list; an integration test re-derives it
+  external CAS interface, from a baked-in list (`scrub_catalog.py`); an integration test re-derives it
   from the installed Sage so a version bump cannot reopen the hole.
 - The allowlist is generated, not written. Regenerate with `make allowlist` and
   **review every added name** -- a new helper that compiles, spawns or writes
-  belongs in `_DANGEROUS_BARE_NAMES` instead. A provenance entry in
-  `_DANGEROUS_SAGE_MODULES` that matches no names fails an integration test:
+  belongs in `DANGEROUS_BARE_NAMES` instead. A provenance entry in
+  `DANGEROUS_SAGE_MODULES` that matches no names fails an integration test:
   `sage.libs.pari.all` was added once and removed nothing, because that
   derivation only takes names *defined* in the module.
 - `tests/test_math_coverage.py` is the counterweight to the security suite.

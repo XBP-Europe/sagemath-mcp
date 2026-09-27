@@ -20,21 +20,16 @@ from pydantic import Field
 
 from .. import monitoring, runtime
 from ..app import mcp
-from ..codegen import (
-    _encode_literal,
-    _evaluate_structured,
-    _sage_prelude,
-)
 from ..config import DEFAULT_SETTINGS
+from ..errors import SageEvaluationError, SageProcessError
+from ..gates import encode_literal
+from ..manager import DEFAULT_SESSION_NAME
 from ..models import (
     EvaluateResult,
 )
-from ..session import (
-    DEFAULT_SESSION_NAME,
-    SageEvaluationError,
-    SageProcessError,
-)
+from ..prelude import sage_prelude
 from ..text import SESSION_ARG_DESC as _SESSION_ARG_DESC
+from ..transport import evaluate_structured
 from .hints import COMPUTES, EVALUATES
 
 LOGGER = logging.getLogger(__name__)
@@ -108,8 +103,7 @@ async def evaluate_sage(
     ctx: Context | None = None,
 ) -> EvaluateResult:
     """Run SageMath code, preserving state within the caller's MCP session."""
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
+    runtime.require_context(ctx, "for stateful execution")
     # Compute the key once and reuse it. Cancelling used to pass ctx.session_id,
     # which restarts the DEFAULT workspace: cancelling work in 'curves' destroyed
     # unrelated default state while the curves worker kept running.
@@ -203,14 +197,13 @@ async def calculate_expression(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    runtime.require_context(ctx, "for stateful execution")
+    session = await runtime.session_for(ctx, session)
     code = (
-        _sage_prelude()
+        sage_prelude()
         + textwrap.dedent(
             f"""
-        _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
+        _expr = sage_eval({encode_literal(expression)}, locals=_locals)
         if hasattr(_expr, 'n'):
             try:
                 _numeric = float(_expr.n())
@@ -228,7 +221,7 @@ async def calculate_expression(
         """
         )
     )
-    payload = await _evaluate_structured(session, code)
+    payload = await evaluate_structured(session, code)
     if not isinstance(payload, dict):
         return {"string": str(payload)}
     return payload
@@ -240,19 +233,18 @@ async def simplify_expression(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    runtime.require_context(ctx, "for stateful execution")
+    session = await runtime.session_for(ctx, session)
     code = (
-        _sage_prelude()
+        sage_prelude()
         + textwrap.dedent(
             f"""
-        _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
+        _expr = sage_eval({encode_literal(expression)}, locals=_locals)
         str(simplify(_expr))
         """
         )
     )
-    result = await _evaluate_structured(session, code)
+    result = await evaluate_structured(session, code)
     return {"simplified": result}
 
 
@@ -262,19 +254,18 @@ async def expand_expression(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    runtime.require_context(ctx, "for stateful execution")
+    session = await runtime.session_for(ctx, session)
     code = (
-        _sage_prelude()
+        sage_prelude()
         + textwrap.dedent(
             f"""
-        _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
+        _expr = sage_eval({encode_literal(expression)}, locals=_locals)
         str(expand(_expr))
         """
         )
     )
-    result = await _evaluate_structured(session, code)
+    result = await evaluate_structured(session, code)
     return {"expanded": result}
 
 
@@ -284,19 +275,18 @@ async def factor_expression(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    runtime.require_context(ctx, "for stateful execution")
+    session = await runtime.session_for(ctx, session)
     code = (
-        _sage_prelude()
+        sage_prelude()
         + textwrap.dedent(
             f"""
-        _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
+        _expr = sage_eval({encode_literal(expression)}, locals=_locals)
         str(factor(_expr))
         """
         )
     )
-    result = await _evaluate_structured(session, code)
+    result = await evaluate_structured(session, code)
     return {"factored": result}
 
 
@@ -318,9 +308,8 @@ async def find_root(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    runtime.require_context(ctx, "for stateful execution")
+    session = await runtime.session_for(ctx, session)
     # An equation is what a caller reaches for when the problem is stated as one
     # -- Kepler's `E - e sin E = M`, a matching condition, a threshold. Every
     # model tried it, and `sage_eval` answered "invalid syntax (<string>, line
@@ -328,11 +317,11 @@ async def find_root(
     # accepted the form; this splits the same way, and only after the plain
     # expression fails to parse, so `f(x, base=2) - 1` is untouched.
     code = (
-        _sage_prelude([variable])
+        sage_prelude([variable])
         + textwrap.dedent(
             f"""
-        _var = var({_encode_literal(variable)})
-        _text = {_encode_literal(expression)}
+        _var = var({encode_literal(variable)})
+        _text = {encode_literal(expression)}
         try:
             _expr = sage_eval(_text, locals=_locals)
         except SyntaxError:
@@ -346,7 +335,7 @@ async def find_root(
         """
         )
     )
-    result = await _evaluate_structured(session, code)
+    result = await evaluate_structured(session, code)
     return {"root": result}
 
 
@@ -365,9 +354,8 @@ async def evaluate_sage_streaming(
     ctx: Context | None = None,
 ) -> EvaluateResult:
     """Like evaluate_sage but emits each stdout line as a progress event."""
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required")
-    sage_session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    runtime.require_context(ctx)
+    sage_session = await runtime.session_for(ctx, session)
 
     # Forward each line the moment the worker produces it. This used to await
     # the whole evaluation and only then split the accumulated stdout, so a

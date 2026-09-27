@@ -27,7 +27,7 @@ from fastmcp.exceptions import ToolError
 
 from sagemath_mcp import runtime, server
 from sagemath_mcp.config import SageSettings
-from sagemath_mcp.session import SageSessionManager
+from sagemath_mcp.manager import SageSessionManager
 
 
 @pytest.fixture

@@ -16,17 +16,17 @@ from pydantic import Field
 
 from .. import monitoring, runtime
 from ..app import mcp
+from ..manager import (
+    DEFAULT_SESSION_NAME,
+    WORKSPACE_TOKEN_PREFIX,
+    SageSessionManager,
+)
 from ..models import (
     DocumentationLink,
     MonitoringSnapshot,
     ResetResponse,
     SessionSnapshot,
     WorkspaceHandle,
-)
-from ..session import (
-    DEFAULT_SESSION_NAME,
-    WORKSPACE_TOKEN_PREFIX,
-    SageSessionManager,
 )
 from ..text import SESSION_ARG_DESC as _SESSION_ARG_DESC
 from ..text import loggable_session
@@ -60,8 +60,7 @@ async def reset_sage_session(
     ctx: Context | None = None,
 ) -> ResetResponse:
     """Reset the Sage session associated with the current MCP session."""
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required to reset state")
+    runtime.require_context(ctx, "to reset state")
     key = runtime.SESSION_MANAGER.resolve_key(runtime.client_scope(ctx, session), session)
     await runtime.SESSION_MANAGER.reset(key)
     return ResetResponse()
@@ -81,8 +80,7 @@ async def interrupt_sage_session(
     discards every variable, which is the worse outcome when the state was
     expensive to build.
     """
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required to interrupt work")
+    runtime.require_context(ctx, "to interrupt work")
     key = runtime.SESSION_MANAGER.resolve_key(runtime.client_scope(ctx, session), session)
     interrupted = await runtime.SESSION_MANAGER.interrupt(key)
     if not interrupted:
@@ -105,8 +103,7 @@ async def cancel_sage_session(
     This discards the namespace. Use interrupt_sage_session to stop a
     computation while keeping it.
     """
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required to cancel work")
+    runtime.require_context(ctx, "to cancel work")
     key = runtime.SESSION_MANAGER.resolve_key(runtime.client_scope(ctx, session), session)
     await runtime.SESSION_MANAGER.cancel(key)
     return ResetResponse(message="Session cancelled and restarted")
@@ -133,8 +130,7 @@ async def start_sage_session(
     is unguessable and must be kept secret. The workspace also remains reachable
     the old way, by `name`, within this transport session.
     """
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required to start a session")
+    runtime.require_context(ctx, "to start a session")
     if not name.strip():
         raise ToolError("Session name must not be empty")
     if name.strip().startswith(WORKSPACE_TOKEN_PREFIX):
@@ -157,8 +153,7 @@ async def start_sage_session(
 @mcp.tool(annotations=READS, description="List the named Sage workspaces belonging to this client")
 async def list_sage_sessions(ctx: Context | None = None) -> dict:
     """Report every workspace for this client, with liveness and statement counts."""
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required to list sessions")
+    runtime.require_context(ctx, "to list sessions")
     sessions = await runtime.SESSION_MANAGER.list_for_scope(runtime.client_scope(ctx))
     return {"sessions": sessions, "count": len(sessions)}
 
@@ -169,8 +164,7 @@ async def stop_sage_session(
     ctx: Context | None = None,
 ) -> ResetResponse:
     """Terminate one workspace. Other workspaces are unaffected."""
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required to stop a session")
+    runtime.require_context(ctx, "to stop a session")
     stopped = await runtime.SESSION_MANAGER.stop(runtime.client_scope(ctx, name), name)
     if not stopped:
         raise ToolError(f"No Sage session named {_loggable(name)} for this client")

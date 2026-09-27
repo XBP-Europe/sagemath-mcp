@@ -7,7 +7,7 @@ the app can reach them without importing each other.
 
 from __future__ import annotations
 
-from .session import DEFAULT_SESSION_NAME, WORKSPACE_TOKEN_PREFIX
+from .manager import DEFAULT_SESSION_NAME, WORKSPACE_TOKEN_PREFIX
 
 SESSION_ARG_DESC = (
     "Workspace to use, as a name or a portable handle. Workspaces have "

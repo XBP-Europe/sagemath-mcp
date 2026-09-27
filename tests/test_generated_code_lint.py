@@ -152,6 +152,34 @@ def test_no_caret_in_generated_python(server_tree: ast.Module) -> None:
     )
 
 
+SAGE_CODE_DIR = ROOT / "src" / "sagemath_mcp" / "sage_code"
+SAGE_CODE_MARK = "# --- sent to Sage from the next line ---\n"
+
+
+def test_no_xor_operator_in_the_sage_code_files() -> None:
+    """The rule above, for Sage code kept as source rather than in a string.
+
+    `sage_code/*.py` is sent to the worker verbatim and run as plain Python,
+    so a `^` there is the XOR operator and the lint above -- which reads
+    string constants -- would never see it.
+    """
+    files = sorted(SAGE_CODE_DIR.glob("*.py"))
+    assert files, "no Sage code files found; the check is looking in the wrong place"
+    offenders = [
+        f"{path.name}:{node.lineno}"
+        for path in files
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+        if isinstance(node, ast.BitXor)
+    ]
+    assert not offenders, "'^' is XOR in generated Python; use '**':\n  " + "\n  ".join(offenders)
+
+
+def test_each_sage_code_file_has_one_marker() -> None:
+    """The loader sends what follows the marker; two markers would send less."""
+    for path in sorted(SAGE_CODE_DIR.glob("*.py")):
+        assert path.read_text(encoding="utf-8").count(SAGE_CODE_MARK) == 1, path.name
+
+
 def test_no_sage_save_to_buffer(server_source: str) -> None:
     """Sage's save() needs a path and rejects a BytesIO.
 
@@ -205,7 +233,7 @@ def test_every_documented_example_is_exercised(server_tree: ast.Module) -> None:
 
     corpus = "\n".join(
         path.read_text(encoding="utf-8")
-        for path in sorted(TESTS_DIR.glob("test_*.py"))
+        for path in sorted(TESTS_DIR.rglob("test_*.py"))
     )
 
     missing = sorted(example for example in examples if example not in corpus)
@@ -231,7 +259,8 @@ def test_readme_security_table_matches_the_policy() -> None:
     """Every protection the README advertises must actually be enforced."""
     import ast as _ast
 
-    from sagemath_mcp.security import SECURITY_POLICY, SecurityViolation, validate_module
+    from sagemath_mcp.policy import SECURITY_POLICY, SecurityViolation
+    from sagemath_mcp.security import validate_module
 
     def rejects(code: str) -> bool:
         try:
@@ -274,7 +303,7 @@ def test_the_docs_document_the_modules_the_policy_blocks() -> None:
     is a front door that summarises and links to it), so that is where every
     forbidden module must be named.
     """
-    from sagemath_mcp.security import SECURITY_POLICY
+    from sagemath_mcp.policy import SECURITY_POLICY
 
     usage = (Path(__file__).resolve().parents[1] / "USAGE.md").read_text(encoding="utf-8")
     missing = [
@@ -298,17 +327,17 @@ def test_no_caller_string_is_interpolated_into_generated_code_unguarded() -> Non
     """
     import ast as _ast
 
-    # _declare_free_symbols does not embed the string; it derives `var(...)`
+    # declare_free_symbols does not embed the string; it derives `var(...)`
     # declarations from the identifiers inside it.
     gates = {
-        "_encode_literal",
-        "_validated_expression",
-        "_validated_identifier",
-        "_declare_free_symbols",
-        "_exact_int",
-        "_reject_if_inexact",
+        "encode_literal",
+        "validated_expression",
+        "validated_identifier",
+        "declare_free_symbols",
+        "exact_int",
+        "reject_if_inexact",
         # Returns numbers or raises: no string survives it into generated code.
-        "_exact_matrix_entries",
+        "exact_matrix_entries",
     }
     # Interpolation into a message is not interpolation into code.
     message_sinks = {
@@ -351,7 +380,7 @@ def test_no_caller_string_is_interpolated_into_generated_code_unguarded() -> Non
             if isinstance(node, _ast.Compare) and isinstance(node.left, _ast.Name):
                 if any(isinstance(op, (_ast.NotIn, _ast.In)) for op in node.ops):
                     str_params.discard(node.left.id)
-        # Names rebound from a gate are laundered: `graph = _validated_expression(graph)`.
+        # Names rebound from a gate are laundered: `graph = validated_expression(graph)`.
         for node in _ast.walk(fn):
             if isinstance(node, _ast.Assign):
                 called = {
@@ -553,6 +582,12 @@ def test_no_helper_interpolates_a_parameter_into_generated_code_unguarded() -> N
             "anything else before the lookup. Two locks, neither of them this "
             "test."
         ),
+        # Moved here from codegen.py in the 2026-09 refactor. Both interpolate
+        # `distribution` only into the ToolError they raise for an unsupported
+        # one; what they return is a float, and the tool puts nothing but
+        # `float(<that float>)` into the generated code.
+        ("stats.py", "_distribution_mean"): "interpolates only into its ToolError message",
+        ("stats.py", "_distribution_variance"): "interpolates only into its ToolError message",
         ("prompts.py", "prove_and_verify"): "an MCP prompt: text for the model, not code",
         ("prompts.py", "solve_and_check"): "an MCP prompt: text for the model, not code",
         ("prompts.py", "explore_object"): "an MCP prompt: text for the model, not code",

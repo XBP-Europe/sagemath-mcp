@@ -14,9 +14,9 @@ same one described in ``docs/passagemath_evaluation.md``. Every consumer imports
 ``ALLOWED_CALLER_NAMES`` and ``STAR_EXPORTS`` from here, so nothing downstream
 needs to know which runtime it is on.
 
-The baked denylist (``_DANGEROUS_SAGE_NAME_LIST`` in ``_sage_worker.py``) does
+The baked denylist (``DANGEROUS_SAGE_NAME_LIST`` in ``scrub_catalog.py``) does
 *not* need a second copy: passagemath's danger set is covered by the monolithic
-baked list plus the hand-maintained ``_DANGEROUS_BARE_NAMES`` (which carries the
+baked list plus the hand-maintained ``DANGEROUS_BARE_NAMES`` (which carries the
 one passagemath-only name, ``commence_startup``), so the same strip is correct
 on both -- names absent from a runtime are simply not there to strip.
 """

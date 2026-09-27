@@ -23,7 +23,7 @@ USAGE = (ROOT / "USAGE.md").read_text(encoding="utf-8")
 #: The modules that read configuration from the environment.
 _SOURCES = (
     "config.py",
-    "security.py",
+    "policy.py",
     "session.py",
     "server.py",
     "app.py",

@@ -4,7 +4,7 @@ Caller imports are refused by default. This file is the curated exception: a
 hand-reviewed list of internal SageMath modules whose `from <module> import *`
 is safe because every public name they export is ordinary mathematics. The
 generator screens each candidate against the same danger basis the namespace
-scrub uses (`_star_export_screen` in `_sage_worker.py`) and writes only the
+scrub uses (`star_export_screen` in `scrub_catalog.py`) and writes only the
 modules that pass whole -- clean-modules-only, never a filtered subset.
 
     docker exec sage-mcp bash -lc 'cd /workspace && sage -python \
@@ -32,7 +32,7 @@ the module whole, and a listed name the module does not export simply goes
 unused (the generator says so on stderr, because the two runtimes differ --
 passagemath's `sage.matroids.advanced` re-exports no `lazy_import`). What each
 runtime actually dropped is written into its own generated file, which is what
-the drift test re-checks. See `_star_export_screen` and REVIEW_ACTIONS item 77.
+the drift test re-checks. See `star_export_screen` and REVIEW_ACTIONS item 77.
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ from __future__ import annotations
 import sys
 import textwrap
 
-from sagemath_mcp._sage_worker import _star_export_screen
+from sagemath_mcp.scrub_catalog import star_export_screen
 
 # Curated candidates: internal modules the doctest corpus star-imports and whose
 # mathematics is otherwise unreachable. Each is admitted only if it screens
@@ -235,7 +235,7 @@ def main() -> int:
     drops: dict[str, frozenset[str]] = {}
     for module_name, expected_drops in CANDIDATE_MODULES.items():
         dropped: set[str] = set()
-        screened = _star_export_screen(
+        screened = star_export_screen(
             module_name, expected_drops=expected_drops, dropped_out=dropped
         )
         if not screened:

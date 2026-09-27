@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import ast
 import collections
+import hashlib
 import os
 import re
 import shutil
@@ -123,6 +124,21 @@ class Harvest:
     unparsed: int = 0
     reasons: collections.Counter = field(default_factory=collections.Counter)
     samples: dict[str, list[str]] = field(default_factory=lambda: collections.defaultdict(list))
+    # One SHA-256 over every example's outcome, in sweep order: where it is
+    # (file, docstring, position) and what happened, with a refusal's FULL
+    # message rather than the generalised rule. The per-rule counts can stay
+    # equal while individual verdicts trade places; this cannot. It is what
+    # makes a refactor of the validator checkable (REFACTOR_PLAN.md): the
+    # fingerprint before and after must be identical. A hash, so no corpus
+    # text leaves the sweep.
+    digest: object = field(default_factory=hashlib.sha256, repr=False)
+
+    def record(self, where: str, outcome: str) -> None:
+        self.digest.update(f"{where}\x1f{outcome}\n".encode())
+
+    @property
+    def fingerprint(self) -> str:
+        return self.digest.hexdigest()
 
     @property
     def in_scope(self) -> int:
@@ -170,6 +186,11 @@ def stats_markdown(result: Harvest, library: Path) -> str:
         "",
         f"- Generated: {stamp}",
         f"- SageMath: {sage_version} (`{library}`)",
+        f"- Verdict fingerprint: `{result.fingerprint}`",
+        "",
+        "The fingerprint is a SHA-256 over every example's outcome, refusal",
+        "messages in full. It changes whenever any single verdict changes, even",
+        "when every count above stays the same.",
         "",
         "| Metric | Value |",
         "| --- | ---: |",
@@ -318,14 +339,19 @@ def _generalise(message: str) -> str:
     return re.sub(r"\d+", "N", collapsed).split(".")[0][:88]
 
 
-def harvest(paths: list[Path]) -> Harvest:
-    """Push every doctest example in *paths* through preparse + validate."""
+def harvest(paths: list[Path], root: Path | None = None) -> Harvest:
+    """Push every doctest example in *paths* through preparse + validate.
+
+    *root* makes the fingerprint's file keys relative, so the same library
+    installed at a different path fingerprints the same.
+    """
     from sage.repl.preparse import preparse
 
     result = Harvest()
     for path in paths:
         result.files += 1
-        for block in _docstrings(path):
+        key = path.relative_to(root).as_posix() if root else path.name
+        for block_index, block in enumerate(_docstrings(path)):
             result.blocks += 1
             # Names the block has created so far. Collected from *every*
             # example including the excluded ones: `from x import y` is out of
@@ -340,13 +366,15 @@ def harvest(paths: list[Path]) -> Harvest:
             # excluded example: the injection was written, and the block's
             # later reads are of the names it makes.
             session_injected = False
-            for source in _examples(block):
+            for example_index, source in enumerate(_examples(block)):
                 result.examples += 1
+                where = f"{key}:{block_index}:{example_index}"
                 try:
                     prepared = preparse(source)
                     module = ast.parse(prepared)
                 except (SyntaxError, ValueError, RecursionError, TypeError):
                     result.unparsed += 1
+                    result.record(where, "unparsed")
                     continue
                 bound |= _bound_names(module)
                 star = _STAR_IMPORT.match(source)
@@ -364,6 +392,7 @@ def harvest(paths: list[Path]) -> Harvest:
                 if label:
                     result.excluded += 1
                     result.reasons[f"excluded:{label}"] += 1
+                    result.record(where, f"excluded:{label}")
                     continue
                 # Model the two evaluate_sage niceties the worker adds and this
                 # static walk otherwise misses (items 64/65), so the sweep counts
@@ -380,14 +409,17 @@ def harvest(paths: list[Path]) -> Harvest:
                         session_injects_names=session_injected,
                     )
                     result.accepted += 1
+                    result.record(where, "accepted")
                 except SecurityViolation as exc:
                     result.refused += 1
+                    result.record(where, f"refused:{exc}")
                     reason = f"refused:{_generalise(str(exc))}"
                     result.reasons[reason] += 1
                     if len(result.samples[reason]) < 3:
                         result.samples[reason].append(f"{path.name}: {source[:90]}")
                 except RecursionError:
                     result.unparsed += 1
+                    result.record(where, "unparsed")
     return result
 
 
@@ -400,7 +432,7 @@ def corpus() -> Harvest:
     sources = sorted(library.rglob("*.py")) + sorted(library.rglob("*.pyx"))
     if len(sources) < 500:  # pragma: no cover - integration only
         pytest.skip(f"only {len(sources)} Sage sources found; not a full installation")
-    result = harvest(sources)
+    result = harvest(sources, root=library)
     write_stats(result, library)
     return result
 

@@ -1,0 +1,2696 @@
+=== <<PRELUDE>>
+
+from sage.all import *
+from sage.all import sage_eval
+
+class _SymbolLocals(dict):
+    # SageMath declares a variable when it *parses a string* into the
+    # symbolic ring -- `SR("a*b + a")` creates `a` and `b` -- and not
+    # when it runs code, where `w + 1` is a NameError. These tools take
+    # a mathematical expression as a string, which is SR's contract, so
+    # they behave like SR.
+    #
+    # Narrower than SR in one way that matters. SR will invent any
+    # identifier: `SR("sinn(x)")` returns `sinn(x)` and `SR("pi2*2")`
+    # returns `2*pi2`, so a typo becomes a symbol and the caller gets a
+    # confident wrong answer. Only symbol-shaped names are declared here
+    # -- a letter with an optional index, or a Greek name -- so `a`,
+    # `b`, `w` and `x_2` are variables and `sinn`, `foobar` and `pi2`
+    # are still errors.
+    #
+    # The Greek alphabet is here as letters as well as names, because
+    # that is how a physicist writes it -- but only the letters
+    # SageMath does not already define: five of them are its gamma,
+    # zeta, pi, sigma and psi, and shadowing those was a real
+    # regression before the allowlist filtered them out.
+    #
+    # KeyError rather than a symbol is the important branch: it is what
+    # lets the lookup fall through to the namespace, so `matrix`, `QQ`
+    # and `sin` resolve normally.
+    _excluded = frozenset(['D', 'E', 'I', 'J0', 'J1', 'N', 'O', 'beta', 'e', 'eta', 'gamma', 'i', 'n', 'psi', 'sigma', 't', 'tau', 'x', 'y', 'z', 'zeta', 'Γ', 'ζ', 'π', 'σ', 'ψ'])
+    _greek = frozenset(['alpha', 'beta', 'chi', 'delta', 'epsilon', 'eta', 'gamma', 'iota', 'kappa', 'lamda', 'mu', 'nu', 'omega', 'omicron', 'phi', 'psi', 'rho', 'sigma', 'tau', 'theta', 'upsilon', 'xi', 'zeta', 'Α', 'Β', 'Δ', 'Ε', 'Ζ', 'Η', 'Θ', 'Ι', 'Κ', 'Λ', 'Μ', 'Ν', 'Ξ', 'Ο', 'Π', 'Ρ', 'Σ', 'Τ', 'Υ', 'Φ', 'Χ', 'Ψ', 'Ω', 'α', 'β', 'γ', 'δ', 'ε', 'η', 'θ', 'ι', 'κ', 'λ', 'μ', 'ν', 'ξ', 'ο', 'ρ', 'ς', 'τ', 'υ', 'φ', 'χ', 'ω', 'ϑ', 'ϕ', 'ϖ', 'ϱ', 'ϵ'])
+
+    def __missing__(self, name):
+        if name in self._excluded or name.startswith('_'):
+            raise KeyError(name)
+        shaped = name in self._greek
+        if not shaped:
+            body = name.replace('_', '', 1) if '_' in name[1:] else name
+            # ASCII, mirroring `_SYMBOL_SHAPE` on the Python side: a
+            # letter, then an optional underscore and digit. Python's
+            # `isalpha()` is true for the Greek letters too,
+            # so without the ascii test this declared a fresh symbol
+            # for SageMath's own pi and turned `pi.n()` into "cannot
+            # evaluate symbolic expression numerically". Two
+            # implementations of one rule, disagreeing. The Greek
+            # letters come back through the set above, filtered.
+            head = body[:1]
+            shaped = (
+                len(body) <= 2 and head.isascii() and head.isalpha()
+                and (len(body) == 1 or body[1:].isdigit())
+            )
+        if not shaped:
+            raise KeyError(name)
+        created = var(name)
+        self[name] = created
+        return created
+
+_locals = _SymbolLocals({name: var(name) for name in ['x', 'y', 'z', 't']})
+
+=== evaluate_sage [call 1] trusted=False
+a = 2^10
+a + 1
+
+=== evaluate_sage_streaming [call 1] trusted=False
+print(1)
+
+=== calculate_expression [call 1] trusted=True
+<<PRELUDE>>
+
+_expr = sage_eval("2^10 + sqrt(2)", locals=_locals)
+if hasattr(_expr, 'n'):
+    try:
+        _numeric = float(_expr.n())
+    except (TypeError, ValueError):
+        _numeric = None
+else:
+    try:
+        _numeric = float(_expr)
+    except (TypeError, ValueError):
+        _numeric = None
+_payload = {'string': str(_expr)}
+if _numeric is not None:
+    _payload['numeric'] = _numeric
+_payload
+
+=== simplify_expression [call 1] trusted=True
+<<PRELUDE>>
+
+_expr = sage_eval("sin(x)^2 + cos(x)^2", locals=_locals)
+str(simplify(_expr))
+
+=== expand_expression [call 1] trusted=True
+<<PRELUDE>>
+
+_expr = sage_eval("(x + y)^3", locals=_locals)
+str(expand(_expr))
+
+=== factor_expression [call 1] trusted=True
+<<PRELUDE>>
+
+_expr = sage_eval("x^2 - 1", locals=_locals)
+str(factor(_expr))
+
+=== find_root [call 1] trusted=True
+<<PRELUDE>>
+
+_var = var("x")
+_text = "cos(x) - x"
+try:
+    _expr = sage_eval(_text, locals=_locals)
+except SyntaxError:
+    _sep = '==' if '==' in _text else '='
+    _sides = _text.split(_sep)
+    if len(_sides) != 2:
+        raise
+    _expr = (sage_eval(_sides[0].strip(), locals=_locals)
+             - sage_eval(_sides[1].strip(), locals=_locals))
+float(find_root(_expr, 0, 1))
+
+=== solve_equation [call 1] trusted=True
+<<PRELUDE>>
+
+_vars = [var(v) for v in ["x"]]
+_eqs = []
+for _eq_str in ["x^2 - 2 = 0"]:
+    parts = _eq_str.split('=')
+    if len(parts) == 2:
+        left = sage_eval(parts[0].strip(), locals=_locals)
+        right = sage_eval(parts[1].strip(), locals=_locals)
+        _eqs.append(left == right)
+    else:
+        _eqs.append(sage_eval(_eq_str, locals=_locals))
+if len(_eqs) == 1 and len(_vars) == 1:
+    _solutions = solve(_eqs[0], _vars[0])
+else:
+    _solutions = solve(_eqs, _vars)
+[str(sol) for sol in _solutions]
+
+=== differentiate_expression [call 1] trusted=True
+<<PRELUDE>>
+
+_var = var("x")
+_expr = sage_eval("sin(x)*x", locals=_locals)
+str(diff(_expr, _var, 2))
+
+=== integrate_indefinite [call 1] trusted=True
+<<PRELUDE>>
+
+_var = var("x")
+_expr = sage_eval("x^2", locals=_locals)
+str(integrate(_expr, _var))
+
+=== integrate_definite [call 1] trusted=True
+<<PRELUDE>>
+
+_var = var("x")
+_expr = sage_eval("x^2", locals=_locals)
+
+_lb = sage_eval("0", locals=_locals)
+_ub = sage_eval("1", locals=_locals)
+str(integrate(_expr, _var, _lb, _ub))
+
+=== limit_expression [call 1] trusted=True
+<<PRELUDE>>
+
+_var = var("x")
+_expr = sage_eval("sin(x)/x", locals=_locals)
+
+_point = sage_eval("0", locals=_locals)
+str(limit(_expr, _var, _point))
+
+=== limit_one_sided [call 1] trusted=True
+<<PRELUDE>>
+
+_var = var("x")
+_expr = sage_eval("1/x", locals=_locals)
+
+_point = sage_eval("0", locals=_locals)
+str(limit(_expr, _var, _point, dir="plus"))
+
+=== series_expansion [call 1] trusted=True
+<<PRELUDE>>
+
+_var = var("x")
+_expr = sage_eval("exp(x)", locals=_locals)
+
+_point = sage_eval("0", locals=_locals)
+str(_expr.series(_var == _point, 4))
+
+=== symbolic_sum [call 1] trusted=True
+
+from sage.all import *
+from sage.all import sage_eval
+
+class _SymbolLocals(dict):
+    # SageMath declares a variable when it *parses a string* into the
+    # symbolic ring -- `SR("a*b + a")` creates `a` and `b` -- and not
+    # when it runs code, where `w + 1` is a NameError. These tools take
+    # a mathematical expression as a string, which is SR's contract, so
+    # they behave like SR.
+    #
+    # Narrower than SR in one way that matters. SR will invent any
+    # identifier: `SR("sinn(x)")` returns `sinn(x)` and `SR("pi2*2")`
+    # returns `2*pi2`, so a typo becomes a symbol and the caller gets a
+    # confident wrong answer. Only symbol-shaped names are declared here
+    # -- a letter with an optional index, or a Greek name -- so `a`,
+    # `b`, `w` and `x_2` are variables and `sinn`, `foobar` and `pi2`
+    # are still errors.
+    #
+    # The Greek alphabet is here as letters as well as names, because
+    # that is how a physicist writes it -- but only the letters
+    # SageMath does not already define: five of them are its gamma,
+    # zeta, pi, sigma and psi, and shadowing those was a real
+    # regression before the allowlist filtered them out.
+    #
+    # KeyError rather than a symbol is the important branch: it is what
+    # lets the lookup fall through to the namespace, so `matrix`, `QQ`
+    # and `sin` resolve normally.
+    _excluded = frozenset(['D', 'E', 'I', 'J0', 'J1', 'N', 'O', 'beta', 'e', 'eta', 'gamma', 'i', 'n', 'psi', 'sigma', 't', 'tau', 'x', 'y', 'z', 'zeta', 'Γ', 'ζ', 'π', 'σ', 'ψ'])
+    _greek = frozenset(['alpha', 'beta', 'chi', 'delta', 'epsilon', 'eta', 'gamma', 'iota', 'kappa', 'lamda', 'mu', 'nu', 'omega', 'omicron', 'phi', 'psi', 'rho', 'sigma', 'tau', 'theta', 'upsilon', 'xi', 'zeta', 'Α', 'Β', 'Δ', 'Ε', 'Ζ', 'Η', 'Θ', 'Ι', 'Κ', 'Λ', 'Μ', 'Ν', 'Ξ', 'Ο', 'Π', 'Ρ', 'Σ', 'Τ', 'Υ', 'Φ', 'Χ', 'Ψ', 'Ω', 'α', 'β', 'γ', 'δ', 'ε', 'η', 'θ', 'ι', 'κ', 'λ', 'μ', 'ν', 'ξ', 'ο', 'ρ', 'ς', 'τ', 'υ', 'φ', 'χ', 'ω', 'ϑ', 'ϕ', 'ϖ', 'ϱ', 'ϵ'])
+
+    def __missing__(self, name):
+        if name in self._excluded or name.startswith('_'):
+            raise KeyError(name)
+        shaped = name in self._greek
+        if not shaped:
+            body = name.replace('_', '', 1) if '_' in name[1:] else name
+            # ASCII, mirroring `_SYMBOL_SHAPE` on the Python side: a
+            # letter, then an optional underscore and digit. Python's
+            # `isalpha()` is true for the Greek letters too,
+            # so without the ascii test this declared a fresh symbol
+            # for SageMath's own pi and turned `pi.n()` into "cannot
+            # evaluate symbolic expression numerically". Two
+            # implementations of one rule, disagreeing. The Greek
+            # letters come back through the set above, filtered.
+            head = body[:1]
+            shaped = (
+                len(body) <= 2 and head.isascii() and head.isalpha()
+                and (len(body) == 1 or body[1:].isdigit())
+            )
+        if not shaped:
+            raise KeyError(name)
+        created = var(name)
+        self[name] = created
+        return created
+
+_locals = _SymbolLocals({name: var(name) for name in ['x', 'y', 'z', 't', 'k']})
+
+_var = var("k")
+_expr = sage_eval("k^2", locals=_locals)
+import sage.all as _sage_ns; _locals.update({_n: var(_n) for _n in ['n'] if _n not in _locals})
+_lo = sage_eval("1", locals=_locals)
+_hi = sage_eval("n", locals=_locals)
+str(sum(_expr, _var, _lo, _hi))
+
+=== symbolic_product [call 1] trusted=True
+
+from sage.all import *
+from sage.all import sage_eval
+
+class _SymbolLocals(dict):
+    # SageMath declares a variable when it *parses a string* into the
+    # symbolic ring -- `SR("a*b + a")` creates `a` and `b` -- and not
+    # when it runs code, where `w + 1` is a NameError. These tools take
+    # a mathematical expression as a string, which is SR's contract, so
+    # they behave like SR.
+    #
+    # Narrower than SR in one way that matters. SR will invent any
+    # identifier: `SR("sinn(x)")` returns `sinn(x)` and `SR("pi2*2")`
+    # returns `2*pi2`, so a typo becomes a symbol and the caller gets a
+    # confident wrong answer. Only symbol-shaped names are declared here
+    # -- a letter with an optional index, or a Greek name -- so `a`,
+    # `b`, `w` and `x_2` are variables and `sinn`, `foobar` and `pi2`
+    # are still errors.
+    #
+    # The Greek alphabet is here as letters as well as names, because
+    # that is how a physicist writes it -- but only the letters
+    # SageMath does not already define: five of them are its gamma,
+    # zeta, pi, sigma and psi, and shadowing those was a real
+    # regression before the allowlist filtered them out.
+    #
+    # KeyError rather than a symbol is the important branch: it is what
+    # lets the lookup fall through to the namespace, so `matrix`, `QQ`
+    # and `sin` resolve normally.
+    _excluded = frozenset(['D', 'E', 'I', 'J0', 'J1', 'N', 'O', 'beta', 'e', 'eta', 'gamma', 'i', 'n', 'psi', 'sigma', 't', 'tau', 'x', 'y', 'z', 'zeta', 'Γ', 'ζ', 'π', 'σ', 'ψ'])
+    _greek = frozenset(['alpha', 'beta', 'chi', 'delta', 'epsilon', 'eta', 'gamma', 'iota', 'kappa', 'lamda', 'mu', 'nu', 'omega', 'omicron', 'phi', 'psi', 'rho', 'sigma', 'tau', 'theta', 'upsilon', 'xi', 'zeta', 'Α', 'Β', 'Δ', 'Ε', 'Ζ', 'Η', 'Θ', 'Ι', 'Κ', 'Λ', 'Μ', 'Ν', 'Ξ', 'Ο', 'Π', 'Ρ', 'Σ', 'Τ', 'Υ', 'Φ', 'Χ', 'Ψ', 'Ω', 'α', 'β', 'γ', 'δ', 'ε', 'η', 'θ', 'ι', 'κ', 'λ', 'μ', 'ν', 'ξ', 'ο', 'ρ', 'ς', 'τ', 'υ', 'φ', 'χ', 'ω', 'ϑ', 'ϕ', 'ϖ', 'ϱ', 'ϵ'])
+
+    def __missing__(self, name):
+        if name in self._excluded or name.startswith('_'):
+            raise KeyError(name)
+        shaped = name in self._greek
+        if not shaped:
+            body = name.replace('_', '', 1) if '_' in name[1:] else name
+            # ASCII, mirroring `_SYMBOL_SHAPE` on the Python side: a
+            # letter, then an optional underscore and digit. Python's
+            # `isalpha()` is true for the Greek letters too,
+            # so without the ascii test this declared a fresh symbol
+            # for SageMath's own pi and turned `pi.n()` into "cannot
+            # evaluate symbolic expression numerically". Two
+            # implementations of one rule, disagreeing. The Greek
+            # letters come back through the set above, filtered.
+            head = body[:1]
+            shaped = (
+                len(body) <= 2 and head.isascii() and head.isalpha()
+                and (len(body) == 1 or body[1:].isdigit())
+            )
+        if not shaped:
+            raise KeyError(name)
+        created = var(name)
+        self[name] = created
+        return created
+
+_locals = _SymbolLocals({name: var(name) for name in ['x', 'y', 'z', 't', 'k']})
+
+_var = var("k")
+_expr = sage_eval("k", locals=_locals)
+import sage.all as _sage_ns; _locals.update({_n: var(_n) for _n in ['n'] if _n not in _locals})
+_lo = sage_eval("1", locals=_locals)
+_hi = sage_eval("n", locals=_locals)
+str(product(_expr, _var, _lo, _hi))
+
+=== solve_ode [call 1] trusted=True
+<<PRELUDE>>
+
+_x = var("x")
+_ode_function = function("y")
+_y = _ode_function(_x)
+_ode_text = "diff(y(x),x) + y(x) = 0"
+
+def _build_ode(_binding):
+    _ode_locals = dict(_locals)
+    _ode_locals["y"] = _binding
+    _ode_locals['diff'] = diff
+    parts = _ode_text.split('=')
+    if len(parts) == 2:
+        left = sage_eval(parts[0].strip(), locals=_ode_locals)
+        right = sage_eval(parts[1].strip(), locals=_ode_locals)
+        return left == right
+    return sage_eval(_ode_text, locals=_ode_locals)
+
+# Bind the bare name to the undefined function so the documented
+# "diff(y(x), x)" form parses. Binding the applied expression instead
+# turns "y(x)" into "(y(x))(x)", which Sage rejects with "Substitution
+# using function-call syntax and unnamed arguments has been removed".
+# Fall back to the applied expression so a bare "diff(y, x)" still
+# works, since that form cannot be parsed against the function itself.
+try:
+    _ode = _build_ode(_ode_function)
+except Exception:
+    _ode = _build_ode(_y)
+str(desolve(_ode, _y, ivar=_x))
+
+=== matrix_multiply [call 1] trusted=True
+
+from sage.all import *
+A = matrix(SR, [[1, 2], [3, 4]])
+B = matrix(SR, [[0, 1], [1, 0]])
+C = A * B
+[[(lambda _v: int(_v) if (_v in ZZ and abs(_v) > 9007199254740991) else (float(_v) if _v in RR else str(_v)))(entry) for entry in row] for row in C.rows()]
+
+=== statistics_summary [call 1] trusted=True
+<<PRELUDE>>
+
+_data = [1, 2, 3, 4, 10]
+_n = len(_data)
+_mean = float(mean(_data))
+_sorted = sorted(_data)
+_mid = _n // 2
+_median = float((_sorted[_mid] + _sorted[~_mid]) / 2)
+_pvar = float(sum((x - _mean)**2 for x in _data) / _n)
+_svar = float(sum((x - _mean)**2 for x in _data) / (_n - 1)) if _n > 1 else 0.0
+{
+    'mean': _mean,
+    'median': _median,
+    'population_variance': _pvar,
+    'sample_variance': _svar,
+    'population_std_dev': float(sqrt(_pvar)),
+    'sample_std_dev': float(sqrt(_svar)),
+    'min': float(min(_data)),
+    'max': float(max(_data)),
+}
+
+=== plot_expression [call 1] trusted=True
+<<PRELUDE>>
+
+import base64
+import io as _io
+_var = var("x")
+_expr = sage_eval("sin(x)", locals=_locals)
+_plt = plot(_expr, (_var, -10.0, 10.0))
+# Graphics.save() needs a filesystem path and rejects a BytesIO with
+# "expected str, bytes or os.PathLike object". Going through the
+# matplotlib figure renders to memory, which the sandbox allows.
+_fig = _plt.matplotlib()
+
+_fig.set_size_inches(7.0, 4.5)
+_buf = _io.BytesIO()
+_fig.savefig(_buf, format='png', dpi=110, bbox_inches='tight')
+_buf.seek(0)
+base64.b64encode(_buf.read()).decode('ascii')
+
+=== plot3d_expression [call 1] trusted=True
+<<PRELUDE>>
+
+import base64
+import io as _io
+from sage.plot.graphics import Graphics as _Graphics
+_xv = var("x")
+_yv = var("y")
+_expr = sage_eval("x*y", locals=_locals)
+# Sage's plot3d returns a Graphics3d, whose save()/save_image() require
+# a filesystem path and reject a BytesIO. There is no .matplotlib()
+# figure on it either, and a temp file is unreachable from the sandbox
+# (`open` is forbidden, tempfile/os are not importable). So sample the
+# surface and render it through matplotlib's 3D axes, which writes to
+# memory. A 2D Graphics is only used to obtain a Figure without
+# importing matplotlib directly.
+try:
+    _f = fast_callable(_expr, vars=(_xv, _yv), domain=float)
+except Exception:
+    _f = None
+
+def _z_at(_a, _b):
+    # Singular or complex-valued points become NaN, which matplotlib
+    # renders as a gap rather than failing the whole plot.
+    try:
+        if _f is not None:
+            return float(_f(_a, _b))
+        return float(_expr.subs({_xv: _a, _yv: _b}))
+    except Exception:
+        return float('nan')
+
+_n = 48
+_xlo, _xhi = float(-5.0), float(5.0)
+_ylo, _yhi = float(-5.0), float(5.0)
+_gx, _gy, _gz = [], [], []
+for _i in range(_n):
+    _a = _xlo + (_xhi - _xlo) * _i / (_n - 1)
+    for _j in range(_n):
+        _b = _ylo + (_yhi - _ylo) * _j / (_n - 1)
+        _gx.append(_a)
+        _gy.append(_b)
+        _gz.append(_z_at(_a, _b))
+_fig = _Graphics().matplotlib()
+_fig.clf()
+_ax = _fig.add_subplot(111, projection='3d')
+# plot_trisurf accepts flat sequences, so no numpy import is needed.
+_ax.plot_trisurf(_gx, _gy, _gz, cmap='viridis')
+_ax.set_xlabel("x")
+_ax.set_ylabel("y")
+
+_fig.set_size_inches(7.0, 4.5)
+_buf = _io.BytesIO()
+_fig.savefig(_buf, format='png', dpi=110, bbox_inches='tight')
+_buf.seek(0)
+base64.b64encode(_buf.read()).decode('ascii')
+
+=== plot_multi_expression [call 1] trusted=True
+<<PRELUDE>>
+
+import base64
+import io as _io
+_var = var("x")
+_exprs = [sage_eval(e, locals=_locals) for e in ["sin(x)", "cos(x)"]]
+_plt = sum(plot(e, (_var, -10.0, 10.0)) for e in _exprs)
+# Graphics.save() needs a filesystem path and rejects a BytesIO with
+# "expected str, bytes or os.PathLike object". Going through the
+# matplotlib figure renders to memory, which the sandbox allows.
+_fig = _plt.matplotlib()
+
+_fig.set_size_inches(7.0, 4.5)
+_buf = _io.BytesIO()
+_fig.savefig(_buf, format='png', dpi=110, bbox_inches='tight')
+_buf.seek(0)
+base64.b64encode(_buf.read()).decode('ascii')
+
+=== verify_claim [call 1] trusted=True
+<<PRELUDE>>
+
+_text = "sin(x)^2 + cos(x)^2 == 1"
+_lhs_src = "sin(x)^2 + cos(x)^2"
+_rhs_src = "1"
+_op_src = "=="
+_probe_srcs = ["sin(x)^2 + cos(x)^2", "1", "sin(x)^2 + cos(x)", "2", "sin(x)", "2 + cos(x)", "sin", "x", "cos(x)", "cos"]
+_nsamples = 12
+_prec = 128
+# When the claim is a single comparison, evaluate each side EXACTLY ONCE
+# and build the relation from those retained values -- so the exactness
+# check below inspects the very values the comparison used, not a second
+# evaluation of the source (which a non-deterministic function could make
+# disagree). Bare predicates have no sides and are evaluated whole.
+_lhs_v = _rhs_v = None
+if _lhs_src is not None:
+    _lhs_v = sage_eval(_lhs_src, locals=_locals)
+    _rhs_v = sage_eval(_rhs_src, locals=_locals)
+    if _op_src == '==':
+        _claim = (_lhs_v == _rhs_v)
+    elif _op_src == '!=':
+        _claim = (_lhs_v != _rhs_v)
+    elif _op_src == '<':
+        _claim = (_lhs_v < _rhs_v)
+    elif _op_src == '<=':
+        _claim = (_lhs_v <= _rhs_v)
+    elif _op_src == '>':
+        _claim = (_lhs_v > _rhs_v)
+    else:
+        _claim = (_lhs_v >= _rhs_v)
+else:
+    try:
+        _claim = sage_eval(_text, locals=_locals)
+    except SyntaxError:
+        _sides = _text.split('=')
+        if len(_sides) != 2:
+            raise
+        _claim = (sage_eval(_sides[0].strip(), locals=_locals)
+                  == sage_eval(_sides[1].strip(), locals=_locals))
+def _symbolic_is_inexact(_e):
+    # A symbolic expression is exact only if every numeric constant in it
+    # is exact. Walk the tree; a leaf that wraps a machine number
+    # (SR(RR(1)+...) carries a RealNumber) makes the whole expression
+    # inexact. Wrapping an approximate value in SR does not launder it.
+    try:
+        _ops = _e.operands()
+    except Exception:
+        _ops = []
+    if _ops:
+        return any(_symbolic_is_inexact(_o) for _o in _ops)
+    try:
+        _obj = _e.pyobject()
+    except (TypeError, AttributeError):
+        return False  # a symbol or structural leaf, not a number
+    if isinstance(_obj, (float, complex)):
+        return True
+    try:
+        return not _obj.parent().is_exact()
+    except AttributeError:
+        # A symbolic constant (pi, e, euler_gamma, ...) has no parent and
+        # is exact -- unlike the machine RealNumber that SR(1.0) carries.
+        return False
+def _is_inexact(_v):
+    # True when the value IS, or CONTAINS, a machine-precision number --
+    # a Python float/complex, a value in an inexact ring (RR/RDF/CC/RIF),
+    # an element of a list/tuple/set/dict that is, or a symbolic
+    # expression carrying an approximate constant. Exactness is a
+    # prerequisite for every proof path, so this is deliberately
+    # conservative: a value whose provenance cannot be established
+    # (no parent, not a container) is treated as inexact rather than
+    # assumed exact.
+    if isinstance(_v, bool):
+        return False
+    if isinstance(_v, (float, complex)):
+        return True
+    if isinstance(_v, int):
+        return False
+    if isinstance(_v, (list, tuple, set, frozenset)):
+        return any(_is_inexact(_e) for _e in _v)
+    if isinstance(_v, dict):
+        # Keys take part in equality too -- a dict with an inexact key
+        # and an exact value must still count -- so check both, not just
+        # values.
+        return any(_is_inexact(_e) for _e in _v.keys()) or any(
+            _is_inexact(_e) for _e in _v.values()
+        )
+    try:
+        _p = _v.parent()
+    except AttributeError:
+        # No parent and not a Python number or container: a function, a
+        # module, a symbolic constant, a string -- none of which is a
+        # machine float. (An inexact NUMBER always has a parent whose
+        # ring answers is_exact(), or is a Python float caught above.)
+        return False
+    if _p is SR:
+        return _symbolic_is_inexact(_v)
+    try:
+        return not _p.is_exact()
+    except Exception:
+        # `parent()` did not return a ring with a usable `is_exact()`
+        # (a symbolic function's parent is its own class, for instance).
+        # That is not a machine-number field, so the value is not inexact.
+        return False
+def _domain_holds(_dom, _val):
+    # Does a rational sample value lie in a declared domain?
+    try:
+        if _dom == 'integer':
+            return _val in ZZ
+        if _dom == 'noninteger':
+            return _val not in ZZ
+        if _dom == 'even':
+            return (_val in ZZ) and (ZZ(_val) % 2 == 0)
+        if _dom == 'odd':
+            return (_val in ZZ) and (ZZ(_val) % 2 == 1)
+        if _dom == 'rational':
+            return _val in QQ
+        if _dom in ('real', 'noncomplex'):
+            return _val in QQ  # every sample value is a rational real
+        if _dom == 'complex':
+            return True
+    except Exception:
+        return False
+    return False  # an unrecognised domain cannot be confirmed
+def _point_admissible(_assumed, _point):
+    # `getattr` and private attributes are unavailable to generated code,
+    # so a domain declaration is read from its string form ("x is
+    # integer") rather than its internals.
+    _pt_names = dict((str(_k), _k) for _k in _point)
+    for _a in _assumed:
+        _s = str(_a)
+        if ' is ' in _s:
+            _name, _, _dom = _s.partition(' is ')
+            _name = _name.strip()
+            _dom = _dom.strip()
+            if _name not in _pt_names:
+                continue  # constrains a variable this sample does not set
+            if not _domain_holds(_dom, _point[_pt_names[_name]]):
+                return False
+            continue
+        # A relational assumption. Irrelevant if it shares no variable
+        # with the sample; otherwise it must be confirmed to hold there.
+        try:
+            _avars = set(_a.variables())
+        except Exception:
+            _avars = set()
+        if _avars and _avars.isdisjoint(_point):
+            continue
+        try:
+            _sv = _a.subs(_point)
+            if (_sv is True) or (bool(_sv) is True):
+                continue
+            return False
+        except Exception:
+            return False
+    return True
+# Exactness is judged from the claim's INPUTS, not its collapsed value: a
+# Boolean's type says nothing about how it was produced, so
+# `(...).is_zero()`, `... == True` and `(lambda: ...)()` all hid their
+# rounding. Evaluate every value-bearing sub-expression and flag any that
+# is (or contains) a machine number; the inexact leaf is found wherever
+# it sits. A sub-expression that cannot be evaluated on its own (a
+# comprehension target, a lambda parameter) is skipped -- it says nothing
+# about exactness -- rather than qualifying every claim that has one.
+_inexact_operands = False
+for _s in _probe_srcs:
+    try:
+        if _is_inexact(sage_eval(_s, locals=_locals)):
+            _inexact_operands = True
+            break
+    except Exception:
+        continue
+_verdict = None
+_method = None
+_evidence = None
+_bad = None
+_used_samples = None
+_used_prec = None
+_assumed = assumptions()
+_anote = ''
+if _assumed:
+    _anote = ("; under the session's active assumptions: "
+              + ', '.join(str(_a) for _a in _assumed))
+if _inexact_operands:
+    # Exactness is a prerequisite for a proof, and it fails: an operand
+    # is a machine-precision number, or contains one, or is an
+    # approximate constant wrapped in a list or in SR. NO path may return
+    # 'proved'/'refuted' here -- a floating-point comparison is a true
+    # observation about machine numbers, not the exact identity this tool
+    # advertises. A holding comparison is 'supported' (inexactness named),
+    # a failing or undecidable one is 'undecided' (rounding could decide
+    # it either way).
+    _method = 'float_comparison'
+    try:
+        if isinstance(_claim, bool):
+            _decides = _claim
+        elif (hasattr(_claim, 'is_relational') and _claim.is_relational()
+              and not _claim.variables()):
+            _decides = bool(_claim)
+        else:
+            _decides = None  # free variables: not decidable to a Boolean
+    except Exception:
+        _decides = None
+    if _decides is True:
+        _verdict = 'supported'
+        _evidence = ('holds under inexact machine-number (floating-point) '
+                     'evaluation; not established as an exact identity. '
+                     'State it over exact numbers (ZZ/QQ/QQbar or exact '
+                     'symbolic constants) for an exact verdict' + _anote)
+    elif _decides is False:
+        _verdict = 'undecided'
+        _evidence = ('does not hold under inexact machine-number evaluation, '
+                     'which cannot exactly refute it -- rounding may have '
+                     'decided the comparison' + _anote)
+    else:
+        _verdict = 'undecided'
+        _evidence = ('the claim carries inexact machine numbers, so no exact '
+                     'proof path applies; state it over exact numbers for a '
+                     'decisive verdict' + _anote)
+elif isinstance(_claim, bool):
+    _verdict = 'proved' if _claim else 'refuted'
+    _method = 'exact_comparison'
+    _evidence = ('the claim evaluates to ' + str(_claim)
+                 + ' under exact evaluation' + _anote)
+elif not (hasattr(_claim, 'is_relational') and _claim.is_relational()):
+    _bad = ('the claim must be a comparison (==, =, !=, <, <=, >, >=) or '
+            'evaluate to True/False; it evaluated to: ' + str(_claim))
+else:
+    _op = _claim.operator()
+    _lhs = _claim.lhs()
+    _rhs = _claim.rhs()
+    _is_eq = _op is operator.eq
+    _is_ne = _op is operator.ne
+    _vars = sorted(_claim.variables(), key=str)
+    if not _is_ne:
+        try:
+            if bool(_claim):
+                _verdict = 'proved'
+                _method = 'symbolic_prover'
+                _evidence = 'SageMath proves the relation symbolically' + _anote
+        except Exception:
+            pass
+    if _verdict is None and _is_eq:
+        try:
+            if ((_lhs - _rhs).simplify_full()).is_zero():
+                _verdict = 'proved'
+                _method = 'exact_difference'
+                _evidence = ('(lhs - rhs).simplify_full() is exactly zero'
+                             + _anote)
+        except Exception:
+            pass
+    if _verdict is None and not _vars:
+        try:
+            if _is_eq or _is_ne:
+                _same = QQbar(_lhs) == QQbar(_rhs)
+                _holds = _same if _is_eq else (not _same)
+            else:
+                _holds = bool(_op(AA(_lhs), AA(_rhs)))
+            _verdict = 'proved' if _holds else 'refuted'
+            _method = 'exact_algebraic'
+            _evidence = ('decided exactly over the algebraic numbers: '
+                         + str(_lhs) + ' versus ' + str(_rhs))
+        except (TypeError, ValueError, NotImplementedError):
+            pass
+    if _verdict is None and not _vars:
+        try:
+            if _is_eq or _is_ne:
+                _C = ComplexIntervalField(_prec)
+                _enc = _C(_lhs) - _C(_rhs)
+            else:
+                _F = RealIntervalField(_prec)
+                _enc = _F(_lhs) - _F(_rhs)
+            _used_prec = _prec
+            if _is_eq or _is_ne:
+                if not _enc.contains_zero():
+                    _verdict = 'refuted' if _is_eq else 'proved'
+                    _method = 'certified_interval'
+                    _evidence = ('lhs - rhs lies in ' + str(_enc)
+                                 + ', a certified enclosure at ' + str(_prec)
+                                 + ' bits that excludes zero')
+                elif _is_eq:
+                    _verdict = 'supported'
+                    _method = 'certified_interval'
+                    _evidence = ('the certified enclosure of lhs - rhs at '
+                                 + str(_prec) + ' bits contains zero: '
+                                 + str(_enc) + '; equality is consistent '
+                                 'but not proved')
+                else:
+                    _verdict = 'undecided'
+                    _method = 'certified_interval'
+                    _evidence = ('the certified enclosure of lhs - rhs at '
+                                 + str(_prec) + ' bits still contains zero')
+            else:
+                _strict = (_op is operator.lt) or (_op is operator.gt)
+                _flip = (_op is operator.gt) or (_op is operator.ge)
+                _d = -_enc if _flip else _enc
+                _holds = _d.upper() < 0 if _strict else _d.upper() <= 0
+                _fails = _d.lower() >= 0 if _strict else _d.lower() > 0
+                if _holds:
+                    _verdict = 'proved'
+                    _method = 'certified_interval'
+                    _evidence = ('the certified enclosure at ' + str(_prec)
+                                 + ' bits decides the inequality: '
+                                 'lhs - rhs lies in ' + str(_enc))
+                elif _fails:
+                    _verdict = 'refuted'
+                    _method = 'certified_interval'
+                    _evidence = ('the certified enclosure at ' + str(_prec)
+                                 + ' bits decides against the inequality: '
+                                 'lhs - rhs lies in ' + str(_enc))
+                elif not _strict:
+                    _verdict = 'supported'
+                    _method = 'certified_interval'
+                    _evidence = ('the certified enclosure of lhs - rhs at '
+                                 + str(_prec) + ' bits contains zero; the '
+                                 'non-strict inequality is consistent but '
+                                 'not proved')
+                else:
+                    _verdict = 'undecided'
+                    _method = 'certified_interval'
+                    _evidence = ('the certified enclosure of lhs - rhs at '
+                                 + str(_prec) + ' bits still contains zero')
+        except (TypeError, ValueError, NotImplementedError):
+            pass
+    if _verdict is None and _vars:
+        _supporting = 0
+        _skipped = 0
+        _F = RealIntervalField(_prec)
+        _C = ComplexIntervalField(_prec)
+        for _i in range(_nsamples):
+            if _verdict is not None:
+                break
+            _point = {}
+            for _j, _v in enumerate(_vars):
+                _val = QQ(3 * _i + 2 * _j + 1) / QQ(2 + ((_i + _j) % 5))
+                if _i % 2 == 1:
+                    _val = -_val
+                _point[_v] = _val
+            # Use a point only if its admissibility is established: every
+            # active assumption must be confirmed to hold there (or be
+            # irrelevant to it). A domain declaration like
+            # `assume(x, 'integer')` cannot be substituted, so ignoring
+            # it produced a false counterexample at x = 1/2 for
+            # `x != 1/2`; now an unconfirmable assumption makes the point
+            # inadmissible and the sweep converges to undecided rather
+            # than exhibiting a counterexample outside the stated domain.
+            if not _point_admissible(_assumed, _point):
+                _skipped += 1
+                continue
+            try:
+                _dv = (_lhs - _rhs).subs(_point)
+                _enc = _C(_dv) if (_is_eq or _is_ne) else _F(_dv)
+            except Exception:
+                _skipped += 1
+                continue
+            _at = ', '.join(str(_v) + ' = ' + str(_point[_v]) for _v in _vars)
+            if _is_eq:
+                if not _enc.contains_zero():
+                    _verdict = 'refuted'
+                    _method = 'numeric_sampling'
+                    _evidence = ('counterexample at ' + _at + ': lhs - rhs '
+                                 'lies in ' + str(_enc) + ', a certified '
+                                 'enclosure at ' + str(_prec)
+                                 + ' bits that excludes zero' + _anote)
+                else:
+                    _supporting += 1
+            elif _is_ne:
+                if not _enc.contains_zero():
+                    _supporting += 1
+                else:
+                    try:
+                        if _dv.simplify_full().is_zero():
+                            _verdict = 'refuted'
+                            _method = 'numeric_sampling'
+                            _evidence = ('counterexample at ' + _at
+                                         + ': lhs - rhs is exactly zero there'
+                                         + _anote)
+                        else:
+                            _skipped += 1
+                    except Exception:
+                        _skipped += 1
+            else:
+                _strict = (_op is operator.lt) or (_op is operator.gt)
+                _flip = (_op is operator.gt) or (_op is operator.ge)
+                _d = -_enc if _flip else _enc
+                _holds = _d.upper() < 0 if _strict else _d.upper() <= 0
+                _fails = _d.lower() >= 0 if _strict else _d.lower() > 0
+                if _holds:
+                    _supporting += 1
+                elif _fails:
+                    _verdict = 'refuted'
+                    _method = 'numeric_sampling'
+                    _evidence = ('counterexample at ' + _at + ': lhs - rhs '
+                                 'lies in ' + str(_enc) + ', certified at '
+                                 + str(_prec) + ' bits' + _anote)
+                else:
+                    _skipped += 1
+        if _verdict is None:
+            _used_prec = _prec
+            if _supporting > 0:
+                _verdict = 'supported'
+                _method = 'numeric_sampling'
+                _used_samples = int(_supporting)
+                _evidence = ('holds at ' + str(_supporting) + ' of '
+                             + str(_nsamples) + ' sampled points, each '
+                             'checked with certified interval arithmetic '
+                             'at ' + str(_prec) + ' bits; no counterexample '
+                             'found' + _anote)
+            else:
+                _verdict = 'undecided'
+                _method = 'numeric_sampling'
+                _evidence = ('no sampled point could be evaluated '
+                             'decisively (' + str(_skipped) + ' of '
+                             + str(_nsamples) + ' skipped)')
+if _bad is None and _verdict is None:
+    _verdict = 'undecided'
+    _method = 'exhausted'
+    _evidence = ('neither proved nor refuted: the symbolic prover, the '
+                 'exact difference, exact algebraic arithmetic and the '
+                 'certified numeric rungs were all inconclusive')
+# Attach the active assumptions centrally: a verdict that relied on them
+# must name them, and doing it here -- not in each rung -- is what keeps
+# a branch (the algebraic one did) from silently omitting them. Idempotent
+# for the rungs that already appended _anote.
+_assumption_list = [str(_a) for _a in _assumed]
+if _bad is None and _anote and _evidence is not None and _anote not in _evidence:
+    _evidence = _evidence + _anote
+_payload = ({'error': _bad} if _bad is not None else {
+    'verdict': _verdict,
+    'method': _method,
+    'evidence': _evidence,
+    'assumptions': _assumption_list,
+    'samples': _used_samples,
+    'precision_bits': _used_prec,
+})
+_payload
+
+=== verify_claim_inequality [call 1] trusted=True
+<<PRELUDE>>
+
+_text = "x^2 + 1 > 0"
+_lhs_src = "x^2 + 1"
+_rhs_src = "0"
+_op_src = ">"
+_probe_srcs = ["x^2 + 1", "0", "x", "2 + 1", "2", "1"]
+_nsamples = 12
+_prec = 128
+# When the claim is a single comparison, evaluate each side EXACTLY ONCE
+# and build the relation from those retained values -- so the exactness
+# check below inspects the very values the comparison used, not a second
+# evaluation of the source (which a non-deterministic function could make
+# disagree). Bare predicates have no sides and are evaluated whole.
+_lhs_v = _rhs_v = None
+if _lhs_src is not None:
+    _lhs_v = sage_eval(_lhs_src, locals=_locals)
+    _rhs_v = sage_eval(_rhs_src, locals=_locals)
+    if _op_src == '==':
+        _claim = (_lhs_v == _rhs_v)
+    elif _op_src == '!=':
+        _claim = (_lhs_v != _rhs_v)
+    elif _op_src == '<':
+        _claim = (_lhs_v < _rhs_v)
+    elif _op_src == '<=':
+        _claim = (_lhs_v <= _rhs_v)
+    elif _op_src == '>':
+        _claim = (_lhs_v > _rhs_v)
+    else:
+        _claim = (_lhs_v >= _rhs_v)
+else:
+    try:
+        _claim = sage_eval(_text, locals=_locals)
+    except SyntaxError:
+        _sides = _text.split('=')
+        if len(_sides) != 2:
+            raise
+        _claim = (sage_eval(_sides[0].strip(), locals=_locals)
+                  == sage_eval(_sides[1].strip(), locals=_locals))
+def _symbolic_is_inexact(_e):
+    # A symbolic expression is exact only if every numeric constant in it
+    # is exact. Walk the tree; a leaf that wraps a machine number
+    # (SR(RR(1)+...) carries a RealNumber) makes the whole expression
+    # inexact. Wrapping an approximate value in SR does not launder it.
+    try:
+        _ops = _e.operands()
+    except Exception:
+        _ops = []
+    if _ops:
+        return any(_symbolic_is_inexact(_o) for _o in _ops)
+    try:
+        _obj = _e.pyobject()
+    except (TypeError, AttributeError):
+        return False  # a symbol or structural leaf, not a number
+    if isinstance(_obj, (float, complex)):
+        return True
+    try:
+        return not _obj.parent().is_exact()
+    except AttributeError:
+        # A symbolic constant (pi, e, euler_gamma, ...) has no parent and
+        # is exact -- unlike the machine RealNumber that SR(1.0) carries.
+        return False
+def _is_inexact(_v):
+    # True when the value IS, or CONTAINS, a machine-precision number --
+    # a Python float/complex, a value in an inexact ring (RR/RDF/CC/RIF),
+    # an element of a list/tuple/set/dict that is, or a symbolic
+    # expression carrying an approximate constant. Exactness is a
+    # prerequisite for every proof path, so this is deliberately
+    # conservative: a value whose provenance cannot be established
+    # (no parent, not a container) is treated as inexact rather than
+    # assumed exact.
+    if isinstance(_v, bool):
+        return False
+    if isinstance(_v, (float, complex)):
+        return True
+    if isinstance(_v, int):
+        return False
+    if isinstance(_v, (list, tuple, set, frozenset)):
+        return any(_is_inexact(_e) for _e in _v)
+    if isinstance(_v, dict):
+        # Keys take part in equality too -- a dict with an inexact key
+        # and an exact value must still count -- so check both, not just
+        # values.
+        return any(_is_inexact(_e) for _e in _v.keys()) or any(
+            _is_inexact(_e) for _e in _v.values()
+        )
+    try:
+        _p = _v.parent()
+    except AttributeError:
+        # No parent and not a Python number or container: a function, a
+        # module, a symbolic constant, a string -- none of which is a
+        # machine float. (An inexact NUMBER always has a parent whose
+        # ring answers is_exact(), or is a Python float caught above.)
+        return False
+    if _p is SR:
+        return _symbolic_is_inexact(_v)
+    try:
+        return not _p.is_exact()
+    except Exception:
+        # `parent()` did not return a ring with a usable `is_exact()`
+        # (a symbolic function's parent is its own class, for instance).
+        # That is not a machine-number field, so the value is not inexact.
+        return False
+def _domain_holds(_dom, _val):
+    # Does a rational sample value lie in a declared domain?
+    try:
+        if _dom == 'integer':
+            return _val in ZZ
+        if _dom == 'noninteger':
+            return _val not in ZZ
+        if _dom == 'even':
+            return (_val in ZZ) and (ZZ(_val) % 2 == 0)
+        if _dom == 'odd':
+            return (_val in ZZ) and (ZZ(_val) % 2 == 1)
+        if _dom == 'rational':
+            return _val in QQ
+        if _dom in ('real', 'noncomplex'):
+            return _val in QQ  # every sample value is a rational real
+        if _dom == 'complex':
+            return True
+    except Exception:
+        return False
+    return False  # an unrecognised domain cannot be confirmed
+def _point_admissible(_assumed, _point):
+    # `getattr` and private attributes are unavailable to generated code,
+    # so a domain declaration is read from its string form ("x is
+    # integer") rather than its internals.
+    _pt_names = dict((str(_k), _k) for _k in _point)
+    for _a in _assumed:
+        _s = str(_a)
+        if ' is ' in _s:
+            _name, _, _dom = _s.partition(' is ')
+            _name = _name.strip()
+            _dom = _dom.strip()
+            if _name not in _pt_names:
+                continue  # constrains a variable this sample does not set
+            if not _domain_holds(_dom, _point[_pt_names[_name]]):
+                return False
+            continue
+        # A relational assumption. Irrelevant if it shares no variable
+        # with the sample; otherwise it must be confirmed to hold there.
+        try:
+            _avars = set(_a.variables())
+        except Exception:
+            _avars = set()
+        if _avars and _avars.isdisjoint(_point):
+            continue
+        try:
+            _sv = _a.subs(_point)
+            if (_sv is True) or (bool(_sv) is True):
+                continue
+            return False
+        except Exception:
+            return False
+    return True
+# Exactness is judged from the claim's INPUTS, not its collapsed value: a
+# Boolean's type says nothing about how it was produced, so
+# `(...).is_zero()`, `... == True` and `(lambda: ...)()` all hid their
+# rounding. Evaluate every value-bearing sub-expression and flag any that
+# is (or contains) a machine number; the inexact leaf is found wherever
+# it sits. A sub-expression that cannot be evaluated on its own (a
+# comprehension target, a lambda parameter) is skipped -- it says nothing
+# about exactness -- rather than qualifying every claim that has one.
+_inexact_operands = False
+for _s in _probe_srcs:
+    try:
+        if _is_inexact(sage_eval(_s, locals=_locals)):
+            _inexact_operands = True
+            break
+    except Exception:
+        continue
+_verdict = None
+_method = None
+_evidence = None
+_bad = None
+_used_samples = None
+_used_prec = None
+_assumed = assumptions()
+_anote = ''
+if _assumed:
+    _anote = ("; under the session's active assumptions: "
+              + ', '.join(str(_a) for _a in _assumed))
+if _inexact_operands:
+    # Exactness is a prerequisite for a proof, and it fails: an operand
+    # is a machine-precision number, or contains one, or is an
+    # approximate constant wrapped in a list or in SR. NO path may return
+    # 'proved'/'refuted' here -- a floating-point comparison is a true
+    # observation about machine numbers, not the exact identity this tool
+    # advertises. A holding comparison is 'supported' (inexactness named),
+    # a failing or undecidable one is 'undecided' (rounding could decide
+    # it either way).
+    _method = 'float_comparison'
+    try:
+        if isinstance(_claim, bool):
+            _decides = _claim
+        elif (hasattr(_claim, 'is_relational') and _claim.is_relational()
+              and not _claim.variables()):
+            _decides = bool(_claim)
+        else:
+            _decides = None  # free variables: not decidable to a Boolean
+    except Exception:
+        _decides = None
+    if _decides is True:
+        _verdict = 'supported'
+        _evidence = ('holds under inexact machine-number (floating-point) '
+                     'evaluation; not established as an exact identity. '
+                     'State it over exact numbers (ZZ/QQ/QQbar or exact '
+                     'symbolic constants) for an exact verdict' + _anote)
+    elif _decides is False:
+        _verdict = 'undecided'
+        _evidence = ('does not hold under inexact machine-number evaluation, '
+                     'which cannot exactly refute it -- rounding may have '
+                     'decided the comparison' + _anote)
+    else:
+        _verdict = 'undecided'
+        _evidence = ('the claim carries inexact machine numbers, so no exact '
+                     'proof path applies; state it over exact numbers for a '
+                     'decisive verdict' + _anote)
+elif isinstance(_claim, bool):
+    _verdict = 'proved' if _claim else 'refuted'
+    _method = 'exact_comparison'
+    _evidence = ('the claim evaluates to ' + str(_claim)
+                 + ' under exact evaluation' + _anote)
+elif not (hasattr(_claim, 'is_relational') and _claim.is_relational()):
+    _bad = ('the claim must be a comparison (==, =, !=, <, <=, >, >=) or '
+            'evaluate to True/False; it evaluated to: ' + str(_claim))
+else:
+    _op = _claim.operator()
+    _lhs = _claim.lhs()
+    _rhs = _claim.rhs()
+    _is_eq = _op is operator.eq
+    _is_ne = _op is operator.ne
+    _vars = sorted(_claim.variables(), key=str)
+    if not _is_ne:
+        try:
+            if bool(_claim):
+                _verdict = 'proved'
+                _method = 'symbolic_prover'
+                _evidence = 'SageMath proves the relation symbolically' + _anote
+        except Exception:
+            pass
+    if _verdict is None and _is_eq:
+        try:
+            if ((_lhs - _rhs).simplify_full()).is_zero():
+                _verdict = 'proved'
+                _method = 'exact_difference'
+                _evidence = ('(lhs - rhs).simplify_full() is exactly zero'
+                             + _anote)
+        except Exception:
+            pass
+    if _verdict is None and not _vars:
+        try:
+            if _is_eq or _is_ne:
+                _same = QQbar(_lhs) == QQbar(_rhs)
+                _holds = _same if _is_eq else (not _same)
+            else:
+                _holds = bool(_op(AA(_lhs), AA(_rhs)))
+            _verdict = 'proved' if _holds else 'refuted'
+            _method = 'exact_algebraic'
+            _evidence = ('decided exactly over the algebraic numbers: '
+                         + str(_lhs) + ' versus ' + str(_rhs))
+        except (TypeError, ValueError, NotImplementedError):
+            pass
+    if _verdict is None and not _vars:
+        try:
+            if _is_eq or _is_ne:
+                _C = ComplexIntervalField(_prec)
+                _enc = _C(_lhs) - _C(_rhs)
+            else:
+                _F = RealIntervalField(_prec)
+                _enc = _F(_lhs) - _F(_rhs)
+            _used_prec = _prec
+            if _is_eq or _is_ne:
+                if not _enc.contains_zero():
+                    _verdict = 'refuted' if _is_eq else 'proved'
+                    _method = 'certified_interval'
+                    _evidence = ('lhs - rhs lies in ' + str(_enc)
+                                 + ', a certified enclosure at ' + str(_prec)
+                                 + ' bits that excludes zero')
+                elif _is_eq:
+                    _verdict = 'supported'
+                    _method = 'certified_interval'
+                    _evidence = ('the certified enclosure of lhs - rhs at '
+                                 + str(_prec) + ' bits contains zero: '
+                                 + str(_enc) + '; equality is consistent '
+                                 'but not proved')
+                else:
+                    _verdict = 'undecided'
+                    _method = 'certified_interval'
+                    _evidence = ('the certified enclosure of lhs - rhs at '
+                                 + str(_prec) + ' bits still contains zero')
+            else:
+                _strict = (_op is operator.lt) or (_op is operator.gt)
+                _flip = (_op is operator.gt) or (_op is operator.ge)
+                _d = -_enc if _flip else _enc
+                _holds = _d.upper() < 0 if _strict else _d.upper() <= 0
+                _fails = _d.lower() >= 0 if _strict else _d.lower() > 0
+                if _holds:
+                    _verdict = 'proved'
+                    _method = 'certified_interval'
+                    _evidence = ('the certified enclosure at ' + str(_prec)
+                                 + ' bits decides the inequality: '
+                                 'lhs - rhs lies in ' + str(_enc))
+                elif _fails:
+                    _verdict = 'refuted'
+                    _method = 'certified_interval'
+                    _evidence = ('the certified enclosure at ' + str(_prec)
+                                 + ' bits decides against the inequality: '
+                                 'lhs - rhs lies in ' + str(_enc))
+                elif not _strict:
+                    _verdict = 'supported'
+                    _method = 'certified_interval'
+                    _evidence = ('the certified enclosure of lhs - rhs at '
+                                 + str(_prec) + ' bits contains zero; the '
+                                 'non-strict inequality is consistent but '
+                                 'not proved')
+                else:
+                    _verdict = 'undecided'
+                    _method = 'certified_interval'
+                    _evidence = ('the certified enclosure of lhs - rhs at '
+                                 + str(_prec) + ' bits still contains zero')
+        except (TypeError, ValueError, NotImplementedError):
+            pass
+    if _verdict is None and _vars:
+        _supporting = 0
+        _skipped = 0
+        _F = RealIntervalField(_prec)
+        _C = ComplexIntervalField(_prec)
+        for _i in range(_nsamples):
+            if _verdict is not None:
+                break
+            _point = {}
+            for _j, _v in enumerate(_vars):
+                _val = QQ(3 * _i + 2 * _j + 1) / QQ(2 + ((_i + _j) % 5))
+                if _i % 2 == 1:
+                    _val = -_val
+                _point[_v] = _val
+            # Use a point only if its admissibility is established: every
+            # active assumption must be confirmed to hold there (or be
+            # irrelevant to it). A domain declaration like
+            # `assume(x, 'integer')` cannot be substituted, so ignoring
+            # it produced a false counterexample at x = 1/2 for
+            # `x != 1/2`; now an unconfirmable assumption makes the point
+            # inadmissible and the sweep converges to undecided rather
+            # than exhibiting a counterexample outside the stated domain.
+            if not _point_admissible(_assumed, _point):
+                _skipped += 1
+                continue
+            try:
+                _dv = (_lhs - _rhs).subs(_point)
+                _enc = _C(_dv) if (_is_eq or _is_ne) else _F(_dv)
+            except Exception:
+                _skipped += 1
+                continue
+            _at = ', '.join(str(_v) + ' = ' + str(_point[_v]) for _v in _vars)
+            if _is_eq:
+                if not _enc.contains_zero():
+                    _verdict = 'refuted'
+                    _method = 'numeric_sampling'
+                    _evidence = ('counterexample at ' + _at + ': lhs - rhs '
+                                 'lies in ' + str(_enc) + ', a certified '
+                                 'enclosure at ' + str(_prec)
+                                 + ' bits that excludes zero' + _anote)
+                else:
+                    _supporting += 1
+            elif _is_ne:
+                if not _enc.contains_zero():
+                    _supporting += 1
+                else:
+                    try:
+                        if _dv.simplify_full().is_zero():
+                            _verdict = 'refuted'
+                            _method = 'numeric_sampling'
+                            _evidence = ('counterexample at ' + _at
+                                         + ': lhs - rhs is exactly zero there'
+                                         + _anote)
+                        else:
+                            _skipped += 1
+                    except Exception:
+                        _skipped += 1
+            else:
+                _strict = (_op is operator.lt) or (_op is operator.gt)
+                _flip = (_op is operator.gt) or (_op is operator.ge)
+                _d = -_enc if _flip else _enc
+                _holds = _d.upper() < 0 if _strict else _d.upper() <= 0
+                _fails = _d.lower() >= 0 if _strict else _d.lower() > 0
+                if _holds:
+                    _supporting += 1
+                elif _fails:
+                    _verdict = 'refuted'
+                    _method = 'numeric_sampling'
+                    _evidence = ('counterexample at ' + _at + ': lhs - rhs '
+                                 'lies in ' + str(_enc) + ', certified at '
+                                 + str(_prec) + ' bits' + _anote)
+                else:
+                    _skipped += 1
+        if _verdict is None:
+            _used_prec = _prec
+            if _supporting > 0:
+                _verdict = 'supported'
+                _method = 'numeric_sampling'
+                _used_samples = int(_supporting)
+                _evidence = ('holds at ' + str(_supporting) + ' of '
+                             + str(_nsamples) + ' sampled points, each '
+                             'checked with certified interval arithmetic '
+                             'at ' + str(_prec) + ' bits; no counterexample '
+                             'found' + _anote)
+            else:
+                _verdict = 'undecided'
+                _method = 'numeric_sampling'
+                _evidence = ('no sampled point could be evaluated '
+                             'decisively (' + str(_skipped) + ' of '
+                             + str(_nsamples) + ' skipped)')
+if _bad is None and _verdict is None:
+    _verdict = 'undecided'
+    _method = 'exhausted'
+    _evidence = ('neither proved nor refuted: the symbolic prover, the '
+                 'exact difference, exact algebraic arithmetic and the '
+                 'certified numeric rungs were all inconclusive')
+# Attach the active assumptions centrally: a verdict that relied on them
+# must name them, and doing it here -- not in each rung -- is what keeps
+# a branch (the algebraic one did) from silently omitting them. Idempotent
+# for the rungs that already appended _anote.
+_assumption_list = [str(_a) for _a in _assumed]
+if _bad is None and _anote and _evidence is not None and _anote not in _evidence:
+    _evidence = _evidence + _anote
+_payload = ({'error': _bad} if _bad is not None else {
+    'verdict': _verdict,
+    'method': _method,
+    'evidence': _evidence,
+    'assumptions': _assumption_list,
+    'samples': _used_samples,
+    'precision_bits': _used_prec,
+})
+_payload
+
+=== verify_claim_decimals [call 1] trusted=True
+<<PRELUDE>>
+
+_text = "(1/10) + (1/5) == (3/10)"
+_lhs_src = "(1/10) + (1/5)"
+_rhs_src = "3/10"
+_op_src = "=="
+_probe_srcs = ["(1/10) + (1/5)", "3/10", "1/10", "1/5", "3", "10", "1", "5"]
+_nsamples = 5
+_prec = 64
+# When the claim is a single comparison, evaluate each side EXACTLY ONCE
+# and build the relation from those retained values -- so the exactness
+# check below inspects the very values the comparison used, not a second
+# evaluation of the source (which a non-deterministic function could make
+# disagree). Bare predicates have no sides and are evaluated whole.
+_lhs_v = _rhs_v = None
+if _lhs_src is not None:
+    _lhs_v = sage_eval(_lhs_src, locals=_locals)
+    _rhs_v = sage_eval(_rhs_src, locals=_locals)
+    if _op_src == '==':
+        _claim = (_lhs_v == _rhs_v)
+    elif _op_src == '!=':
+        _claim = (_lhs_v != _rhs_v)
+    elif _op_src == '<':
+        _claim = (_lhs_v < _rhs_v)
+    elif _op_src == '<=':
+        _claim = (_lhs_v <= _rhs_v)
+    elif _op_src == '>':
+        _claim = (_lhs_v > _rhs_v)
+    else:
+        _claim = (_lhs_v >= _rhs_v)
+else:
+    try:
+        _claim = sage_eval(_text, locals=_locals)
+    except SyntaxError:
+        _sides = _text.split('=')
+        if len(_sides) != 2:
+            raise
+        _claim = (sage_eval(_sides[0].strip(), locals=_locals)
+                  == sage_eval(_sides[1].strip(), locals=_locals))
+def _symbolic_is_inexact(_e):
+    # A symbolic expression is exact only if every numeric constant in it
+    # is exact. Walk the tree; a leaf that wraps a machine number
+    # (SR(RR(1)+...) carries a RealNumber) makes the whole expression
+    # inexact. Wrapping an approximate value in SR does not launder it.
+    try:
+        _ops = _e.operands()
+    except Exception:
+        _ops = []
+    if _ops:
+        return any(_symbolic_is_inexact(_o) for _o in _ops)
+    try:
+        _obj = _e.pyobject()
+    except (TypeError, AttributeError):
+        return False  # a symbol or structural leaf, not a number
+    if isinstance(_obj, (float, complex)):
+        return True
+    try:
+        return not _obj.parent().is_exact()
+    except AttributeError:
+        # A symbolic constant (pi, e, euler_gamma, ...) has no parent and
+        # is exact -- unlike the machine RealNumber that SR(1.0) carries.
+        return False
+def _is_inexact(_v):
+    # True when the value IS, or CONTAINS, a machine-precision number --
+    # a Python float/complex, a value in an inexact ring (RR/RDF/CC/RIF),
+    # an element of a list/tuple/set/dict that is, or a symbolic
+    # expression carrying an approximate constant. Exactness is a
+    # prerequisite for every proof path, so this is deliberately
+    # conservative: a value whose provenance cannot be established
+    # (no parent, not a container) is treated as inexact rather than
+    # assumed exact.
+    if isinstance(_v, bool):
+        return False
+    if isinstance(_v, (float, complex)):
+        return True
+    if isinstance(_v, int):
+        return False
+    if isinstance(_v, (list, tuple, set, frozenset)):
+        return any(_is_inexact(_e) for _e in _v)
+    if isinstance(_v, dict):
+        # Keys take part in equality too -- a dict with an inexact key
+        # and an exact value must still count -- so check both, not just
+        # values.
+        return any(_is_inexact(_e) for _e in _v.keys()) or any(
+            _is_inexact(_e) for _e in _v.values()
+        )
+    try:
+        _p = _v.parent()
+    except AttributeError:
+        # No parent and not a Python number or container: a function, a
+        # module, a symbolic constant, a string -- none of which is a
+        # machine float. (An inexact NUMBER always has a parent whose
+        # ring answers is_exact(), or is a Python float caught above.)
+        return False
+    if _p is SR:
+        return _symbolic_is_inexact(_v)
+    try:
+        return not _p.is_exact()
+    except Exception:
+        # `parent()` did not return a ring with a usable `is_exact()`
+        # (a symbolic function's parent is its own class, for instance).
+        # That is not a machine-number field, so the value is not inexact.
+        return False
+def _domain_holds(_dom, _val):
+    # Does a rational sample value lie in a declared domain?
+    try:
+        if _dom == 'integer':
+            return _val in ZZ
+        if _dom == 'noninteger':
+            return _val not in ZZ
+        if _dom == 'even':
+            return (_val in ZZ) and (ZZ(_val) % 2 == 0)
+        if _dom == 'odd':
+            return (_val in ZZ) and (ZZ(_val) % 2 == 1)
+        if _dom == 'rational':
+            return _val in QQ
+        if _dom in ('real', 'noncomplex'):
+            return _val in QQ  # every sample value is a rational real
+        if _dom == 'complex':
+            return True
+    except Exception:
+        return False
+    return False  # an unrecognised domain cannot be confirmed
+def _point_admissible(_assumed, _point):
+    # `getattr` and private attributes are unavailable to generated code,
+    # so a domain declaration is read from its string form ("x is
+    # integer") rather than its internals.
+    _pt_names = dict((str(_k), _k) for _k in _point)
+    for _a in _assumed:
+        _s = str(_a)
+        if ' is ' in _s:
+            _name, _, _dom = _s.partition(' is ')
+            _name = _name.strip()
+            _dom = _dom.strip()
+            if _name not in _pt_names:
+                continue  # constrains a variable this sample does not set
+            if not _domain_holds(_dom, _point[_pt_names[_name]]):
+                return False
+            continue
+        # A relational assumption. Irrelevant if it shares no variable
+        # with the sample; otherwise it must be confirmed to hold there.
+        try:
+            _avars = set(_a.variables())
+        except Exception:
+            _avars = set()
+        if _avars and _avars.isdisjoint(_point):
+            continue
+        try:
+            _sv = _a.subs(_point)
+            if (_sv is True) or (bool(_sv) is True):
+                continue
+            return False
+        except Exception:
+            return False
+    return True
+# Exactness is judged from the claim's INPUTS, not its collapsed value: a
+# Boolean's type says nothing about how it was produced, so
+# `(...).is_zero()`, `... == True` and `(lambda: ...)()` all hid their
+# rounding. Evaluate every value-bearing sub-expression and flag any that
+# is (or contains) a machine number; the inexact leaf is found wherever
+# it sits. A sub-expression that cannot be evaluated on its own (a
+# comprehension target, a lambda parameter) is skipped -- it says nothing
+# about exactness -- rather than qualifying every claim that has one.
+_inexact_operands = False
+for _s in _probe_srcs:
+    try:
+        if _is_inexact(sage_eval(_s, locals=_locals)):
+            _inexact_operands = True
+            break
+    except Exception:
+        continue
+_verdict = None
+_method = None
+_evidence = None
+_bad = None
+_used_samples = None
+_used_prec = None
+_assumed = assumptions()
+_anote = ''
+if _assumed:
+    _anote = ("; under the session's active assumptions: "
+              + ', '.join(str(_a) for _a in _assumed))
+if _inexact_operands:
+    # Exactness is a prerequisite for a proof, and it fails: an operand
+    # is a machine-precision number, or contains one, or is an
+    # approximate constant wrapped in a list or in SR. NO path may return
+    # 'proved'/'refuted' here -- a floating-point comparison is a true
+    # observation about machine numbers, not the exact identity this tool
+    # advertises. A holding comparison is 'supported' (inexactness named),
+    # a failing or undecidable one is 'undecided' (rounding could decide
+    # it either way).
+    _method = 'float_comparison'
+    try:
+        if isinstance(_claim, bool):
+            _decides = _claim
+        elif (hasattr(_claim, 'is_relational') and _claim.is_relational()
+              and not _claim.variables()):
+            _decides = bool(_claim)
+        else:
+            _decides = None  # free variables: not decidable to a Boolean
+    except Exception:
+        _decides = None
+    if _decides is True:
+        _verdict = 'supported'
+        _evidence = ('holds under inexact machine-number (floating-point) '
+                     'evaluation; not established as an exact identity. '
+                     'State it over exact numbers (ZZ/QQ/QQbar or exact '
+                     'symbolic constants) for an exact verdict' + _anote)
+    elif _decides is False:
+        _verdict = 'undecided'
+        _evidence = ('does not hold under inexact machine-number evaluation, '
+                     'which cannot exactly refute it -- rounding may have '
+                     'decided the comparison' + _anote)
+    else:
+        _verdict = 'undecided'
+        _evidence = ('the claim carries inexact machine numbers, so no exact '
+                     'proof path applies; state it over exact numbers for a '
+                     'decisive verdict' + _anote)
+elif isinstance(_claim, bool):
+    _verdict = 'proved' if _claim else 'refuted'
+    _method = 'exact_comparison'
+    _evidence = ('the claim evaluates to ' + str(_claim)
+                 + ' under exact evaluation' + _anote)
+elif not (hasattr(_claim, 'is_relational') and _claim.is_relational()):
+    _bad = ('the claim must be a comparison (==, =, !=, <, <=, >, >=) or '
+            'evaluate to True/False; it evaluated to: ' + str(_claim))
+else:
+    _op = _claim.operator()
+    _lhs = _claim.lhs()
+    _rhs = _claim.rhs()
+    _is_eq = _op is operator.eq
+    _is_ne = _op is operator.ne
+    _vars = sorted(_claim.variables(), key=str)
+    if not _is_ne:
+        try:
+            if bool(_claim):
+                _verdict = 'proved'
+                _method = 'symbolic_prover'
+                _evidence = 'SageMath proves the relation symbolically' + _anote
+        except Exception:
+            pass
+    if _verdict is None and _is_eq:
+        try:
+            if ((_lhs - _rhs).simplify_full()).is_zero():
+                _verdict = 'proved'
+                _method = 'exact_difference'
+                _evidence = ('(lhs - rhs).simplify_full() is exactly zero'
+                             + _anote)
+        except Exception:
+            pass
+    if _verdict is None and not _vars:
+        try:
+            if _is_eq or _is_ne:
+                _same = QQbar(_lhs) == QQbar(_rhs)
+                _holds = _same if _is_eq else (not _same)
+            else:
+                _holds = bool(_op(AA(_lhs), AA(_rhs)))
+            _verdict = 'proved' if _holds else 'refuted'
+            _method = 'exact_algebraic'
+            _evidence = ('decided exactly over the algebraic numbers: '
+                         + str(_lhs) + ' versus ' + str(_rhs))
+        except (TypeError, ValueError, NotImplementedError):
+            pass
+    if _verdict is None and not _vars:
+        try:
+            if _is_eq or _is_ne:
+                _C = ComplexIntervalField(_prec)
+                _enc = _C(_lhs) - _C(_rhs)
+            else:
+                _F = RealIntervalField(_prec)
+                _enc = _F(_lhs) - _F(_rhs)
+            _used_prec = _prec
+            if _is_eq or _is_ne:
+                if not _enc.contains_zero():
+                    _verdict = 'refuted' if _is_eq else 'proved'
+                    _method = 'certified_interval'
+                    _evidence = ('lhs - rhs lies in ' + str(_enc)
+                                 + ', a certified enclosure at ' + str(_prec)
+                                 + ' bits that excludes zero')
+                elif _is_eq:
+                    _verdict = 'supported'
+                    _method = 'certified_interval'
+                    _evidence = ('the certified enclosure of lhs - rhs at '
+                                 + str(_prec) + ' bits contains zero: '
+                                 + str(_enc) + '; equality is consistent '
+                                 'but not proved')
+                else:
+                    _verdict = 'undecided'
+                    _method = 'certified_interval'
+                    _evidence = ('the certified enclosure of lhs - rhs at '
+                                 + str(_prec) + ' bits still contains zero')
+            else:
+                _strict = (_op is operator.lt) or (_op is operator.gt)
+                _flip = (_op is operator.gt) or (_op is operator.ge)
+                _d = -_enc if _flip else _enc
+                _holds = _d.upper() < 0 if _strict else _d.upper() <= 0
+                _fails = _d.lower() >= 0 if _strict else _d.lower() > 0
+                if _holds:
+                    _verdict = 'proved'
+                    _method = 'certified_interval'
+                    _evidence = ('the certified enclosure at ' + str(_prec)
+                                 + ' bits decides the inequality: '
+                                 'lhs - rhs lies in ' + str(_enc))
+                elif _fails:
+                    _verdict = 'refuted'
+                    _method = 'certified_interval'
+                    _evidence = ('the certified enclosure at ' + str(_prec)
+                                 + ' bits decides against the inequality: '
+                                 'lhs - rhs lies in ' + str(_enc))
+                elif not _strict:
+                    _verdict = 'supported'
+                    _method = 'certified_interval'
+                    _evidence = ('the certified enclosure of lhs - rhs at '
+                                 + str(_prec) + ' bits contains zero; the '
+                                 'non-strict inequality is consistent but '
+                                 'not proved')
+                else:
+                    _verdict = 'undecided'
+                    _method = 'certified_interval'
+                    _evidence = ('the certified enclosure of lhs - rhs at '
+                                 + str(_prec) + ' bits still contains zero')
+        except (TypeError, ValueError, NotImplementedError):
+            pass
+    if _verdict is None and _vars:
+        _supporting = 0
+        _skipped = 0
+        _F = RealIntervalField(_prec)
+        _C = ComplexIntervalField(_prec)
+        for _i in range(_nsamples):
+            if _verdict is not None:
+                break
+            _point = {}
+            for _j, _v in enumerate(_vars):
+                _val = QQ(3 * _i + 2 * _j + 1) / QQ(2 + ((_i + _j) % 5))
+                if _i % 2 == 1:
+                    _val = -_val
+                _point[_v] = _val
+            # Use a point only if its admissibility is established: every
+            # active assumption must be confirmed to hold there (or be
+            # irrelevant to it). A domain declaration like
+            # `assume(x, 'integer')` cannot be substituted, so ignoring
+            # it produced a false counterexample at x = 1/2 for
+            # `x != 1/2`; now an unconfirmable assumption makes the point
+            # inadmissible and the sweep converges to undecided rather
+            # than exhibiting a counterexample outside the stated domain.
+            if not _point_admissible(_assumed, _point):
+                _skipped += 1
+                continue
+            try:
+                _dv = (_lhs - _rhs).subs(_point)
+                _enc = _C(_dv) if (_is_eq or _is_ne) else _F(_dv)
+            except Exception:
+                _skipped += 1
+                continue
+            _at = ', '.join(str(_v) + ' = ' + str(_point[_v]) for _v in _vars)
+            if _is_eq:
+                if not _enc.contains_zero():
+                    _verdict = 'refuted'
+                    _method = 'numeric_sampling'
+                    _evidence = ('counterexample at ' + _at + ': lhs - rhs '
+                                 'lies in ' + str(_enc) + ', a certified '
+                                 'enclosure at ' + str(_prec)
+                                 + ' bits that excludes zero' + _anote)
+                else:
+                    _supporting += 1
+            elif _is_ne:
+                if not _enc.contains_zero():
+                    _supporting += 1
+                else:
+                    try:
+                        if _dv.simplify_full().is_zero():
+                            _verdict = 'refuted'
+                            _method = 'numeric_sampling'
+                            _evidence = ('counterexample at ' + _at
+                                         + ': lhs - rhs is exactly zero there'
+                                         + _anote)
+                        else:
+                            _skipped += 1
+                    except Exception:
+                        _skipped += 1
+            else:
+                _strict = (_op is operator.lt) or (_op is operator.gt)
+                _flip = (_op is operator.gt) or (_op is operator.ge)
+                _d = -_enc if _flip else _enc
+                _holds = _d.upper() < 0 if _strict else _d.upper() <= 0
+                _fails = _d.lower() >= 0 if _strict else _d.lower() > 0
+                if _holds:
+                    _supporting += 1
+                elif _fails:
+                    _verdict = 'refuted'
+                    _method = 'numeric_sampling'
+                    _evidence = ('counterexample at ' + _at + ': lhs - rhs '
+                                 'lies in ' + str(_enc) + ', certified at '
+                                 + str(_prec) + ' bits' + _anote)
+                else:
+                    _skipped += 1
+        if _verdict is None:
+            _used_prec = _prec
+            if _supporting > 0:
+                _verdict = 'supported'
+                _method = 'numeric_sampling'
+                _used_samples = int(_supporting)
+                _evidence = ('holds at ' + str(_supporting) + ' of '
+                             + str(_nsamples) + ' sampled points, each '
+                             'checked with certified interval arithmetic '
+                             'at ' + str(_prec) + ' bits; no counterexample '
+                             'found' + _anote)
+            else:
+                _verdict = 'undecided'
+                _method = 'numeric_sampling'
+                _evidence = ('no sampled point could be evaluated '
+                             'decisively (' + str(_skipped) + ' of '
+                             + str(_nsamples) + ' skipped)')
+if _bad is None and _verdict is None:
+    _verdict = 'undecided'
+    _method = 'exhausted'
+    _evidence = ('neither proved nor refuted: the symbolic prover, the '
+                 'exact difference, exact algebraic arithmetic and the '
+                 'certified numeric rungs were all inconclusive')
+# Attach the active assumptions centrally: a verdict that relied on them
+# must name them, and doing it here -- not in each rung -- is what keeps
+# a branch (the algebraic one did) from silently omitting them. Idempotent
+# for the rungs that already appended _anote.
+_assumption_list = [str(_a) for _a in _assumed]
+if _bad is None and _anote and _evidence is not None and _anote not in _evidence:
+    _evidence = _evidence + _anote
+_payload = ({'error': _bad} if _bad is not None else {
+    'verdict': _verdict,
+    'method': _method,
+    'evidence': _evidence,
+    'assumptions': _assumption_list,
+    'samples': _used_samples,
+    'precision_bits': _used_prec,
+})
+_payload
+
+=== matrix_operation_determinant [call 1] trusted=True
+
+from sage.all import *
+M = matrix(SR, [[2, 1], [1, 3]])
+(lambda _v: int(_v) if (_v in ZZ and abs(_v) > 9007199254740991) else (float(_v) if _v in RR else str(_v)))(M.determinant())
+
+=== matrix_operation_inverse [call 1] trusted=True
+
+from sage.all import *
+M = matrix(SR, [[2, 1], [1, 3]])
+[[(lambda _v: int(_v) if (_v in ZZ and abs(_v) > 9007199254740991) else (float(_v) if _v in RR else str(_v)))(e) for e in row] for row in M.inverse().rows()]
+
+=== matrix_operation_eigenvalues [call 1] trusted=True
+
+from sage.all import *
+M = matrix(SR, [[2, 1], [1, 3]])
+[(lambda _v: int(_v) if (_v in ZZ and abs(_v) > 9007199254740991) else (float(_v) if _v in RR else str(_v)))(ev) for ev in M.eigenvalues()]
+
+=== matrix_operation_rank [call 1] trusted=True
+
+from sage.all import *
+M = matrix(SR, [[2, 1], [1, 3]])
+int(M.rank())
+
+=== matrix_operation_rref [call 1] trusted=True
+
+from sage.all import *
+M = matrix(SR, [[2, 1], [1, 3]])
+[[(lambda _v: int(_v) if (_v in ZZ and abs(_v) > 9007199254740991) else (float(_v) if _v in RR else str(_v)))(e) for e in row] for row in M.rref().rows()]
+
+=== matrix_operation_transpose [call 1] trusted=True
+
+from sage.all import *
+M = matrix(SR, [[2, 1], [1, 3]])
+[[(lambda _v: int(_v) if (_v in ZZ and abs(_v) > 9007199254740991) else (float(_v) if _v in RR else str(_v)))(e) for e in row] for row in M.transpose().rows()]
+
+=== number_theory_is_prime [call 1] trusted=True
+<<PRELUDE>>
+bool(is_prime(84))
+
+=== number_theory_factor_integer [call 1] trusted=True
+<<PRELUDE>>
+str(factor(84))
+
+=== number_theory_next_prime [call 1] trusted=True
+<<PRELUDE>>
+int(next_prime(84))
+
+=== number_theory_gcd [call 1] trusted=True
+<<PRELUDE>>
+int(gcd(84, 36))
+
+=== number_theory_lcm [call 1] trusted=True
+<<PRELUDE>>
+int(lcm(84, 36))
+
+=== combinatorics_binomial [call 1] trusted=True
+<<PRELUDE>>
+int(binomial(10, 3))
+
+=== combinatorics_permutations [call 1] trusted=True
+<<PRELUDE>>
+int(Permutations(10).cardinality())
+
+=== combinatorics_combinations [call 1] trusted=True
+<<PRELUDE>>
+int(binomial(10, 3))
+
+=== combinatorics_partitions [call 1] trusted=True
+<<PRELUDE>>
+int(Partitions(10).cardinality())
+
+=== combinatorics_factorial [call 1] trusted=True
+<<PRELUDE>>
+int(factorial(10))
+
+=== combinatorics_catalan [call 1] trusted=True
+<<PRELUDE>>
+int(catalan_number(10))
+
+=== combinatorics_fibonacci [call 1] trusted=True
+<<PRELUDE>>
+int(fibonacci(10))
+
+=== combinatorics_bell [call 1] trusted=True
+<<PRELUDE>>
+int(bell_number(10))
+
+=== distribution_normal_pdf [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('gaussian', 1.0)
+float(_d.distribution_function((0.5) - (0.0)))
+
+=== distribution_normal_cdf [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('gaussian', 1.0)
+float(_d.cum_distribution_function((0.5) - (0.0)))
+
+=== distribution_normal_quantile [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('gaussian', 1.0)
+float((0.0) + _d.cum_distribution_function_inv(0.5))
+
+=== distribution_normal_mean [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('gaussian', 1.0)
+float(0.0)
+
+=== distribution_normal_variance [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('gaussian', 1.0)
+float(1.0)
+
+=== distribution_normal_sample [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('gaussian', 1.0)
+[float(_d.get_random_element()) for _ in range(3)]
+
+=== distribution_exponential_pdf [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('exponential', 2)
+float(_d.distribution_function((0.5) - (0.0)))
+
+=== distribution_exponential_cdf [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('exponential', 2)
+float(_d.cum_distribution_function((0.5) - (0.0)))
+
+=== distribution_exponential_quantile [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('exponential', 2)
+float(_d.cum_distribution_function_inv(0.5))
+
+=== distribution_exponential_mean [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('exponential', 2)
+float(2.0)
+
+=== distribution_exponential_variance [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('exponential', 2)
+float(4.0)
+
+=== distribution_exponential_sample [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('exponential', 2)
+[float(_d.get_random_element()) for _ in range(3)]
+
+=== distribution_poisson_pdf [call 1] trusted=True
+<<PRELUDE>>
+float(exp(-3) * 3**0.5 / factorial(int(0.5)))
+
+=== distribution_poisson_cdf [call 1] trusted=True
+<<PRELUDE>>
+float(sum(exp(-3) * 3**k / factorial(k) for k in range(int(0.5) + 1)))
+
+=== distribution_poisson_quantile [no code sent]
+raised ToolError: Unknown operation 'quantile' for Poisson distribution
+
+=== distribution_poisson_mean [call 1] trusted=True
+<<PRELUDE>>
+float(3)
+
+=== distribution_poisson_variance [call 1] trusted=True
+<<PRELUDE>>
+float(3)
+
+=== distribution_poisson_sample [call 1] trusted=True
+<<PRELUDE>>
+[int(numpy_rng.poisson(3)) for _ in range(3)]
+
+=== distribution_chi_squared_pdf [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('chisquared', 4)
+float(_d.distribution_function((0.5) - (0.0)))
+
+=== distribution_chi_squared_cdf [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('chisquared', 4)
+float(_d.cum_distribution_function((0.5) - (0.0)))
+
+=== distribution_chi_squared_quantile [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('chisquared', 4)
+float(_d.cum_distribution_function_inv(0.5))
+
+=== distribution_chi_squared_mean [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('chisquared', 4)
+float(4.0)
+
+=== distribution_chi_squared_variance [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('chisquared', 4)
+float(8.0)
+
+=== distribution_chi_squared_sample [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('chisquared', 4)
+[float(_d.get_random_element()) for _ in range(3)]
+
+=== distribution_student_t_pdf [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('t', 5)
+float(_d.distribution_function((0.5) - (0.0)))
+
+=== distribution_student_t_cdf [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('t', 5)
+float(_d.cum_distribution_function((0.5) - (0.0)))
+
+=== distribution_student_t_quantile [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('t', 5)
+float(_d.cum_distribution_function_inv(0.5))
+
+=== distribution_student_t_mean [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('t', 5)
+float(0.0)
+
+=== distribution_student_t_variance [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('t', 5)
+float(1.6666666666666667)
+
+=== distribution_student_t_sample [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('t', 5)
+[float(_d.get_random_element()) for _ in range(3)]
+
+=== distribution_uniform_pdf [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('uniform', [0, 2])
+float(_d.distribution_function((0.5) - (0.0)))
+
+=== distribution_uniform_cdf [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('uniform', [0, 2])
+float(_d.cum_distribution_function((0.5) - (0.0)))
+
+=== distribution_uniform_quantile [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('uniform', [0, 2])
+float(_d.cum_distribution_function_inv(0.5))
+
+=== distribution_uniform_mean [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('uniform', [0, 2])
+float(1.0)
+
+=== distribution_uniform_variance [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('uniform', [0, 2])
+float(0.3333333333333333)
+
+=== distribution_uniform_sample [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('uniform', [0, 2])
+[float(_d.get_random_element()) for _ in range(3)]
+
+=== distribution_beta_pdf [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('beta', [2, 3])
+float(_d.distribution_function((0.5) - (0.0)))
+
+=== distribution_beta_cdf [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('beta', [2, 3])
+float(_d.cum_distribution_function((0.5) - (0.0)))
+
+=== distribution_beta_quantile [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('beta', [2, 3])
+float(_d.cum_distribution_function_inv(0.5))
+
+=== distribution_beta_mean [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('beta', [2, 3])
+float(0.4)
+
+=== distribution_beta_variance [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('beta', [2, 3])
+float(0.04)
+
+=== distribution_beta_sample [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('beta', [2, 3])
+[float(_d.get_random_element()) for _ in range(3)]
+
+=== distribution_gamma_pdf [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('gamma', [2, 1])
+float(_d.distribution_function((0.5) - (0.0)))
+
+=== distribution_gamma_cdf [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('gamma', [2, 1])
+float(_d.cum_distribution_function((0.5) - (0.0)))
+
+=== distribution_gamma_quantile [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('gamma', [2, 1])
+float(_d.cum_distribution_function_inv(0.5))
+
+=== distribution_gamma_mean [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('gamma', [2, 1])
+float(2.0)
+
+=== distribution_gamma_variance [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('gamma', [2, 1])
+float(2.0)
+
+=== distribution_gamma_sample [call 1] trusted=True
+<<PRELUDE>>
+_d = RealDistribution('gamma', [2, 1])
+[float(_d.get_random_element()) for _ in range(3)]
+
+=== vector_calculus_gradient [call 1] trusted=True
+<<PRELUDE>>
+
+_vars = [var('x'), var('y'), var('z')]
+_f = sage_eval("x^2*y + z", locals=_locals)
+[str(diff(_f, v)) for v in _vars]
+
+=== vector_calculus_divergence [call 1] trusted=True
+<<PRELUDE>>
+
+_vars = [var('x'), var('y'), var('z')]
+_components = [sage_eval(c, locals=_locals) for c in ["x*y", "y*z", "z*x"]]
+str(sum(diff(_components[i], _vars[i]) for i in range(len(_vars))))
+
+=== vector_calculus_curl [call 1] trusted=True
+<<PRELUDE>>
+
+_vars = [var('x'), var('y'), var('z')]
+_F = [sage_eval(c, locals=_locals) for c in ["x*y", "y*z", "z*x"]]
+_curl = [
+    str(diff(_F[2], _vars[1]) - diff(_F[1], _vars[2])),
+    str(diff(_F[0], _vars[2]) - diff(_F[2], _vars[0])),
+    str(diff(_F[1], _vars[0]) - diff(_F[0], _vars[1])),
+]
+_curl
+
+=== vector_calculus_laplacian [call 1] trusted=True
+<<PRELUDE>>
+
+_vars = [var('x'), var('y'), var('z')]
+_f = sage_eval("x^2*y + z", locals=_locals)
+str(sum(diff(_f, v, 2) for v in _vars))
+
+=== graph_chromatic_number [call 1] trusted=True
+<<PRELUDE>>
+_G = graphs.PetersenGraph()
+int(_G.chromatic_number())
+
+=== graph_is_connected [call 1] trusted=True
+<<PRELUDE>>
+_G = graphs.PetersenGraph()
+bool(_G.is_connected())
+
+=== graph_is_planar [call 1] trusted=True
+<<PRELUDE>>
+_G = graphs.PetersenGraph()
+bool(_G.is_planar())
+
+=== graph_diameter [call 1] trusted=True
+<<PRELUDE>>
+_G = graphs.PetersenGraph()
+int(_G.diameter())
+
+=== graph_order [call 1] trusted=True
+<<PRELUDE>>
+_G = graphs.PetersenGraph()
+int(_G.order())
+
+=== graph_size [call 1] trusted=True
+<<PRELUDE>>
+_G = graphs.PetersenGraph()
+int(_G.size())
+
+=== graph_degree_sequence [call 1] trusted=True
+<<PRELUDE>>
+_G = graphs.PetersenGraph()
+sorted(_G.degree_sequence(), reverse=True)
+
+=== graph_adjacency_matrix [call 1] trusted=True
+<<PRELUDE>>
+_G = graphs.PetersenGraph()
+[[int(x) for x in row] for row in _G.adjacency_matrix().rows()]
+
+=== graph_shortest_path [call 1] trusted=True
+<<PRELUDE>>
+_G = graphs.PetersenGraph()
+list(_G.shortest_path(0, 7))
+
+=== graph_adjacency_dict [call 1] trusted=True
+<<PRELUDE>>
+_G = Graph({0:[1,2], 1:[0,2], 2:[0,1]})
+int(_G.order())
+
+=== group_order [call 1] trusted=True
+<<PRELUDE>>
+_G = DihedralGroup(4)
+int(_G.order())
+
+=== group_is_abelian [call 1] trusted=True
+<<PRELUDE>>
+_G = DihedralGroup(4)
+bool(_G.is_abelian())
+
+=== group_is_cyclic [call 1] trusted=True
+<<PRELUDE>>
+_G = DihedralGroup(4)
+bool(_G.is_cyclic())
+
+=== group_center_order [call 1] trusted=True
+<<PRELUDE>>
+_G = DihedralGroup(4)
+int(_G.center().order())
+
+=== group_conjugacy_classes_count [call 1] trusted=True
+<<PRELUDE>>
+_G = DihedralGroup(4)
+int(len(_G.conjugacy_classes_representatives()))
+
+=== group_exponent [call 1] trusted=True
+<<PRELUDE>>
+_G = DihedralGroup(4)
+int(_G.exponent())
+
+=== elliptic_curve_rank [call 1] trusted=True
+<<PRELUDE>>
+_E = EllipticCurve([0, 0, 1, -1, 0])
+int(_E.rank())
+
+=== elliptic_curve_torsion_order [call 1] trusted=True
+<<PRELUDE>>
+_E = EllipticCurve([0, 0, 1, -1, 0])
+int(_E.torsion_order())
+
+=== elliptic_curve_discriminant [call 1] trusted=True
+<<PRELUDE>>
+_E = EllipticCurve([0, 0, 1, -1, 0])
+str(_E.discriminant())
+
+=== elliptic_curve_j_invariant [call 1] trusted=True
+<<PRELUDE>>
+_E = EllipticCurve([0, 0, 1, -1, 0])
+str(_E.j_invariant())
+
+=== elliptic_curve_conductor [call 1] trusted=True
+<<PRELUDE>>
+_E = EllipticCurve([0, 0, 1, -1, 0])
+int(_E.conductor())
+
+=== elliptic_curve_gens [call 1] trusted=True
+<<PRELUDE>>
+_E = EllipticCurve([0, 0, 1, -1, 0])
+[str(p) for p in _E.gens()]
+
+=== coding_theory_length [call 1] trusted=True
+<<PRELUDE>>
+_C = codes.HammingCode(GF(2),3)
+int(_C.length())
+
+=== coding_theory_dimension [call 1] trusted=True
+<<PRELUDE>>
+_C = codes.HammingCode(GF(2),3)
+int(_C.dimension())
+
+=== coding_theory_minimum_distance [call 1] trusted=True
+<<PRELUDE>>
+_C = codes.HammingCode(GF(2),3)
+int(_C.minimum_distance())
+
+=== coding_theory_generator_matrix [call 1] trusted=True
+<<PRELUDE>>
+_C = codes.HammingCode(GF(2),3)
+[[int(x) for x in row] for row in _C.generator_matrix().rows()]
+
+=== coding_theory_rate [call 1] trusted=True
+<<PRELUDE>>
+_C = codes.HammingCode(GF(2),3)
+float(_C.dimension() / _C.length())
+
+=== boolean_algebra_evaluate [call 1] trusted=True
+<<PRELUDE>>
+_R = BooleanPolynomialRing(3, ['x0', 'x1', 'x2'])
+_R.inject_variables(verbose=False)
+_bool_locals = {str(_g): _g for _g in _R.gens()}
+for _alias, _gen in zip(['x', 'y', 'z', 'w', 'v', 'u'], _R.gens()):
+    _bool_locals.setdefault(_alias, _gen)
+_bool_expr = _R(sage_eval("x*y + x*z + y*z", locals=_bool_locals))
+str(_bool_expr)
+
+=== boolean_algebra_variables [call 1] trusted=True
+<<PRELUDE>>
+_R = BooleanPolynomialRing(3, ['x0', 'x1', 'x2'])
+_R.inject_variables(verbose=False)
+_bool_locals = {str(_g): _g for _g in _R.gens()}
+for _alias, _gen in zip(['x', 'y', 'z', 'w', 'v', 'u'], _R.gens()):
+    _bool_locals.setdefault(_alias, _gen)
+_bool_expr = _R(sage_eval("x*y + x*z + y*z", locals=_bool_locals))
+[str(v) for v in _bool_expr.variables()]
+
+=== boolean_algebra_degree [call 1] trusted=True
+<<PRELUDE>>
+_R = BooleanPolynomialRing(3, ['x0', 'x1', 'x2'])
+_R.inject_variables(verbose=False)
+_bool_locals = {str(_g): _g for _g in _R.gens()}
+for _alias, _gen in zip(['x', 'y', 'z', 'w', 'v', 'u'], _R.gens()):
+    _bool_locals.setdefault(_alias, _gen)
+_bool_expr = _R(sage_eval("x*y + x*z + y*z", locals=_bool_locals))
+int(_bool_expr.deg())
+
+=== boolean_algebra_is_zero [call 1] trusted=True
+<<PRELUDE>>
+_R = BooleanPolynomialRing(3, ['x0', 'x1', 'x2'])
+_R.inject_variables(verbose=False)
+_bool_locals = {str(_g): _g for _g in _R.gens()}
+for _alias, _gen in zip(['x', 'y', 'z', 'w', 'v', 'u'], _R.gens()):
+    _bool_locals.setdefault(_alias, _gen)
+_bool_expr = _R(sage_eval("x*y + x*z + y*z", locals=_bool_locals))
+bool(_bool_expr.is_zero())
+
+=== boolean_algebra_is_one [call 1] trusted=True
+<<PRELUDE>>
+_R = BooleanPolynomialRing(3, ['x0', 'x1', 'x2'])
+_R.inject_variables(verbose=False)
+_bool_locals = {str(_g): _g for _g in _R.gens()}
+for _alias, _gen in zip(['x', 'y', 'z', 'w', 'v', 'u'], _R.gens()):
+    _bool_locals.setdefault(_alias, _gen)
+_bool_expr = _R(sage_eval("x*y + x*z + y*z", locals=_bool_locals))
+bool(_bool_expr.is_one())
+
+=== boolean_algebra_reduce [call 1] trusted=True
+<<PRELUDE>>
+_R = BooleanPolynomialRing(3, ['x0', 'x1', 'x2'])
+_R.inject_variables(verbose=False)
+_bool_locals = {str(_g): _g for _g in _R.gens()}
+for _alias, _gen in zip(['x', 'y', 'z', 'w', 'v', 'u'], _R.gens()):
+    _bool_locals.setdefault(_alias, _gen)
+_bool_expr = _R(sage_eval("x*y + x*z + y*z", locals=_bool_locals))
+str(_bool_expr)
+
+=== polynomial_ring_groebner_basis [call 1] trusted=True
+
+from sage.all import *
+from sage.all import sage_eval
+
+class _SymbolLocals(dict):
+    # SageMath declares a variable when it *parses a string* into the
+    # symbolic ring -- `SR("a*b + a")` creates `a` and `b` -- and not
+    # when it runs code, where `w + 1` is a NameError. These tools take
+    # a mathematical expression as a string, which is SR's contract, so
+    # they behave like SR.
+    #
+    # Narrower than SR in one way that matters. SR will invent any
+    # identifier: `SR("sinn(x)")` returns `sinn(x)` and `SR("pi2*2")`
+    # returns `2*pi2`, so a typo becomes a symbol and the caller gets a
+    # confident wrong answer. Only symbol-shaped names are declared here
+    # -- a letter with an optional index, or a Greek name -- so `a`,
+    # `b`, `w` and `x_2` are variables and `sinn`, `foobar` and `pi2`
+    # are still errors.
+    #
+    # The Greek alphabet is here as letters as well as names, because
+    # that is how a physicist writes it -- but only the letters
+    # SageMath does not already define: five of them are its gamma,
+    # zeta, pi, sigma and psi, and shadowing those was a real
+    # regression before the allowlist filtered them out.
+    #
+    # KeyError rather than a symbol is the important branch: it is what
+    # lets the lookup fall through to the namespace, so `matrix`, `QQ`
+    # and `sin` resolve normally.
+    _excluded = frozenset(['D', 'E', 'I', 'J0', 'J1', 'N', 'O', 'beta', 'e', 'eta', 'gamma', 'i', 'n', 'psi', 'sigma', 't', 'tau', 'x', 'y', 'z', 'zeta', 'Γ', 'ζ', 'π', 'σ', 'ψ'])
+    _greek = frozenset(['alpha', 'beta', 'chi', 'delta', 'epsilon', 'eta', 'gamma', 'iota', 'kappa', 'lamda', 'mu', 'nu', 'omega', 'omicron', 'phi', 'psi', 'rho', 'sigma', 'tau', 'theta', 'upsilon', 'xi', 'zeta', 'Α', 'Β', 'Δ', 'Ε', 'Ζ', 'Η', 'Θ', 'Ι', 'Κ', 'Λ', 'Μ', 'Ν', 'Ξ', 'Ο', 'Π', 'Ρ', 'Σ', 'Τ', 'Υ', 'Φ', 'Χ', 'Ψ', 'Ω', 'α', 'β', 'γ', 'δ', 'ε', 'η', 'θ', 'ι', 'κ', 'λ', 'μ', 'ν', 'ξ', 'ο', 'ρ', 'ς', 'τ', 'υ', 'φ', 'χ', 'ω', 'ϑ', 'ϕ', 'ϖ', 'ϱ', 'ϵ'])
+
+    def __missing__(self, name):
+        if name in self._excluded or name.startswith('_'):
+            raise KeyError(name)
+        shaped = name in self._greek
+        if not shaped:
+            body = name.replace('_', '', 1) if '_' in name[1:] else name
+            # ASCII, mirroring `_SYMBOL_SHAPE` on the Python side: a
+            # letter, then an optional underscore and digit. Python's
+            # `isalpha()` is true for the Greek letters too,
+            # so without the ascii test this declared a fresh symbol
+            # for SageMath's own pi and turned `pi.n()` into "cannot
+            # evaluate symbolic expression numerically". Two
+            # implementations of one rule, disagreeing. The Greek
+            # letters come back through the set above, filtered.
+            head = body[:1]
+            shaped = (
+                len(body) <= 2 and head.isascii() and head.isalpha()
+                and (len(body) == 1 or body[1:].isdigit())
+            )
+        if not shaped:
+            raise KeyError(name)
+        created = var(name)
+        self[name] = created
+        return created
+
+_locals = _SymbolLocals({name: var(name) for name in ['x', 'y', 'z', 't', 'a', 'b']})
+_R = PolynomialRing(QQ, 'a, b')
+_R.inject_variables(verbose=False)
+_I = _R.ideal([_R("a^2+b"), _R("b^2-1")])
+[str(g) for g in _I.groebner_basis()]
+
+=== polynomial_ring_ideal_dimension [call 1] trusted=True
+
+from sage.all import *
+from sage.all import sage_eval
+
+class _SymbolLocals(dict):
+    # SageMath declares a variable when it *parses a string* into the
+    # symbolic ring -- `SR("a*b + a")` creates `a` and `b` -- and not
+    # when it runs code, where `w + 1` is a NameError. These tools take
+    # a mathematical expression as a string, which is SR's contract, so
+    # they behave like SR.
+    #
+    # Narrower than SR in one way that matters. SR will invent any
+    # identifier: `SR("sinn(x)")` returns `sinn(x)` and `SR("pi2*2")`
+    # returns `2*pi2`, so a typo becomes a symbol and the caller gets a
+    # confident wrong answer. Only symbol-shaped names are declared here
+    # -- a letter with an optional index, or a Greek name -- so `a`,
+    # `b`, `w` and `x_2` are variables and `sinn`, `foobar` and `pi2`
+    # are still errors.
+    #
+    # The Greek alphabet is here as letters as well as names, because
+    # that is how a physicist writes it -- but only the letters
+    # SageMath does not already define: five of them are its gamma,
+    # zeta, pi, sigma and psi, and shadowing those was a real
+    # regression before the allowlist filtered them out.
+    #
+    # KeyError rather than a symbol is the important branch: it is what
+    # lets the lookup fall through to the namespace, so `matrix`, `QQ`
+    # and `sin` resolve normally.
+    _excluded = frozenset(['D', 'E', 'I', 'J0', 'J1', 'N', 'O', 'beta', 'e', 'eta', 'gamma', 'i', 'n', 'psi', 'sigma', 't', 'tau', 'x', 'y', 'z', 'zeta', 'Γ', 'ζ', 'π', 'σ', 'ψ'])
+    _greek = frozenset(['alpha', 'beta', 'chi', 'delta', 'epsilon', 'eta', 'gamma', 'iota', 'kappa', 'lamda', 'mu', 'nu', 'omega', 'omicron', 'phi', 'psi', 'rho', 'sigma', 'tau', 'theta', 'upsilon', 'xi', 'zeta', 'Α', 'Β', 'Δ', 'Ε', 'Ζ', 'Η', 'Θ', 'Ι', 'Κ', 'Λ', 'Μ', 'Ν', 'Ξ', 'Ο', 'Π', 'Ρ', 'Σ', 'Τ', 'Υ', 'Φ', 'Χ', 'Ψ', 'Ω', 'α', 'β', 'γ', 'δ', 'ε', 'η', 'θ', 'ι', 'κ', 'λ', 'μ', 'ν', 'ξ', 'ο', 'ρ', 'ς', 'τ', 'υ', 'φ', 'χ', 'ω', 'ϑ', 'ϕ', 'ϖ', 'ϱ', 'ϵ'])
+
+    def __missing__(self, name):
+        if name in self._excluded or name.startswith('_'):
+            raise KeyError(name)
+        shaped = name in self._greek
+        if not shaped:
+            body = name.replace('_', '', 1) if '_' in name[1:] else name
+            # ASCII, mirroring `_SYMBOL_SHAPE` on the Python side: a
+            # letter, then an optional underscore and digit. Python's
+            # `isalpha()` is true for the Greek letters too,
+            # so without the ascii test this declared a fresh symbol
+            # for SageMath's own pi and turned `pi.n()` into "cannot
+            # evaluate symbolic expression numerically". Two
+            # implementations of one rule, disagreeing. The Greek
+            # letters come back through the set above, filtered.
+            head = body[:1]
+            shaped = (
+                len(body) <= 2 and head.isascii() and head.isalpha()
+                and (len(body) == 1 or body[1:].isdigit())
+            )
+        if not shaped:
+            raise KeyError(name)
+        created = var(name)
+        self[name] = created
+        return created
+
+_locals = _SymbolLocals({name: var(name) for name in ['x', 'y', 'z', 't', 'a', 'b']})
+_R = PolynomialRing(QQ, 'a, b')
+_R.inject_variables(verbose=False)
+_I = _R.ideal([_R("a^2+b"), _R("b^2-1")])
+int(_I.dimension())
+
+=== polynomial_ring_ideal_variety [call 1] trusted=True
+
+from sage.all import *
+from sage.all import sage_eval
+
+class _SymbolLocals(dict):
+    # SageMath declares a variable when it *parses a string* into the
+    # symbolic ring -- `SR("a*b + a")` creates `a` and `b` -- and not
+    # when it runs code, where `w + 1` is a NameError. These tools take
+    # a mathematical expression as a string, which is SR's contract, so
+    # they behave like SR.
+    #
+    # Narrower than SR in one way that matters. SR will invent any
+    # identifier: `SR("sinn(x)")` returns `sinn(x)` and `SR("pi2*2")`
+    # returns `2*pi2`, so a typo becomes a symbol and the caller gets a
+    # confident wrong answer. Only symbol-shaped names are declared here
+    # -- a letter with an optional index, or a Greek name -- so `a`,
+    # `b`, `w` and `x_2` are variables and `sinn`, `foobar` and `pi2`
+    # are still errors.
+    #
+    # The Greek alphabet is here as letters as well as names, because
+    # that is how a physicist writes it -- but only the letters
+    # SageMath does not already define: five of them are its gamma,
+    # zeta, pi, sigma and psi, and shadowing those was a real
+    # regression before the allowlist filtered them out.
+    #
+    # KeyError rather than a symbol is the important branch: it is what
+    # lets the lookup fall through to the namespace, so `matrix`, `QQ`
+    # and `sin` resolve normally.
+    _excluded = frozenset(['D', 'E', 'I', 'J0', 'J1', 'N', 'O', 'beta', 'e', 'eta', 'gamma', 'i', 'n', 'psi', 'sigma', 't', 'tau', 'x', 'y', 'z', 'zeta', 'Γ', 'ζ', 'π', 'σ', 'ψ'])
+    _greek = frozenset(['alpha', 'beta', 'chi', 'delta', 'epsilon', 'eta', 'gamma', 'iota', 'kappa', 'lamda', 'mu', 'nu', 'omega', 'omicron', 'phi', 'psi', 'rho', 'sigma', 'tau', 'theta', 'upsilon', 'xi', 'zeta', 'Α', 'Β', 'Δ', 'Ε', 'Ζ', 'Η', 'Θ', 'Ι', 'Κ', 'Λ', 'Μ', 'Ν', 'Ξ', 'Ο', 'Π', 'Ρ', 'Σ', 'Τ', 'Υ', 'Φ', 'Χ', 'Ψ', 'Ω', 'α', 'β', 'γ', 'δ', 'ε', 'η', 'θ', 'ι', 'κ', 'λ', 'μ', 'ν', 'ξ', 'ο', 'ρ', 'ς', 'τ', 'υ', 'φ', 'χ', 'ω', 'ϑ', 'ϕ', 'ϖ', 'ϱ', 'ϵ'])
+
+    def __missing__(self, name):
+        if name in self._excluded or name.startswith('_'):
+            raise KeyError(name)
+        shaped = name in self._greek
+        if not shaped:
+            body = name.replace('_', '', 1) if '_' in name[1:] else name
+            # ASCII, mirroring `_SYMBOL_SHAPE` on the Python side: a
+            # letter, then an optional underscore and digit. Python's
+            # `isalpha()` is true for the Greek letters too,
+            # so without the ascii test this declared a fresh symbol
+            # for SageMath's own pi and turned `pi.n()` into "cannot
+            # evaluate symbolic expression numerically". Two
+            # implementations of one rule, disagreeing. The Greek
+            # letters come back through the set above, filtered.
+            head = body[:1]
+            shaped = (
+                len(body) <= 2 and head.isascii() and head.isalpha()
+                and (len(body) == 1 or body[1:].isdigit())
+            )
+        if not shaped:
+            raise KeyError(name)
+        created = var(name)
+        self[name] = created
+        return created
+
+_locals = _SymbolLocals({name: var(name) for name in ['x', 'y', 'z', 't', 'a', 'b']})
+_R = PolynomialRing(QQ, 'a, b')
+_R.inject_variables(verbose=False)
+_I = _R.ideal([_R("a^2+b"), _R("b^2-1")])
+[{str(k): str(v) for k, v in pt.items()} for pt in _I.variety()]
+
+=== polynomial_ring_reduce [call 1] trusted=True
+
+from sage.all import *
+from sage.all import sage_eval
+
+class _SymbolLocals(dict):
+    # SageMath declares a variable when it *parses a string* into the
+    # symbolic ring -- `SR("a*b + a")` creates `a` and `b` -- and not
+    # when it runs code, where `w + 1` is a NameError. These tools take
+    # a mathematical expression as a string, which is SR's contract, so
+    # they behave like SR.
+    #
+    # Narrower than SR in one way that matters. SR will invent any
+    # identifier: `SR("sinn(x)")` returns `sinn(x)` and `SR("pi2*2")`
+    # returns `2*pi2`, so a typo becomes a symbol and the caller gets a
+    # confident wrong answer. Only symbol-shaped names are declared here
+    # -- a letter with an optional index, or a Greek name -- so `a`,
+    # `b`, `w` and `x_2` are variables and `sinn`, `foobar` and `pi2`
+    # are still errors.
+    #
+    # The Greek alphabet is here as letters as well as names, because
+    # that is how a physicist writes it -- but only the letters
+    # SageMath does not already define: five of them are its gamma,
+    # zeta, pi, sigma and psi, and shadowing those was a real
+    # regression before the allowlist filtered them out.
+    #
+    # KeyError rather than a symbol is the important branch: it is what
+    # lets the lookup fall through to the namespace, so `matrix`, `QQ`
+    # and `sin` resolve normally.
+    _excluded = frozenset(['D', 'E', 'I', 'J0', 'J1', 'N', 'O', 'beta', 'e', 'eta', 'gamma', 'i', 'n', 'psi', 'sigma', 't', 'tau', 'x', 'y', 'z', 'zeta', 'Γ', 'ζ', 'π', 'σ', 'ψ'])
+    _greek = frozenset(['alpha', 'beta', 'chi', 'delta', 'epsilon', 'eta', 'gamma', 'iota', 'kappa', 'lamda', 'mu', 'nu', 'omega', 'omicron', 'phi', 'psi', 'rho', 'sigma', 'tau', 'theta', 'upsilon', 'xi', 'zeta', 'Α', 'Β', 'Δ', 'Ε', 'Ζ', 'Η', 'Θ', 'Ι', 'Κ', 'Λ', 'Μ', 'Ν', 'Ξ', 'Ο', 'Π', 'Ρ', 'Σ', 'Τ', 'Υ', 'Φ', 'Χ', 'Ψ', 'Ω', 'α', 'β', 'γ', 'δ', 'ε', 'η', 'θ', 'ι', 'κ', 'λ', 'μ', 'ν', 'ξ', 'ο', 'ρ', 'ς', 'τ', 'υ', 'φ', 'χ', 'ω', 'ϑ', 'ϕ', 'ϖ', 'ϱ', 'ϵ'])
+
+    def __missing__(self, name):
+        if name in self._excluded or name.startswith('_'):
+            raise KeyError(name)
+        shaped = name in self._greek
+        if not shaped:
+            body = name.replace('_', '', 1) if '_' in name[1:] else name
+            # ASCII, mirroring `_SYMBOL_SHAPE` on the Python side: a
+            # letter, then an optional underscore and digit. Python's
+            # `isalpha()` is true for the Greek letters too,
+            # so without the ascii test this declared a fresh symbol
+            # for SageMath's own pi and turned `pi.n()` into "cannot
+            # evaluate symbolic expression numerically". Two
+            # implementations of one rule, disagreeing. The Greek
+            # letters come back through the set above, filtered.
+            head = body[:1]
+            shaped = (
+                len(body) <= 2 and head.isascii() and head.isalpha()
+                and (len(body) == 1 or body[1:].isdigit())
+            )
+        if not shaped:
+            raise KeyError(name)
+        created = var(name)
+        self[name] = created
+        return created
+
+_locals = _SymbolLocals({name: var(name) for name in ['x', 'y', 'z', 't', 'a', 'b']})
+_R = PolynomialRing(QQ, 'a, b')
+_R.inject_variables(verbose=False)
+_I = _R.ideal([_R("a^2+b"), _R("b^2-1")])
+str(_I.reduce(_R("a^2+b")))
+
+=== polynomial_ring_is_groebner [call 1] trusted=True
+
+from sage.all import *
+from sage.all import sage_eval
+
+class _SymbolLocals(dict):
+    # SageMath declares a variable when it *parses a string* into the
+    # symbolic ring -- `SR("a*b + a")` creates `a` and `b` -- and not
+    # when it runs code, where `w + 1` is a NameError. These tools take
+    # a mathematical expression as a string, which is SR's contract, so
+    # they behave like SR.
+    #
+    # Narrower than SR in one way that matters. SR will invent any
+    # identifier: `SR("sinn(x)")` returns `sinn(x)` and `SR("pi2*2")`
+    # returns `2*pi2`, so a typo becomes a symbol and the caller gets a
+    # confident wrong answer. Only symbol-shaped names are declared here
+    # -- a letter with an optional index, or a Greek name -- so `a`,
+    # `b`, `w` and `x_2` are variables and `sinn`, `foobar` and `pi2`
+    # are still errors.
+    #
+    # The Greek alphabet is here as letters as well as names, because
+    # that is how a physicist writes it -- but only the letters
+    # SageMath does not already define: five of them are its gamma,
+    # zeta, pi, sigma and psi, and shadowing those was a real
+    # regression before the allowlist filtered them out.
+    #
+    # KeyError rather than a symbol is the important branch: it is what
+    # lets the lookup fall through to the namespace, so `matrix`, `QQ`
+    # and `sin` resolve normally.
+    _excluded = frozenset(['D', 'E', 'I', 'J0', 'J1', 'N', 'O', 'beta', 'e', 'eta', 'gamma', 'i', 'n', 'psi', 'sigma', 't', 'tau', 'x', 'y', 'z', 'zeta', 'Γ', 'ζ', 'π', 'σ', 'ψ'])
+    _greek = frozenset(['alpha', 'beta', 'chi', 'delta', 'epsilon', 'eta', 'gamma', 'iota', 'kappa', 'lamda', 'mu', 'nu', 'omega', 'omicron', 'phi', 'psi', 'rho', 'sigma', 'tau', 'theta', 'upsilon', 'xi', 'zeta', 'Α', 'Β', 'Δ', 'Ε', 'Ζ', 'Η', 'Θ', 'Ι', 'Κ', 'Λ', 'Μ', 'Ν', 'Ξ', 'Ο', 'Π', 'Ρ', 'Σ', 'Τ', 'Υ', 'Φ', 'Χ', 'Ψ', 'Ω', 'α', 'β', 'γ', 'δ', 'ε', 'η', 'θ', 'ι', 'κ', 'λ', 'μ', 'ν', 'ξ', 'ο', 'ρ', 'ς', 'τ', 'υ', 'φ', 'χ', 'ω', 'ϑ', 'ϕ', 'ϖ', 'ϱ', 'ϵ'])
+
+    def __missing__(self, name):
+        if name in self._excluded or name.startswith('_'):
+            raise KeyError(name)
+        shaped = name in self._greek
+        if not shaped:
+            body = name.replace('_', '', 1) if '_' in name[1:] else name
+            # ASCII, mirroring `_SYMBOL_SHAPE` on the Python side: a
+            # letter, then an optional underscore and digit. Python's
+            # `isalpha()` is true for the Greek letters too,
+            # so without the ascii test this declared a fresh symbol
+            # for SageMath's own pi and turned `pi.n()` into "cannot
+            # evaluate symbolic expression numerically". Two
+            # implementations of one rule, disagreeing. The Greek
+            # letters come back through the set above, filtered.
+            head = body[:1]
+            shaped = (
+                len(body) <= 2 and head.isascii() and head.isalpha()
+                and (len(body) == 1 or body[1:].isdigit())
+            )
+        if not shaped:
+            raise KeyError(name)
+        created = var(name)
+        self[name] = created
+        return created
+
+_locals = _SymbolLocals({name: var(name) for name in ['x', 'y', 'z', 't', 'a', 'b']})
+_R = PolynomialRing(QQ, 'a, b')
+_R.inject_variables(verbose=False)
+_I = _R.ideal([_R("a^2+b"), _R("b^2-1")])
+bool(_I.basis_is_groebner())
+
+=== geometry_distance [call 1] trusted=True
+<<PRELUDE>>
+float(sqrt(sum((a-b)**2 for a, b in zip([0, 0], [3, 4]))))
+
+=== geometry_polygon_area [call 1] trusted=True
+<<PRELUDE>>
+float(Polyhedron(vertices=[[0, 0], [1, 0], [1, 1], [0, 1]]).volume())
+
+=== geometry_polytope_volume [call 1] trusted=True
+<<PRELUDE>>
+float(Polyhedron(vertices=[[0, 0], [1, 0], [1, 1], [0, 1]]).volume())
+
+=== geometry_convex_hull_vertices [call 1] trusted=True
+<<PRELUDE>>
+[list(v) for v in Polyhedron(vertices=[[0, 0], [1, 0], [1, 1], [0, 1]]).vertices_list()]
+
+=== geometry_is_convex [call 1] trusted=True
+<<PRELUDE>>
+_poly = [[0, 0], [1, 0], [1, 1], [0, 1]]
+_n = len(_poly)
+def _orient(_p, _q, _r):
+    return ((_q[0]-_p[0])*(_r[1]-_p[1]) - (_q[1]-_p[1])*(_r[0]-_p[0]))
+def _crosses(_a, _b, _c, _d):
+    _d1 = _orient(_c, _d, _a); _d2 = _orient(_c, _d, _b)
+    _d3 = _orient(_a, _b, _c); _d4 = _orient(_a, _b, _d)
+    return ((_d1 > 0) != (_d2 > 0)) and ((_d3 > 0) != (_d4 > 0))
+_simple = True
+for _i in range(_n):
+    for _j in range(_i + 1, _n):
+        if _j == _i or (_j + 1) % _n == _i or (_i + 1) % _n == _j:
+            continue
+        if _crosses(_poly[_i], _poly[(_i+1) % _n],
+                    _poly[_j], _poly[(_j+1) % _n]):
+            _simple = False
+_turns = set()
+for _i in range(len(_poly)):
+    _a = _poly[_i]
+    _b = _poly[(_i + 1) % len(_poly)]
+    _c = _poly[(_i + 2) % len(_poly)]
+    _cross = ((_b[0] - _a[0]) * (_c[1] - _b[1])
+              - (_b[1] - _a[1]) * (_c[0] - _b[0]))
+    if _cross != 0:
+        _turns.add(_cross > 0)
+bool(_simple and len(_turns) <= 1)
+

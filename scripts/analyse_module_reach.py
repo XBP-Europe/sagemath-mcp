@@ -37,12 +37,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from sagemath_mcp._artifacts import ALLOWED_CALLER_NAMES, STAR_EXPORTS
 from sagemath_mcp._sage_worker import _OFFERED_SHIM_NAMES, _auto_declarable_symbols
-from sagemath_mcp.security import (
-    SecurityViolation,
-    _bound_names,
-    injects_session_names,
-    validate_module,
-)
+from sagemath_mcp.policy import SecurityViolation
+from sagemath_mcp.security import _bound_names, injects_session_names, validate_module
 from tests.test_sage_doctest_corpus import (
     _STAR_IMPORT,
     _docstrings,

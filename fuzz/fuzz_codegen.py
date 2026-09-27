@@ -51,7 +51,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from fastmcp.exceptions import ToolError
 
 from sagemath_mcp.gates import encode_literal, validated_expression, validated_identifier
-from sagemath_mcp.security import SECURITY_POLICY
+from sagemath_mcp.policy import SECURITY_POLICY
 
 JUDGED = 0
 

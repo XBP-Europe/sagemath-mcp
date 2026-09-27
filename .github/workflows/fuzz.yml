@@ -25,6 +25,9 @@ on:
   pull_request:
     paths:
       - "src/sagemath_mcp/security.py"
+      - "src/sagemath_mcp/policy.py"
+      - "src/sagemath_mcp/refusals.py"
+      - "src/sagemath_mcp/imports.py"
       - "src/sagemath_mcp/gates.py"
       - "src/sagemath_mcp/_sage_worker.py"
       - "src/sagemath_mcp/allowlist*.py"

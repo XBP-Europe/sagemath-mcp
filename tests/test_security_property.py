@@ -18,7 +18,8 @@ import keyword
 from hypothesis import given
 from hypothesis import strategies as st
 
-from sagemath_mcp.security import SECURITY_POLICY, SecurityViolation, validate_module
+from sagemath_mcp.policy import SECURITY_POLICY, SecurityViolation
+from sagemath_mcp.security import validate_module
 from sagemath_mcp.symbols import PREDEFINED_SYMBOLS
 
 
@@ -221,7 +222,7 @@ def test_a_star_expands_to_exactly_the_screened_names(module: str) -> None:
     """The safety argument for the whole star-export mechanism is that what
     runs is exactly what `_star_export_screen` passed. If the expansion bound
     one name more, that name was never reviewed."""
-    from sagemath_mcp.security import rewrite_permitted_imports
+    from sagemath_mcp.imports import rewrite_permitted_imports
 
     code = f"from {module} import *"
     rewritten = rewrite_permitted_imports(
@@ -243,7 +244,7 @@ def test_a_star_expands_to_exactly_the_screened_names(module: str) -> None:
 def test_an_unlisted_star_is_never_expanded(module: str, name: str) -> None:
     """Only curated modules are expanded. Anything else must be left for the
     validator to refuse, not quietly turned into bindings."""
-    from sagemath_mcp.security import rewrite_permitted_imports
+    from sagemath_mcp.imports import rewrite_permitted_imports
 
     target = f"sage.{module}.{name}"
     if target in SECURITY_POLICY.star_export_modules:

@@ -15,13 +15,9 @@ import ast
 import pytest
 
 from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
-from sagemath_mcp.security import (
-    SECURITY_POLICY,
-    SecurityViolation,
-    _bound_names,
-    rewrite_permitted_imports,
-    validate_module,
-)
+from sagemath_mcp.imports import rewrite_permitted_imports
+from sagemath_mcp.policy import SECURITY_POLICY, SecurityViolation
+from sagemath_mcp.security import _bound_names, validate_module
 
 # (id, payload). Every one of these reached outside the sandbox.
 BYPASS_PAYLOADS = [
@@ -584,7 +580,7 @@ def test_caller_code_cannot_import_anything(label, payload) -> None:
 
 def test_generated_code_may_still_import_what_its_templates_need() -> None:
     """The prelude does `from sage.all import *`; templates use base64 and io."""
-    from sagemath_mcp.security import trusted_policy
+    from sagemath_mcp.policy import trusted_policy
 
     for code in (
         "from sage.all import *\n1",
@@ -616,7 +612,7 @@ def test_even_generated_code_may_not_import_a_forbidden_module() -> None:
     code now that callers cannot import at all, which is exactly why it needs a
     test of its own.
     """
-    from sagemath_mcp.security import trusted_policy
+    from sagemath_mcp.policy import trusted_policy
 
     for code in (
         "from sage.all import os as m",
@@ -652,7 +648,7 @@ def test_caller_code_cannot_persist_to_disk(label, payload) -> None:
 def test_generated_plot_templates_may_still_render_to_a_buffer() -> None:
     """The plots render with .savefig(BytesIO) -- a prefix rule that broke that
     would take all three plotting tools with it."""
-    from sagemath_mcp.security import trusted_policy
+    from sagemath_mcp.policy import trusted_policy
 
     code = "_fig.savefig(_buf, format='png')"
     validate_module(ast.parse(code), code=code, policy=trusted_policy())
@@ -1880,7 +1876,7 @@ def test_the_import_rewrite_is_inert_when_the_allowlist_is_off() -> None:
     """
     from dataclasses import replace
 
-    from sagemath_mcp.security import rewrite_permitted_imports
+    from sagemath_mcp.imports import rewrite_permitted_imports
 
     module = ast.parse("import numpy as np\nnp.array([1, 2])")
     relaxed = replace(SECURITY_POLICY, enforce_name_allowlist=False)
@@ -2638,7 +2634,7 @@ def test_the_sage_root_refusal_says_what_to_do_instead():
 
 
 def test_trusted_generated_code_may_still_reach_sage():
-    from sagemath_mcp.security import trusted_policy
+    from sagemath_mcp.policy import trusted_policy
 
     """The prelude does `import sage.all as _sage_ns` and reads attributes off
     it; refusing the root for generated code would break every specialised
@@ -2700,7 +2696,7 @@ _REACH_STILL_REFUSED = (
     "sage.rings.ideal.unpickle_global",
     # Aliasing the root, which was item 52's escape.
     "f = sage\nf.rings.ideal.Katsura",
-    # A chain with the right segments and no root at all. `_attribute_segments`
+    # A chain with the right segments and no root at all. `attribute_segments`
     # omits a root that is not a Name, so this reads as
     # `sage.rings.ideal.Katsura` while `.sage` is an attribute of whatever the
     # subscript returned -- the permit has to be tied to a real Name root, not

@@ -21,11 +21,8 @@ from dataclasses import replace
 
 from fastmcp.exceptions import ToolError
 
-from .security import (
-    SECURITY_POLICY,
-    SecurityViolation,
-    validate_module,
-)
+from .policy import SECURITY_POLICY, SecurityViolation
+from .security import validate_module
 
 
 def _normalize_source(value):

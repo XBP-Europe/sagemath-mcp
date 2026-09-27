@@ -58,13 +58,9 @@ import pytest
 from sagemath_mcp._artifacts import ALLOWED_CALLER_NAMES, STAR_EXPORTS
 from sagemath_mcp._sage_worker import _OFFERED_SHIM_NAMES, _auto_declarable_symbols
 from sagemath_mcp.config import SageSettings
-from sagemath_mcp.security import (
-    SecurityViolation,
-    _bound_names,
-    injects_session_names,
-    rewrite_permitted_imports,
-    validate_module,
-)
+from sagemath_mcp.imports import rewrite_permitted_imports
+from sagemath_mcp.policy import SecurityViolation
+from sagemath_mcp.security import _bound_names, injects_session_names, validate_module
 from sagemath_mcp.session import SageSession
 
 requires_sage = pytest.mark.skipif(

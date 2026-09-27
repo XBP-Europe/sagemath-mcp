@@ -40,7 +40,7 @@ def test_the_fuzz_target_exists_and_imports() -> None:
 def test_the_denied_set_comes_from_the_live_policy() -> None:
     """Hard-coding it would let a rule stop denying a name without the fuzzer
     noticing -- the target would keep passing on a weaker policy."""
-    from sagemath_mcp.security import SECURITY_POLICY
+    from sagemath_mcp.policy import SECURITY_POLICY
 
     assert set(_harness().DENIED) == set(SECURITY_POLICY.forbidden_call_names)
 
@@ -110,7 +110,9 @@ def test_the_workflow_runs_the_target_on_the_python_we_ship() -> None:
     # as no harness, and harder to notice.
     for target in sorted(ROOT.glob("fuzz/fuzz_*.py")):
         assert f"fuzz/{target.name}" in workflow, f"{target.name} is never run by CI"
-    for guarded in ("security.py", "gates.py", "_sage_worker.py"):
+    for guarded in (
+        "security.py", "policy.py", "refusals.py", "imports.py", "gates.py", "_sage_worker.py",
+    ):
         assert guarded in workflow, f"a change to {guarded} would not trigger the fuzzers"
 
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))

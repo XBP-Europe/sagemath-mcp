@@ -5,7 +5,7 @@ import uuid
 import pytest
 
 from sagemath_mcp.config import SageSettings
-from sagemath_mcp.security import SECURITY_POLICY
+from sagemath_mcp.policy import SECURITY_POLICY
 from sagemath_mcp.session import SageEvaluationError, SageSession
 
 

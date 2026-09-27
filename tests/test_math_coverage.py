@@ -44,7 +44,8 @@ import shutil
 import pytest
 
 from sagemath_mcp import runtime
-from sagemath_mcp.security import SECURITY_POLICY, SecurityViolation, _bound_names, validate_module
+from sagemath_mcp.policy import SECURITY_POLICY, SecurityViolation
+from sagemath_mcp.security import _bound_names, validate_module
 
 requires_sage = pytest.mark.skipif(
     shutil.which("sage") is None, reason="Sage executable not available"
@@ -805,7 +806,8 @@ def test_a_withheld_name_names_the_spelling_that_works() -> None:
     """
     import ast
 
-    from sagemath_mcp.security import SecurityViolation, validate_module
+    from sagemath_mcp.policy import SecurityViolation
+    from sagemath_mcp.security import validate_module
 
     expected = [
         ("gap('SymmetricGroup(5)')", "SymmetricGroup"),

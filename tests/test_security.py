@@ -4,15 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from sagemath_mcp.security import (
-    SecurityPolicy,
-    SecurityViolation,
-    _bool_env,
-    _format_violation,
-    _int_env,
-    _tuple_env,
-    validate_code,
-)
+from sagemath_mcp.policy import SecurityPolicy, SecurityViolation, _bool_env, _int_env, _tuple_env
+from sagemath_mcp.refusals import format_violation
+from sagemath_mcp.security import validate_code
 
 
 def test_validate_code_blocks_forbidden_import():
@@ -30,7 +24,8 @@ def test_caller_code_may_not_import_even_from_sage():
 def test_generated_code_may_import_what_its_templates_need():
     import ast
 
-    from sagemath_mcp.security import trusted_policy, validate_module
+    from sagemath_mcp.policy import trusted_policy
+    from sagemath_mcp.security import validate_module
 
     code = "from sage.all import sin\n1"
     validate_module(ast.parse(code), code=code, policy=trusted_policy())
@@ -130,12 +125,12 @@ def test_tuple_env_returns_default_for_empty(monkeypatch):
 
 
 def test_format_violation_without_code():
-    assert _format_violation("error msg", None) == "error msg"
-    assert _format_violation("error msg", "") == "error msg"
+    assert format_violation("error msg", None) == "error msg"
+    assert format_violation("error msg", "") == "error msg"
 
 
 def test_format_violation_with_code():
-    result = _format_violation("error msg", "import os\nos.system('x')")
+    result = format_violation("error msg", "import os\nos.system('x')")
     assert "snippet:" in result
 
 
@@ -191,7 +186,7 @@ def test_security_policy_from_env(monkeypatch):
 
 def test_format_violation_with_blank_lines_only():
     """Cover line 162: code with only whitespace lines."""
-    result = _format_violation("error msg", "   \n   \n   ")
+    result = format_violation("error msg", "   \n   \n   ")
     assert result == "error msg"
 
 
@@ -217,7 +212,7 @@ def test_trusted_policy_relaxes_only_the_three_evaluation_entry_points() -> None
     built on sage_eval -- and nothing else. If it relaxed more, generated code
     could reach open() or getattr() directly.
     """
-    from sagemath_mcp.security import SECURITY_POLICY, trusted_policy
+    from sagemath_mcp.policy import SECURITY_POLICY, trusted_policy
 
     relaxed = trusted_policy()
     gained = set(SECURITY_POLICY.forbidden_call_names) - set(relaxed.forbidden_call_names)
@@ -241,7 +236,7 @@ def test_trusted_policy_relaxes_only_the_three_evaluation_entry_points() -> None
 def test_trusted_policy_accepts_an_explicit_base_policy() -> None:
     from dataclasses import replace
 
-    from sagemath_mcp.security import SECURITY_POLICY, trusted_policy
+    from sagemath_mcp.policy import SECURITY_POLICY, trusted_policy
 
     base = replace(SECURITY_POLICY, max_ast_nodes=11)
     assert trusted_policy(base).max_ast_nodes == 11
@@ -251,7 +246,8 @@ def test_a_forbidden_attribute_chain_stops_at_the_first_offending_segment() -> N
     """The loop breaks after raising; this pins the message to the real cause."""
     import ast
 
-    from sagemath_mcp.security import SECURITY_POLICY, SecurityViolation, validate_module
+    from sagemath_mcp.policy import SECURITY_POLICY, SecurityViolation
+    from sagemath_mcp.security import validate_module
 
     # A `sage`-rooted chain no longer reaches the segment walk at all: the root
     # rule fires first (see forbidden_attribute_roots). This keeps the original
@@ -271,7 +267,8 @@ def test_relative_imports_are_rejected_by_name() -> None:
     """`from . import x` has no module, so the allowlist has nothing to check."""
     import ast
 
-    from sagemath_mcp.security import SECURITY_POLICY, SecurityViolation, validate_module
+    from sagemath_mcp.policy import SECURITY_POLICY, SecurityViolation
+    from sagemath_mcp.security import validate_module
 
     code = "from . import something"
     with pytest.raises(SecurityViolation, match="Relative imports"):
@@ -283,7 +280,8 @@ def test_validation_is_silent_when_violation_logging_is_off() -> None:
     import ast
     from dataclasses import replace
 
-    from sagemath_mcp.security import SECURITY_POLICY, validate_module
+    from sagemath_mcp.policy import SECURITY_POLICY
+    from sagemath_mcp.security import validate_module
 
     quiet = replace(SECURITY_POLICY, log_violations=False)
     code = "2 + 2"
@@ -304,7 +302,7 @@ def test_the_input_limits_admit_a_pasted_matrix():
     """
     import ast as ast_module
 
-    from sagemath_mcp.security import SECURITY_POLICY
+    from sagemath_mcp.policy import SECURITY_POLICY
 
     # Written the way the *preparser* leaves it, because that is what the
     # validator sees and what the limits apply to. Sage wraps every integer
@@ -460,11 +458,9 @@ def test_attrcall_stays_refused_outside_the_screen(code: str):
 
 import dataclasses  # noqa: E402
 
-from sagemath_mcp.security import (  # noqa: E402
-    SECURITY_POLICY,
-    rewrite_permitted_imports,
-    validate_module,
-)
+from sagemath_mcp.imports import rewrite_permitted_imports  # noqa: E402
+from sagemath_mcp.policy import SECURITY_POLICY  # noqa: E402
+from sagemath_mcp.security import validate_module  # noqa: E402
 
 
 def _policy_with_star(mapping):
@@ -684,7 +680,7 @@ def test_an_allowed_pair_does_not_exempt_a_longer_chain():
 
 
 def test_an_invented_name_is_answered_with_the_sage_spelling():
-    from sagemath_mcp.security import _SAGE_SPELLINGS
+    from sagemath_mcp.refusals import _SAGE_SPELLINGS
 
     for name, spelling in _SAGE_SPELLINGS.items():
         with pytest.raises(SecurityViolation) as excinfo:
@@ -707,12 +703,12 @@ def test_a_genuinely_unknown_name_keeps_the_two_honest_possibilities():
 
 
 def test_mpmath_and_functools_imports_name_an_alternative():
-    from sagemath_mcp.security import _import_alternative
+    from sagemath_mcp.refusals import import_alternative
 
-    assert "RealField" in _import_alternative("mpmath")
-    assert "RealField" in _import_alternative("mpmath.mp")
-    assert "reduce" in _import_alternative("functools")
-    assert _import_alternative("no_such_module") is None
+    assert "RealField" in import_alternative("mpmath")
+    assert "RealField" in import_alternative("mpmath.mp")
+    assert "reduce" in import_alternative("functools")
+    assert import_alternative("no_such_module") is None
     with pytest.raises(SecurityViolation, match="RealField"):
         validate_code("import mpmath\nmpmath.mp.dps = 50\nmpmath.pi")
 
@@ -768,7 +764,7 @@ def test_a_star_export_does_not_hand_back_a_call_only_name() -> None:
     now for names the caller *assigned*, which is what "the caller owns this
     value" actually means (REVIEW_ACTIONS 92).
     """
-    from sagemath_mcp.security import rewrite_permitted_imports
+    from sagemath_mcp.imports import rewrite_permitted_imports
 
     exporters = [
         module

@@ -7,7 +7,7 @@ import types
 import pytest
 
 from sagemath_mcp._sage_worker import _split_code
-from sagemath_mcp.security import SECURITY_POLICY, SecurityViolation
+from sagemath_mcp.policy import SECURITY_POLICY, SecurityViolation
 
 
 def _run_split(code: str):

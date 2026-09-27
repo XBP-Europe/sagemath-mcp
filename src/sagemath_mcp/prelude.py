@@ -11,10 +11,7 @@ from collections.abc import Iterable
 
 from ._artifacts import ALLOWED_CALLER_NAMES
 from .gates import validated_identifier
-from .security import (
-    _GREEK_NAMES,
-    _SYMBOL_SHAPE,
-)
+from .security import _GREEK_NAMES, _SYMBOL_SHAPE
 from .symbols import PREDEFINED_SYMBOLS
 
 # Symbol-shaped names SageMath already defines, which must never be turned into

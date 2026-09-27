@@ -828,7 +828,7 @@ async def test_every_sage_spelling_hint_computes():
     the same discipline `test_the_blocked_interfaces_do_not_block_the_mathematics`
     applies to the equivalents table: the advice is computed, not asserted.
     """
-    from sagemath_mcp.security import _SAGE_SPELLINGS
+    from sagemath_mcp.refusals import _SAGE_SPELLINGS
 
     session = SageSession("spellings", SageSettings(force_python_worker=False, eval_timeout=120.0))
 

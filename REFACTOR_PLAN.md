@@ -129,3 +129,14 @@ worker, the integration suite in the Sage container.
   are now in its reviewed table with that reason. The fuzz workflow triggers
   on `gates.py`. Golden code unchanged; corpus fingerprint unchanged;
   integration 1485 passed.
+- **Step 4a** -- done. `security.py` 1,706 -> 962 lines; `policy.py` (455),
+  `refusals.py` (189), `imports.py` (147). `LOGGER` stayed, so the logger name
+  `sagemath_mcp.security` is unchanged. Two hard-coded file lists had to follow
+  the move, and both would have gone quietly wrong rather than red forever:
+  `test_docs_settings` looks for environment reads in named files (they are in
+  `policy.py` now), and the mutation config scoped `security.py` alone, which
+  would have dropped the moved logic from the score. The fuzz workflow triggers
+  on all four. One slip on the way: the first run of the migration script's
+  import regrouping ate the name after a `# noqa` inside a parenthesised import;
+  ruff caught it as undefined names, the step was reverted and re-run.
+  Fingerprint unchanged; integration 1485 passed; both fuzz campaigns clean.

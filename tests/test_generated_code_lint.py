@@ -259,7 +259,8 @@ def test_readme_security_table_matches_the_policy() -> None:
     """Every protection the README advertises must actually be enforced."""
     import ast as _ast
 
-    from sagemath_mcp.security import SECURITY_POLICY, SecurityViolation, validate_module
+    from sagemath_mcp.policy import SECURITY_POLICY, SecurityViolation
+    from sagemath_mcp.security import validate_module
 
     def rejects(code: str) -> bool:
         try:
@@ -302,7 +303,7 @@ def test_the_docs_document_the_modules_the_policy_blocks() -> None:
     is a front door that summarises and links to it), so that is where every
     forbidden module must be named.
     """
-    from sagemath_mcp.security import SECURITY_POLICY
+    from sagemath_mcp.policy import SECURITY_POLICY
 
     usage = (Path(__file__).resolve().parents[1] / "USAGE.md").read_text(encoding="utf-8")
     missing = [

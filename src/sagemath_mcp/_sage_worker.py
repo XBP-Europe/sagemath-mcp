@@ -15,17 +15,16 @@ from types import ModuleType, SimpleNamespace
 from typing import Any
 
 from sagemath_mcp._artifacts import ALLOWED_CALLER_NAMES
+from sagemath_mcp.imports import rewrite_permitted_imports
+from sagemath_mcp.policy import SECURITY_POLICY, trusted_policy
+from sagemath_mcp.refusals import native_equivalent
 from sagemath_mcp.security import (
-    SECURITY_POLICY,
     _bound_names,
     _looks_like_an_undeclared_symbol,
-    _native_equivalent,
     attrcall_attribute_violation,
     check_source_length,
     injects_session_names,
     normalize_caller_code,
-    rewrite_permitted_imports,
-    trusted_policy,
     validate_module,
 )
 from sagemath_mcp.symbols import PREDEFINED_SYMBOLS
@@ -141,7 +140,7 @@ def _auto_declarable_symbols(
             continue
         if not _looks_like_an_undeclared_symbol(name):
             continue
-        if id(node) in called and _native_equivalent(name) is not None:
+        if id(node) in called and native_equivalent(name) is not None:
             continue
         result.add(name)
     return frozenset(result)

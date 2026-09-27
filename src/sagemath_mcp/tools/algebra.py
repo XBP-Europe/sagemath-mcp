@@ -46,9 +46,8 @@ async def solve_equation(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    runtime.require_context(ctx, "for stateful execution")
+    session = await runtime.session_for(ctx, session)
     equations = [equation] if isinstance(equation, str) else equation
     variables = [variable] if isinstance(variable, str) else variable
     code = (
@@ -104,8 +103,7 @@ async def matrix_multiply(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
+    runtime.require_context(ctx, "for stateful execution")
     # Checked here so a shape mismatch reports the shapes. Left to Sage it
     # surfaced as "unsupported operand parent(s) for *: 'Full MatrixSpace of
     # ...'", which does not say which dimension is wrong.
@@ -119,7 +117,7 @@ async def matrix_multiply(
             f"{len(matrix_b)}x{len(matrix_b[0])} matrix: the number of columns in "
             "matrix_a must equal the number of rows in matrix_b"
         )
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    session = await runtime.session_for(ctx, session)
     code = textwrap.dedent(
         f"""
         from sage.all import *
@@ -150,8 +148,7 @@ async def matrix_operation(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
+    runtime.require_context(ctx, "for stateful execution")
     operation = operation.strip()
     _check_matrix(matrix, "matrix")
     matrix = _exact_matrix_entries(matrix, "matrix")
@@ -161,7 +158,7 @@ async def matrix_operation(
             f"Unknown operation '{operation}'. "
             f"Must be one of: {', '.join(sorted(allowed_ops))}"
         )
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    session = await runtime.session_for(ctx, session)
     # int before float: an integer determinant or entry cast to a double loses
     # exactness for anything past 2^53, and these tools exist to be exact.
     _row_repr = (
@@ -212,10 +209,9 @@ async def boolean_algebra_operation(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required")
+    runtime.require_context(ctx)
     operation = operation.strip()
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    session = await runtime.session_for(ctx, session)
     var_names = ", ".join(f"'x{i}'" for i in range(num_variables))
     # The ring generators are x0, x1, ..., but the documented example uses
     # x, y, z. Expose both spellings so either parses, rather than failing
@@ -272,10 +268,9 @@ async def polynomial_ring_operation(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required")
+    runtime.require_context(ctx)
     operation = operation.strip()
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    session = await runtime.session_for(ctx, session)
     ring_vars = [_validated_identifier(v, "ring_vars") for v in ring_vars]
     var_list = ", ".join(ring_vars)
     ops = {

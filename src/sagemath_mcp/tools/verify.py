@@ -287,13 +287,12 @@ async def verify_claim(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> VerifyClaimResult:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
+    runtime.require_context(ctx, "for stateful execution")
     if not claim or not claim.strip():
         raise ToolError(
             "'claim' must state a comparison, e.g. 'sin(x)**2 + cos(x)**2 == 1'"
         )
-    sage_session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    sage_session = await runtime.session_for(ctx, session)
     claim = _validated_expression(claim)
     rewritten = _exact_decimal_literals(claim)
     if rewritten != claim:

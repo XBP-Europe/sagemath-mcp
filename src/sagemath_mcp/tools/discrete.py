@@ -58,8 +58,7 @@ async def number_theory_operation(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
+    runtime.require_context(ctx, "for stateful execution")
     operation = operation.strip()
     a = _exact_int(a, "a")
     b = _exact_int(b, "b") if b is not None else None
@@ -71,7 +70,7 @@ async def number_theory_operation(
         )
     if operation in {"gcd", "lcm"} and b is None:
         raise ToolError(f"Operation '{operation}' requires both 'a' and 'b' arguments")
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    session = await runtime.session_for(ctx, session)
     op_code = {
         "is_prime": f"bool(is_prime({a}))",
         "factor_integer": f"str(factor({a}))",
@@ -120,15 +119,14 @@ async def combinatorics_operation(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
+    runtime.require_context(ctx, "for stateful execution")
     operation = operation.strip()
     # A JavaScript client rounds before it serialises, so a number arriving above
     # 2^53 is already wrong: binomial(9007199254740993, 2) computed a plausible
     # answer from 9007199254740992 and reported it as fact.
     n = _exact_int(n, "n")
     k = _exact_int(k, "k") if k is not None else None
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    session = await runtime.session_for(ctx, session)
     op_code = {
         "binomial": f"int(binomial({n}, {k or 0}))",
         "permutations": f"int(Permutations({n}).cardinality())"
@@ -179,10 +177,9 @@ async def graph_operation(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required")
+    runtime.require_context(ctx)
     operation = operation.strip()
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    session = await runtime.session_for(ctx, session)
     # A named graph is an identifier, optionally already called with arguments.
     # Matching on a "Graph" suffix missed every parameterised constructor:
     # "CompleteGraph(4)" ends in ")", so it fell through to Graph(CompleteGraph(4))
@@ -252,10 +249,9 @@ async def group_operation(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required")
+    runtime.require_context(ctx)
     operation = operation.strip()
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    session = await runtime.session_for(ctx, session)
     ops = {
         "order": "int(_G.order())",
         "is_abelian": "bool(_G.is_abelian())",
@@ -302,10 +298,9 @@ async def elliptic_curve_operation(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required")
+    runtime.require_context(ctx)
     operation = operation.strip()
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    session = await runtime.session_for(ctx, session)
     ops = {
         "rank": "int(_E.rank())",
         "torsion_order": "int(_E.torsion_order())",
@@ -359,10 +354,9 @@ async def coding_theory_operation(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required")
+    runtime.require_context(ctx)
     operation = operation.strip()
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    session = await runtime.session_for(ctx, session)
     ops = {
         "length": "int(_C.length())",
         "dimension": "int(_C.dimension())",

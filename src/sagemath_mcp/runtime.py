@@ -117,3 +117,25 @@ async def resolve_session(client_session_id: str, name: str):
     """
     manager = get_session_manager()
     return await manager.get(manager.resolve_key(client_session_id, name))
+
+
+def require_context(ctx: Any, purpose: str = "") -> None:
+    """Refuse a call that arrived without an MCP context to scope it by.
+
+    Called first in every tool, before any argument is checked, so a call with
+    no context is told that rather than whatever its arguments did wrong.
+    *purpose* finishes the sentence -- "for stateful execution", "to cancel
+    work" -- and is part of the message clients see.
+    """
+    if ctx is None or ctx.session_id is None:
+        suffix = f" {purpose}" if purpose else ""
+        raise ToolError(f"MCP context with session_id is required{suffix}")
+
+
+async def session_for(ctx: Any, name: str):
+    """The worker for the caller's workspace *name*: scope, then lookup.
+
+    The one path from a tool call to its worker, so the caller's identity is
+    only ever taken from `client_scope`.
+    """
+    return await resolve_session(client_scope(ctx, name), name)

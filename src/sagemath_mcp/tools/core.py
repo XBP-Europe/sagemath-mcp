@@ -108,8 +108,7 @@ async def evaluate_sage(
     ctx: Context | None = None,
 ) -> EvaluateResult:
     """Run SageMath code, preserving state within the caller's MCP session."""
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
+    runtime.require_context(ctx, "for stateful execution")
     # Compute the key once and reuse it. Cancelling used to pass ctx.session_id,
     # which restarts the DEFAULT workspace: cancelling work in 'curves' destroyed
     # unrelated default state while the curves worker kept running.
@@ -203,9 +202,8 @@ async def calculate_expression(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    runtime.require_context(ctx, "for stateful execution")
+    session = await runtime.session_for(ctx, session)
     code = (
         _sage_prelude()
         + textwrap.dedent(
@@ -240,9 +238,8 @@ async def simplify_expression(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    runtime.require_context(ctx, "for stateful execution")
+    session = await runtime.session_for(ctx, session)
     code = (
         _sage_prelude()
         + textwrap.dedent(
@@ -262,9 +259,8 @@ async def expand_expression(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    runtime.require_context(ctx, "for stateful execution")
+    session = await runtime.session_for(ctx, session)
     code = (
         _sage_prelude()
         + textwrap.dedent(
@@ -284,9 +280,8 @@ async def factor_expression(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    runtime.require_context(ctx, "for stateful execution")
+    session = await runtime.session_for(ctx, session)
     code = (
         _sage_prelude()
         + textwrap.dedent(
@@ -318,9 +313,8 @@ async def find_root(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    runtime.require_context(ctx, "for stateful execution")
+    session = await runtime.session_for(ctx, session)
     # An equation is what a caller reaches for when the problem is stated as one
     # -- Kepler's `E - e sin E = M`, a matching condition, a threshold. Every
     # model tried it, and `sage_eval` answered "invalid syntax (<string>, line
@@ -365,9 +359,8 @@ async def evaluate_sage_streaming(
     ctx: Context | None = None,
 ) -> EvaluateResult:
     """Like evaluate_sage but emits each stdout line as a progress event."""
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required")
-    sage_session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    runtime.require_context(ctx)
+    sage_session = await runtime.session_for(ctx, session)
 
     # Forward each line the moment the worker produces it. This used to await
     # the whole evaluation and only then split the accumulated stdout, so a

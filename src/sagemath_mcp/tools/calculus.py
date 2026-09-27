@@ -45,9 +45,8 @@ async def differentiate_expression(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    runtime.require_context(ctx, "for stateful execution")
+    session = await runtime.session_for(ctx, session)
     code = (
         _sage_prelude([variable])
         + textwrap.dedent(
@@ -80,11 +79,10 @@ async def integrate_expression(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
+    runtime.require_context(ctx, "for stateful execution")
     if (lower_bound is None) != (upper_bound is None):
         raise ToolError("Both lower_bound and upper_bound must be provided for a definite integral")
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    session = await runtime.session_for(ctx, session)
     definite = lower_bound is not None
     if definite:
         code = (
@@ -127,9 +125,8 @@ async def limit_expression(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    runtime.require_context(ctx, "for stateful execution")
+    session = await runtime.session_for(ctx, session)
     dir_arg = f", dir={_encode_literal(direction)}" if direction else ""
     code = (
         _sage_prelude([variable])
@@ -156,9 +153,8 @@ async def series_expansion(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    runtime.require_context(ctx, "for stateful execution")
+    session = await runtime.session_for(ctx, session)
     code = (
         _sage_prelude([variable])
         + textwrap.dedent(
@@ -189,9 +185,8 @@ async def solve_ode(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    runtime.require_context(ctx, "for stateful execution")
+    session = await runtime.session_for(ctx, session)
     code = (
         _sage_prelude([variable])
         + textwrap.dedent(
@@ -245,9 +240,8 @@ async def symbolic_sum(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    runtime.require_context(ctx, "for stateful execution")
+    session = await runtime.session_for(ctx, session)
     op = "product" if product else "sum"
     code = (
         _sage_prelude([variable])
@@ -288,15 +282,14 @@ async def vector_calculus_operation(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
+    runtime.require_context(ctx, "for stateful execution")
     operation = operation.strip()
     if variables is None:
         variables = ["x", "y", "z"]
     # Also quoted into var('...') below, so gate them here rather than relying on
     # whichever branch happens to call _sage_prelude.
     variables = [_validated_identifier(v, "variables") for v in variables]
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    session = await runtime.session_for(ctx, session)
     vars_str = ", ".join(f"var('{v}')" for v in variables)
 
     if operation == "gradient":

@@ -106,9 +106,8 @@ async def plot3d_expression(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> Image:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    runtime.require_context(ctx, "for stateful execution")
+    session = await runtime.session_for(ctx, session)
     code = (
         _sage_prelude([x_variable, y_variable])
         + textwrap.dedent(
@@ -181,9 +180,8 @@ async def plot_multi_expression(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> Image:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    runtime.require_context(ctx, "for stateful execution")
+    session = await runtime.session_for(ctx, session)
     code = (
         _sage_prelude([variable])
         + textwrap.dedent(
@@ -217,9 +215,8 @@ async def plot_expression(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> Image:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required for stateful execution")
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    runtime.require_context(ctx, "for stateful execution")
+    session = await runtime.session_for(ctx, session)
     code = (
         _sage_prelude([variable])
         + textwrap.dedent(
@@ -263,8 +260,7 @@ async def geometry_operation(
     session: Annotated[str, Field(description=_SESSION_ARG_DESC)] = DEFAULT_SESSION_NAME,
     ctx: Context | None = None,
 ) -> dict:
-    if ctx is None or ctx.session_id is None:
-        raise ToolError("MCP context with session_id is required")
+    runtime.require_context(ctx)
     operation = operation.strip()
     if not points:
         raise ToolError("'points' must contain at least one point")
@@ -278,7 +274,7 @@ async def geometry_operation(
         raise ToolError(
             f"Operation 'distance' requires two points, got {len(points)}"
         )
-    session = await runtime.resolve_session(runtime.client_scope(ctx, session), session)
+    session = await runtime.session_for(ctx, session)
     pts = _encode_literal(points)
     ops = {
         "distance": (

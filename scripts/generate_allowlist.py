@@ -23,8 +23,8 @@ nor one of a small, reviewed set of exceptions. A helper a future SageMath adds
 that reaches a shell, compiler or the filesystem now stops the generator with its
 name, instead of being allowlisted silently for a probe to find later. When it
 stops, review the name: a genuinely-safe one joins `_VETTED_FOREIGN` /
-`_SAFE_MODULE_NAMES` with a reason, a dangerous one joins `_DANGEROUS_SAGE_MODULES`
-in `_sage_worker.py`.
+`_SAFE_MODULE_NAMES` with a reason, a dangerous one joins `DANGEROUS_SAGE_MODULES`
+in `scrub_catalog.py`.
 """
 
 from __future__ import annotations
@@ -168,7 +168,7 @@ def main() -> int:
             "foreign provenance -- exactly the silent gap this generator exists to "
             "surface. Review each: add a genuinely-safe one to `_VETTED_FOREIGN` / "
             "`_SAFE_MODULE_NAMES` here with a reason, or a dangerous one to "
-            "`_DANGEROUS_SAGE_MODULES` in `_sage_worker.py`.\n" + listing
+            "`DANGEROUS_SAGE_MODULES` in `scrub_catalog.py`.\n" + listing
         )
 
     names = set(caller_names)

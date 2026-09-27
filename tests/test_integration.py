@@ -520,7 +520,7 @@ async def test_external_interfaces_are_not_in_the_namespace():
     escapes. Stripping Sage's own export list covers the ones a hand-written
     list would miss, including anything a future release adds.
 
-    Layout-aware, the same way `_dangerous_sage_names` is (REVIEW_ACTIONS 69):
+    Layout-aware, the same way `dangerous_sage_names` is (REVIEW_ACTIONS 69):
     monolithic `sage.interfaces.all` exports only interface objects, but
     passagemath's modularized layout re-exports ordinary mathematics through it
     (`Integer`, `parent`, `Hom`, ...) which is legitimately in the namespace.
@@ -583,23 +583,23 @@ async def test_the_baked_in_denylist_still_matches_this_sage():
     re-derives them from the installed Sage: a version that adds, renames or
     moves a helper fails here rather than quietly leaving it reachable.
     """
-    from sagemath_mcp._sage_worker import (
-        _DANGEROUS_BARE_NAMES,
-        _DANGEROUS_SAGE_NAME_LIST,
-        _dangerous_sage_names,
+    from sagemath_mcp.scrub_catalog import (
+        DANGEROUS_BARE_NAMES,
+        DANGEROUS_SAGE_NAME_LIST,
+        dangerous_sage_names,
     )
 
     # The scrub strips the baked list AND the hand-maintained bare names, so a
     # derived name is covered if it is in either. Subtracting only the baked list
-    # would falsely fail on a name carried in `_DANGEROUS_BARE_NAMES` (e.g.
+    # would falsely fail on a name carried in `DANGEROUS_BARE_NAMES` (e.g.
     # `commence_startup`, which passagemath defines in a dangerous module and
     # monolithic Sage does not).
-    covered = _DANGEROUS_SAGE_NAME_LIST | set(_DANGEROUS_BARE_NAMES)
-    derived = _dangerous_sage_names()
+    covered = DANGEROUS_SAGE_NAME_LIST | set(DANGEROUS_BARE_NAMES)
+    derived = dangerous_sage_names()
     missing = sorted(derived - covered)
     assert not missing, (
         "this Sage defines dangerous helpers the baked-in list does not cover: "
-        f"{missing}. Adding a module to _DANGEROUS_SAGE_MODULES does not strip "
+        f"{missing}. Adding a module to DANGEROUS_SAGE_MODULES does not strip "
         f"anything until the baked list is rebuilt: run `make denylist`."
     )
 
@@ -608,7 +608,7 @@ async def test_the_baked_in_denylist_still_matches_this_sage():
 def test_every_dangerous_module_actually_contributes_a_name():
     """A provenance entry that matches nothing is worse than no entry.
 
-    `_dangerous_sage_names` takes only names *defined* in each listed module --
+    `dangerous_sage_names` takes only names *defined* in each listed module --
     "defined here, not merely imported here", because `sage.misc.persist` also
     has `Integer` in scope and removing that would break the mathematics. The
     consequence is that listing a module whose names are defined elsewhere
@@ -622,10 +622,10 @@ def test_every_dangerous_module_actually_contributes_a_name():
     """
     import importlib
 
-    from sagemath_mcp._sage_worker import _DANGEROUS_SAGE_MODULES
+    from sagemath_mcp.scrub_catalog import DANGEROUS_SAGE_MODULES
 
     barren = []
-    for module_name in _DANGEROUS_SAGE_MODULES:
+    for module_name in DANGEROUS_SAGE_MODULES:
         try:
             module = importlib.import_module(module_name)
         except Exception:
@@ -645,7 +645,7 @@ def test_every_dangerous_module_actually_contributes_a_name():
         f"these modules are listed as dangerous but define none of the names in "
         f"them, so listing them protects nothing: {barren}. Either name the module "
         f"the objects are really defined in, or remove the entry and use "
-        f"_DANGEROUS_BARE_NAMES, which removes by name and demonstrably works."
+        f"DANGEROUS_BARE_NAMES, which removes by name and demonstrably works."
     )
 
 
@@ -674,11 +674,7 @@ async def test_the_caller_allowlist_matches_this_sage():
     # module here would compare it against passagemath's 24-names-different
     # namespace and fail the passagemath lane on a difference that is expected.
     from sagemath_mcp._artifacts import ALLOWED_CALLER_NAMES
-    from sagemath_mcp._sage_worker import (
-        _CALLER_SHIMS,
-        _build_namespace,
-        _restricted_builtins,
-    )
+    from sagemath_mcp._sage_worker import _CALLER_SHIMS, _build_namespace, _restricted_builtins
 
     namespace = _build_namespace()
     live_including_dunders = set(namespace) | set(_restricted_builtins())
@@ -724,7 +720,7 @@ async def test_the_caller_allowlist_matches_this_sage():
         f"this SageMath offers {len(additions)} names the allowlist does not cover, "
         f"so callers cannot use them: {additions[:20]}"
         "\n\nReview each one -- a new helper that compiles, spawns or writes belongs "
-        "in _DANGEROUS_SAGE_MODULES instead -- then regenerate through a temp "
+        "in DANGEROUS_SAGE_MODULES instead -- then regenerate through a temp "
         "file (the generator imports allowlist.py, so redirecting straight over "
         "it truncates its own input):\n"
         "  docker exec sage-mcp bash -lc 'cd /workspace && sage -python "
@@ -772,7 +768,7 @@ def test_the_allowlist_generator_classifies_this_sage_cleanly():
     assert not rejected, (
         "the allowlist generator cannot classify these names as mathematics; "
         "review each and add a safe one to _VETTED_FOREIGN/_SAFE_MODULE_NAMES or "
-        f"a dangerous one to _DANGEROUS_SAGE_MODULES: {rejected}"
+        f"a dangerous one to DANGEROUS_SAGE_MODULES: {rejected}"
     )
 
 
@@ -793,14 +789,14 @@ def test_the_star_exports_match_this_sage():
         STAR_EXPORT_DROPS,
         STAR_EXPORTS,
     )
-    from sagemath_mcp._sage_worker import _star_export_screen
+    from sagemath_mcp.scrub_catalog import star_export_screen
 
     drift = {}
     for module_name, baked in STAR_EXPORTS.items():
         # Re-screened with exactly the drops the generator recorded, so a Sage
         # that adds a different dangerous export to a listed module -- or makes
         # a recorded drop unnecessary -- turns the result to None and fails here.
-        screened = _star_export_screen(
+        screened = star_export_screen(
             module_name,
             expected_drops=STAR_EXPORT_DROPS.get(module_name, frozenset()),
         )

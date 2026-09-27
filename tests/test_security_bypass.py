@@ -14,6 +14,7 @@ import ast
 
 import pytest
 
+from sagemath_mcp import scrub_catalog
 from sagemath_mcp.allowlist import ALLOWED_CALLER_NAMES
 from sagemath_mcp.imports import rewrite_permitted_imports
 from sagemath_mcp.policy import SECURITY_POLICY, SecurityViolation
@@ -412,60 +413,58 @@ def test_the_namespace_scrub_removes_a_modules_own_definitions() -> None:
     """
     from sagemath_mcp import _sage_worker
 
-    names = _sage_worker._dangerous_sage_names.__wrapped__ if hasattr(
-        _sage_worker._dangerous_sage_names, "__wrapped__"
-    ) else _sage_worker._dangerous_sage_names
+    names = scrub_catalog.dangerous_sage_names.__wrapped__ if hasattr(
+        scrub_catalog.dangerous_sage_names, "__wrapped__"
+    ) else scrub_catalog.dangerous_sage_names
 
-    original = _sage_worker._DANGEROUS_SAGE_MODULES
-    original_list = _sage_worker._DANGEROUS_SAGE_NAME_LIST
+    original = scrub_catalog.DANGEROUS_SAGE_MODULES
+    original_list = scrub_catalog.DANGEROUS_SAGE_NAME_LIST
     try:
-        _sage_worker._DANGEROUS_SAGE_MODULES = ("json.encoder",)
+        scrub_catalog.DANGEROUS_SAGE_MODULES = ("json.encoder",)
         found = names()
         assert "JSONEncoder" in found, "a module's own definitions were not collected"
 
         # Stripping reads the baked-in list, not the derivation: that is what
         # keeps worker startup free.
-        _sage_worker._DANGEROUS_SAGE_NAME_LIST = frozenset({"JSONEncoder"})
+        scrub_catalog.DANGEROUS_SAGE_NAME_LIST = frozenset({"JSONEncoder"})
         namespace = {"JSONEncoder": object(), "Integer": object()}
         removed = _sage_worker._strip_dangerous_sage_names(namespace)
         assert removed == 1
         assert "JSONEncoder" not in namespace
         assert "Integer" in namespace, "unrelated names must survive"
     finally:
-        _sage_worker._DANGEROUS_SAGE_MODULES = original
-        _sage_worker._DANGEROUS_SAGE_NAME_LIST = original_list
+        scrub_catalog.DANGEROUS_SAGE_MODULES = original
+        scrub_catalog.DANGEROUS_SAGE_NAME_LIST = original_list
 
 
 def test_the_scrub_only_takes_what_a_module_defines() -> None:
     """sage.misc.persist has Integer and ZZ in scope; removing those would break
     the mathematics this server exists to do."""
-    from sagemath_mcp import _sage_worker
 
-    original = _sage_worker._DANGEROUS_SAGE_MODULES
+    original = scrub_catalog.DANGEROUS_SAGE_MODULES
     try:
         # json.encoder imports `re`; `re` is not defined there, so it must not
         # be collected merely for being in scope.
-        _sage_worker._DANGEROUS_SAGE_MODULES = ("json.encoder",)
-        assert "re" not in _sage_worker._dangerous_sage_names()
+        scrub_catalog.DANGEROUS_SAGE_MODULES = ("json.encoder",)
+        assert "re" not in scrub_catalog.dangerous_sage_names()
     finally:
-        _sage_worker._DANGEROUS_SAGE_MODULES = original
+        scrub_catalog.DANGEROUS_SAGE_MODULES = original
 
 
 def test_the_scrub_ignores_a_module_it_cannot_import() -> None:
     """A missing module must not break startup."""
-    from sagemath_mcp import _sage_worker
 
-    original = _sage_worker._DANGEROUS_SAGE_MODULES
-    original_exports = _sage_worker._EXTERNAL_INTERFACE_EXPORTS
+    original = scrub_catalog.DANGEROUS_SAGE_MODULES
+    original_exports = scrub_catalog.EXTERNAL_INTERFACE_EXPORTS
     try:
         # Both sources must be neutralised: with Sage installed the interface
         # export list still contributes its 74 names, which is the point of it.
-        _sage_worker._DANGEROUS_SAGE_MODULES = ("definitely.not.a.module",)
-        _sage_worker._EXTERNAL_INTERFACE_EXPORTS = "definitely.not.a.module"
-        assert _sage_worker._dangerous_sage_names() == frozenset()
+        scrub_catalog.DANGEROUS_SAGE_MODULES = ("definitely.not.a.module",)
+        scrub_catalog.EXTERNAL_INTERFACE_EXPORTS = "definitely.not.a.module"
+        assert scrub_catalog.dangerous_sage_names() == frozenset()
     finally:
-        _sage_worker._DANGEROUS_SAGE_MODULES = original
-        _sage_worker._EXTERNAL_INTERFACE_EXPORTS = original_exports
+        scrub_catalog.DANGEROUS_SAGE_MODULES = original
+        scrub_catalog.EXTERNAL_INTERFACE_EXPORTS = original_exports
 
 
 # --- Sage's interfaces to other CAS programs ---------------------------------
@@ -508,7 +507,6 @@ def test_the_interface_export_list_is_attributed_by_value_home() -> None:
     import sys
     import types
 
-    from sagemath_mcp import _sage_worker
 
     fake = types.ModuleType("fake_interfaces_all")
 
@@ -530,19 +528,19 @@ def test_the_interface_export_list_is_attributed_by_value_home() -> None:
     fake.ordinary_reexport = ordinary_reexport
     fake.absent_interface = LazyImport()
 
-    original_exports = _sage_worker._EXTERNAL_INTERFACE_EXPORTS
-    original_modules = _sage_worker._DANGEROUS_SAGE_MODULES
+    original_exports = scrub_catalog.EXTERNAL_INTERFACE_EXPORTS
+    original_modules = scrub_catalog.DANGEROUS_SAGE_MODULES
     sys.modules["fake_interfaces_all"] = fake
     try:
-        _sage_worker._EXTERNAL_INTERFACE_EXPORTS = "fake_interfaces_all"
-        _sage_worker._DANGEROUS_SAGE_MODULES = ()
-        found = _sage_worker._dangerous_sage_names()
+        scrub_catalog.EXTERNAL_INTERFACE_EXPORTS = "fake_interfaces_all"
+        scrub_catalog.DANGEROUS_SAGE_MODULES = ()
+        found = scrub_catalog.dangerous_sage_names()
         assert "RealInterface" in found, "an interface under sage.interfaces was dropped"
         assert "absent_interface" in found, "an unresolvable interface must be kept"
         assert "ordinary_reexport" not in found, "a foreign re-export must be dropped"
     finally:
-        _sage_worker._EXTERNAL_INTERFACE_EXPORTS = original_exports
-        _sage_worker._DANGEROUS_SAGE_MODULES = original_modules
+        scrub_catalog.EXTERNAL_INTERFACE_EXPORTS = original_exports
+        scrub_catalog.DANGEROUS_SAGE_MODULES = original_modules
         del sys.modules["fake_interfaces_all"]
 
 
@@ -946,7 +944,7 @@ def test_a_star_import_cannot_hand_a_caller_a_module_object() -> None:
 
     # `dims` is admitted again, but the module object `dirichlet` was dropped
     # from what it binds -- present in the module, absent from the star.
-    screened = _sage_worker._star_export_screen("sage.modular.dims")
+    screened = scrub_catalog.star_export_screen("sage.modular.dims")
     assert screened is not None and "dirichlet" not in screened
     assert "sage.modular.dims" in STAR_EXPORTS
     assert "dirichlet" not in STAR_EXPORTS["sage.modular.dims"]
@@ -1091,10 +1089,10 @@ def test_the_modules_that_define_attribute_plumbing_are_all_scrubbed() -> None:
     allowlisted names are compiled Cython with no readable source, and
     `attrcall` is one of them.
     """
-    from sagemath_mcp._sage_worker import _DANGEROUS_SAGE_MODULES
+    from sagemath_mcp.scrub_catalog import DANGEROUS_SAGE_MODULES
 
     for module in ("sage.misc.call", "sage.cpython.getattr", "sage.cpython.debug"):
-        assert module in _DANGEROUS_SAGE_MODULES, (
+        assert module in DANGEROUS_SAGE_MODULES, (
             f"{module} defines attribute-by-name plumbing and must be scrubbed wholesale"
         )
 
@@ -1373,9 +1371,9 @@ def test_the_namespace_is_resealed_however_the_tool_call_ends(
     namespace: dict = {"__builtins__": _sage_worker._restricted_builtins()}
     # `dangerous_helper` stands in for a name `from sage.all import *` restores
     # mid-call: the generated code below binds it, exactly as the prelude would.
-    original_list = _sage_worker._DANGEROUS_SAGE_NAME_LIST
+    original_list = scrub_catalog.DANGEROUS_SAGE_NAME_LIST
     original_error = _sage_worker._STARTUP_ERROR
-    _sage_worker._DANGEROUS_SAGE_NAME_LIST = frozenset({"dangerous_helper"})
+    scrub_catalog.DANGEROUS_SAGE_NAME_LIST = frozenset({"dangerous_helper"})
     _sage_worker._STARTUP_ERROR = None
     try:
         _sage_worker._execute(
@@ -1385,7 +1383,7 @@ def test_the_namespace_is_resealed_however_the_tool_call_ends(
     except BaseException:  # the worker returns rather than raises, but be safe
         pass
     finally:
-        _sage_worker._DANGEROUS_SAGE_NAME_LIST = original_list
+        scrub_catalog.DANGEROUS_SAGE_NAME_LIST = original_list
         _sage_worker._STARTUP_ERROR = original_error
 
 

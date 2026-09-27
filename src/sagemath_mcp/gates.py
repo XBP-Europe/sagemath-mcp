@@ -131,9 +131,9 @@ def _names_the_scrub_removes() -> frozenset[str]:
     because refusing the whole allowlist would cost the tools mathematics they
     are meant to do.
     """
-    from ._sage_worker import _DANGEROUS_BARE_NAMES, _DANGEROUS_SAGE_NAME_LIST
+    from .scrub_catalog import DANGEROUS_BARE_NAMES, DANGEROUS_SAGE_NAME_LIST
 
-    return frozenset(_DANGEROUS_SAGE_NAME_LIST) | frozenset(_DANGEROUS_BARE_NAMES)
+    return frozenset(DANGEROUS_SAGE_NAME_LIST) | frozenset(DANGEROUS_BARE_NAMES)
 
 
 def _screen_unparseable_fragment(fragment: str) -> None:

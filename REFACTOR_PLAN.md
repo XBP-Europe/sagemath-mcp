@@ -163,3 +163,20 @@ worker, the integration suite in the Sage container.
   under `sagemath_mcp.session`, as before. One slip: the import-retargeting
   script excluded files *named* `session.py`, which skipped `tools/session.py`;
   collection failed at once and it was fixed. Integration 1487 passed.
+- **Step 6** -- done, narrowed. Planned as a `worker/` package; done as one
+  extraction, `scrub_catalog.py` (502 lines: the danger modules, the bare
+  names, the baked denylist, and the derivation and star-export screen). The
+  rest stays in `_sage_worker.py` (1,443 -> 962 lines), because it is held
+  together by module state: `PURE_PYTHON` is patched on `_sage_worker` in 24
+  tests, `_STARTUP_ERROR`, `_WITHHELD_NAMES` and `_PROTOCOL` are rebound with
+  `global`, and `_latex` is patched and called from `_execute`. Spread over
+  modules, each would need every read made late-bound and every patch
+  retargeted -- the silent-patch hazard at its worst. The catalog reads none of
+  that. Even so, the hazard surfaced once: four tests assign the catalog lists on
+  the module to change what the worker strips, and the worker had imported them
+  by value. It failed red; the worker now reads `scrub_catalog.<list>` at call
+  time. `make denylist` writes to the catalog now and was run end to end: it
+  finds its block. Its derivation drops one name the baked list carries,
+  `interfaces` -- the untouched pre-refactor code derives the same 258, so that
+  is pre-existing, and the list was left as it was. Fingerprint unchanged;
+  integration 1487 passed.

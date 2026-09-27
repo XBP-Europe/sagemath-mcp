@@ -220,7 +220,7 @@ _LISTED_MODULES = sorted(SECURITY_POLICY.star_export_modules)
 @given(module=st.sampled_from(_LISTED_MODULES))
 def test_a_star_expands_to_exactly_the_screened_names(module: str) -> None:
     """The safety argument for the whole star-export mechanism is that what
-    runs is exactly what `_star_export_screen` passed. If the expansion bound
+    runs is exactly what `star_export_screen` passed. If the expansion bound
     one name more, that name was never reviewed."""
     from sagemath_mcp.imports import rewrite_permitted_imports
 

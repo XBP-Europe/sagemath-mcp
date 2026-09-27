@@ -92,7 +92,7 @@ code, so they are listed here rather than discovered.
   `doctest-corpus-stats.md`; they had drifted two releases before anything
   noticed.
 - **A dangerous-module entry must remove something.** Listing a module in
-  `_DANGEROUS_SAGE_MODULES` that defines none of its own names protects nothing
+  `DANGEROUS_SAGE_MODULES` that defines none of its own names protects nothing
   while looking like protection; an integration test rejects that.
 
 ## Review

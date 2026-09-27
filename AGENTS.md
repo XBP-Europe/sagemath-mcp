@@ -38,7 +38,7 @@
   it or the caller's own code bound it. If you make a Sage name reachable, or
   bump the Sage version, run `make allowlist` and read the diff: each added name
   is a name every caller can now use. Anything that compiles, spawns, writes or
-  fetches belongs in `_DANGEROUS_BARE_NAMES` in `_sage_worker.py` instead.
+  fetches belongs in `DANGEROUS_BARE_NAMES` in `_sage_worker.py` instead.
 
 ## Testing Expectations
 - Add new tests under `tests/`, mirroring the module under `src/`; mark async cases with `@pytest.mark.asyncio`.

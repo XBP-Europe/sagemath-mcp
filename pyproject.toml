@@ -121,6 +121,10 @@ select = ["E", "F", "W", "B", "UP", "ASYNC", "RUF", "I"]
 ignore = ["E203"]
 
 [tool.ruff.lint.per-file-ignores]
+# Sage code sent to the worker verbatim (sage_code/verify_ladder.py). Its last
+# statement is a bare expression on purpose -- the worker returns the value of
+# the final expression -- and a `noqa` on that line would be sent to Sage too.
+"src/sagemath_mcp/sage_code/*.py" = ["B018"]
 # Generated from the installed SageMath, which exports Unicode mathematical
 # names (Greek letters, look-alikes for Latin ones). Which of the ambiguous-
 # character rules fire depends on which names that Sage version happens to
@@ -149,6 +153,10 @@ source = ["sagemath_mcp"]
 omit = [
     "src/sagemath_mcp/allowlist_passagemath.py",
     "src/sagemath_mcp/star_exports_passagemath.py",
+    # Sage code read as text and run inside the worker, never imported by the
+    # unit suite. Its behaviour is the verify integration tests' job; the text
+    # the tool sends is pinned by tests/test_generated_code_golden.py.
+    "src/sagemath_mcp/sage_code/*",
 ]
 
 [tool.coverage.report]

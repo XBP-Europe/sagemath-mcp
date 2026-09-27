@@ -109,3 +109,13 @@ worker, the integration suite in the Sage container.
   merged into each other here before (#118 into #119).
 - **Step 0** -- done. 139 golden cases, 1 of them a pinned refusal (Poisson has
   no quantile). Fingerprint baseline as above.
+- **Step 1** -- done. 39 guards and 32 lookups replaced; the guard stays where
+  it stood rather than merging into the lookup, because validation runs between
+  the two in most tools and merging would change which error a bad call gets
+  first. The `list_sage_sessions` resource keeps its own guard: it answers `[]`.
+- **Step 2** -- done, byte-identical on the first try. Different from the plan:
+  the Sage globals the ladder reads are bound to placeholders *above* the marker
+  line rather than F821 being switched off, so ruff still catches a typo in the
+  ladder; only B018 (the deliberate final bare expression) is ignored. Two new
+  lint tests: no XOR operator in `sage_code/*.py` (checked to fail on a planted
+  `^`), and exactly one marker per file. Wheel and sdist both carry the file.

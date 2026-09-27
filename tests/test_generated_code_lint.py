@@ -152,6 +152,34 @@ def test_no_caret_in_generated_python(server_tree: ast.Module) -> None:
     )
 
 
+SAGE_CODE_DIR = ROOT / "src" / "sagemath_mcp" / "sage_code"
+SAGE_CODE_MARK = "# --- sent to Sage from the next line ---\n"
+
+
+def test_no_xor_operator_in_the_sage_code_files() -> None:
+    """The rule above, for Sage code kept as source rather than in a string.
+
+    `sage_code/*.py` is sent to the worker verbatim and run as plain Python,
+    so a `^` there is the XOR operator and the lint above -- which reads
+    string constants -- would never see it.
+    """
+    files = sorted(SAGE_CODE_DIR.glob("*.py"))
+    assert files, "no Sage code files found; the check is looking in the wrong place"
+    offenders = [
+        f"{path.name}:{node.lineno}"
+        for path in files
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+        if isinstance(node, ast.BitXor)
+    ]
+    assert not offenders, "'^' is XOR in generated Python; use '**':\n  " + "\n  ".join(offenders)
+
+
+def test_each_sage_code_file_has_one_marker() -> None:
+    """The loader sends what follows the marker; two markers would send less."""
+    for path in sorted(SAGE_CODE_DIR.glob("*.py")):
+        assert path.read_text(encoding="utf-8").count(SAGE_CODE_MARK) == 1, path.name
+
+
 def test_no_sage_save_to_buffer(server_source: str) -> None:
     """Sage's save() needs a path and rejects a BytesIO.
 

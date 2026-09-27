@@ -9,15 +9,15 @@ Nothing tested what those gates *accept*.
 
 Two of the three return a value that is then interpolated **verbatim**:
 
-    tools/discrete.py:  f"_G = {_validated_expression(group)}\\n"
-    tools/algebra.py:   f"_R = PolynomialRing({_validated_expression(base)}, '{vars}')\\n"
+    tools/discrete.py:  f"_G = {validated_expression(group)}\\n"
+    tools/algebra.py:   f"_R = PolynomialRing({validated_expression(base)}, '{vars}')\\n"
 
 So the gate's contract is not only "the fragment is safe to evaluate". It is
 also "the returned text cannot change the shape of the line it lands in" --
 a newline would add a statement (item 56), and an unbalanced bracket in a call
 argument would close the call and append something else.
 
-That second half is where the soft spot is, and `_validated_expression` says
+That second half is where the soft spot is, and `validated_expression` says
 so itself: a fragment that will not parse is screened at **token** level and
 returned, because the documented equation form `x^2 - 1 = 0` is deliberately
 not a Python expression. A token screen sees names, not structure.
@@ -50,11 +50,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from fastmcp.exceptions import ToolError
 
-from sagemath_mcp.codegen import (
-    _encode_literal,
-    _validated_expression,
-    _validated_identifier,
-)
+from sagemath_mcp.gates import encode_literal, validated_expression, validated_identifier
 from sagemath_mcp.security import SECURITY_POLICY
 
 JUDGED = 0
@@ -106,7 +102,7 @@ def check(fragment: str) -> None:
     """One iteration. Raises AssertionError on a finding."""
     global JUDGED
     try:
-        result = _validated_expression(fragment)
+        result = validated_expression(fragment)
     except ToolError:
         return  # a refusal is the gate working
     except RecursionError:
@@ -128,7 +124,7 @@ def check(fragment: str) -> None:
 
     # 4. Idempotence: the gate must accept what it produced, unchanged.
     try:
-        again = _validated_expression(result)
+        again = validated_expression(result)
     except ToolError as exc:
         raise AssertionError(
             f"gate rejected its own output for {fragment!r}: {result!r} -> {exc}"
@@ -162,7 +158,7 @@ def check(fragment: str) -> None:
 
 
 def check_identifier(text: str) -> None:
-    """`_validated_identifier` is the strictest gate and the least examined.
+    """`validated_identifier` is the strictest gate and the least examined.
 
     Its output is interpolated into generated code as a bare name -- a loop
     variable, a ring generator -- so anything it returns that is not a plain
@@ -170,16 +166,16 @@ def check_identifier(text: str) -> None:
     """
     global JUDGED
     try:
-        result = _validated_identifier(text, "param")
+        result = validated_identifier(text, "param")
     except ToolError:
         return
     except Exception as exc:
         raise AssertionError(
-            f"_validated_identifier raised {type(exc).__name__} on {text!r}: {exc}"
+            f"validated_identifier raised {type(exc).__name__} on {text!r}: {exc}"
         ) from exc
     JUDGED += 1
     assert result.isidentifier(), (
-        f"_validated_identifier returned a non-identifier for {text!r}: {result!r}"
+        f"validated_identifier returned a non-identifier for {text!r}: {result!r}"
     )
     # Interpolated as a bare name, it must stay exactly one name.
     body = _statements(f"{result} = 1\n")
@@ -187,27 +183,27 @@ def check_identifier(text: str) -> None:
 
 
 def check_literal(value: str) -> None:
-    """`_encode_literal` JSON-encodes, which is the quoting the other two gates
+    """`encode_literal` JSON-encodes, which is the quoting the other two gates
     do not have. The property is that its output parses back to exactly the
     value it was given -- a round trip, not an inspection."""
     global JUDGED
     import json as _json
 
     try:
-        encoded = _encode_literal(value)
+        encoded = encode_literal(value)
     except ToolError:
         return
     except Exception as exc:
         raise AssertionError(
-            f"_encode_literal raised {type(exc).__name__} on {value!r}: {exc}"
+            f"encode_literal raised {type(exc).__name__} on {value!r}: {exc}"
         ) from exc
     JUDGED += 1
     parsed = _statements(f"_x = {encoded}\n")
     assert parsed is not None and len(parsed) == 1, (
-        f"_encode_literal produced something that is not one statement: {encoded!r}"
+        f"encode_literal produced something that is not one statement: {encoded!r}"
     )
     # It must be a literal, not an expression that could call anything.
-    assert not _calls(parsed), f"_encode_literal produced a call: {encoded!r}"
+    assert not _calls(parsed), f"encode_literal produced a call: {encoded!r}"
     assert _json.loads(encoded) is not None or encoded == "null"
 
 
@@ -220,8 +216,8 @@ def campaign(iterations: int = 5000, seed: int = 0) -> int:
             where = rng.randint(0, len(fragment))
             fragment = fragment[:where] + rng.choice(_INJECT) + fragment[where:]
         check(fragment)
-        # The other two gates take the same fragments. `_validated_identifier`
-        # guards bare names and `_encode_literal` guards quoted data, and both
+        # The other two gates take the same fragments. `validated_identifier`
+        # guards bare names and `encode_literal` guards quoted data, and both
         # feed the same templates, so neither should be fuzzed less than the
         # expression gate simply because it is smaller.
         check_identifier(fragment)

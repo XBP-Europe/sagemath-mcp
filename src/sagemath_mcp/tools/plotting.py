@@ -20,15 +20,13 @@ from pydantic import Field
 
 from .. import runtime
 from ..app import mcp
-from ..codegen import (
-    _encode_literal,
-    _evaluate_structured,
-    _sage_prelude,
-)
+from ..gates import encode_literal
+from ..prelude import sage_prelude
 from ..session import (
     DEFAULT_SESSION_NAME,
 )
 from ..text import SESSION_ARG_DESC as _SESSION_ARG_DESC
+from ..transport import evaluate_structured
 from .hints import COMPUTES
 
 # Samples per axis for the 3D surface. 48x48 keeps the rendered surface smooth
@@ -79,7 +77,7 @@ async def _render_image(session, code: str, image_format: str) -> Image:
     picture and paid the context cost with nothing to look at. Decoding to bytes
     and wrapping in ``Image`` yields an ``ImageContent`` block the client renders.
     """
-    result = await _evaluate_structured(session, code)
+    result = await evaluate_structured(session, code)
     if not isinstance(result, str):
         raise ToolError("Plot rendering did not return image data")
     try:
@@ -109,15 +107,15 @@ async def plot3d_expression(
     runtime.require_context(ctx, "for stateful execution")
     session = await runtime.session_for(ctx, session)
     code = (
-        _sage_prelude([x_variable, y_variable])
+        sage_prelude([x_variable, y_variable])
         + textwrap.dedent(
             f"""
         import base64
         import io as _io
         from sage.plot.graphics import Graphics as _Graphics
-        _xv = var({_encode_literal(x_variable)})
-        _yv = var({_encode_literal(y_variable)})
-        _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
+        _xv = var({encode_literal(x_variable)})
+        _yv = var({encode_literal(y_variable)})
+        _expr = sage_eval({encode_literal(expression)}, locals=_locals)
         # Sage's plot3d returns a Graphics3d, whose save()/save_image() require
         # a filesystem path and reject a BytesIO. There is no .matplotlib()
         # figure on it either, and a temp file is unreachable from the sandbox
@@ -156,8 +154,8 @@ async def plot3d_expression(
         _ax = _fig.add_subplot(111, projection='3d')
         # plot_trisurf accepts flat sequences, so no numpy import is needed.
         _ax.plot_trisurf(_gx, _gy, _gz, cmap='viridis')
-        _ax.set_xlabel({_encode_literal(x_variable)})
-        _ax.set_ylabel({_encode_literal(y_variable)})
+        _ax.set_xlabel({encode_literal(x_variable)})
+        _ax.set_ylabel({encode_literal(y_variable)})
         """
         )
         + _savefig_snippet(_SAVE_FORMAT[image_format])
@@ -183,13 +181,13 @@ async def plot_multi_expression(
     runtime.require_context(ctx, "for stateful execution")
     session = await runtime.session_for(ctx, session)
     code = (
-        _sage_prelude([variable])
+        sage_prelude([variable])
         + textwrap.dedent(
             f"""
         import base64
         import io as _io
-        _var = var({_encode_literal(variable)})
-        _exprs = [sage_eval(e, locals=_locals) for e in {_encode_literal(expressions)}]
+        _var = var({encode_literal(variable)})
+        _exprs = [sage_eval(e, locals=_locals) for e in {encode_literal(expressions)}]
         _plt = sum(plot(e, (_var, {range_min}, {range_max})) for e in _exprs)
         # Graphics.save() needs a filesystem path and rejects a BytesIO with
         # "expected str, bytes or os.PathLike object". Going through the
@@ -218,13 +216,13 @@ async def plot_expression(
     runtime.require_context(ctx, "for stateful execution")
     session = await runtime.session_for(ctx, session)
     code = (
-        _sage_prelude([variable])
+        sage_prelude([variable])
         + textwrap.dedent(
             f"""
         import base64
         import io as _io
-        _var = var({_encode_literal(variable)})
-        _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
+        _var = var({encode_literal(variable)})
+        _expr = sage_eval({encode_literal(expression)}, locals=_locals)
         _plt = plot(_expr, (_var, {range_min}, {range_max}))
         # Graphics.save() needs a filesystem path and rejects a BytesIO with
         # "expected str, bytes or os.PathLike object". Going through the
@@ -275,15 +273,15 @@ async def geometry_operation(
             f"Operation 'distance' requires two points, got {len(points)}"
         )
     session = await runtime.session_for(ctx, session)
-    pts = _encode_literal(points)
+    pts = encode_literal(points)
     ops = {
         "distance": (
             # "**", not "^": this expression is executed as Python, where "^"
             # is XOR. (0-3)^2 evaluates to -1, and the sum then goes negative,
             # so sqrt() returns a complex number and float() fails.
             f"float(sqrt(sum((a-b)**2 for a, b in "
-            f"zip({_encode_literal(points[0])}, "
-            f"{_encode_literal(points[1])}))))"
+            f"zip({encode_literal(points[0])}, "
+            f"{encode_literal(points[1])}))))"
             if len(points) >= 2
             else "None"
         ),
@@ -341,6 +339,6 @@ async def geometry_operation(
             f"Unknown operation '{operation}'. "
             f"Use: {', '.join(ops)}"
         )
-    code = _sage_prelude() + ops[operation] + "\n"
-    result = await _evaluate_structured(session, code)
+    code = sage_prelude() + ops[operation] + "\n"
+    result = await evaluate_structured(session, code)
     return {"operation": operation, "result": result}

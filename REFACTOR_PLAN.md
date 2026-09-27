@@ -119,3 +119,13 @@ worker, the integration suite in the Sage container.
   ladder; only B018 (the deliberate final bare expression) is ignored. Two new
   lint tests: no XOR operator in `sage_code/*.py` (checked to fail on a planted
   `^`), and exactly one marker per file. Wheel and sdist both carry the file.
+- **Step 3** -- done. `codegen.py` is gone: `gates.py`, `numeric.py`,
+  `transport.py` and, different from the plan, a fourth module `prelude.py` --
+  the prelude is not transport. Names imported across modules dropped their
+  underscore (12, plus `EXACT_JSON_INT_LIMIT`, which `transport` needs from
+  `numeric`); helpers used only at home kept theirs. The distribution helpers
+  moved into `tools/stats.py`, where the helper-interpolation guard saw their
+  f-strings for the first time; both interpolate only into a `ToolError`, and
+  are now in its reviewed table with that reason. The fuzz workflow triggers
+  on `gates.py`. Golden code unchanged; corpus fingerprint unchanged;
+  integration 1485 passed.

@@ -204,7 +204,7 @@ class SecurityPolicy:
     #: therefore executed while the bare `LazyImport` was refused. Any list of
     #: segments is one Sage release behind; refusing the ROOT is not.
     #:
-    #: `codegen._refuse_scrubbed_names` has applied exactly this rule to tool
+    #: `gates._refuse_scrubbed_names` has applied exactly this rule to tool
     #: parameters since the `sage.all.unpickle_global` bypass, and for the same
     #: reason: no caller needs to traverse `sage` -- they write `matrix`,
     #: `integrate`, `codes.HammingCode` directly. `trusted_policy()` clears it,

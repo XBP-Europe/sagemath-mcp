@@ -614,11 +614,11 @@ def test_the_predefined_symbols_are_the_same_everywhere() -> None:
     through `evaluate_sage` did not. Both now read the same constant, and this
     fails if anyone gives one of them its own list again.
     """
-    from sagemath_mcp import codegen
+    from sagemath_mcp.prelude import sage_prelude
     from sagemath_mcp.symbols import PREDEFINED_SYMBOLS
 
     assert PREDEFINED_SYMBOLS == ("x", "y", "z", "t")
-    prelude = codegen._sage_prelude()
+    prelude = sage_prelude()
     for symbol in PREDEFINED_SYMBOLS:
         assert f"'{symbol}'" in prelude, (
             f"the generated prelude no longer declares {symbol!r}, so the tools and "

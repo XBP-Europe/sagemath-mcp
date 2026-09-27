@@ -17,17 +17,13 @@ from pydantic import Field
 
 from .. import runtime
 from ..app import mcp
-from ..codegen import (
-    _declare_free_symbols,
-    _encode_literal,
-    _evaluate_structured,
-    _sage_prelude,
-    _validated_identifier,
-)
+from ..gates import declare_free_symbols, encode_literal, validated_identifier
+from ..prelude import sage_prelude
 from ..session import (
     DEFAULT_SESSION_NAME,
 )
 from ..text import SESSION_ARG_DESC as _SESSION_ARG_DESC
+from ..transport import evaluate_structured
 from .hints import COMPUTES
 
 
@@ -48,16 +44,16 @@ async def differentiate_expression(
     runtime.require_context(ctx, "for stateful execution")
     session = await runtime.session_for(ctx, session)
     code = (
-        _sage_prelude([variable])
+        sage_prelude([variable])
         + textwrap.dedent(
             f"""
-        _var = var({_encode_literal(variable)})
-        _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
+        _var = var({encode_literal(variable)})
+        _expr = sage_eval({encode_literal(expression)}, locals=_locals)
         str(diff(_expr, _var, {order}))
         """
         )
     )
-    result = await _evaluate_structured(session, code)
+    result = await evaluate_structured(session, code)
     return {"derivative": result, "order": order}
 
 
@@ -86,30 +82,30 @@ async def integrate_expression(
     definite = lower_bound is not None
     if definite:
         code = (
-            _sage_prelude([variable])
+            sage_prelude([variable])
             + textwrap.dedent(
                 f"""
-            _var = var({_encode_literal(variable)})
-            _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
-            {_declare_free_symbols(lower_bound, upper_bound)}
-            _lb = sage_eval({_encode_literal(lower_bound)}, locals=_locals)
-            _ub = sage_eval({_encode_literal(upper_bound)}, locals=_locals)
+            _var = var({encode_literal(variable)})
+            _expr = sage_eval({encode_literal(expression)}, locals=_locals)
+            {declare_free_symbols(lower_bound, upper_bound)}
+            _lb = sage_eval({encode_literal(lower_bound)}, locals=_locals)
+            _ub = sage_eval({encode_literal(upper_bound)}, locals=_locals)
             str(integrate(_expr, _var, _lb, _ub))
             """
             )
         )
     else:
         code = (
-            _sage_prelude([variable])
+            sage_prelude([variable])
             + textwrap.dedent(
                 f"""
-            _var = var({_encode_literal(variable)})
-            _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
+            _var = var({encode_literal(variable)})
+            _expr = sage_eval({encode_literal(expression)}, locals=_locals)
             str(integrate(_expr, _var))
             """
             )
         )
-    result = await _evaluate_structured(session, code)
+    result = await evaluate_structured(session, code)
     return {"integral": result, "definite": definite}
 
 
@@ -127,20 +123,20 @@ async def limit_expression(
 ) -> dict:
     runtime.require_context(ctx, "for stateful execution")
     session = await runtime.session_for(ctx, session)
-    dir_arg = f", dir={_encode_literal(direction)}" if direction else ""
+    dir_arg = f", dir={encode_literal(direction)}" if direction else ""
     code = (
-        _sage_prelude([variable])
+        sage_prelude([variable])
         + textwrap.dedent(
             f"""
-        _var = var({_encode_literal(variable)})
-        _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
-        {_declare_free_symbols(point)}
-        _point = sage_eval({_encode_literal(point)}, locals=_locals)
+        _var = var({encode_literal(variable)})
+        _expr = sage_eval({encode_literal(expression)}, locals=_locals)
+        {declare_free_symbols(point)}
+        _point = sage_eval({encode_literal(point)}, locals=_locals)
         str(limit(_expr, _var, _point{dir_arg}))
         """
         )
     )
-    result = await _evaluate_structured(session, code)
+    result = await evaluate_structured(session, code)
     return {"limit": result}
 
 
@@ -156,18 +152,18 @@ async def series_expansion(
     runtime.require_context(ctx, "for stateful execution")
     session = await runtime.session_for(ctx, session)
     code = (
-        _sage_prelude([variable])
+        sage_prelude([variable])
         + textwrap.dedent(
             f"""
-        _var = var({_encode_literal(variable)})
-        _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
-        {_declare_free_symbols(point)}
-        _point = sage_eval({_encode_literal(point)}, locals=_locals)
+        _var = var({encode_literal(variable)})
+        _expr = sage_eval({encode_literal(expression)}, locals=_locals)
+        {declare_free_symbols(point)}
+        _point = sage_eval({encode_literal(point)}, locals=_locals)
         str(_expr.series(_var == _point, {order}))
         """
         )
     )
-    result = await _evaluate_structured(session, code)
+    result = await evaluate_structured(session, code)
     return {"series": result, "point": point, "order": order}
 
 
@@ -188,17 +184,17 @@ async def solve_ode(
     runtime.require_context(ctx, "for stateful execution")
     session = await runtime.session_for(ctx, session)
     code = (
-        _sage_prelude([variable])
+        sage_prelude([variable])
         + textwrap.dedent(
             f"""
-        _x = var({_encode_literal(variable)})
-        _ode_function = function({_encode_literal(function)})
+        _x = var({encode_literal(variable)})
+        _ode_function = function({encode_literal(function)})
         _y = _ode_function(_x)
-        _ode_text = {_encode_literal(equation)}
+        _ode_text = {encode_literal(equation)}
 
         def _build_ode(_binding):
             _ode_locals = dict(_locals)
-            _ode_locals[{_encode_literal(function)}] = _binding
+            _ode_locals[{encode_literal(function)}] = _binding
             _ode_locals['diff'] = diff
             parts = _ode_text.split('=')
             if len(parts) == 2:
@@ -221,7 +217,7 @@ async def solve_ode(
         """
         )
     )
-    result = await _evaluate_structured(session, code)
+    result = await evaluate_structured(session, code)
     return {"solution": result}
 
 
@@ -244,19 +240,19 @@ async def symbolic_sum(
     session = await runtime.session_for(ctx, session)
     op = "product" if product else "sum"
     code = (
-        _sage_prelude([variable])
+        sage_prelude([variable])
         + textwrap.dedent(
             f"""
-        _var = var({_encode_literal(variable)})
-        _expr = sage_eval({_encode_literal(expression)}, locals=_locals)
-        {_declare_free_symbols(lower, upper)}
-        _lo = sage_eval({_encode_literal(lower)}, locals=_locals)
-        _hi = sage_eval({_encode_literal(upper)}, locals=_locals)
+        _var = var({encode_literal(variable)})
+        _expr = sage_eval({encode_literal(expression)}, locals=_locals)
+        {declare_free_symbols(lower, upper)}
+        _lo = sage_eval({encode_literal(lower)}, locals=_locals)
+        _hi = sage_eval({encode_literal(upper)}, locals=_locals)
         str({op}(_expr, _var, _lo, _hi))
         """
         )
     )
-    result = await _evaluate_structured(session, code)
+    result = await evaluate_structured(session, code)
     return {"result": result, "operation": op}
 
 
@@ -287,8 +283,8 @@ async def vector_calculus_operation(
     if variables is None:
         variables = ["x", "y", "z"]
     # Also quoted into var('...') below, so gate them here rather than relying on
-    # whichever branch happens to call _sage_prelude.
-    variables = [_validated_identifier(v, "variables") for v in variables]
+    # whichever branch happens to call sage_prelude.
+    variables = [validated_identifier(v, "variables") for v in variables]
     session = await runtime.session_for(ctx, session)
     vars_str = ", ".join(f"var('{v}')" for v in variables)
 
@@ -296,11 +292,11 @@ async def vector_calculus_operation(
         if not isinstance(expression, str):
             raise ToolError("Gradient requires a scalar expression (string)")
         code = (
-            _sage_prelude(variables)
+            sage_prelude(variables)
             + textwrap.dedent(
                 f"""
             _vars = [{vars_str}]
-            _f = sage_eval({_encode_literal(expression)}, locals=_locals)
+            _f = sage_eval({encode_literal(expression)}, locals=_locals)
             [str(diff(_f, v)) for v in _vars]
             """
             )
@@ -314,11 +310,11 @@ async def vector_calculus_operation(
                 f"but {len(variables)} variables"
             )
         code = (
-            _sage_prelude(variables)
+            sage_prelude(variables)
             + textwrap.dedent(
                 f"""
             _vars = [{vars_str}]
-            _components = [sage_eval(c, locals=_locals) for c in {_encode_literal(expression)}]
+            _components = [sage_eval(c, locals=_locals) for c in {encode_literal(expression)}]
             str(sum(diff(_components[i], _vars[i]) for i in range(len(_vars))))
             """
             )
@@ -329,11 +325,11 @@ async def vector_calculus_operation(
         if len(variables) != 3:
             raise ToolError("Curl requires exactly 3 variables")
         code = (
-            _sage_prelude(variables)
+            sage_prelude(variables)
             + textwrap.dedent(
                 f"""
             _vars = [{vars_str}]
-            _F = [sage_eval(c, locals=_locals) for c in {_encode_literal(expression)}]
+            _F = [sage_eval(c, locals=_locals) for c in {encode_literal(expression)}]
             _curl = [
                 str(diff(_F[2], _vars[1]) - diff(_F[1], _vars[2])),
                 str(diff(_F[0], _vars[2]) - diff(_F[2], _vars[0])),
@@ -347,11 +343,11 @@ async def vector_calculus_operation(
         if not isinstance(expression, str):
             raise ToolError("Laplacian requires a scalar expression (string)")
         code = (
-            _sage_prelude(variables)
+            sage_prelude(variables)
             + textwrap.dedent(
                 f"""
             _vars = [{vars_str}]
-            _f = sage_eval({_encode_literal(expression)}, locals=_locals)
+            _f = sage_eval({encode_literal(expression)}, locals=_locals)
             str(sum(diff(_f, v, 2) for v in _vars))
             """
             )
@@ -362,5 +358,5 @@ async def vector_calculus_operation(
             "Use: gradient, divergence, curl, laplacian"
         )
 
-    result = await _evaluate_structured(session, code)
+    result = await evaluate_structured(session, code)
     return {"operation": operation, "result": result}

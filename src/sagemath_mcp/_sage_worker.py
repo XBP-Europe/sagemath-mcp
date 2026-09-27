@@ -770,7 +770,7 @@ def _strip_from_sage_all(names: Any) -> int:
     and the same for `cython`, `sh`, `attrcall`, `os` and `maxima_calculus`.
     Every name the denylist removes was reachable that way. Nothing was
     *exploitable*: a caller string reaching a template must first pass
-    `_validated_expression`, which enforces the allowlist. But that made the
+    `validated_expression`, which enforces the allowlist. But that made the
     gate the only lock on that path rather than the second, and this file's
     whole model is that the object should not be there either.
 

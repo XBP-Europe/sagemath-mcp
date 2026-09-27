@@ -6,7 +6,7 @@ import shutil
 import pytest
 from fastmcp.exceptions import ToolError
 
-from sagemath_mcp import app, codegen, runtime, server
+from sagemath_mcp import app, numeric, runtime, server, transport
 from sagemath_mcp.config import SageSettings
 from sagemath_mcp.models import EvaluateResult
 from sagemath_mcp.monitoring import reset_metrics
@@ -316,7 +316,7 @@ async def test_statistics_summary(monkeypatch):
 @pytest.mark.asyncio
 async def test_evaluate_structured_parses_literal():
     session = StubSession("[1, {'value': 2}]")
-    value = await codegen._evaluate_structured(session, "ignored")
+    value = await transport.evaluate_structured(session, "ignored")
     assert value == [1, {"value": 2}]
     call = session.calls[-1]
     assert call["want_latex"] is False
@@ -326,14 +326,14 @@ async def test_evaluate_structured_parses_literal():
 @pytest.mark.asyncio
 async def test_evaluate_structured_returns_none():
     session = StubSession(None)
-    value = await codegen._evaluate_structured(session, "ignored")
+    value = await transport.evaluate_structured(session, "ignored")
     assert value is None
 
 
 @pytest.mark.asyncio
 async def test_evaluate_structured_falls_back_to_string():
     session = StubSession("Decimal('1.234')")
-    value = await codegen._evaluate_structured(session, "ignored")
+    value = await transport.evaluate_structured(session, "ignored")
     assert value == "Decimal('1.234')"
 
 
@@ -768,7 +768,7 @@ async def test_plot_expression_rejects_non_string_result(monkeypatch):
 @pytest.mark.asyncio
 async def test_evaluate_structured_forwards_timeout():
     session = StubSession("42")
-    await codegen._evaluate_structured(session, "ignored", timeout_seconds=5.0)
+    await transport.evaluate_structured(session, "ignored", timeout_seconds=5.0)
     call = session.calls[-1]
     assert call["timeout_seconds"] == 5.0
 
@@ -2137,7 +2137,7 @@ async def test_named_sessions_listed_per_client(monkeypatch):
     ],
 )
 async def test_exact_int_accepts_lossless_forms(value, expected):
-    assert codegen._exact_int(value, "a") == expected
+    assert numeric.exact_int(value, "a") == expected
 
 
 @pytest.mark.asyncio
@@ -2158,11 +2158,11 @@ async def test_exact_int_rejects_values_json_cannot_carry(value):
     as the int 1000000000000000019884624838656 and looks ordinary.
     """
     with pytest.raises(ToolError, match="2\\^53"):
-        codegen._exact_int(value, "a")
+        numeric.exact_int(value, "a")
 
     # The message has to tell the caller what to do instead.
     try:
-        codegen._exact_int(value, "a")
+        numeric.exact_int(value, "a")
     except ToolError as exc:
         assert "decimal string" in str(exc)
 
@@ -2170,18 +2170,18 @@ async def test_exact_int_rejects_values_json_cannot_carry(value):
 @pytest.mark.asyncio
 async def test_exact_int_accepts_any_size_as_a_string():
     """Strings are exact by construction, so no ceiling applies."""
-    assert codegen._exact_int("1000000000000000000000000000000", "a") == 10**30
-    assert codegen._exact_int(str(2**200), "a") == 2**200
+    assert numeric.exact_int("1000000000000000000000000000000", "a") == 10**30
+    assert numeric.exact_int(str(2**200), "a") == 2**200
 
 
 @pytest.mark.asyncio
 async def test_exact_int_rejects_non_integers():
     with pytest.raises(ToolError, match="whole number"):
-        codegen._exact_int(12.5, "a")
+        numeric.exact_int(12.5, "a")
     with pytest.raises(ToolError, match="not a decimal integer"):
-        codegen._exact_int("twelve", "a")
+        numeric.exact_int("twelve", "a")
     with pytest.raises(ToolError, match="boolean"):
-        codegen._exact_int(True, "a")
+        numeric.exact_int(True, "a")
 
 
 @pytest.mark.asyncio
@@ -2368,7 +2368,7 @@ async def test_exact_integer_arguments_accept_decimal_strings(sage_manager, monk
         captured["code"] = code
         return 1
 
-    monkeypatch.setattr(combinatorics_module, "_evaluate_structured", fake_structured)
+    monkeypatch.setattr(combinatorics_module, "evaluate_structured", fake_structured)
     await combinatorics_module.combinatorics_operation(
         operation="factorial", n="9007199254740993", ctx=FakeContext("exact-client")
     )

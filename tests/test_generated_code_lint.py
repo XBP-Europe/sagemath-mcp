@@ -326,17 +326,17 @@ def test_no_caller_string_is_interpolated_into_generated_code_unguarded() -> Non
     """
     import ast as _ast
 
-    # _declare_free_symbols does not embed the string; it derives `var(...)`
+    # declare_free_symbols does not embed the string; it derives `var(...)`
     # declarations from the identifiers inside it.
     gates = {
-        "_encode_literal",
-        "_validated_expression",
-        "_validated_identifier",
-        "_declare_free_symbols",
-        "_exact_int",
-        "_reject_if_inexact",
+        "encode_literal",
+        "validated_expression",
+        "validated_identifier",
+        "declare_free_symbols",
+        "exact_int",
+        "reject_if_inexact",
         # Returns numbers or raises: no string survives it into generated code.
-        "_exact_matrix_entries",
+        "exact_matrix_entries",
     }
     # Interpolation into a message is not interpolation into code.
     message_sinks = {
@@ -379,7 +379,7 @@ def test_no_caller_string_is_interpolated_into_generated_code_unguarded() -> Non
             if isinstance(node, _ast.Compare) and isinstance(node.left, _ast.Name):
                 if any(isinstance(op, (_ast.NotIn, _ast.In)) for op in node.ops):
                     str_params.discard(node.left.id)
-        # Names rebound from a gate are laundered: `graph = _validated_expression(graph)`.
+        # Names rebound from a gate are laundered: `graph = validated_expression(graph)`.
         for node in _ast.walk(fn):
             if isinstance(node, _ast.Assign):
                 called = {
@@ -581,6 +581,12 @@ def test_no_helper_interpolates_a_parameter_into_generated_code_unguarded() -> N
             "anything else before the lookup. Two locks, neither of them this "
             "test."
         ),
+        # Moved here from codegen.py in the 2026-09 refactor. Both interpolate
+        # `distribution` only into the ToolError they raise for an unsupported
+        # one; what they return is a float, and the tool puts nothing but
+        # `float(<that float>)` into the generated code.
+        ("stats.py", "_distribution_mean"): "interpolates only into its ToolError message",
+        ("stats.py", "_distribution_variance"): "interpolates only into its ToolError message",
         ("prompts.py", "prove_and_verify"): "an MCP prompt: text for the model, not code",
         ("prompts.py", "solve_and_check"): "an MCP prompt: text for the model, not code",
         ("prompts.py", "explore_object"): "an MCP prompt: text for the model, not code",

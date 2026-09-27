@@ -18,7 +18,7 @@ Two rules keep the verdicts honest, and both live in the generated ladder:
   never a bare confidence number.
 
 Security-wise this adds no new surface: the claim string passes the same
-fragment gate (`_validated_expression`, via `_encode_literal`) as every other
+fragment gate (`validated_expression`, via `encode_literal`) as every other
 tool parameter before it is interpolated into trusted generated code.
 """
 
@@ -37,16 +37,12 @@ from pydantic import Field
 
 from .. import runtime
 from ..app import mcp
-from ..codegen import (
-    _EQUALS_NOT_COMPARISON,
-    _encode_literal,
-    _evaluate_structured,
-    _sage_prelude,
-    _validated_expression,
-)
+from ..gates import EQUALS_NOT_COMPARISON, encode_literal, validated_expression
 from ..models import VerifyClaimResult
+from ..prelude import sage_prelude
 from ..session import DEFAULT_SESSION_NAME
 from ..text import SESSION_ARG_DESC as _SESSION_ARG_DESC
+from ..transport import evaluate_structured
 from .hints import COMPUTES
 
 _VERDICTS = frozenset({"proved", "refuted", "supported", "undecided"})
@@ -134,7 +130,7 @@ def _comparison_sides(claim: str) -> tuple[str | None, str | None, str | None]:
     bare predicate like `is_prime(7)` has no sides and is evaluated whole. Either
     way, exactness is judged from `_exactness_probe_sources`, not from this.
     """
-    candidate = _EQUALS_NOT_COMPARISON.sub("==", claim)
+    candidate = EQUALS_NOT_COMPARISON.sub("==", claim)
     try:
         node = ast.parse(candidate, mode="eval").body
     except SyntaxError:
@@ -175,7 +171,7 @@ def _exactness_probe_sources(claim: str) -> list[str]:
     Sources come from `get_source_segment` (UTF-8-byte offsets vs character
     slices, and `^` must not round-trip -- see `_comparison_sides`), deduplicated.
     """
-    candidate = _EQUALS_NOT_COMPARISON.sub("==", claim)
+    candidate = EQUALS_NOT_COMPARISON.sub("==", claim)
     try:
         tree = ast.parse(candidate, mode="eval")
     except SyntaxError:
@@ -206,7 +202,7 @@ def _reject_truth_assembly(claim: str) -> None:
     still cannot parse is left to sage_eval, whose preparser owns Sage-only
     spellings; nothing bool()-shaped survives tokenisation as one of those.
     """
-    candidate = _EQUALS_NOT_COMPARISON.sub("==", claim)
+    candidate = EQUALS_NOT_COMPARISON.sub("==", claim)
     try:
         parsed = ast.parse(candidate, mode="eval")
     except SyntaxError:
@@ -302,26 +298,26 @@ async def verify_claim(
             "'claim' must state a comparison, e.g. 'sin(x)**2 + cos(x)**2 == 1'"
         )
     sage_session = await runtime.session_for(ctx, session)
-    claim = _validated_expression(claim)
+    claim = validated_expression(claim)
     rewritten = _exact_decimal_literals(claim)
     if rewritten != claim:
         # Validate exactly what runs, the same rule the fold follows. The
         # rewrite only inserts digits, parentheses and division, but the gate
         # judging anything other than the final text is how item 55 happened.
-        claim = _validated_expression(rewritten)
+        claim = validated_expression(rewritten)
     _reject_truth_assembly(claim)
     lhs_src, rhs_src, op_src = _comparison_sides(claim)
     have_sides = lhs_src is not None and rhs_src is not None
-    lhs_literal = _encode_literal(lhs_src) if have_sides else "None"
-    rhs_literal = _encode_literal(rhs_src) if have_sides else "None"
-    op_literal = _encode_literal(op_src) if have_sides else "None"
+    lhs_literal = encode_literal(lhs_src) if have_sides else "None"
+    rhs_literal = encode_literal(rhs_src) if have_sides else "None"
+    op_literal = encode_literal(op_src) if have_sides else "None"
     # Exactness is judged from the claim's inputs, not its collapsed value: every
     # value-bearing sub-expression is evaluated and checked, so a machine number
     # hidden inside a Boolean (a predicate, `== True`, a lambda) is still found.
     probe_srcs = _exactness_probe_sources(claim)
-    probe_srcs_literal = "[" + ", ".join(_encode_literal(s) for s in probe_srcs) + "]"
+    probe_srcs_literal = "[" + ", ".join(encode_literal(s) for s in probe_srcs) + "]"
     header = "\n".join((
-        f"_text = {_encode_literal(claim)}",
+        f"_text = {encode_literal(claim)}",
         f"_lhs_src = {lhs_literal}",
         f"_rhs_src = {rhs_literal}",
         f"_op_src = {op_literal}",
@@ -329,8 +325,8 @@ async def verify_claim(
         f"_nsamples = {int(samples)}",
         f"_prec = {int(precision_bits)}",
     ))
-    code = _sage_prelude() + "\n" + header + "\n" + _LADDER
-    payload = await _evaluate_structured(sage_session, code, timeout_seconds=timeout_seconds)
+    code = sage_prelude() + "\n" + header + "\n" + _LADDER
+    payload = await evaluate_structured(sage_session, code, timeout_seconds=timeout_seconds)
     if not isinstance(payload, dict):
         raise ToolError(f"SageMath returned an unexpected verification payload: {payload!r}")
     if "error" in payload:

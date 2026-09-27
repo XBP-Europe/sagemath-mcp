@@ -31,7 +31,7 @@ from pathlib import Path
 import pytest
 
 from sagemath_mcp import runtime, server
-from sagemath_mcp.codegen import _sage_prelude
+from sagemath_mcp.prelude import sage_prelude
 from sagemath_mcp.session import SageSessionManager, WorkerResult
 
 from .conftest import FakeContext
@@ -199,7 +199,7 @@ async def _capture() -> dict[str, tuple[list, str | None]]:
 
 
 def _render(captured: dict[str, tuple[list, str | None]]) -> str:
-    prelude = _sage_prelude()
+    prelude = sage_prelude()
     lines = ["=== <<PRELUDE>>", prelude.rstrip("\n"), ""]
     for case_id, (calls, no_code) in captured.items():
         if no_code is not None:

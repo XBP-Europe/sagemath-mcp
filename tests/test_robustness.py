@@ -6,7 +6,7 @@ Four findings, each reproduced against the shape it happened in:
    one session launched two workers and leaked one.
 2. Nothing bounded the number of live sessions, so a client opening a fresh
    named workspace per call could exhaust the host a worker at a time.
-3. The ~30 helper tools evaluated through `_evaluate_structured`, which never
+3. The ~30 helper tools evaluated through `evaluate_structured`, which never
    touched the monitoring counters, so the metrics accounted for `evaluate_sage`
    alone.
 4. `/health` and the Helm readiness probe reported process liveness without
@@ -133,7 +133,7 @@ async def test_a_helper_tool_failure_is_recorded(sage_manager, monkeypatch):
     generated prelude imports `sage.all`, which succeeds wherever Sage is
     installed (the integration container included), so relying on it made the
     outcome depend on the runtime. Injection tests exactly the branch that
-    matters -- `_evaluate_structured` recording the failure -- everywhere.
+    matters -- `evaluate_structured` recording the failure -- everywhere.
     Before the fix the helper tools recorded nothing at all, pass or fail.
     """
     from sagemath_mcp.session import SageEvaluationError

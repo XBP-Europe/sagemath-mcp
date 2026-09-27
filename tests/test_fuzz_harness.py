@@ -110,7 +110,7 @@ def test_the_workflow_runs_the_target_on_the_python_we_ship() -> None:
     # as no harness, and harder to notice.
     for target in sorted(ROOT.glob("fuzz/fuzz_*.py")):
         assert f"fuzz/{target.name}" in workflow, f"{target.name} is never run by CI"
-    for guarded in ("security.py", "codegen.py", "_sage_worker.py"):
+    for guarded in ("security.py", "gates.py", "_sage_worker.py"):
         assert guarded in workflow, f"a change to {guarded} would not trigger the fuzzers"
 
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))

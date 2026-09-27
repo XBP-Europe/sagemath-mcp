@@ -4,7 +4,7 @@
 # prelude and a data header that `tools/verify.py` builds from gated values:
 #
 #     _text, _lhs_src, _rhs_src, _op_src   the claim and its sides, each passed
-#                                          through `_encode_literal`
+#                                          through `encode_literal`
 #     _probe_srcs                          the exactness probes, likewise
 #     _nsamples, _prec                     ints
 #

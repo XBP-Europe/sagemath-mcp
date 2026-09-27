@@ -38,7 +38,11 @@ Ruff with line-length 100, target Python 3.12. Rules: E, F, W, B, UP, ASYNC, RUF
 - `server.py` - Entry point: the `/health` route, `main()`, and the imports that register the tools. Re-exports the tool functions, so `from sagemath_mcp import server` keeps working.
 - `app.py` - The FastMCP object, instructions, lifespan and middleware. Owns `mcp` so tool modules can decorate against it without importing the module that imports them.
 - `runtime.py` - `SETTINGS`, `SESSION_MANAGER` and `resolve_session()`. Read the manager through this module (never `from .runtime import SESSION_MANAGER`) so tests can swap it. Also `client_scope(ctx, session)`, the only place a tool may get its caller's identity: never read `ctx.session_id` directly, because on fastmcp 4's 2026-07-28 protocol era it is a fresh id per call. stdio anchors to the process (`anchor_to_process()`, called by `main()`), a workspace token resolves on its own, and a call by name on that era over HTTP is refused.
-- `codegen.py` - Building the Sage snippets: prelude, literal encoding, the validation gates and the numeric guards. Any caller string reaching a template must pass a gate — generated code runs under `trusted_policy()`, which permits `sage_eval`.
+- `gates.py` - The gates between a caller's string and a generated template: `encode_literal`, `validated_expression`, `validated_identifier`, `declare_free_symbols`. Any caller string reaching a template must pass one -- generated code runs under `trusted_policy()`, which permits `sage_eval`.
+- `numeric.py` - Exact-number guards for arguments (`exact_int`, `exact_matrix_entries`, ...): refuse what a JavaScript client has already rounded.
+- `prelude.py` - `sage_prelude()`, the header every generated snippet starts with.
+- `transport.py` - `evaluate_structured()`: run a snippet, record metrics, rebuild the literal answer.
+- `sage_code/` - Sage code kept as source and sent verbatim after its marker line (the `verify_claim` ladder).
 - `tools/` - The 40 tools and 3 resources by domain: `session`, `core`, `calculus`, `algebra`, `discrete`, `stats`, `plotting`, `diagnostics`, `verify`. A module missing from `tools/__init__.py` registers nothing.
 - `session.py` - `SageSessionManager` (per-client session map with asyncio locks) and `SageSession` (spawns/manages `_sage_worker.py` subprocess via JSON stdin/stdout protocol).
 - `_sage_worker.py` - Subprocess worker that executes code in a persistent namespace. Handles execute/reset/shutdown commands. Validates AST before compilation.
@@ -58,8 +62,8 @@ it was violated:
   deleted, not exempted.
 - Tool names, schemas and descriptions are snapshotted (`tests/test_tool_inventory.py`).
   Changing a tool means regenerating it deliberately: `python -m tests.test_tool_inventory --write`.
-- Any caller string interpolated into generated Sage must pass `_encode_literal`,
-  `_validated_expression` or `_validated_identifier`. Generated code runs under
+- Any caller string interpolated into generated Sage must pass `encode_literal`,
+  `validated_expression` or `validated_identifier`. Generated code runs under
   `trusted_policy()`, which permits `sage_eval`, so an ungated string is arbitrary
   execution. A structural test enforces this.
 - `evaluate_sage` preparses caller code (Sage semantics: `2^3` is 8; `x`, `y`, `z`, `t` predefined). Shared indentation is stripped first, so a snippet pasted out of a markdown block is accepted.

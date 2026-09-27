@@ -197,12 +197,12 @@ def test_specialized_tool_rejects_an_aliased_payload() -> None:
     """The public path, not just the validator.
 
     calculate_expression embeds its argument into generated code that runs under
-    the trusted policy, so a fragment that escapes _validated_expression is not
+    the trusted policy, so a fragment that escapes validated_expression is not
     validated again downstream.
     """
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp.codegen import _validated_expression
+    from sagemath_mcp.gates import validated_expression
 
     for payload in (
         "(lambda f=open: f('/etc/passwd').readline())()",
@@ -210,20 +210,20 @@ def test_specialized_tool_rejects_an_aliased_payload() -> None:
         "(lambda m=os: m.getuid())()",
     ):
         with pytest.raises(ToolError, match="security policy"):
-            _validated_expression(payload)
+            validated_expression(payload)
 
 
 def test_unparseable_fragments_are_screened_not_waved_through() -> None:
     """A fragment that will not parse used to skip validation entirely."""
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp.codegen import _validated_expression
+    from sagemath_mcp.gates import validated_expression
 
     # Still accepted: the documented equation spelling is not a Python expression.
-    assert _validated_expression("x^2 - 1 = 0") == "x^2 - 1 = 0"
+    assert validated_expression("x^2 - 1 = 0") == "x^2 - 1 = 0"
     # Screened at token level once no parse tree is available.
     with pytest.raises(ToolError):
-        _validated_expression("R.<a> = os.getuid()")
+        validated_expression("R.<a> = os.getuid()")
 
 
 # --- Item 18: caller strings interpolated into TRUSTED code -----------------
@@ -286,19 +286,19 @@ async def test_trusted_templates_reject_sage_eval_payloads(
 
 
 def test_prelude_rejects_names_that_are_not_identifiers() -> None:
-    """_sage_prelude quotes each name into generated code.
+    """sage_prelude quotes each name into generated code.
 
     A name carrying a quote escapes that string literal, which is the same
     injection one level down.
     """
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp.codegen import _sage_prelude
+    from sagemath_mcp.prelude import sage_prelude
 
     with pytest.raises(ToolError):
-        _sage_prelude(["x', sage_eval('1+1'), 'y"])
+        sage_prelude(["x', sage_eval('1+1'), 'y"])
     # Ordinary names still work.
-    assert "'a'" in _sage_prelude(["a"])
+    assert "'a'" in sage_prelude(["a"])
 
 
 # --- Reaching a forbidden function through an attribute chain -----------------
@@ -1668,7 +1668,7 @@ TOKEN_SCREEN_SHELL_AND_WRITE_ESCAPES = [
 def test_shell_out_methods_are_refused_on_the_unparseable_path_too(code: str) -> None:
     """The AST path refuses `latex.has_file(...)`; the token fallback must as well.
 
-    `_validated_expression` runs full AST validation only when the fragment
+    `validated_expression` runs full AST validation only when the fragment
     parses as a Python expression. Wrapping the call in Sage-only syntax the
     Python parser rejects -- the ellipsis range `[1..2]` -- makes `ast.parse`
     fail, so the fragment falls to `_screen_unparseable_fragment`, a token-level
@@ -1686,10 +1686,10 @@ def test_shell_out_methods_are_refused_on_the_unparseable_path_too(code: str) ->
     """
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp.codegen import _validated_expression
+    from sagemath_mcp.gates import validated_expression
 
     with pytest.raises(ToolError, match="security policy"):
-        _validated_expression(code)
+        validated_expression(code)
 
 
 def test_latex_the_function_still_works() -> None:
@@ -2171,11 +2171,11 @@ def test_a_tool_parameter_cannot_name_what_the_scrub_removes(fragment: str) -> N
     """
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp.codegen import _validated_expression
+    from sagemath_mcp.gates import validated_expression
 
     # The gate wraps the violation for the client, so this is what a caller sees.
     with pytest.raises(ToolError, match="Rejected by the security policy"):
-        _validated_expression(fragment)
+        validated_expression(fragment)
 
 
 @pytest.mark.parametrize(
@@ -2196,9 +2196,9 @@ def test_the_mathematics_tool_parameters_carry_still_passes(fragment: str) -> No
     `graphs.PetersenGraph` -- which is exactly what the fragment policy exists
     to permit.
     """
-    from sagemath_mcp.codegen import _validated_expression
+    from sagemath_mcp.gates import validated_expression
 
-    _validated_expression(fragment)
+    validated_expression(fragment)
 
 
 @pytest.mark.parametrize(
@@ -2206,7 +2206,7 @@ def test_the_mathematics_tool_parameters_carry_still_passes(fragment: str) -> No
     [
         # Sage-only syntax the Python parser rejects, so the token screen runs
         # instead of the AST path -- with a scrubbed name riding along. Written
-        # without a `;`, which _validated_expression now refuses outright before
+        # without a `;`, which validated_expression now refuses outright before
         # the screen ever runs (see test_a_semicolon_cannot_smuggle_a_statement).
         "R.<xx> = QQ[unpickle_global]",
         "unpickle_global('os','system')('id') if R.<y> = QQ[] else 0",
@@ -2230,10 +2230,10 @@ def test_the_token_screen_refuses_scrubbed_names_too(fragment: str) -> None:
     """
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp.codegen import _validated_expression
+    from sagemath_mcp.gates import validated_expression
 
     with pytest.raises(ToolError, match=r"is blocked|not a name this server offers"):
-        _validated_expression(fragment)
+        validated_expression(fragment)
 
 
 def test_the_scrub_covers_sage_eval_and_not_only_the_namespace() -> None:
@@ -2251,7 +2251,7 @@ def test_the_scrub_covers_sage_eval_and_not_only_the_namespace() -> None:
     `maxima_calculus` -- every name the denylist removes.
 
     Nothing was exploitable: a caller string reaching a template must pass
-    `_validated_expression` first, which enforces the allowlist, and a
+    `validated_expression` first, which enforces the allowlist, and a
     structural test already refuses any template that interpolates without a
     gate. What it meant was that the gate was the *only* lock on that path
     rather than the second, while this file's whole model is that the object
@@ -2324,10 +2324,10 @@ def test_a_tool_parameter_cannot_walk_the_sage_module_tree(fragment: str) -> Non
     """
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp.codegen import _validated_expression
+    from sagemath_mcp.gates import validated_expression
 
     with pytest.raises(ToolError, match="Rejected by the security policy"):
-        _validated_expression(fragment)
+        validated_expression(fragment)
 
 
 @pytest.mark.parametrize(
@@ -2348,9 +2348,9 @@ def test_the_sage_root_backstop_leaves_ordinary_parameters_alone(fragment: str) 
     is untouched -- the rule keys on the root name `sage`, which no legitimate
     tool parameter uses.
     """
-    from sagemath_mcp.codegen import _validated_expression
+    from sagemath_mcp.gates import validated_expression
 
-    _validated_expression(fragment)
+    validated_expression(fragment)
 
 
 # --- 2026-08-16 review, items 49-56 -----------------------------------------
@@ -2447,10 +2447,10 @@ FRAGMENT_EVAL_PRIMITIVES = [
 def test_the_fragment_gate_refuses_the_evaluation_primitives(case_id, fragment):
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp.codegen import _validated_expression
+    from sagemath_mcp.gates import validated_expression
 
     with pytest.raises(ToolError):
-        _validated_expression(fragment)
+        validated_expression(fragment)
 
 
 def test_a_comment_cannot_hide_a_payload_from_the_split(case_id=None):
@@ -2458,22 +2458,22 @@ def test_a_comment_cannot_hide_a_payload_from_the_split(case_id=None):
     hidden right-hand side (item 55). Comments are refused at the gate."""
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp.codegen import _validated_expression
+    from sagemath_mcp.gates import validated_expression
 
     with pytest.raises(ToolError):
-        _validated_expression('1 # eval' '("x") = __import__("os").system("id")')
+        validated_expression('1 # eval' '("x") = __import__("os").system("id")')
     with pytest.raises(ToolError):
-        _validated_expression("x^2 - 1 # = __import__('os').system('id')")
+        validated_expression("x^2 - 1 # = __import__('os').system('id')")
 
 
 def test_a_semicolon_cannot_smuggle_a_statement(case_id=None):
     """A fragment is one expression; `;` made it two once interpolated (item 56)."""
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp.codegen import _validated_expression
+    from sagemath_mcp.gates import validated_expression
 
     with pytest.raises(ToolError):
-        _validated_expression("SymmetricGroup(5); _z = save(1, '/tmp/x')")
+        validated_expression("SymmetricGroup(5); _z = save(1, '/tmp/x')")
 
 
 def test_a_newline_is_folded_out_so_it_cannot_break_a_statement(case_id=None):
@@ -2481,12 +2481,12 @@ def test_a_newline_is_folded_out_so_it_cannot_break_a_statement(case_id=None):
     become a statement break (item 56). The gate folds it to a space, which
     turns a two-statement payload into a syntax error rather than an injection,
     while a genuinely wrapped single expression still passes."""
-    from sagemath_mcp.codegen import _validated_expression
+    from sagemath_mcp.gates import validated_expression
 
     # A wrapped single expression survives, folded.
-    assert _validated_expression("2 +\n2") == "2 + 2"
+    assert validated_expression("2 +\n2") == "2 + 2"
     # The returned value never contains a newline, whatever came in.
-    folded = _validated_expression("SymmetricGroup(5)\n_z = 1")
+    folded = validated_expression("SymmetricGroup(5)\n_z = 1")
     assert "\n" not in folded
 
 
@@ -2520,10 +2520,10 @@ def test_an_untokenizable_fragment_is_still_rejected(case_id=None):
     it refuses it on its own terms."""
     from fastmcp.exceptions import ToolError
 
-    from sagemath_mcp.codegen import _validated_expression
+    from sagemath_mcp.gates import validated_expression
 
     with pytest.raises(ToolError):
-        _validated_expression("matrix([1, 2")
+        validated_expression("matrix([1, 2")
 
 
 def test_the_guarded_attrcall_delegates_only_after_the_screen() -> None:
@@ -2611,7 +2611,7 @@ def test_a_sage_rooted_chain_is_refused(code):
 
     Enumerating dangerous segments is what failed: the list will always be one
     module behind whatever Sage adds next. The root is refused instead, which is
-    the same rule `codegen._refuse_scrubbed_names` has applied to tool
+    the same rule `gates._refuse_scrubbed_names` has applied to tool
     parameters since the `sage.all.unpickle_global` bypass.
     """
     with pytest.raises(SecurityViolation) as excinfo:

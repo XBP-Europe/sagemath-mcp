@@ -17,19 +17,14 @@ from pydantic import Field
 
 from .. import runtime
 from ..app import mcp
-from ..codegen import (
-    _check_matrix,
-    _encode_literal,
-    _evaluate_structured,
-    _exact_matrix_entries,
-    _sage_prelude,
-    _validated_expression,
-    _validated_identifier,
-)
+from ..gates import encode_literal, validated_expression, validated_identifier
+from ..numeric import check_matrix, exact_matrix_entries
+from ..prelude import sage_prelude
 from ..session import (
     DEFAULT_SESSION_NAME,
 )
 from ..text import SESSION_ARG_DESC as _SESSION_ARG_DESC
+from ..transport import evaluate_structured
 from .hints import COMPUTES
 
 
@@ -51,12 +46,12 @@ async def solve_equation(
     equations = [equation] if isinstance(equation, str) else equation
     variables = [variable] if isinstance(variable, str) else variable
     code = (
-        _sage_prelude(variables)
+        sage_prelude(variables)
         + textwrap.dedent(
             f"""
-        _vars = [var(v) for v in {_encode_literal(variables)}]
+        _vars = [var(v) for v in {encode_literal(variables)}]
         _eqs = []
-        for _eq_str in {_encode_literal(equations)}:
+        for _eq_str in {encode_literal(equations)}:
             parts = _eq_str.split('=')
             if len(parts) == 2:
                 left = sage_eval(parts[0].strip(), locals=_locals)
@@ -72,7 +67,7 @@ async def solve_equation(
         """
         )
     )
-    solutions = await _evaluate_structured(session, code)
+    solutions = await evaluate_structured(session, code)
     return {"solutions": solutions}
 
 
@@ -107,10 +102,10 @@ async def matrix_multiply(
     # Checked here so a shape mismatch reports the shapes. Left to Sage it
     # surfaced as "unsupported operand parent(s) for *: 'Full MatrixSpace of
     # ...'", which does not say which dimension is wrong.
-    _check_matrix(matrix_a, "matrix_a")
-    _check_matrix(matrix_b, "matrix_b")
-    matrix_a = _exact_matrix_entries(matrix_a, "matrix_a")
-    matrix_b = _exact_matrix_entries(matrix_b, "matrix_b")
+    check_matrix(matrix_a, "matrix_a")
+    check_matrix(matrix_b, "matrix_b")
+    matrix_a = exact_matrix_entries(matrix_a, "matrix_a")
+    matrix_b = exact_matrix_entries(matrix_b, "matrix_b")
     if len(matrix_a[0]) != len(matrix_b):
         raise ToolError(
             f"Cannot multiply a {len(matrix_a)}x{len(matrix_a[0])} matrix by a "
@@ -127,7 +122,7 @@ async def matrix_multiply(
         [[{_EXACT_SCALAR}(entry) for entry in row] for row in C.rows()]
         """
     )
-    product = await _evaluate_structured(session, code)
+    product = await evaluate_structured(session, code)
     return {"product": product}
 
 
@@ -150,8 +145,8 @@ async def matrix_operation(
 ) -> dict:
     runtime.require_context(ctx, "for stateful execution")
     operation = operation.strip()
-    _check_matrix(matrix, "matrix")
-    matrix = _exact_matrix_entries(matrix, "matrix")
+    check_matrix(matrix, "matrix")
+    matrix = exact_matrix_entries(matrix, "matrix")
     allowed_ops = {"determinant", "inverse", "eigenvalues", "rank", "rref", "transpose"}
     if operation not in allowed_ops:
         raise ToolError(
@@ -179,7 +174,7 @@ async def matrix_operation(
         {op_code[operation]}
         """
     )
-    result = await _evaluate_structured(session, code)
+    result = await evaluate_structured(session, code)
     return {"operation": operation, "result": result}
 
 
@@ -222,7 +217,7 @@ async def boolean_algebra_operation(
         "_bool_locals = {str(_g): _g for _g in _R.gens()}\n"
         "for _alias, _gen in zip(['x', 'y', 'z', 'w', 'v', 'u'], _R.gens()):\n"
         "    _bool_locals.setdefault(_alias, _gen)\n"
-        f"_bool_expr = _R(sage_eval({_encode_literal(expression)}, "
+        f"_bool_expr = _R(sage_eval({encode_literal(expression)}, "
         "locals=_bool_locals))\n"
     )
     ops = {
@@ -238,8 +233,8 @@ async def boolean_algebra_operation(
             f"Unknown operation '{operation}'. "
             f"Use: {', '.join(ops)}"
         )
-    code = _sage_prelude() + ring_setup + ops[operation] + "\n"
-    result = await _evaluate_structured(session, code)
+    code = sage_prelude() + ring_setup + ops[operation] + "\n"
+    result = await evaluate_structured(session, code)
     return {"operation": operation, "result": result}
 
 
@@ -271,7 +266,7 @@ async def polynomial_ring_operation(
     runtime.require_context(ctx)
     operation = operation.strip()
     session = await runtime.session_for(ctx, session)
-    ring_vars = [_validated_identifier(v, "ring_vars") for v in ring_vars]
+    ring_vars = [validated_identifier(v, "ring_vars") for v in ring_vars]
     var_list = ", ".join(ring_vars)
     ops = {
         "groebner_basis": "[str(g) for g in _I.groebner_basis()]",
@@ -279,7 +274,7 @@ async def polynomial_ring_operation(
         "ideal_variety": "[{str(k): str(v) for k, v in pt.items()} "
         "for pt in _I.variety()]",
         "reduce": (
-            f"str(_I.reduce(_R({_encode_literal(polynomials[0])})))"
+            f"str(_I.reduce(_R({encode_literal(polynomials[0])})))"
             if polynomials
             else "''"
         ),
@@ -291,15 +286,15 @@ async def polynomial_ring_operation(
             f"Use: {', '.join(ops)}"
         )
     polys_code = ", ".join(
-        f"_R({_encode_literal(p)})" for p in polynomials
+        f"_R({encode_literal(p)})" for p in polynomials
     )
     code = (
-        _sage_prelude(ring_vars)
-        + f"_R = PolynomialRing({_validated_expression(base_ring)}, '{var_list}')\n"
+        sage_prelude(ring_vars)
+        + f"_R = PolynomialRing({validated_expression(base_ring)}, '{var_list}')\n"
         + "_R.inject_variables(verbose=False)\n"
         + f"_I = _R.ideal([{polys_code}])\n"
         + ops[operation]
         + "\n"
     )
-    result = await _evaluate_structured(session, code)
+    result = await evaluate_structured(session, code)
     return {"operation": operation, "result": result}

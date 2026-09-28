@@ -7,6 +7,13 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-09-28
+
+**A security patch for 0.9.1 and every earlier release.** Two critical
+sandbox escapes let caller code run arbitrary commands as the worker user
+through `evaluate_sage` and the specialized tools (REVIEW_ACTIONS 101, 102).
+Upgrade from any earlier version; no client-side change is needed.
+
 ### Changed
 
 - **The internals are restructured; nothing a client sees changed.** A

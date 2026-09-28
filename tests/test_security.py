@@ -844,3 +844,29 @@ def test_the_validation_context_cannot_be_changed_by_a_rule():
     )
     with pytest.raises(dataclasses.FrozenInstanceError):
         ctx.code = "changed"
+
+
+def test_interfaces_is_blocked_as_the_package_not_by_the_denylist():
+    """Why `interfaces` is unavailable, so it is not taken for an accident (item 100).
+
+    Sage uses the word twice: `sage.interfaces` is the package that drives GAP,
+    Maxima, PARI/gp, Singular and the rest as external programs, and
+    `sage.all.interfaces` is an inert list of their names. The policy forbids the
+    package by name as an attribute parent, so the worker strips the name
+    whatever it holds -- the list goes with it. The baked denylist also carried
+    the name, by accident of an older derivation rule, and no longer does.
+    """
+    from sagemath_mcp import _sage_worker
+    from sagemath_mcp.policy import SECURITY_POLICY
+    from sagemath_mcp.scrub_catalog import DANGEROUS_BARE_NAMES, DANGEROUS_SAGE_NAME_LIST
+
+    assert "interfaces" in SECURITY_POLICY.forbidden_attribute_parents
+    assert "interfaces" not in DANGEROUS_SAGE_NAME_LIST
+    assert "interfaces" not in DANGEROUS_BARE_NAMES
+
+    namespace = {"interfaces": ["gap", "gp", "maxima"]}
+    _sage_worker._strip_forbidden_modules(namespace)
+    assert "interfaces" not in namespace
+
+    with pytest.raises(SecurityViolation, match="Access through 'interfaces' is blocked"):
+        validate_code("s = 1\ns.interfaces.expect")

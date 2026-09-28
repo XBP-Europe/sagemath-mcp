@@ -6020,6 +6020,75 @@ container.
 Fixed 2026-09-24, found by a review of the identity code 0.9.0 introduced.
 Shipped in 0.9.0 (from #170); fixed in 0.9.1.
 
+## 100. The baked denylist carried a name its rule no longer derives — low — DONE
+
+### What was wrong
+
+`DANGEROUS_SAGE_NAME_LIST` (now in `scrub_catalog.py`) listed `interfaces`. In
+SageMath 10.9, `sage.all.interfaces` is an inert list of eighteen strings, the
+names of the programs Sage can drive, kept "for sage-shell-mode in emacs"
+(Sage's own comment, `sage/interfaces/all.py:44`). No Sage code reads it.
+
+It got there when the list was baked on 2026-08-14, under a rule that took
+every public name of `sage.interfaces.all`. On 2026-09-07 (#69, passagemath
+support) the rule was narrowed to names whose value lives in `sage.interfaces`
+-- a list has no `__module__`, so it dropped out -- and the note on that change
+called it "verified a no-op on monolithic". It was not: it removed exactly this
+name. Nothing re-baked the list, and the drift test checked one direction only
+(everything derived must be covered), so an extra entry could never fail it. It
+surfaced during the 2026-09 refactor, when `make denylist` was run end to end
+and asked to remove it.
+
+### Why low, and why still a finding
+
+No exposure either way. The name is blocked by a second, deliberate rule:
+`interfaces` is in `SecurityPolicy.forbidden_attribute_parents`, as the path
+segment of `sage.interfaces.*`, the package that spawns external programs.
+`_strip_forbidden_modules` removes forbidden-parent names from the namespace by
+name, so the list goes with the package, and the validator refuses the bare
+name. Dropping the denylist entry therefore changed nothing a caller sees;
+`make allowlist` confirmed it, regenerating an identical allowlist.
+
+It is still a finding because a block needs a stated security reason, and this
+one had none: a harmless name blocked by accident is a defect, and the test that
+exists to keep the list honest could not see it. Offering the list was
+considered and declined: it would need an exception in the forbidden-parent rule
+-- the bare name allowed, the segment still forbidden, and a start-up check that
+the value is still a list, since a future Sage could rebind it to the package --
+which adds surface to the most delicate rule in exchange for a value with no
+mathematical use.
+
+### The fix
+
+- `make denylist` removed `interfaces` from the baked list (259 -> 258 names),
+  which now equals the derivation exactly.
+- `test_the_baked_in_denylist_still_matches_this_sage` gains the reverse check
+  on monolithic Sage: a baked name the derivation no longer produces fails, with
+  a message saying to re-bake or to move a name that must stay into
+  `DANGEROUS_BARE_NAMES` with its reason. passagemath derives a different set by
+  design and is exempt.
+- The derivation in that test now runs in a fresh interpreter. The first version
+  of the reverse check passed alone and failed in the full suite, calling
+  `maxima_calculus` -- a live Maxima interface -- stale and advising it be
+  unblocked. The worker's scrub deletes names from `sage.all` itself, the
+  derivation's second pass reads `sage.all`, and earlier tests run the scrub
+  in-process: measured, one `_build_namespace()` drops the derived set from 258
+  names to 257. A reverse check computed that way points the wrong way, at the
+  names that most need blocking.
+
+### How to verify
+
+`tests/test_security.py::test_interfaces_is_blocked_as_the_package_not_by_the_denylist`
+pins why the name is unavailable -- the forbidden-parent rule, not the denylist
+-- and fails with the old entry in place. The reverse drift check passes on the
+re-baked list and, run against the old list in the SageMath 10.9 container,
+fails naming `interfaces`. The corpus fingerprint and the allowlist are
+unchanged.
+
+### Status
+
+Fixed 2026-09-27.
+
 ## 101. `sage_globals()` returned the live `sage.all` namespace — critical — DONE
 
 ### What was wrong

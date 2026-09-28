@@ -574,8 +574,7 @@ async def test_mathematics_that_uses_singular_and_pari_still_works(real_sage_man
 
 
 @requires_sage
-@pytest.mark.asyncio
-async def test_the_baked_in_denylist_still_matches_this_sage():
+def test_the_baked_in_denylist_still_matches_this_sage():
     """The list is baked in for speed; this is what keeps it true.
 
     Deriving it at every worker start cost enough on slow hardware to push the
@@ -583,11 +582,10 @@ async def test_the_baked_in_denylist_still_matches_this_sage():
     re-derives them from the installed Sage: a version that adds, renames or
     moves a helper fails here rather than quietly leaving it reachable.
     """
-    from sagemath_mcp.scrub_catalog import (
-        DANGEROUS_BARE_NAMES,
-        DANGEROUS_SAGE_NAME_LIST,
-        dangerous_sage_names,
-    )
+    import subprocess
+    import sys
+
+    from sagemath_mcp.scrub_catalog import DANGEROUS_BARE_NAMES, DANGEROUS_SAGE_NAME_LIST
 
     # The scrub strips the baked list AND the hand-maintained bare names, so a
     # derived name is covered if it is in either. Subtracting only the baked list
@@ -595,13 +593,43 @@ async def test_the_baked_in_denylist_still_matches_this_sage():
     # `commence_startup`, which passagemath defines in a dangerous module and
     # monolithic Sage does not).
     covered = DANGEROUS_SAGE_NAME_LIST | set(DANGEROUS_BARE_NAMES)
-    derived = dangerous_sage_names()
+    # Derived in a fresh interpreter, never in this one. The worker's scrub
+    # deletes names from `sage.all` itself, and the derivation's second pass reads
+    # `sage.all`: once any earlier test has run the scrub in-process, a dangerous
+    # alias such as `maxima_calculus` -- a live Maxima interface -- is no longer
+    # there to derive. That made the reverse check below call it stale and advise
+    # unblocking it, in the full suite only (item 100).
+    probe = subprocess.run(
+        [sys.executable, "-c",
+         "from sagemath_mcp.scrub_catalog import dangerous_sage_names as d\n"
+         "print('\\n'.join(sorted(d())))"],
+        capture_output=True, text=True, check=True, timeout=600,
+    )
+    derived = frozenset(probe.stdout.split())
+    assert derived, f"the derivation produced nothing: {probe.stderr[-2000:]}"
     missing = sorted(derived - covered)
     assert not missing, (
         "this Sage defines dangerous helpers the baked-in list does not cover: "
         f"{missing}. Adding a module to DANGEROUS_SAGE_MODULES does not strip "
         f"anything until the baked list is rebuilt: run `make denylist`."
     )
+
+    # And the other direction, on the runtime the list is baked from. A name the
+    # derivation no longer produces is blocked for no reason anyone can state:
+    # `interfaces`, an inert list of program names, sat here from 2026-09-07 to
+    # 2026-09-27 because the rule was narrowed and the list never re-baked, and
+    # the one-sided check above could not see it (item 100). passagemath derives
+    # a different set by design and is covered by DANGEROUS_BARE_NAMES, so the
+    # reverse check is monolithic-only.
+    from sagemath_mcp._artifacts import IS_PASSAGEMATH
+
+    if not IS_PASSAGEMATH:
+        stale = sorted(DANGEROUS_SAGE_NAME_LIST - derived)
+        assert not stale, (
+            f"the baked-in list blocks names this Sage no longer derives: {stale}. "
+            "A block needs a security reason; run `make denylist`, or move a name "
+            "that must stay to DANGEROUS_BARE_NAMES with its reason."
+        )
 
 
 @requires_sage

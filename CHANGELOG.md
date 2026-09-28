@@ -42,6 +42,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Two critical sandbox escapes closed** (REVIEW_ACTIONS 101, 102), both
+  present since 0.8.4 and found by a security review. `sage_globals()` returned
+  the live `sage.all` namespace, whose dict subscript keys the AST rules never
+  inspected, reaching `sage_eval` and the real builtins; and the allowlisted
+  `desolvers` module re-exported the live Maxima interface as `.maxima`, which
+  shells out. Both were reachable through `evaluate_sage` and every specialized
+  tool. Both names are now stripped; a new rule refuses `d['__dunder__']`
+  subscripts; and a new integration check fails if any offered module
+  re-exports an interface. Upgrade from 0.9.1 or earlier.
+
 - **`scripts/set_zenodo_doi.py` was not idempotent on CONTRIBUTING.md.** Its
   replacement pattern also matched the line after the note, so a second run
   (to correct a DOI, say) deleted the blank line and merged the note into the

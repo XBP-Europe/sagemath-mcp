@@ -6019,3 +6019,92 @@ container.
 
 Fixed 2026-09-24, found by a review of the identity code 0.9.0 introduced.
 Shipped in 0.9.0 (from #170); fixed in 0.9.1.
+
+## 101. `sage_globals()` returned the live `sage.all` namespace — critical — DONE
+
+### What was wrong
+
+`sage_globals` was on the caller allowlist. In SageMath its body is
+`return globals()`, i.e. it hands back `vars(sage.all)`. From that dict a caller
+reached `sage_eval` and the module's real, unrestricted `__builtins__` by
+subscript. A dictionary subscript is an `ast.Subscript` whose key is a
+`Constant`, so no attribute, dunder or forbidden-name rule ever inspected it:
+the whole caller-allowlist model assumes danger arrives as a `Name` or an
+`Attribute`, and a returned namespace is neither.
+
+Confirmed against real SageMath 10.9 through the worker: a single call obtained
+the container uid and read a file. It passed `gates.validated_expression`, so it
+was reachable through every specialized tool as well, not only `evaluate_sage`.
+Present in every release since the allowlist was introduced (0.8.4, 0.9.0,
+0.9.1); not previously recorded.
+
+### The fix
+
+- `sage_globals` moved to `DANGEROUS_BARE_NAMES` (`scrub_catalog.py`): stripped
+  from the worker namespace and from `sage.all`, refused by the fragment gate,
+  and failing the star-export screen. It has no use over MCP -- every result is
+  a string. Both allowlists were regenerated; the name is gone from each.
+- Defence in depth, for the class rather than the one name: a new node rule
+  `_refuse_dunder_subscript` refuses any `d['__dunder__']`, the step from a
+  namespace dict to the builtins, whatever hands the dict back. It is registered
+  for `ast.Subscript` in `_NODE_RULES`. A scan of the allowlist found
+  `sage_globals` to be the only callable whose source returns a namespace.
+
+### How to verify
+
+`tests/test_security_bypass.py::test_a_namespace_returning_callable_is_not_offered`
+and `::test_a_dunder_string_subscript_key_is_refused` (bound base, so only the
+key can refuse it), plus the worker end-to-end test. All fail against 0.9.1.
+Corpus acceptance 98.8908% -> 98.8898% (four examples flip to refused, all
+`sage_globals`/dunder spellings); the verdict fingerprint moves accordingly.
+
+### Status
+
+Fixed 2026-09-27, found by a security review of `main`.
+
+## 102. A module object re-exported a live CAS interface — critical — DONE
+
+### What was wrong
+
+`desolvers` (`sage.calculus.desolvers`) was an allowlisted **module object**, and
+it re-exports the live `MaximaLib` interface as its `.maxima` attribute. A Maxima
+interface evaluates arbitrary Maxima input, and Maxima's `system()` shells out.
+The existing rules did not cover it: `.maxima` is not a forbidden attribute, the
+top-level scrub removes the bare `maxima` name but not this re-export, and the
+fragment gate (allowlist off) does not refuse `.maxima` either -- so the
+interface was reachable through `evaluate_sage` and through the specialized
+tools. This is the same class as the bare `maxima`/`maxima_calculus` fixes
+(items 25, and the item-100 near miss), one module deeper.
+
+Confirmed against real SageMath 10.9: `desolvers.maxima('system("…")')`
+controlled a command's exit code through the worker. Present since the allowlist
+was introduced; not previously recorded.
+
+### The fix
+
+- `desolvers` moved to `DANGEROUS_BARE_NAMES`, stripping the module name from the
+  namespace and from `sage.all` and refusing it in the fragment gate. The bare
+  name alone was not enough -- a tool parameter is judged with the allowlist off
+  and reached `.maxima` through `sage_eval` -- so removing it from `sage.all` is
+  what closes that path. The ODE solver the `solve_ode` tool uses is the separate
+  top-level `desolve`, whose own use of `maxima` is internal to the module and
+  unaffected; a test asserts `desolve` still solves.
+- The durable guard: `test_no_offered_module_reexports_a_dangerous_object`
+  derives, from the installed Sage, every offered module object that re-exports a
+  live interface or a dangerous module object, and requires each to be
+  neutralised (denylisted, or a forbidden attribute root). A future Sage
+  re-export fails there rather than shipping. A scan across all 21 offered module
+  objects found `desolvers.maxima` the only weaponizable hit; `sage` is covered
+  as a forbidden root. The `.lazy_import` function several modules expose is not
+  an escape: it returns None, and its name injection is refused by the allowlist.
+
+### How to verify
+
+`tests/test_security_bypass.py::test_an_interface_reexported_by_a_module_is_not_reachable`
+and the worker end-to-end test (which also checks `desolve` still runs). Both
+fail against 0.9.1. The corpus figure change is shared with item 101.
+
+### Status
+
+Fixed 2026-09-27, found by the same review; the durable check was surfaced by
+the item-100 drift work.

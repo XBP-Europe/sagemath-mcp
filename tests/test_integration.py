@@ -937,3 +937,83 @@ async def test_every_hard_case_answer_is_what_sage_computes():
             )
     finally:
         await session.shutdown()
+
+
+@requires_sage
+def test_no_offered_module_reexports_a_dangerous_object():
+    """An allowlisted module object must not re-export an interface or a
+    dangerous helper as an attribute (REVIEW_ACTIONS 102).
+
+    A module object handed to callers is a surface the AST name/attribute rules
+    do not fully police: `desolvers.maxima` reached a live Maxima interface
+    because `maxima` was a lazy re-export, not a forbidden segment. This derives
+    the offending set from the installed Sage, so a future re-export fails here
+    rather than shipping. Each hit must be neutralised: the module name
+    denylisted (stripped from sage.all and refused), or already a forbidden
+    attribute root/parent. Monolithic only; passagemath's surface differs by
+    design and is covered by DANGEROUS_BARE_NAMES.
+    """
+    import types
+
+    from sagemath_mcp._artifacts import ALLOWED_CALLER_NAMES, IS_PASSAGEMATH
+    from sagemath_mcp._sage_worker import _build_namespace
+    from sagemath_mcp.policy import SECURITY_POLICY
+    from sagemath_mcp.scrub_catalog import (
+        DANGEROUS_BARE_NAMES,
+        DANGEROUS_SAGE_MODULES,
+        DANGEROUS_SAGE_NAME_LIST,
+        EXTERNAL_INTERFACE_EXPORTS,
+    )
+
+    if IS_PASSAGEMATH:
+        pytest.skip("monolithic-only: passagemath's module surface differs by design")
+
+    dangerous_homes = (*DANGEROUS_SAGE_MODULES, EXTERNAL_INTERFACE_EXPORTS)
+
+    def _under_danger(home: object) -> bool:
+        return isinstance(home, str) and any(
+            home == d or home.startswith(d + ".") for d in dangerous_homes
+        )
+
+    def homed_in_danger(value: object) -> bool:
+        """A live interface object, or a re-exported dangerous module object.
+
+        Not every value homed in a dangerous module is dangerous when reached as
+        an attribute: `module.lazy_import` is the lazy_import *function*, which
+        returns None and whose name-injection the allowlist refuses. What made
+        `desolvers.maxima` an escape is that it is a live interface object -- any
+        call evaluates arbitrary input -- and a re-exported module object is the
+        pivot items 61/62 cover. Those two shapes, not mere provenance.
+        """
+        try:
+            resolved = value._get_object() if type(value).__name__ == "LazyImport" else value
+        except Exception:
+            return False
+        if isinstance(resolved, types.ModuleType):
+            return _under_danger(getattr(resolved, "__name__", None))
+        return _under_danger(getattr(type(resolved), "__module__", None))
+
+    neutralised = (
+        set(DANGEROUS_BARE_NAMES)
+        | set(DANGEROUS_SAGE_NAME_LIST)
+        | set(SECURITY_POLICY.forbidden_attribute_roots)
+    )
+    # A fresh, unscrubbed namespace: the point is to catch a re-export before the
+    # scrub would remove the module, so build it and re-add what the scrub took.
+    namespace = _build_namespace()
+    offenders = {}
+    for name in ALLOWED_CALLER_NAMES:
+        module = namespace.get(name)
+        if not isinstance(module, types.ModuleType) or name in neutralised:
+            continue
+        hits = sorted(
+            attr for attr in dir(module)
+            if not attr.startswith("_") and homed_in_danger(getattr(module, attr, None))
+        )
+        if hits:
+            offenders[name] = hits
+    assert not offenders, (
+        "these offered module objects re-export a dangerous attribute and are "
+        f"not neutralised: {offenders}. Add the module name to DANGEROUS_BARE_NAMES "
+        "with its reason, or stop offering it."
+    )

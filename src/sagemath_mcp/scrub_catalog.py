@@ -130,6 +130,20 @@ DANGEROUS_BARE_NAMES = (
     "view",         # same
     "animate",      # writes an animation file
     "html",         # renders to disk
+    # sage_globals() is literally `return globals()`: it hands caller code
+    # vars(sage.all), whose subscript keys the AST rules cannot see, reaching
+    # sage_eval and the real builtins (REVIEW_ACTIONS 101). No use over MCP --
+    # every result is a string -- so it is stripped, not merely refused.
+    "sage_globals",
+    # `desolvers` is a module object -- sage.calculus.desolvers -- offered to
+    # callers, and it re-exports the live MaximaLib interface as `.maxima`, which
+    # shells out (REVIEW_ACTIONS 102). The bare-name refusal is not enough on its
+    # own: a tool parameter is judged with the allowlist off and `.maxima` is not
+    # a forbidden attribute, so `desolvers.maxima(...)` reached the interface
+    # through sage_eval against sage.all. Stripping the name from sage.all closes
+    # that; the ODE solver the solve_ode tool uses is the separate top-level
+    # `desolve`, whose own use of maxima is internal to the module and unaffected.
+    "desolvers",
     # `latex` and `operator` were here and are not any more. Both were removed
     # for something they carry rather than something they are, and in both cases
     # the thing they carry is refused by name in its own right:

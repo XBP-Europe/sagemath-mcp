@@ -56,7 +56,7 @@ passagemath = [
     # cold-install smoke gate (the `passagemath` CI lane), not automatically. The
     # security artifacts dispatch to the passagemath set at import
     # (src/sagemath_mcp/_artifacts.py) when this is installed.
-    "passagemath-standard==10.8.11",
+    "passagemath-standard==10.8.12",
 ]
 dev = [
     "pytest>=9.1.1",

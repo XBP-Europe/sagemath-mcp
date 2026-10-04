@@ -3,7 +3,7 @@
 # security allowlists are generated from this Sage and reviewed against it).
 # Dependabot's docker ecosystem refreshes the digest; a Sage bump moves the tag
 # here, in the setup scripts and in the README badge together (test-enforced).
-FROM sagemath/sagemath:10.9@sha256:e068670ae5863b54b2550e72437ec637b0283acb0dc712c8584c124dbf44e667
+FROM sagemath/sagemath:10.10@sha256:310dfe23fc786f3a5a06a7b0387c60201ec79b32c0db941b7624505ee5edb565
 
 WORKDIR /workspace
 

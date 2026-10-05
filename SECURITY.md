@@ -12,11 +12,11 @@ We currently support the latest released version of the `sagemath-mcp` package. 
 
 Three badges at the top of the README claim this project signs and attests what
 it publishes. Until now none of them said how to check that, which makes a
-signature worth roughly what an unchecked signature is worth. The commands
-below name v0.9.3, the current release. They were last run end to end against
-v0.9.2 (2026-09-29) -- cosign v3.1.3 on both images (3 entries for the primary,
-2 for `-passagemath`), the image and wheel attestations, SLSA provenance and
-the SBOM -- and are re-run against each release after it publishes.
+signature worth roughly what an unchecked signature is worth. Every command
+below was run end to end against v0.9.3, the release the examples name, on
+2026-10-05: cosign v3.1.3 verifies both images (3 entries for the primary, 2
+for `-passagemath`), and the image attestation, the wheel attestation, the
+SLSA provenance and the SBOM all verify.
 
 Use **cosign v3**. The release signs with it, and v3 stores the signature in
 the newer Sigstore bundle format. cosign v2 looks for the older layout by default and

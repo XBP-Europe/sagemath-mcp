@@ -6,9 +6,9 @@ The most important functional test of the security guardrails: every
 the mathematics Sage itself documents. Generated on every run of
 `tests/test_sage_doctest_corpus.py`; counts only, never corpus text.
 
-- Generated: 2026-09-27 20:55:15 UTC
-- SageMath: 10.9 (`/home/sage/sage/local/var/lib/sage/venv-python3.12/lib/python3.12/site-packages/sage`)
-- Verdict fingerprint: `2c6a46de4a24e9720c56f02dae5f78dd99e06e6c66dbef1a45155d591751d5af`
+- Generated: 2026-10-05 09:54:03 UTC
+- SageMath: 10.10 (`/home/sage/sage/local/var/lib/sage/venv-python3.12/lib/python3.12/site-packages/sage`)
+- Verdict fingerprint: `5f005a06e223756854f150e04056d4618a7cff255f3a9f26914026947ad76177`
 
 The fingerprint is a SHA-256 over every example's outcome, refusal
 messages in full. It changes whenever any single verdict changes, even
@@ -16,14 +16,14 @@ when every count above stays the same.
 
 | Metric | Value |
 | --- | ---: |
-| Source files | 3,168 |
-| Docstrings | 60,094 |
-| Examples | 432,878 |
-| Accepted | 370,271 |
-| Refused | 4,157 |
-| Excluded (out of scope by design) | 58,268 |
-| Unparsed | 182 |
-| **Acceptance (in-scope)** | **98.8898%** |
+| Source files | 3,185 |
+| Docstrings | 60,681 |
+| Examples | 438,124 |
+| Accepted | 375,891 |
+| Refused | 4,259 |
+| Excluded (out of scope by design) | 57,794 |
+| Unparsed | 180 |
+| **Acceptance (in-scope)** | **98.8797%** |
 | Required acceptance | 98.50% |
 | Required accepted examples | 250,000 |
 
@@ -35,14 +35,14 @@ ceiling, or `test_every_refusal_is_a_rule_we_meant_to_write` fails.
 
 | Count | Share of in-scope | Rule |
 | ---: | ---: | --- |
-| 1,927 | 0.5147% | `'X' is not offered: it spawns an external program, and this server does the same mathema` |
-| 1,124 | 0.3002% | `'X' is not a name this server offers` |
-| 596 | 0.1592% | `Reaching into the 'X' module is not permitted, and 'X' is not offered under any other sp` |
-| 209 | 0.0558% | `Reaching into the 'X' module is not permitted; name the function directly: 'X'` |
-| 92 | 0.0246% | `Access through 'X' is blocked ('X' is not permitted in Sage executions)` |
-| 69 | 0.0184% | `Access to 'X' is blocked: writing files is not available to caller code` |
-| 48 | 0.0128% | `'X' may be called but not reached into: latex(expr) builds a string, while its attribute` |
-| 38 | 0.0101% | `Call to forbidden function 'X' is blocked` |
+| 1,961 | 0.5158% | `'X' is not offered: it spawns an external program, and this server does the same mathema` |
+| 1,185 | 0.3117% | `'X' is not a name this server offers` |
+| 597 | 0.1570% | `Reaching into the 'X' module is not permitted, and 'X' is not offered under any other sp` |
+| 212 | 0.0558% | `Reaching into the 'X' module is not permitted; name the function directly: 'X'` |
+| 92 | 0.0242% | `Access through 'X' is blocked ('X' is not permitted in Sage executions)` |
+| 72 | 0.0189% | `Access to 'X' is blocked: writing files is not available to caller code` |
+| 48 | 0.0126% | `'X' may be called but not reached into: latex(expr) builds a string, while its attribute` |
+| 38 | 0.0100% | `Call to forbidden function 'X' is blocked` |
 | 23 | 0.0061% | `Deleting 'X' is not permitted: it is a name this server provides, and the session keeps ` |
 | 17 | 0.0045% | `Call to forbidden attribute 'X' is blocked` |
 | 11 | 0.0029% | `Import statements are disabled for Sage executions` |
@@ -58,13 +58,13 @@ Counted, not asserted over, and not part of the acceptance rate.
 
 | Count | Share of examples | Capability |
 | ---: | ---: | --- |
-| 30,219 | 6.9810% | `optional-tag` |
-| 19,149 | 4.4236% | `import` |
-| 2,257 | 0.5214% | `dunder` |
-| 1,915 | 0.4424% | `persistence` |
-| 1,327 | 0.3066% | `filesystem` |
-| 978 | 0.2259% | `display` |
-| 813 | 0.1878% | `repl-magic` |
-| 747 | 0.1726% | `interfaces` |
-| 706 | 0.1631% | `shell-or-eval` |
-| 157 | 0.0363% | `network` |
+| 29,382 | 6.7063% | `optional-tag` |
+| 19,476 | 4.4453% | `import` |
+| 2,276 | 0.5195% | `dunder` |
+| 1,912 | 0.4364% | `persistence` |
+| 1,328 | 0.3031% | `filesystem` |
+| 984 | 0.2246% | `display` |
+| 814 | 0.1858% | `repl-magic` |
+| 747 | 0.1705% | `interfaces` |
+| 717 | 0.1637% | `shell-or-eval` |
+| 158 | 0.0361% | `network` |

@@ -36,7 +36,7 @@ STATS = ROOT / "doctest-corpus-stats.md"
 #: and passing on alphabetical ordering is not passing for a reason. So the
 #: runtime is read out of the file and the comparison is skipped when it is
 #: not the one the prose is about.
-MONOLITHIC = "10.9"
+MONOLITHIC = "10.10"
 
 
 def _runtime() -> str:

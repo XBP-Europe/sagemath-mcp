@@ -7,6 +7,17 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **Base image moved to SageMath 10.10** (now GA, released 2026-09-28). The
+  monolithic security artifacts are regenerated from it: the baked denylist
+  gained the SnapPy interface names 10.10 adds, and the caller allowlist gained
+  seven new mathematical names (Anderson motives, a Montgomery elliptic-curve
+  constructor, the plactic/hypoplactic monoids and quasi-ribbon tableaux), each
+  reviewed as ordinary mathematics. The star-exports are unchanged. Doctest-corpus
+  acceptance is 98.8797% of 438,124 examples (4,259 in-scope refusals); the
+  passagemath runtime stays pinned at 10.8.11. The `sage` user is still UID 1001.
+
 ## [0.9.2] - 2026-09-28
 
 **A security patch for 0.9.1 and every earlier release.** Two critical

@@ -4,8 +4,8 @@
 - Python 3.12+ with [uv](https://docs.astral.sh/uv/) installed (`curl -LsSf https://astral.sh/uv/install.sh | sh`).
 - A working SageMath installation. The reference environment uses Docker:  
   ```bash
-  docker pull sagemath/sagemath:10.9
-  docker run --name sage-mcp -d -v "$PWD":/workspace -w /workspace sagemath/sagemath:10.9 tail -f /dev/null
+  docker pull sagemath/sagemath:10.10
+  docker run --name sage-mcp -d -v "$PWD":/workspace -w /workspace sagemath/sagemath:10.10 tail -f /dev/null
   ```
   Pin the version rather than taking `:latest`. The set of names callers may use
   is generated from a specific SageMath and baked into the package, so a

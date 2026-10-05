@@ -133,9 +133,9 @@ non-root container. The AST policy is defence in depth, not the only barrier.
 
 **Measuring the cost of containment.** A policy that refused everything would
 pass every security test. The counterweight is a sweep of SageMath's own
-documentation: all 432,878 `sage:` doctest examples are pushed through the
-validator, and 98.8908% of those in scope are accepted on SageMath 10.9, with
-4,153 refused (`doctest-corpus-stats.md`, 2026-09-21). CI fails if acceptance
+documentation: all 438,124 `sage:` doctest examples are pushed through the
+validator, and 98.8797% of those in scope are accepted on SageMath 10.10, with
+4,259 refused (`doctest-corpus-stats.md`, 2026-10-05). CI fails if acceptance
 drops below 98.50%. Executing a 400-docstring sample agreed with Sage's
 documented output on all 1,259 comparable examples.
 

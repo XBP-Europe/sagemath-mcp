@@ -8,7 +8,7 @@ SageMath MCP server.
 > server starts and advertises all 40 tools, and then every evaluation fails
 > with `Unable to locate Sage executable 'sage'`. The supported way to supply
 > one is the Docker container below — the project is built and tested against
-> **SageMath 10.9**, and the set of names callers may use is generated from that
+> **SageMath 10.10**, and the set of names callers may use is generated from that
 > version.
 >
 > If `sage` is on your `PATH` already, the server uses it and no container is

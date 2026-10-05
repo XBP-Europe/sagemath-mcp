@@ -11,7 +11,7 @@ param(
     [string]$Memory = $env:SAGEMATH_MCP_DOCKER_MEMORY
 )
 
-if (-not $Image) { $Image = "sagemath/sagemath:10.9" }
+if (-not $Image) { $Image = "sagemath/sagemath:10.10" }
 if (-not $ContainerName) { $ContainerName = "sage-mcp" }
 if (-not $MountDir) { $MountDir = (Get-Location).Path }
 if (-not $Workdir) { $Workdir = "/workspace" }

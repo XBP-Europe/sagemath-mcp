@@ -10,7 +10,7 @@
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-purple)](https://modelcontextprotocol.io/)
 [![FastMCP](https://img.shields.io/badge/FastMCP-4.0%2B-green.svg)](https://gofastmcp.com/)
-[![SageMath](https://img.shields.io/badge/SageMath-10.9-orange)](https://www.sagemath.org/)
+[![SageMath](https://img.shields.io/badge/SageMath-10.10-orange)](https://www.sagemath.org/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://docs.astral.sh/ruff/)
 [![Typed](https://img.shields.io/badge/type--checked-py.typed-blue)](https://peps.python.org/pep-0561/)
 [![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)](https://github.com/XBP-Europe/sagemath-mcp/actions/workflows/ci.yml)
@@ -36,7 +36,7 @@ stated result through a proof ladder and answers `proved` / `refuted` /
 Caller code is **deny-by-default**: the full breadth of Sage mathematics is
 reachable, but imports, the external CAS interfaces, and the file / display /
 persistence primitives are not. The policy accepts **98.9% of SageMath's own
-432,878 documented doctest examples** (4,157 in-scope refusals, every one
+438,124 documented doctest examples** (4,259 in-scope refusals, every one
 attributed to a named rule; 99.0% of 433,289 on the passagemath runtime) while
 refusing the rest — measured on every CI run (see [Security](#security)).
 
@@ -278,7 +278,7 @@ Full threat model and the complete blocked / allowed tables:
 
 ## Requirements
 
-Python 3.12+ and a SageMath runtime (the container image bundles SageMath 10.9;
+Python 3.12+ and a SageMath runtime (the container image bundles SageMath 10.10;
 otherwise `sage` on `PATH`, or the `[passagemath]` extra). Built on
 [FastMCP 4.x](https://gofastmcp.com/).
 

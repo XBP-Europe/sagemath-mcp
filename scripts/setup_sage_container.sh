@@ -7,7 +7,7 @@ set -euo pipefail
 # docker-compose.yml (read-only root, dropped capabilities, loopback publish)
 # to run the server. The image tag is pinned to the Sage release the project
 # targets: a moving `latest` silently changed which Sage the tests ran against.
-IMAGE="${SAGEMATH_MCP_DOCKER_IMAGE:-sagemath/sagemath:10.9}"
+IMAGE="${SAGEMATH_MCP_DOCKER_IMAGE:-sagemath/sagemath:10.10}"
 CONTAINER="${SAGEMATH_MCP_DOCKER_CONTAINER:-sage-mcp}"
 MOUNT_DIR="${SAGEMATH_MCP_WORKDIR:-$(pwd)}"
 WORKDIR="${SAGEMATH_MCP_CONTAINER_WORKDIR:-/workspace}"

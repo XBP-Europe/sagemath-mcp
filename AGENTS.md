@@ -63,4 +63,4 @@
 - Use `interrupt_sage_session` to stop a long Sage computation: it keeps the session's variables, where `cancel_sage_session` restarts the worker and discards them.
 - Keep comments concise; explain non-obvious security or monitoring decisions inline.
 - Capture and attach integration artifacts/logs when debugging or updating CI.
-- Containerized workflows expect writable volumes for UID/GID 1001 (the `sage` user in SageMath 10.9); adjust permissions when mounting host paths.
+- Containerized workflows expect writable volumes for UID/GID 1001 (the `sage` user in SageMath 10.10); adjust permissions when mounting host paths.

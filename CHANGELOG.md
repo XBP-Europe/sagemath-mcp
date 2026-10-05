@@ -7,6 +7,13 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-10-05
+
+**A maintenance release.** Moves the base runtime to SageMath 10.10 (GA) with
+its security artifacts regenerated and reviewed, the passagemath pin to the
+fixed 10.8.12, and a full dependency-lock refresh. No change to the tool
+surface or client contract; no client-side change is needed.
+
 ### Changed
 
 - **Base image moved to SageMath 10.10** (now GA, released 2026-09-28). The

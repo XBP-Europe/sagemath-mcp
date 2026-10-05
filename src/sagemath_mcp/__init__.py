@@ -5,5 +5,5 @@ from importlib.metadata import PackageNotFoundError, version
 try:  # pragma: no cover - executed during packaging only
     __version__ = version("sagemath-mcp")
 except PackageNotFoundError:  # pragma: no cover - local dev fallback
-    __version__ = "0.9.2"
+    __version__ = "0.9.3"
 __all__ = ["__version__"]

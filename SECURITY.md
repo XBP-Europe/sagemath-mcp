@@ -12,11 +12,11 @@ We currently support the latest released version of the `sagemath-mcp` package. 
 
 Three badges at the top of the README claim this project signs and attests what
 it publishes. Until now none of them said how to check that, which makes a
-signature worth roughly what an unchecked signature is worth. Every command
-below was run end to end against v0.9.2, the release the examples name, on
-2026-09-29: cosign v3.1.3 verifies both images (3 entries for the primary, 2
-for `-passagemath`), and the image attestation, the wheel attestation, the
-SLSA provenance and the SBOM all verify.
+signature worth roughly what an unchecked signature is worth. The commands
+below name v0.9.3, the current release. They were last run end to end against
+v0.9.2 (2026-09-29) -- cosign v3.1.3 on both images (3 entries for the primary,
+2 for `-passagemath`), the image and wheel attestations, SLSA provenance and
+the SBOM -- and are re-run against each release after it publishes.
 
 Use **cosign v3**. The release signs with it, and v3 stores the signature in
 the newer Sigstore bundle format. cosign v2 looks for the older layout by default and
@@ -33,12 +33,12 @@ ref the release trigger fires on.
 
 ```bash
 # Container image. Works on a tag or a digest; the signature covers the digest.
-cosign verify ghcr.io/xbp-europe/sagemath-mcp:0.9.2 \
+cosign verify ghcr.io/xbp-europe/sagemath-mcp:0.9.3 \
   --certificate-identity-regexp='^https://github\.com/XBP-Europe/sagemath-mcp/\.github/workflows/release\.yml@refs/tags/v' \
   --certificate-oidc-issuer=https://token.actions.githubusercontent.com
 ```
 
-Releases publish four tags: `v0.9.2` (the git ref), `0.9.2` (pin a patch),
+Releases publish four tags: `v0.9.3` (the git ref), `0.9.3` (pin a patch),
 `0.9` (track the minor line and pick up security patches) and `latest`, each
 with a `-passagemath` twin for the amd64+arm64 image. All four point at one
 digest, which is what is signed, so the tag you verify through does not matter.
@@ -51,8 +51,8 @@ SLSA provenance is stored with the repository rather than in the signature, so
 it is checked with `gh`, which resolves the digest itself:
 
 ```bash
-gh attestation verify oci://ghcr.io/xbp-europe/sagemath-mcp:0.9.2 --owner XBP-Europe
-gh attestation verify sagemath_mcp-0.9.2-py3-none-any.whl --owner XBP-Europe
+gh attestation verify oci://ghcr.io/xbp-europe/sagemath-mcp:0.9.3 --owner XBP-Europe
+gh attestation verify sagemath_mcp-0.9.3-py3-none-any.whl --owner XBP-Europe
 ```
 
 One attestation covers the wheel, the sdist and the `.mcpb` bundle together, so

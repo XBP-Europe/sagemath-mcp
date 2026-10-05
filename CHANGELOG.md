@@ -15,8 +15,17 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   seven new mathematical names (Anderson motives, a Montgomery elliptic-curve
   constructor, the plactic/hypoplactic monoids and quasi-ribbon tableaux), each
   reviewed as ordinary mathematics. The star-exports are unchanged. Doctest-corpus
-  acceptance is 98.8797% of 438,124 examples (4,259 in-scope refusals); the
-  passagemath runtime stays pinned at 10.8.11. The `sage` user is still UID 1001.
+  acceptance is 98.8797% of 438,124 examples (4,259 in-scope refusals). The
+  `sage` user is still UID 1001.
+
+- **passagemath pin moved to 10.8.12** (2026-09-24), the gated bump: the Maxima
+  library interface and the GAP wheel that 10.8.10/10.8.11 lacked now work,
+  smoke-verified on integrate/solve/limit/desolve/maxima/gap before the bump.
+  The passagemath security artifacts are unchanged (same mathematical surface);
+  its corpus acceptance is 98.9725% of 433,281 examples.
+- **Dependency lock refreshed** (`uv lock --upgrade`): cryptography 50.0.2,
+  cyclopts 5.1.1, sqlalchemy 2.1.3 and ~20 other transitive updates across the
+  fastmcp/MCP/HTTP stack. `pip-audit` clean; no runtime behaviour change.
 
 ## [0.9.2] - 2026-09-28
 

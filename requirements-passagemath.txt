@@ -568,13 +568,13 @@ executing==2.2.1 \
     --hash=sha256:3632cc370565f6648cc328b32435bd120a1e4ebb20c77e3fdde9a13cd1e533c4 \
     --hash=sha256:760643d3452b4d777d295bb167ccc74c64a81df23fb5e08eff250c425a4b2017
     # via stack-data
-fastmcp==4.0.9 \
-    --hash=sha256:c2b54aafd59d2f68bbd251a2337797ae4b7fdf9b9cff41a0d9c4cc04f129c7e3 \
-    --hash=sha256:d4faffb9be2e51821a9a2f253caf9dc778257348d18029d2a92653c9306fec23
+fastmcp==4.0.11 \
+    --hash=sha256:55fc7b8e25d4f8365818ba93f7008d1b6e646ce7fe8ae49342687243ccbef9f2 \
+    --hash=sha256:defbc5f2566a702f45817d1acead120dfa8127d60b1c1512b3200232ead13a44
     # via sagemath-mcp
-fastmcp-slim==4.0.9 \
-    --hash=sha256:ba01644465ffea16f60b1afe1b8976cc484c9ad948f92b4ec0455024e6c57ba3 \
-    --hash=sha256:ec2937b30be8eca91c253e396ce6169e6f91f3c6d6dfb40438868d5522462452
+fastmcp-slim==4.0.11 \
+    --hash=sha256:524905197e318d934908594f16fedea559d44dd682bd763d40f3556233a2b1d9 \
+    --hash=sha256:9152aac74d8837bc37576f5f3d83f17567250a9dfcd8187133c43faaaa9dd06f
     # via fastmcp
 fonttools==4.65.0 \
     --hash=sha256:04f73dd01005752a6e75cf4a8dc6b70dc724d1d4bc34cc89522153f4a2f07680 \

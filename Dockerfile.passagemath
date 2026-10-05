@@ -52,7 +52,7 @@ RUN python -m venv /opt/venv \
 # --- runtime stage -----------------------------------------------------------
 FROM python:3.12-slim-bookworm@sha256:392307d22300de8b5986851a12d9176dfc0fc073e65bf6523ebd7dcbeb23564e
 
-# Same UID/GID as the `sage` user in sagemath/sagemath:10.9, so the Compose
+# Same UID/GID as the `sage` user in sagemath/sagemath:10.10, so the Compose
 # file and the Helm chart (runAsUser/fsGroup 1001, tmpfs at /home/sage/.sage)
 # apply unchanged to either image.
 RUN groupadd --gid 1001 sage \

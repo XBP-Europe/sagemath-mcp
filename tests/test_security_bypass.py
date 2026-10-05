@@ -2004,6 +2004,7 @@ _COMBINATORIAL_REMOVE = frozenset({
     "Bitset", "IncreasingTableau", "LabelledOrderedTree", "LabelledRootedTree",
     "LittlewoodRichardsonTableau", "OrderedTree", "ParallelogramPolyomino",
     "RibbonShapedTableau", "RibbonTableau", "RootedTree", "RowStandardTableau",
+    "QuasiRibbonTableau",  # new in Sage 10.10; ClonableList.remove (list cell removal)
     "SemistandardSuperTableau", "SemistandardTableau", "SkewTableau",
     "StandardSuperTableau", "StandardTableau", "StrongTableau", "Tableau",
     "WeakReversePlanePartition",

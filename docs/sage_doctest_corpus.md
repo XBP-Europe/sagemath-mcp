@@ -14,8 +14,8 @@ because the preparser expands it through `__tmp__` and the dunder rule caught th
 preparser's own scratch name. Nothing in 683 tests used the syntax.
 
 SageMath's doctests are the largest body of idiomatic, known-correct Sage in
-existence, written by the people who designed the language: **432,878 examples
-across 3,168 source files** in 10.9. Running them through this server's
+existence, written by the people who designed the language: **438,124 examples
+across 3,185 source files** in 10.10. Running them through this server's
 validator turns "did anyone think to test that spelling?" into a measurement.
 
 ## What is built
@@ -78,12 +78,12 @@ why a failing assertion prints its examples instead of storing them.
 A Sage upgrade moves the baselines. A *drop* in acceptance is the signal; refresh
 by reading the report a failing assertion prints.
 
-## What it measured (SageMath 10.9, re-measured 2026-09-19 on `main`)
+## What it measured (SageMath 10.10, re-measured 2026-10-05 on `main`)
 
 ```
-3,168 files, 60,094 docstrings, 432,878 examples
-accepted 370,062   refused 4,366   out of scope 58,268   unparsed 182
-acceptance among in-scope examples: 98.83%   (enforced floor: 98.50%)
+3,185 files, 60,681 docstrings, 438,124 examples
+accepted 375,891   refused 4,259   out of scope 57,794   unparsed 180
+acceptance among in-scope examples: 98.88%   (enforced floor: 98.50%)
 ```
 
 The same sweep on the passagemath runtime (`passagemath-standard==10.8.11`,

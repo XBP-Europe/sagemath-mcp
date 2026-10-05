@@ -104,7 +104,7 @@ it was violated:
 - **stdio** (default, for Claude Desktop): `uv run sagemath-mcp`
 - **HTTP**: `uv run sagemath-mcp --transport streamable-http --host 127.0.0.1 --port 8314`
 - **Docker Compose**: `docker compose up --build` (port 8314)
-- **Kubernetes**: Helm chart in `charts/sagemath-mcp/`; enforces non-root user (UID/GID 1001, matching `sage` in SageMath 10.9)
+- **Kubernetes**: Helm chart in `charts/sagemath-mcp/`; enforces non-root user (UID/GID 1001, matching `sage` in SageMath 10.10)
 
 ## CI/CD
 
@@ -117,4 +117,4 @@ it was violated:
 - Configure Git hooks after cloning: `git config core.hooksPath .githooks` (pre-push runs ruff).
 - Update `README.md`, `USAGE.md`, and monitoring docs when changing CLI flags, security toggles, or observability.
 - Use `interrupt_sage_session` to stop a long computation -- it keeps the session's variables. `cancel_sage_session` restarts the worker and discards them.
-- Containerized workflows expect writable volumes for UID/GID 1001 (the `sage` user in SageMath 10.9).
+- Containerized workflows expect writable volumes for UID/GID 1001 (the `sage` user in SageMath 10.10).

@@ -130,17 +130,16 @@ STAR_EXPORTS: dict[str, frozenset[str]] = {
         "BooleanPolynomialEntry", "BooleanPolynomialIdeal",
         "BooleanPolynomialIterator", "BooleanPolynomialRing",
         "BooleanPolynomialVector", "BooleanPolynomialVectorIterator",
-        "CCuddNavigator", "FGLMStrategy", "FieldIdeal", "GF", "GroebnerStrategy",
-        "Integer", "MPolynomialIdeal", "Monoid_class", "Monomial",
-        "MonomialConstruct", "MonomialFactory", "OrderCode", "Polynomial",
-        "PolynomialConstruct", "PolynomialFactory", "PolynomialRing",
+        "CCuddNavigator", "ClasscallMetaclass", "FGLMStrategy", "FieldIdeal", "GF",
+        "GroebnerStrategy", "Integer", "MPolynomialIdeal", "Monoid_class",
+        "Monomial", "MonomialConstruct", "MonomialFactory", "OrderCode",
+        "Polynomial", "PolynomialConstruct", "PolynomialFactory", "PolynomialRing",
         "PolynomialRing_generic", "ReductionStrategy", "Sequence", "TermOrder",
-        "TermOrder_from_pb_order", "UniqueRepresentation", "Variable",
-        "VariableBlock", "VariableConstruct", "VariableFactory",
-        "add_up_polynomials", "block_dlex", "block_dp_asc", "bytes_to_str",
-        "coerce_binop", "contained_vars", "current_randstate", "dlex", "dp",
-        "dp_asc", "easy_linear_factors", "gauss_on_polys", "get_var_mapping",
-        "have_same_parent", "if_then_else", "interpolate",
+        "TermOrder_from_pb_order", "Variable", "VariableBlock", "VariableConstruct",
+        "VariableFactory", "add_up_polynomials", "block_dlex", "block_dp_asc",
+        "bytes_to_str", "coerce_binop", "contained_vars", "current_randstate",
+        "dlex", "dp", "dp_asc", "easy_linear_factors", "gauss_on_polys",
+        "get_var_mapping", "have_same_parent", "if_then_else", "interpolate",
         "interpolate_smallest_lex", "inv_order_dict", "ll_red_nf_noredsb",
         "ll_red_nf_noredsb_single_recursive_call", "ll_red_nf_redsb", "lp",
         "map_every_x_to_x_plus_one", "mod_mon_set", "mod_var_set",
@@ -148,7 +147,7 @@ STAR_EXPORTS: dict[str, frozenset[str]] = {
         "parent", "random_set", "recursively_insert", "red_tail", "revop",
         "rich_to_bool", "rich_to_bool_sgn", "richcmp", "richcmp_not_equal", "rings",
         "set_random_seed", "str_to_bytes", "substitute_variables", "top_index",
-        "unpickle_BooleanPolynomial", "unpickle_BooleanPolynomial0",
+        "typecall", "unpickle_BooleanPolynomial", "unpickle_BooleanPolynomial0",
         "unpickle_BooleanPolynomialRing", "zeros"
     }),
     "sage.rings.polynomial.pbori": frozenset({
@@ -315,14 +314,15 @@ STAR_EXPORTS: dict[str, frozenset[str]] = {
         "Stream_cauchy_invert", "Stream_cauchy_mul",
         "Stream_cauchy_mul_commutative", "Stream_compose", "Stream_derivative",
         "Stream_dirichlet_convolve", "Stream_dirichlet_invert", "Stream_exact",
-        "Stream_function", "Stream_inexact", "Stream_infinite_operator",
-        "Stream_infinite_product", "Stream_infinite_sum", "Stream_integral",
-        "Stream_iterator", "Stream_lmul", "Stream_map_coefficients", "Stream_neg",
-        "Stream_plethysm", "Stream_pseudo_diff_mul", "Stream_rmul", "Stream_scalar",
-        "Stream_shift", "Stream_sub", "Stream_taylor", "Stream_truncated",
-        "Stream_unary", "Stream_uninitialized", "Stream_zero",
-        "UniqueRepresentation", "VariablePool", "ZZ", "binomial", "cached_method",
-        "divisors", "infinity", "lazy_attribute", "prod", "wt_int_vec_iter"
+        "Stream_function", "Stream_hadamard_mul", "Stream_inexact",
+        "Stream_infinite_operator", "Stream_infinite_product",
+        "Stream_infinite_sum", "Stream_integral", "Stream_iterator", "Stream_lmul",
+        "Stream_map_coefficients", "Stream_neg", "Stream_plethysm",
+        "Stream_pseudo_diff_mul", "Stream_rmul", "Stream_scalar", "Stream_shift",
+        "Stream_sub", "Stream_taylor", "Stream_truncated", "Stream_unary",
+        "Stream_uninitialized", "Stream_zero", "UniqueRepresentation",
+        "VariablePool", "ZZ", "binomial", "cached_method", "divisors", "infinity",
+        "lazy_attribute", "prod", "wt_int_vec_iter"
     }),
     "sage.combinat.partition_algebra": frozenset({
         "AlgebrasWithBasis", "CombinatorialFreeModule", "Graph",
@@ -429,7 +429,7 @@ STAR_EXPORTS: dict[str, frozenset[str]] = {
         "DenseGraph", "DenseGraphBackend", "bytes_to_str", "str_to_bytes"
     }),
     "sage.combinat.misc": frozenset({
-        "DoublyLinkedList", "IterableFunctionCall",
+        "DoublyLinkedList", "Infinity", "IterableFunctionCall",
         "check_integer_list_constraints", "prod", "umbral_operation"
     }),
     "sage.graphs.genus": frozenset({
@@ -491,7 +491,7 @@ STAR_EXPORTS: dict[str, frozenset[str]] = {
     "sage.groups.additive_abelian.additive_abelian_wrapper": frozenset({
         "AdditiveAbelianGroupWrapper", "AdditiveAbelianGroupWrapperElement",
         "Morphism", "Sequence", "UnwrappingMorphism", "ZZ", "basis_from_generators",
-        "parent", "richcmp_method", "vector"
+        "expand_basis", "parent", "richcmp_method", "vector"
     }),
 }
 

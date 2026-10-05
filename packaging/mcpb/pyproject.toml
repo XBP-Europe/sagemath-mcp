@@ -8,9 +8,9 @@
 # local `sage` on PATH, which no one-click install can promise.
 [project]
 name = "sagemath-mcp-bundle"
-version = "0.9.2"
+version = "0.9.3"
 description = "MCPB bundle for the SageMath MCP server"
 requires-python = ">=3.12"
 dependencies = [
-    "sagemath-mcp[passagemath]==0.9.2",
+    "sagemath-mcp[passagemath]==0.9.3",
 ]

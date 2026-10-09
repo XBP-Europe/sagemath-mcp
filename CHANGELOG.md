@@ -7,6 +7,20 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The server works with conda-forge's `sage`.** A Sage installed as a Python
+  package (conda-forge's 10.9, any meson-built `sagelib`) ships `sage` as a
+  console script for `sage.cli`, which has no `-python` flag, so the worker
+  launch `sage -python -m sagemath_mcp._sage_worker` exited with "unrecognized
+  arguments" and every Sage-backed tool failed with "Sage worker terminated
+  unexpectedly". When `sage` is that console script, the worker now starts on
+  the interpreter the script names, where Sage is importable; the shell
+  launchers (the Docker image, passagemath) keep `sage -python`. Verified on
+  conda-forge SageMath 10.9 / Python 3.14: the tools return correct results and
+  the sandbox refuses imports, `eval`, dunder access, `sage_eval`, `open` and
+  `os` reached through `sage`.
+
 ## [0.9.3] - 2026-10-05
 
 **A maintenance release.** Moves the base runtime to SageMath 10.10 (GA) with

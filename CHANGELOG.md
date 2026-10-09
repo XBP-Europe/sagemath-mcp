@@ -7,6 +7,14 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **Dependency lock refreshed** (`uv lock --upgrade`): fastmcp 4.1.0,
+  pydantic 2.14.0 (pydantic-core 2.50.0), ruff 0.17.0, cyclopts 5.2.0 and ~15
+  other patch updates; `requirements-passagemath.txt` re-exported to match.
+  `pip-audit` clean; the unit suite, the cache-isolation tests and lint pass
+  unchanged.
+
 ### Fixed
 
 - **The server works with conda-forge's `sage`.** A Sage installed as a Python

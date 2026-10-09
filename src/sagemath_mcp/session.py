@@ -118,13 +118,18 @@ class SageSession(JournalMixin, WorkerChannelMixin):
                 raise SageProcessError("Unable to locate a Python interpreter for the worker.")
             command = [python_exe, "-m", "sagemath_mcp._sage_worker"]
         else:
-            sage_path = shutil.which(sage_binary)
+            # An MCP client usually starts the server by absolute path without
+            # activating its environment, so `sage` is not on PATH; the one
+            # installed beside this interpreter (conda, a passagemath venv) is.
+            sage_path = shutil.which(sage_binary) or shutil.which(
+                sage_binary, path=os.path.dirname(sys.executable)
+            )
             if not sage_path:
                 raise SageProcessError(
                     f"Unable to locate Sage executable '{sage_binary}'. "
                     "Adjust SAGEMATH_MCP_SAGE_BINARY or install SageMath."
                 )
-            launcher = _console_script_interpreter(sage_path) or [sage_binary, "-python"]
+            launcher = _console_script_interpreter(sage_path) or [sage_path, "-python"]
             command = [*launcher, "-m", "sagemath_mcp._sage_worker"]
         env = os.environ.copy()
         pythonpath_entries: list[str] = []

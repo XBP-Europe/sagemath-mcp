@@ -1227,6 +1227,19 @@ async def test_stdout_events_reach_the_callback_as_they_arrive(tmp_path):
         await session.shutdown()
 
 
+# conda-forge's `sage` 10.9, verbatim but for the prefix: a console script for
+# `sage.cli`, written by pip as a /bin/sh trampoline. `sage -python` fails on it.
+_CONDA_FORGE_SAGE = b"""#!/bin/sh
+\'\'\'exec' /opt/conda/envs/s/bin/python "$0" "$@"
+' \'\'\'
+import sys
+from sage.cli.__main__ import main
+if __name__ == '__main__':
+    sys.argv[0] = sys.argv[0].removesuffix('.exe')
+    sys.exit(main())
+"""
+
+
 @pytest.mark.asyncio
 async def test_a_missing_sage_binary_is_reported_clearly(monkeypatch):
     """The message has to name the binary and the setting that changes it."""
@@ -1234,7 +1247,7 @@ async def test_a_missing_sage_binary_is_reported_clearly(monkeypatch):
 
     settings = SageSettings(force_python_worker=False, sage_binary="definitely-not-sage")
     session = SageSession("no-sage", settings)
-    monkeypatch.setattr(shutil_module, "which", lambda _name: None)
+    monkeypatch.setattr(shutil_module, "which", lambda _name, path=None: None)
     with pytest.raises(SageProcessError, match="definitely-not-sage"):
         await session.ensure_started()
 
@@ -1261,20 +1274,40 @@ async def test_the_sage_worker_is_launched_through_the_configured_binary(monkeyp
     with pytest.raises(SageProcessError):
         await session.ensure_started()
 
-    assert recorded["command"][:4] == ("sage", "-python", "-m", "sagemath_mcp._sage_worker")
+    assert recorded["command"][:4] == (
+        "/usr/bin/sage", "-python", "-m", "sagemath_mcp._sage_worker"
+    )
 
 
-# conda-forge's `sage` 10.9, verbatim but for the prefix: a console script for
-# `sage.cli`, written by pip as a /bin/sh trampoline. `sage -python` fails on it.
-_CONDA_FORGE_SAGE = b"""#!/bin/sh
-\'\'\'exec' /opt/conda/envs/s/bin/python "$0" "$@"
-' \'\'\'
-import sys
-from sage.cli.__main__ import main
-if __name__ == '__main__':
-    sys.argv[0] = sys.argv[0].removesuffix('.exe')
-    sys.exit(main())
-"""
+@pytest.mark.asyncio
+async def test_a_sage_beside_the_servers_interpreter_is_found_off_path(monkeypatch, tmp_path):
+    """A client starts the server by absolute path without activating its
+    environment, so `sage` is not on PATH -- but it is next to sys.executable."""
+    import shutil as shutil_module
+
+    from sagemath_mcp import session as session_module
+
+    env_bin = tmp_path / "bin"
+    env_bin.mkdir()
+    sage = env_bin / "sage"
+    sage.write_bytes(_CONDA_FORGE_SAGE)
+    sage.chmod(0o755)
+    recorded: dict[str, tuple] = {}
+
+    async def fake_exec(*command, **kwargs):
+        recorded["command"] = command
+        raise SageProcessError("stopped before spawning")
+
+    monkeypatch.setenv("PATH", str(tmp_path / "empty"))
+    monkeypatch.setattr(session_module.sys, "executable", str(env_bin / "python"))
+    monkeypatch.setattr(session_module.asyncio, "create_subprocess_exec", fake_exec)
+    assert shutil_module.which("sage") is None
+
+    session = SageSession("off-path", SageSettings(force_python_worker=False))
+    with pytest.raises(SageProcessError, match="stopped before spawning"):
+        await session.ensure_started()
+
+    assert recorded["command"][0] == "/opt/conda/envs/s/bin/python"
 
 
 @pytest.mark.parametrize(

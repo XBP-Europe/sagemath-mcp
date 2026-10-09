@@ -16,7 +16,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   arguments" and every Sage-backed tool failed with "Sage worker terminated
   unexpectedly". When `sage` is that console script, the worker now starts on
   the interpreter the script names, where Sage is importable; the shell
-  launchers (the Docker image, passagemath) keep `sage -python`. Verified on
+  launchers (the Docker image, passagemath) keep `sage -python`. And when
+  `sage` is not on `PATH` -- an MCP client starting the server by absolute path
+  without activating its environment -- the `sage` beside the server's own
+  interpreter is used, so a conda or venv install needs no
+  `SAGEMATH_MCP_SAGE_BINARY`. Verified on
   conda-forge SageMath 10.9 / Python 3.14: the tools return correct results and
   the sandbox refuses imports, `eval`, dunder access, `sage_eval`, `open` and
   `os` reached through `sage`.

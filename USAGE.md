@@ -14,6 +14,10 @@
 - Alternatively, run `make sage-container` (or `./scripts/setup_sage_container.sh`) to pull and launch
   the Docker image automatically.
 - Optional: `sage` on your `PATH` if running outside Docker.
+- Or install the server and Sage together from conda-forge (Linux and macOS,
+  sagemath-mcp 0.9.4 or later): `conda install -c conda-forge sagemath-mcp sage`.
+  conda-forge's `sage` is 10.9, a release behind the 10.10 the allowlist is
+  generated from, so names 10.10 added are unavailable.
 - `docker compose up --build` (or `docker-compose up --build` on Compose v1) launches the bundled stack on `http://127.0.0.1:8314/mcp` using the
   non-root `sage` user (UID/GID 1001). The project directory is mounted
   **read-only**, so it needs no ownership change — do not `chown -R` your

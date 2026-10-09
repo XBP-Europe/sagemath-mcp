@@ -49,8 +49,8 @@ What is still open, in short:
 
 - **Install friction.** A Sage runtime is still about a gigabyte. The
   passagemath extra and its `-passagemath` image narrow it, but they are pinned
-  and optional rather than the primary path; conda-forge is submitted and
-  waiting on review.
+  and optional rather than the primary path. conda-forge has carried the
+  package since 2026-10-09, so a conda Sage environment can add it directly.
 - **Academic anchor.** Citable since 2026-09-24 through the Zenodo concept DOI
   10.5281/zenodo.22939422; a JOSS paper is next, and it needs evidence of
   research use by others first.

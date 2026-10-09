@@ -20,9 +20,3 @@ removed from here once they ship or are decided against.
       is evidence of research use by others (JOSS requires it; our own
       benchmarks are supporting material only), and the author's ORCID and
       sign-off on the AI usage disclosure.
-
-- [ ] **conda-forge.** Submitted as conda-forge/staged-recipes#34875 (#101),
-      bumped to 0.9.3 and green on 2026-10-05, waiting on a reviewer. The recipe is
-      `packaging/conda/recipe.yaml`, kept in step with `pyproject.toml` by
-      `tests/test_conda_recipe.py`. On merge: add the conda install line to
-      README / USAGE / DISTRIBUTION, the `conda-forge` badge, and close #101.

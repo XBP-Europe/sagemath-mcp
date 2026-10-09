@@ -75,12 +75,18 @@ the container image, and then publishes every artefact from that one run (see
 | `sagemath-mcp-<version>.intoto.jsonl` | asset on the GitHub release | the Sigstore bundle naming the wheel, sdist and desktop bundle as its subjects — the same provenance as above, as a file, so an artefact can be verified offline and a scanner reading release assets can see it |
 | registry entry | the official MCP registry | published with GitHub OIDC after PyPI succeeds |
 
-**conda-forge is submitted, not yet available.** The recipe lives at
-`packaging/conda/recipe.yaml` (v1 format) and was submitted as
-conda-forge/staged-recipes#34875 on 2026-09-17; it builds green on Linux, macOS
-and Windows and is waiting on a reviewer. Nothing in the table above changes
-until it merges — at which point conda-forge creates the feedstock and its bot
-opens a version pull request there after each PyPI release.
+**conda-forge publishes from its own feedstock, not from this workflow.** The
+package has been on conda-forge since 2026-10-09
+([`sagemath-mcp`](https://anaconda.org/conda-forge/sagemath-mcp), `noarch`).
+conda-forge builds it from the PyPI sdist in
+[`conda-forge/sagemath-mcp-feedstock`](https://github.com/conda-forge/sagemath-mcp-feedstock),
+where its bot opens a version pull request after each PyPI release; the conda
+package for a release appears once a maintainer merges that pull request. It
+carries none of the attestations in the table above: what ties it to this
+repository is the sdist hash pinned in the feedstock's recipe, the same file
+PyPI's PEP 740 attestation covers. The recipe the submission came from is
+`packaging/conda/recipe.yaml`, and [packaging/conda/README.md](packaging/conda/README.md)
+says what has to reach the feedstock by hand.
 
 A manual `twine upload` would work but would ship files with no attestation, so it
 is not the supported path. The `workflow_dispatch` dry run exercises the build,

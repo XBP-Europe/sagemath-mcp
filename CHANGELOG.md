@@ -9,6 +9,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **The package is on conda-forge.** conda-forge/staged-recipes#34875 merged on
+  2026-10-09, conda-forge created
+  [`sagemath-mcp-feedstock`](https://github.com/conda-forge/sagemath-mcp-feedstock),
+  and 0.9.3 is published as a `noarch` package. The README, USAGE.md and
+  DISTRIBUTION.md carry the conda install line -- `"sagemath-mcp>=0.9.4"`, the
+  first release that runs on conda-forge's `sage` (see Fixed), so the solver
+  refuses rather than installing 0.9.3 -- the README a `conda-forge` badge
+  tied by a test to the recipe's package name, and `packaging/conda/README.md`
+  now says how the feedstock is kept in step. Closes #101.
 - **The package is type-checked.** It has shipped `py.typed` (and a "Typed"
   badge) without anything checking the annotations; `make typecheck` now runs
   mypy over `src/sagemath_mcp` and CI's lint job fails on an error, and a badge

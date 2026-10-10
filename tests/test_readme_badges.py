@@ -17,6 +17,7 @@ import tomllib
 from pathlib import Path
 
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 README = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -198,4 +199,22 @@ def test_the_registry_badge_matches_a_real_listing() -> None:
     assert name in listed, (
         f"the README claims an MCP registry listing, but {name} is not in the "
         f"registry (found {sorted(listed)})"
+    )
+
+
+def test_the_conda_forge_badge_names_the_package_the_recipe_builds() -> None:
+    """The badge reads conda-forge's index, so it must name the package the
+    recipe in this repository describes -- the one the feedstock was created from."""
+    match = re.search(
+        r"!\[conda-forge\]\(https://img\.shields\.io/conda/vn/conda-forge/([^.)]+)\.svg\)\]"
+        r"\(https://anaconda\.org/conda-forge/([^)]+)\)",
+        README,
+    )
+    assert match, "no conda-forge badge in the README"
+    recipe = yaml.safe_load(
+        (ROOT / "packaging" / "conda" / "recipe.yaml").read_text(encoding="utf-8")
+    )
+    name = recipe["context"]["name"]
+    assert match.group(1) == match.group(2) == name, (
+        f"the conda-forge badge names {match.group(1)!r}, the recipe builds {name!r}"
     )

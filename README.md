@@ -8,6 +8,7 @@
 [![Fuzz](https://github.com/XBP-Europe/sagemath-mcp/actions/workflows/fuzz.yml/badge.svg)](https://github.com/XBP-Europe/sagemath-mcp/actions/workflows/fuzz.yml)
 [![Release](https://img.shields.io/github/v/release/XBP-Europe/sagemath-mcp.svg)](https://github.com/XBP-Europe/sagemath-mcp/releases/latest)
 [![PyPI](https://img.shields.io/pypi/v/sagemath-mcp.svg)](https://pypi.org/project/sagemath-mcp/)
+[![conda-forge](https://img.shields.io/conda/vn/conda-forge/sagemath-mcp.svg)](https://anaconda.org/conda-forge/sagemath-mcp)
 [![GHCR](https://img.shields.io/badge/GHCR-sagemath--mcp-blue?logo=github)](https://github.com/XBP-Europe/sagemath-mcp/pkgs/container/sagemath-mcp)
 [![License](https://img.shields.io/github/license/XBP-Europe/sagemath-mcp.svg)](LICENSE)
 [![Python](https://img.shields.io/pypi/pyversions/sagemath-mcp.svg)](https://pypi.org/project/sagemath-mcp/)
@@ -78,6 +79,18 @@ sagemath-mcp --transport streamable-http --port 8314    # HTTP on 127.0.0.1
 
 This needs a working SageMath on the host — either `sage` on your `PATH` (or in
 the same environment as the server) or the `sagemath/sagemath` Docker image.
+
+**From conda-forge (Linux and macOS, next to conda-forge's Sage):**
+
+```bash
+conda install -c conda-forge "sagemath-mcp>=0.9.4" sage
+sagemath-mcp
+```
+
+The version floor matters: earlier releases cannot start a worker on
+conda-forge's `sage`, and without it the solver may pick one. That `sage` is 10.9, one release behind the 10.10 the
+security artifacts are generated from, so names 10.10 added are unavailable and
+nothing outside the allowlist is admitted.
 
 **A Sage runtime without the 3 GB image ([passagemath](https://github.com/passagemath/passagemath), optional):**
 
@@ -160,7 +173,9 @@ Then ask for some mathematics — the [examples below](#try-it) are a good start
 Three things worth knowing. These need [uv](https://docs.astral.sh/uv/) on your
 PATH, and the first launch downloads about 1 GB of Sage wheels, cached
 afterwards. Already have `sage`? Drop `[passagemath]` from the specification and
-it will use yours. And an install of any of these runs with your own privileges;
+it will use yours. Installed from conda-forge? Register the environment's own
+executable, for example `claude mcp add sagemath -- ~/miniforge3/envs/sage/bin/sagemath-mcp`;
+it finds the `sage` beside it without the environment being activated. And an install of any of these runs with your own privileges;
 for untrusted or shared use, run the container and point the client at it.
 
 Pinning a release, HTTP transport and the full client reference are in

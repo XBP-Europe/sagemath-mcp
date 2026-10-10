@@ -7,6 +7,7 @@ import contextlib
 import json
 import logging
 import os
+import re
 import shutil
 import signal
 import sys
@@ -29,6 +30,35 @@ _PROJECT_ROOT = str(Path(__file__).resolve().parents[1])
 # plot. 8 MiB leaves generous headroom above the default max_stdout_chars
 # without letting a runaway worker consume unbounded memory.
 _STREAM_LIMIT = 8 * 1024 * 1024
+
+# A Sage built with meson and installed as a Python package -- conda-forge's
+# `sage` is one -- ships `sage` as a console script for `sage.cli`, which has no
+# `-python` flag: `sage -python -m ...` exits with "unrecognized arguments" and
+# every tool fails. That script names the interpreter it runs, and Sage is
+# importable there, so the worker is started with that interpreter instead. The
+# shell launchers (the Docker image, passagemath) keep `sage -python`.
+_SAGE_CLI_MARKER = b"from sage.cli"
+# pip writes `#!<python>`, or, when that path is too long or contains a space,
+# a /bin/sh trampoline whose second line is `'''exec' <python> "$0" "$@"`.
+_TRAMPOLINE = re.compile(rb"^'''exec' " + rb'(?:"([^"]+)"|(\S+)) "\$0"', re.MULTILINE)
+
+
+def _console_script_interpreter(sage_path: str) -> list[str] | None:
+    """The command a `sage.cli` console script runs under, or None for any other launcher."""
+    try:
+        with open(sage_path, "rb") as handle:
+            head = handle.read(4096)
+    except OSError:
+        return None
+    if _SAGE_CLI_MARKER not in head:
+        return None
+    if trampoline := _TRAMPOLINE.search(head):
+        return [os.fsdecode(trampoline.group(1) or trampoline.group(2))]
+    first_line = head.split(b"\n", 1)[0]
+    shebang = first_line[2:].split() if first_line.startswith(b"#!") else []
+    if shebang and not shebang[0].endswith(b"/sh"):
+        return [os.fsdecode(part) for part in shebang]
+    return None
 
 
 @dataclass(slots=True)
@@ -88,12 +118,19 @@ class SageSession(JournalMixin, WorkerChannelMixin):
                 raise SageProcessError("Unable to locate a Python interpreter for the worker.")
             command = [python_exe, "-m", "sagemath_mcp._sage_worker"]
         else:
-            if not shutil.which(sage_binary):
+            # An MCP client usually starts the server by absolute path without
+            # activating its environment, so `sage` is not on PATH; the one
+            # installed beside this interpreter (conda, a passagemath venv) is.
+            sage_path = shutil.which(sage_binary) or shutil.which(
+                sage_binary, path=os.path.dirname(sys.executable)
+            )
+            if not sage_path:
                 raise SageProcessError(
                     f"Unable to locate Sage executable '{sage_binary}'. "
                     "Adjust SAGEMATH_MCP_SAGE_BINARY or install SageMath."
                 )
-            command = [sage_binary, "-python", "-m", "sagemath_mcp._sage_worker"]
+            launcher = _console_script_interpreter(sage_path) or [sage_path, "-python"]
+            command = [*launcher, "-m", "sagemath_mcp._sage_worker"]
         env = os.environ.copy()
         pythonpath_entries: list[str] = []
         if (sage_venv := env.get("SAGE_VENV")):

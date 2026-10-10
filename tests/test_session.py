@@ -1227,6 +1227,19 @@ async def test_stdout_events_reach_the_callback_as_they_arrive(tmp_path):
         await session.shutdown()
 
 
+# conda-forge's `sage` 10.9, verbatim but for the prefix: a console script for
+# `sage.cli`, written by pip as a /bin/sh trampoline. `sage -python` fails on it.
+_CONDA_FORGE_SAGE = b"""#!/bin/sh
+\'\'\'exec' /opt/conda/envs/s/bin/python "$0" "$@"
+' \'\'\'
+import sys
+from sage.cli.__main__ import main
+if __name__ == '__main__':
+    sys.argv[0] = sys.argv[0].removesuffix('.exe')
+    sys.exit(main())
+"""
+
+
 @pytest.mark.asyncio
 async def test_a_missing_sage_binary_is_reported_clearly(monkeypatch):
     """The message has to name the binary and the setting that changes it."""
@@ -1234,7 +1247,7 @@ async def test_a_missing_sage_binary_is_reported_clearly(monkeypatch):
 
     settings = SageSettings(force_python_worker=False, sage_binary="definitely-not-sage")
     session = SageSession("no-sage", settings)
-    monkeypatch.setattr(shutil_module, "which", lambda _name: None)
+    monkeypatch.setattr(shutil_module, "which", lambda _name, path=None: None)
     with pytest.raises(SageProcessError, match="definitely-not-sage"):
         await session.ensure_started()
 
@@ -1261,7 +1274,111 @@ async def test_the_sage_worker_is_launched_through_the_configured_binary(monkeyp
     with pytest.raises(SageProcessError):
         await session.ensure_started()
 
-    assert recorded["command"][:4] == ("sage", "-python", "-m", "sagemath_mcp._sage_worker")
+    assert recorded["command"][:4] == (
+        "/usr/bin/sage", "-python", "-m", "sagemath_mcp._sage_worker"
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_sage_beside_the_servers_interpreter_is_found_off_path(monkeypatch, tmp_path):
+    """A client starts the server by absolute path without activating its
+    environment, so `sage` is not on PATH -- but it is next to sys.executable."""
+    import shutil as shutil_module
+
+    from sagemath_mcp import session as session_module
+
+    env_bin = tmp_path / "bin"
+    env_bin.mkdir()
+    sage = env_bin / "sage"
+    sage.write_bytes(_CONDA_FORGE_SAGE)
+    sage.chmod(0o755)
+    recorded: dict[str, tuple] = {}
+
+    async def fake_exec(*command, **kwargs):
+        recorded["command"] = command
+        raise SageProcessError("stopped before spawning")
+
+    monkeypatch.setenv("PATH", str(tmp_path / "empty"))
+    monkeypatch.setattr(session_module.sys, "executable", str(env_bin / "python"))
+    monkeypatch.setattr(session_module.asyncio, "create_subprocess_exec", fake_exec)
+    assert shutil_module.which("sage") is None
+
+    session = SageSession("off-path", SageSettings(force_python_worker=False))
+    with pytest.raises(SageProcessError, match="stopped before spawning"):
+        await session.ensure_started()
+
+    assert recorded["command"][0] == "/opt/conda/envs/s/bin/python"
+
+
+@pytest.mark.parametrize(
+    ("script", "expected"),
+    [
+        pytest.param(_CONDA_FORGE_SAGE, ["/opt/conda/envs/s/bin/python"], id="trampoline"),
+        pytest.param(
+            _CONDA_FORGE_SAGE.replace(
+                b"/opt/conda/envs/s/bin/python", b'"/opt/my envs/s/bin/python"'
+            ),
+            ["/opt/my envs/s/bin/python"],
+            id="quoted-trampoline",
+        ),
+        pytest.param(
+            b"#!/venv/bin/python3.13\nfrom sage.cli.__main__ import main\n",
+            ["/venv/bin/python3.13"],
+            id="shebang",
+        ),
+        pytest.param(
+            b"#!/usr/bin/env python3\nfrom sage.cli.__main__ import main\n",
+            ["/usr/bin/env", "python3"],
+            id="env-shebang",
+        ),
+        # The Docker image's and passagemath's `sage`: a shell script that
+        # accepts -python, so the launch stays `sage -python`.
+        pytest.param(b"#!/bin/sh\n#\n# Sage: a free open-source ...\n", None, id="shell"),
+        pytest.param(b"#!/bin/sh\nexec python -c 'from sage.cli import main'\n", None,
+                     id="cli-without-interpreter"),
+        pytest.param(b"from sage.cli.__main__ import main\n", None, id="no-shebang"),
+    ],
+)
+def test_a_sage_cli_console_script_names_its_interpreter(tmp_path, script, expected):
+    from sagemath_mcp.session import _console_script_interpreter
+
+    sage = tmp_path / "sage"
+    sage.write_bytes(script)
+    assert _console_script_interpreter(str(sage)) == expected
+
+
+def test_an_unreadable_sage_falls_back_to_the_shell_launcher(tmp_path):
+    from sagemath_mcp.session import _console_script_interpreter
+
+    assert _console_script_interpreter(str(tmp_path / "missing")) is None
+
+
+@pytest.mark.asyncio
+async def test_conda_forge_sage_launches_the_worker_on_its_own_python(monkeypatch, tmp_path):
+    """conda-forge's `sage` rejects -python ("unrecognized arguments"), so every
+    tool failed on it; the worker is started with the interpreter it names."""
+    import shutil as shutil_module
+
+    from sagemath_mcp import session as session_module
+
+    sage = tmp_path / "sage"
+    sage.write_bytes(_CONDA_FORGE_SAGE)
+    recorded: dict[str, tuple] = {}
+
+    async def fake_exec(*command, **kwargs):
+        recorded["command"] = command
+        raise SageProcessError("stopped before spawning")
+
+    monkeypatch.setattr(shutil_module, "which", lambda name: str(sage))
+    monkeypatch.setattr(session_module.asyncio, "create_subprocess_exec", fake_exec)
+
+    session = SageSession("conda-sage", SageSettings(force_python_worker=False))
+    with pytest.raises(SageProcessError):
+        await session.ensure_started()
+
+    assert recorded["command"] == (
+        "/opt/conda/envs/s/bin/python", "-m", "sagemath_mcp._sage_worker"
+    )
 
 
 def test_a_workspace_with_unsafe_characters_adopts_no_ambiguous_legacy_journal(tmp_path):

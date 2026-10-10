@@ -7,6 +7,8 @@ lossy input rather than compute with it.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from fastmcp.exceptions import ToolError
 
 # Beyond 2^53 a JSON number is no longer exactly representable as an IEEE
@@ -80,7 +82,7 @@ def exact_matrix_entries(rows, name: str):
     return converted
 
 
-def check_matrix(rows: list[list[float]], name: str) -> None:
+def check_matrix(rows: Sequence[Sequence[object]], name: str) -> None:
     """Reject shapes Sage would only complain about obscurely, or not at all.
 
     An empty matrix is the dangerous one: Sage treats [] as the 0x0 matrix and

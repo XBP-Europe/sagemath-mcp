@@ -11,7 +11,7 @@ import sys
 import time
 import traceback
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 from sagemath_mcp import scrub_catalog
 from sagemath_mcp._artifacts import ALLOWED_CALLER_NAMES
@@ -63,7 +63,8 @@ def _guarded_attrcall(name: object, *args: Any, **kwds: Any) -> Any:
         raise ValueError(f"Blocked attrcall: {reason}")
     if PURE_PYTHON:
         def _call(obj: Any) -> Any:
-            return getattr(obj, name)(*args, **kwds)
+            # The screen above refuses anything but an identifier string.
+            return getattr(obj, cast(str, name))(*args, **kwds)
 
         return _call
     from sage.misc.call import attrcall as _sage_attrcall
@@ -184,7 +185,7 @@ def _build_namespace() -> dict[str, Any]:
             # The preload needs real builtins: importing sage.all uses
             # __import__, open and more. Restrict only afterwards, so user code
             # never sees them.
-            exec(preload, ns)
+            exec(preload, ns)  # noqa: S102 - the server's own startup code, not a caller's
             _STARTUP_ERROR = None
         except Exception as exc:
             _STARTUP_ERROR = f"Startup code failed: {exc}"
@@ -493,7 +494,7 @@ def _format_result(value: Any) -> str:
                 from sage.repl.display.util import format_list
 
                 return format_list(value)
-        except Exception:
+        except Exception:  # noqa: S110 - layout is cosmetic; fall back to the plain repr
             pass
     return repr(value)
 
@@ -536,7 +537,7 @@ def _latex(result: Any) -> str | None:
             from sympy import latex as sympy_latex  # type: ignore
 
             return sympy_latex(result)  # pragma: no cover - requires sympy
-        from sage.all import latex as sage_latex  # type: ignore
+        from sage.all import latex as sage_latex
 
         return sage_latex(result)
     except Exception:  # pragma: no cover - best effort only
@@ -696,7 +697,7 @@ class _StreamingStdout(io.StringIO):
         self._sink = sink          # the real stdout, captured before redirection
         self._pending = ""
 
-    def write(self, text: str) -> int:  # type: ignore[override]
+    def write(self, text: str) -> int:
         written = super().write(text)   # keep the full text for the final response
         self._pending += text
         while "\n" in self._pending:
@@ -704,7 +705,7 @@ class _StreamingStdout(io.StringIO):
             self._emit(line)
         return written
 
-    def flush(self) -> None:  # type: ignore[override]
+    def flush(self) -> None:
         if self._pending:
             self._emit(self._pending)
             self._pending = ""
@@ -788,13 +789,16 @@ def _execute(
     _declare_symbols(namespace, getattr(compiled, "auto_symbols", frozenset()))
     try:
         with contextlib.redirect_stdout(stdout_buffer or io.StringIO()):
-            exec(compile(compiled.prefix, "<sagecell>", "exec"), namespace)
+            # The sandbox's one execution point: `compiled` passed the validator.
+            exec(compile(compiled.prefix, "<sagecell>", "exec"), namespace)  # noqa: S102
             if isinstance(stdout_buffer, _StreamingStdout):
                 stdout_buffer.flush()   # emit a trailing line with no newline
             result_obj = None
             result_type = "statement"
             if compiled.is_expr and compiled.tail is not None:
-                result_obj = eval(compile(compiled.tail, "<sagecell>", "eval"), namespace)
+                result_obj = eval(  # noqa: S307 - the validated tail, as above
+                    compile(compiled.tail, "<sagecell>", "eval"), namespace
+                )
                 result_type = "expression"
         if compiled.injects and not trusted:
             # Only for a snippet that *asked* for an injection, and only for

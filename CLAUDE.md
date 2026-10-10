@@ -11,6 +11,7 @@ SageMath MCP is a Model Context Protocol server exposing stateful SageMath compu
 ```bash
 uv pip install -e .[dev]          # Install with dev extras
 make lint                          # uv run ruff check
+make typecheck                     # uv run mypy (src/sagemath_mcp; CI runs it too)
 make test                          # uv run pytest (pure Python, no Sage needed)
 make integration-test              # pytest inside Sage Docker container
 make build                         # Build wheel + sdist via scripts/build_release.py
@@ -22,7 +23,7 @@ Unit tests run with `SAGEMATH_MCP_PURE_PYTHON=1` (uses Python `math` stdlib inst
 
 ## Linting
 
-Ruff with line-length 100, target Python 3.12. Rules: E, F, W, B, UP, ASYNC, RUF, I (import sorting). Run `make lint` before committing.
+Ruff with line-length 100, target Python 3.12. Rules: E, F, W, B, UP, ASYNC, RUF, I (import sorting), and S (Bandit) for `src/` only -- each `noqa: S...` there carries its reason. mypy checks `src/sagemath_mcp` (the package ships `py.typed`); `sage_code/` is excluded because it is Sage source. Run `make lint` and `make typecheck` before committing.
 
 ## Testing
 

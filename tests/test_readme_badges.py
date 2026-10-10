@@ -86,6 +86,15 @@ def test_badges_that_point_at_a_file_point_at_one_that_exists(label: str, path: 
     assert (ROOT / path).exists(), f"the {label} badge links to {path}, which is missing"
 
 
+def test_the_typed_badge_means_ci_type_checks_the_package() -> None:
+    """py.typed promises importers checked annotations; the badge claims it."""
+    assert re.search(r"!\[Typed\]\(", README), "no Typed badge in the README"
+    assert (ROOT / "src" / "sagemath_mcp" / "py.typed").exists(), "py.typed is not shipped"
+    assert PYPROJECT["tool"]["mypy"]["files"] == ["src/sagemath_mcp"]
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert "make typecheck" in ci, "the Typed badge claims a check that CI does not run"
+
+
 def test_the_signed_badge_means_the_release_actually_signs() -> None:
     release = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
     assert "cosign sign" in release, "the badge claims signed images but nothing signs them"

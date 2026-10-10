@@ -119,17 +119,19 @@ async def resolve_session(client_session_id: str, name: str):
     return await manager.get(manager.resolve_key(client_session_id, name))
 
 
-def require_context(ctx: Any, purpose: str = "") -> None:
+def require_context[C](ctx: C | None, purpose: str = "") -> C:
     """Refuse a call that arrived without an MCP context to scope it by.
 
     Called first in every tool, before any argument is checked, so a call with
     no context is told that rather than whatever its arguments did wrong.
     *purpose* finishes the sentence -- "for stateful execution", "to cancel
-    work" -- and is part of the message clients see.
+    work" -- and is part of the message clients see. Returns *ctx*, so a
+    caller that keeps it is typed as having one.
     """
-    if ctx is None or ctx.session_id is None:
+    if ctx is None or getattr(ctx, "session_id", None) is None:
         suffix = f" {purpose}" if purpose else ""
         raise ToolError(f"MCP context with session_id is required{suffix}")
+    return ctx
 
 
 async def session_for(ctx: Any, name: str):

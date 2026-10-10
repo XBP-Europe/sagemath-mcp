@@ -30,7 +30,7 @@ _NAME_SEPARATOR = "::"
 # starts with it is treated as a portable handle (resolved through the alias
 # map) rather than a workspace name, so the prefix is reserved: an ordinary
 # name must not begin with it.
-WORKSPACE_TOKEN_PREFIX = "wsk_"
+WORKSPACE_TOKEN_PREFIX = "wsk_"  # noqa: S105 - a prefix, not a credential
 
 
 # Placeholder id a pre-warmed spare carries until a session adopts it and takes
@@ -64,7 +64,7 @@ class SageSessionManager:
         # Refill task -> the spare it is warming, so whoever cancels a refill
         # holds a reference to reclaim that worker in its own (uncancelled)
         # context. A cancelled task cannot reliably shut its own worker down.
-        self._warm_tasks: dict[asyncio.Task[None], SageSession] = {}
+        self._warm_tasks: dict[asyncio.Task[bool], SageSession] = {}
         # Spares whose refill is still running -- tracked so a cancelled refill
         # (shutdown, or a real session reclaiming its slot) cannot leak the
         # worker it had already spawned, and so total-worker accounting can see
@@ -245,7 +245,7 @@ class SageSessionManager:
         self._warm_pool.append(spare)
         return True
 
-    def _start_reclaim(self, task: asyncio.Task[None], spare: SageSession) -> asyncio.Task[None]:
+    def _start_reclaim(self, task: asyncio.Task[bool], spare: SageSession) -> asyncio.Task[None]:
         """Cancel a refill and hand its worker to a MANAGER-OWNED cleanup task.
 
         The cleanup is tracked in `_reclaim_tasks`, not run inline in the
@@ -259,7 +259,7 @@ class SageSessionManager:
         cleanup.add_done_callback(self._reclaim_tasks.discard)
         return cleanup
 
-    async def _reclaim_refill(self, task: asyncio.Task[None], spare: SageSession) -> None:
+    async def _reclaim_refill(self, task: asyncio.Task[bool], spare: SageSession) -> None:
         """Await the cancelled refill, shut its worker down, then release the slot.
 
         The spare stays in `_warm_in_flight` -- counted by admission -- until its

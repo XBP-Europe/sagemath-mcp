@@ -285,8 +285,8 @@ otherwise `sage` on `PATH`, or the `[passagemath]` extra). Built on
 ## Contributing
 
 Issues and pull requests welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Run
-`make lint` and `make test` before pushing (`git config core.hooksPath .githooks`
-wires the pre-push check). Roadmap and open work: [ROADMAP.md](ROADMAP.md).
+`make lint`, `make typecheck` and `make test` before pushing
+(`git config core.hooksPath .githooks` wires the pre-push check). Roadmap and open work: [ROADMAP.md](ROADMAP.md).
 Questions go to [GitHub Discussions](https://github.com/XBP-Europe/sagemath-mcp/discussions);
 [SUPPORT.md](SUPPORT.md) says what to expect.
 

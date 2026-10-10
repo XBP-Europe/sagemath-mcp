@@ -66,7 +66,6 @@ Guidance for best results:
   computation with Sage primitives instead.
 """.strip()
 
-_CULL_TASK: asyncio.Task[None] | None = None
 
 
 async def _cull_loop(interval: float = 60.0) -> None:

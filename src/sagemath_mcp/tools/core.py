@@ -103,7 +103,7 @@ async def evaluate_sage(
     ctx: Context | None = None,
 ) -> EvaluateResult:
     """Run SageMath code, preserving state within the caller's MCP session."""
-    runtime.require_context(ctx, "for stateful execution")
+    ctx = runtime.require_context(ctx, "for stateful execution")
     # Compute the key once and reuse it. Cancelling used to pass ctx.session_id,
     # which restarts the DEFAULT workspace: cancelling work in 'curves' destroyed
     # unrelated default state while the curves worker kept running.
@@ -354,7 +354,7 @@ async def evaluate_sage_streaming(
     ctx: Context | None = None,
 ) -> EvaluateResult:
     """Like evaluate_sage but emits each stdout line as a progress event."""
-    runtime.require_context(ctx)
+    ctx = runtime.require_context(ctx)
     sage_session = await runtime.session_for(ctx, session)
 
     # Forward each line the moment the worker produces it. This used to await

@@ -26,6 +26,9 @@ integration-test: sage-deps
 lint:
 	uv run ruff check
 
+typecheck:
+	uv run mypy
+
 build:
 	uv run python scripts/build_release.py
 
@@ -145,4 +148,4 @@ all: test integration-test
 mutation:
 	uv run python scripts/run_mutation_tests.py
 
-.PHONY: test sage-deps integration-test lint build mutation sage-container allowlist allowlist-passagemath star-exports-passagemath denylist doctest-execution cli-integration cli-extended tool-surface mcpb all
+.PHONY: test sage-deps integration-test lint typecheck build mutation sage-container allowlist allowlist-passagemath star-exports-passagemath denylist doctest-execution cli-integration cli-extended tool-surface mcpb all

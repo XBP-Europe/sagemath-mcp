@@ -65,6 +65,8 @@ dev = [
     "pytest-cov>=7.1.0",
     "coverage>=7.15.4",
     "ruff>=0.16.2",
+    # `make typecheck`: the package ships py.typed, and this checks it.
+    "mypy>=2.4.0",
     "build>=1.5.0",
     # The build backend, so tests/test_sdist_roundtrip.py can build the sdist
     # and then a wheel from it with --no-isolation: offline, and the same
@@ -118,14 +120,22 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "B", "UP", "ASYNC", "RUF", "I"]
+select = ["E", "F", "W", "B", "UP", "ASYNC", "RUF", "I", "S"]
 ignore = ["E203"]
 
 [tool.ruff.lint.per-file-ignores]
 # Sage code sent to the worker verbatim (sage_code/verify_ladder.py). Its last
 # statement is a bare expression on purpose -- the worker returns the value of
 # the final expression -- and a `noqa` on that line would be sent to Sage too.
-"src/sagemath_mcp/sage_code/*.py" = ["B018"]
+"src/sagemath_mcp/sage_code/*.py" = ["B018", "S110", "S112"]
+# The S (Bandit) rules guard the package that ships. Tests assert by nature, and
+# the scripts and fuzzers run fixed developer commands through subprocess, so
+# there they would be 1,700 findings of noise. In src, every suppression is a
+# line-level noqa with its reason; the S101 ones are asserts that only narrow a
+# type for the checker, never a check that `python -O` could remove.
+"tests/**" = ["S"]
+"scripts/**" = ["S"]
+"fuzz/**" = ["S"]
 # Generated from the installed SageMath, which exports Unicode mathematical
 # names (Greek letters, look-alikes for Latin ones). Which of the ambiguous-
 # character rules fire depends on which names that Sage version happens to
@@ -136,6 +146,23 @@ ignore = ["E203"]
 # Same rationale for the passagemath allowlist -- generated from the installed
 # passagemath, whose Unicode mathematical names decide which rules fire.
 "src/sagemath_mcp/allowlist_passagemath.py" = ["RUF001", "RUF002", "RUF003"]
+
+[tool.mypy]
+# The package ships py.typed, so its annotations are a contract for importers;
+# this is what checks them (`make typecheck`, and the lint job in CI).
+files = ["src/sagemath_mcp"]
+python_version = "3.12"
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+# Sage source sent to the worker verbatim, not Python this package runs: its
+# names come from `sage.all`, which mypy sees as undefined.
+exclude = ["src/sagemath_mcp/sage_code/"]
+
+[[tool.mypy.overrides]]
+# Imported only inside the worker, where Sage is the interpreter; no stubs exist.
+module = ["sage.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 addopts = "-ra --ignore=tests/cli_integration"

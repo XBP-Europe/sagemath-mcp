@@ -23,6 +23,8 @@ jobs:
         run: uv pip install -e .[dev]
       - name: Lint
         run: make lint
+      - name: Type check
+        run: make typecheck
 
   test:
     runs-on: ubuntu-latest

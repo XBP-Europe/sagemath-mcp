@@ -16,6 +16,7 @@ import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 from .channel import WorkerChannelMixin
 from .config import DEFAULT_SETTINGS, SageSettings
@@ -63,7 +64,7 @@ def _console_script_interpreter(sage_path: str) -> list[str] | None:
 
 @dataclass(slots=True)
 class WorkerResult:
-    result_type: str
+    result_type: Literal["expression", "statement"]
     result: str | None
     latex: str | None
     stdout: str
@@ -170,7 +171,7 @@ class SageSession(JournalMixin, WorkerChannelMixin):
         LOGGER.info("Started Sage session %s (pid=%s)", self.session_id, self._process.pid)
 
     async def _consume_stderr(self) -> None:
-        assert self._process and self._process.stderr
+        assert self._process and self._process.stderr  # noqa: S101
         while True:
             line = await self._process.stderr.readline()
             if not line:
@@ -188,9 +189,10 @@ class SageSession(JournalMixin, WorkerChannelMixin):
         on_stdout: Callable[[str], Awaitable[None]] | None = None,
     ) -> WorkerResult:
         await self.ensure_started()
-        assert self._process and self._process.stdin and self._process.stdout
+        assert self._process and self._process.stdin and self._process.stdout  # noqa: S101
+        request_id = str(uuid.uuid4())
         payload = {
-            "id": str(uuid.uuid4()),
+            "id": request_id,
             "type": "execute",
             "code": code,
             "want_latex": want_latex,
@@ -212,7 +214,7 @@ class SageSession(JournalMixin, WorkerChannelMixin):
                 queue, pump = self._start_stdout_pump(on_stdout)
             try:
                 raw, response = await self._exchange(
-                    data, payload["id"], queue, pump, effective_timeout
+                    data, request_id, queue, pump, effective_timeout
                 )
             finally:
                 # Whatever happened, no consumer task outlives this request.
@@ -231,7 +233,7 @@ class SageSession(JournalMixin, WorkerChannelMixin):
         effective_timeout: float,
     ) -> tuple[bytes, dict]:
         """Send one request and read its response, under the caller's timeout."""
-        assert self._process and self._process.stdin
+        assert self._process and self._process.stdin  # noqa: S101
         self._process.stdin.write(data)
         await self._process.stdin.drain()
         self._in_flight = request_id
@@ -295,7 +297,7 @@ class SageSession(JournalMixin, WorkerChannelMixin):
 
     async def reset(self) -> None:
         await self.ensure_started()
-        assert self._process and self._process.stdin and self._process.stdout
+        assert self._process and self._process.stdin and self._process.stdout  # noqa: S101
         payload = {"id": str(uuid.uuid4()), "type": "reset"}
         data = json.dumps(payload).encode("utf-8") + b"\n"
         async with self._lock:
@@ -359,7 +361,7 @@ class SageSession(JournalMixin, WorkerChannelMixin):
     async def shutdown(self) -> None:
         if not self._process or self._process.returncode is not None:
             return
-        assert self._process.stdin
+        assert self._process.stdin  # noqa: S101
         payload = {"id": str(uuid.uuid4()), "type": "shutdown"}
         self._process.stdin.write(json.dumps(payload).encode("utf-8") + b"\n")
         await self._process.stdin.drain()
@@ -423,7 +425,7 @@ class SageSession(JournalMixin, WorkerChannelMixin):
         SIGINT goes to the worker alone, which forwards it to its interfaces
         the same way the Sage REPL does.
         """
-        assert self._process is not None
+        assert self._process is not None  # noqa: S101
         # AttributeError: no killpg outside POSIX. OSError: the group is
         # already gone, or the pid was reaped and reused by another user.
         with contextlib.suppress(AttributeError, OSError):

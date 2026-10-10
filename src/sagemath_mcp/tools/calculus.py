@@ -78,7 +78,7 @@ async def integrate_expression(
         raise ToolError("Both lower_bound and upper_bound must be provided for a definite integral")
     session = await runtime.session_for(ctx, session)
     definite = lower_bound is not None
-    if definite:
+    if lower_bound is not None and upper_bound is not None:
         code = (
             sage_prelude([variable])
             + textwrap.dedent(

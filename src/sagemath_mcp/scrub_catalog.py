@@ -360,7 +360,7 @@ def dangerous_sage_names() -> frozenset[str]:
         try:
             resolved = value._get_object() if type(value).__name__ == "LazyImport" else value
             home = getattr(resolved, "__module__", None)
-        except Exception:
+        except Exception:  # noqa: S112 - an unresolvable name has no provenance to match
             continue
         if isinstance(home, str) and any(
             home == module or home.startswith(module + ".")
@@ -454,7 +454,7 @@ def star_export_screen(
     for name in exported:
         if not isinstance(name, str) or name.startswith("_") or not name.isidentifier():
             return None
-        value = vars(module).get(name)
+        value: Any = vars(module).get(name)
         # Resolve a lazy import before judging it. A `LazyImport` is a proxy:
         # it is not a `ModuleType` however module-like its target, and it
         # proxies no `__module__`, so the two checks below both read it as

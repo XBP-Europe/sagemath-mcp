@@ -9,7 +9,7 @@ would have prefixed them.
 from __future__ import annotations
 
 import textwrap
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastmcp import Context
 from fastmcp.exceptions import ToolError
@@ -138,7 +138,8 @@ async def statistics_summary(
         """
         )
     )
-    return await evaluate_structured(session, code)
+    # The snippet's last expression is the dict literal above.
+    return cast(dict, await evaluate_structured(session, code))
 
 
 @mcp.tool(

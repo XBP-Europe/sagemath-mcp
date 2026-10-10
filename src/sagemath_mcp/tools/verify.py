@@ -307,10 +307,12 @@ async def verify_claim(
         claim = validated_expression(rewritten)
     _reject_truth_assembly(claim)
     lhs_src, rhs_src, op_src = _comparison_sides(claim)
-    have_sides = lhs_src is not None and rhs_src is not None
-    lhs_literal = encode_literal(lhs_src) if have_sides else "None"
-    rhs_literal = encode_literal(rhs_src) if have_sides else "None"
-    op_literal = encode_literal(op_src) if have_sides else "None"
+    if lhs_src is not None and rhs_src is not None and op_src is not None:
+        lhs_literal = encode_literal(lhs_src)
+        rhs_literal = encode_literal(rhs_src)
+        op_literal = encode_literal(op_src)
+    else:
+        lhs_literal = rhs_literal = op_literal = "None"
     # Exactness is judged from the claim's inputs, not its collapsed value: every
     # value-bearing sub-expression is evaluated and checked, so a machine number
     # hidden inside a Boolean (a predicate, `== True`, a lambda) is still found.

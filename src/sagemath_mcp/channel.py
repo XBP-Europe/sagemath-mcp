@@ -44,6 +44,13 @@ class WorkerChannelMixin:
     must not stall the read -- are a protocol, not session lifecycle.
     """
 
+    # Provided by SageSession; declared so the type checker sees them here.
+    session_id: str
+    _process: asyncio.subprocess.Process | None
+    _in_flight: str | None
+    _dropped_stdout_lines: int
+    _queued_stdout_chars: int
+
     def _start_stdout_pump(
         self, on_stdout: Callable[[str], Awaitable[None]]
     ) -> tuple[asyncio.Queue[str | None], asyncio.Task[None]]:
@@ -144,7 +151,7 @@ class WorkerChannelMixin:
         response and go back to waiting for input -- genuinely idle -- while this
         session still believed a computation was running.
         """
-        assert self._process and self._process.stdout
+        assert self._process and self._process.stdout  # noqa: S101
         discarded = 0
         while True:
             raw = await self._process.stdout.readline()

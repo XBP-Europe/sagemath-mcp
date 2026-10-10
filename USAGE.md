@@ -1020,6 +1020,7 @@ if you need it.
 ```bash
 uv run pytest
 uv run ruff check
+uv run mypy
 ```
 
 ### Manual Workflow
@@ -1092,7 +1093,7 @@ here.
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `SAGEMATH_MCP_SAGE_BINARY` | `sage` | The Sage executable the worker is spawned with. |
+| `SAGEMATH_MCP_SAGE_BINARY` | `sage` | The Sage executable the worker is spawned with. Looked up on `PATH`, then beside the server's own Python, so a conda env or venv works without being activated. A `sage` installed as a Python console script (conda-forge's) starts the worker on the interpreter it names; a shell launcher gets `sage -python`. |
 | `SAGEMATH_MCP_STARTUP` | *(empty)* | Code run once in each new worker namespace, before any caller code. |
 | `SAGEMATH_MCP_EVAL_TIMEOUT` | `30` | Seconds per evaluation. A tool's `timeout` argument overrides it. |
 | `SAGEMATH_MCP_MAX_STDOUT` | `100000` | Characters of captured stdout kept; the rest is truncated. |
@@ -1143,7 +1144,7 @@ before you decide to turn one off.
 | `SAGEMATH_MCP_SECURITY_MAX_AST_DEPTH` | `75` | Maximum AST nesting depth per evaluation. |
 
 ## Troubleshooting Tips
-- **ModuleNotFoundError for `sage`**: ensure the server is launched via `sage -python ...` so Sage’s site-packages are on `PYTHONPATH`.
+- **ModuleNotFoundError for `sage`** in the worker: `SAGEMATH_MCP_SAGE_BINARY` (or the `sage` found first) is not the Sage you meant. The worker runs on that Sage's own Python -- `sage -python`, or the interpreter a console-script `sage` names -- so point the variable at the right executable.
 - **Long-running jobs**: use `interrupt_sage_session` first — it stops the computation and keeps your variables. `cancel_sage_session` also works but restarts the worker, so everything defined in that session is gone.
 - **Idle sessions**: the background culler removes sessions after `SAGEMATH_MCP_IDLE_TTL` seconds (default 900). Adjust it with `SAGEMATH_MCP_IDLE_TTL`; every setting is listed under [Configuration reference](#configuration-reference) above. (This line used to point at `README.md`, which documents no environment variables at all.)
 - **`SecurityViolation` on ordinary-looking code**: caller code is checked

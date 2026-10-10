@@ -11,8 +11,9 @@ SageMath MCP server.
 > **SageMath 10.10**, and the set of names callers may use is generated from that
 > version.
 >
-> If `sage` is on your `PATH` already, the server uses it and no container is
-> needed. Point `SAGEMATH_MCP_SAGE_BINARY` at it if it is installed somewhere
+> If `sage` is on your `PATH` already, or installed in the same environment as
+> the server (a conda env or venv, even when not activated), the server uses it
+> and no container is needed. Point `SAGEMATH_MCP_SAGE_BINARY` at it if it is installed somewhere
 > unusual.
 
 ## Cross-platform (pip/uv)

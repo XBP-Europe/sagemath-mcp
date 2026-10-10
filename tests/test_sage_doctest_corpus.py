@@ -435,10 +435,11 @@ def corpus() -> Harvest:
 
 # --- the assertions -----------------------------------------------------------
 #
-# Baselines measured against SageMath 10.9 (re-measured 2026-09-19 on main):
-# 3,168 sources, 60,094 docstrings, 432,878 examples, of which 370,062 accepted,
-# 4,366 refused and 58,268 out of scope -- 98.83% acceptance among in-scope
-# examples, in about a minute. On passagemath 10.8.11 the same sweep reads
+# Baselines measured against SageMath 10.10 (2026-10-05, doctest-corpus-stats.md):
+# 3,185 sources, 60,681 docstrings, 438,124 examples, of which 375,891 accepted,
+# 4,259 refused and 57,794 out of scope -- 98.88% acceptance among in-scope
+# examples, in about a minute. On 10.9 (2026-09-19) it read 432,878 examples at
+# 98.83%. On passagemath 10.8.11 the same sweep reads
 # 433,289 examples at 98.92%. The ledger since 2026-08-15's 98.60%: the
 # hardening of items 49-58 cost ~365 examples (libgap and the Pari family,
 # priced deliberately); item 59 won back 702 by modelling session injection and

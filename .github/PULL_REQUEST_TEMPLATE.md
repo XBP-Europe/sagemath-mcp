@@ -12,6 +12,7 @@
 
 - [ ] `uv run pytest` (coverage is gated at 100%, statements and branches)
 - [ ] `uv run ruff check` — the bare command, as CI runs it
+- [ ] `make typecheck` (mypy over `src/sagemath_mcp`)
 - [ ] `make integration-test` (if Sage container available)
 - [ ] Ran against **real SageMath**, not only the pure-Python worker, if behaviour changed
 - [ ] Other (specify): <!-- e.g. make cli-extended, compose smoke test -->

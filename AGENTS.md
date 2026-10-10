@@ -10,7 +10,8 @@
 - Use `scripts/run_ci_simulation.sh` to approximate `.github/workflows/ci.yml` locally (requires Docker, Helm, uv; it uses whichever Docker Compose is installed and says so, rather than skipping the smoke test when only v2 is present).
 
 ## Fast Commands
-- `make lint` → `uv run ruff check`
+- `make lint` → `uv run ruff check` (Bandit rules `S` apply to `src/`)
+- `make typecheck` → `uv run mypy` over `src/sagemath_mcp`; CI's lint job runs it
 - `make test` → pure-Python pytest suite (`uv run pytest`)
 - `make integration-test` → runs pytest inside the Sage container and captures logs (`integration.log`, `integration-artifacts.tar.gz`)
 - `make build` → `uv run python scripts/build_release.py` (sdist/wheel; respects prerequisite guardrails)

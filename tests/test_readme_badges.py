@@ -43,10 +43,21 @@ def test_fastmcp_badge_matches_the_declared_dependency() -> None:
     )
 
 
-def test_python_badge_matches_requires_python() -> None:
-    required = PYPROJECT["project"]["requires-python"]
-    badge = _badge_value("python").rstrip("+")
-    assert badge in required, f"README advertises python {badge}, pyproject says {required}"
+def test_the_python_badge_lists_the_versions_ci_tests() -> None:
+    """The badge reads the release's classifiers from PyPI, so those must be the
+    versions the unit job runs, starting at the requires-python floor."""
+    assert "img.shields.io/pypi/pyversions/sagemath-mcp" in README, "no Python badge"
+    classified = sorted(
+        c.rsplit(" :: ", 1)[1]
+        for c in PYPROJECT["project"]["classifiers"]
+        if re.fullmatch(r"Programming Language :: Python :: 3\.\d+", c)
+    )
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    matrix = re.search(r"python-version: \[([^\]]+)\]", ci)
+    assert matrix, "the CI unit job no longer has a Python version matrix"
+    tested = sorted(v.strip().strip('"') for v in matrix.group(1).split(","))
+    assert classified == tested, f"classifiers say {classified}, CI tests {tested}"
+    assert PYPROJECT["project"]["requires-python"] == f">={tested[0]}"
 
 
 def test_sagemath_badge_matches_the_container_base_image() -> None:
@@ -80,10 +91,36 @@ def test_coverage_badge_is_backed_by_a_ci_gate() -> None:
         ("Signed", ".github/workflows/release.yml"),
         ("PyPI attestations", ".github/workflows/release.yml"),
         ("OpenSSF Scorecard", ".github/workflows/scorecard.yml"),
+        ("Glama", "glama.json"),
     ],
 )
 def test_badges_that_point_at_a_file_point_at_one_that_exists(label: str, path: str) -> None:
     assert (ROOT / path).exists(), f"the {label} badge links to {path}, which is missing"
+
+
+def test_workflow_status_badges_point_at_workflows_that_run_on_main() -> None:
+    """A status badge for a deleted or never-triggered workflow renders as
+    "no status" forever, which reads as a claim nobody is backing."""
+    badges = re.findall(r"actions/workflows/([\w.-]+\.yml)/badge\.svg", README)
+    assert {"ci.yml", "codeql.yml", "audit.yml", "fuzz.yml"} <= set(badges)
+    for name in badges:
+        workflow = ROOT / ".github" / "workflows" / name
+        assert workflow.exists(), f"a README badge shows {name}, which does not exist"
+        triggers = workflow.read_text(encoding="utf-8")
+        assert re.search(r"^\s*(push|schedule):", triggers, re.M), (
+            f"{name} has a status badge but never runs on main by itself"
+        )
+
+
+def test_the_doctest_badge_quotes_the_last_sweep() -> None:
+    """Same contract as the prose figures: the number is the measured one."""
+    stats = (ROOT / "doctest-corpus-stats.md").read_text(encoding="utf-8")
+    measured = re.search(r"\*\*Acceptance \(in-scope\)\*\* \| \*\*([\d.]+)%\*\*", stats)
+    assert measured, "doctest-corpus-stats.md has changed shape"
+    badge = _badge_value("Sage%20doctests")
+    assert badge == f"{float(measured.group(1)):.2f}% accepted", (
+        f"the badge says {badge!r}, the last sweep measured {measured.group(1)}%"
+    )
 
 
 def test_the_typed_badge_means_ci_type_checks_the_package() -> None:

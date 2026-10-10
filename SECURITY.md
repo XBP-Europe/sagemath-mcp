@@ -264,7 +264,8 @@ crosses a trust boundary.
   here: a wrong number returned with no error is the worst failure this project
   has, because nothing tells the caller. Integers above 2^53 being rounded by a
   JSON client was exactly this.
-- Vulnerable dependencies (`pip-audit` runs in CI and weekly).
+- Vulnerable dependencies (`pip-audit` runs in CI and weekly). The package
+  itself is linted with Ruff's Bandit rules and type-checked with mypy in CI.
 
 ### Expected behaviour, not a vulnerability
 

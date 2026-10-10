@@ -46,7 +46,8 @@ def render(data: dict, generated: str) -> str:
         "",
         "Does the model get more mathematics right when it can run Sage, versus",
         "reasoning alone? Two arms over the fixed case set in `benchmarks/cases.json`,",
-        "every answer scored for *mathematical equivalence* in the SageMath 10.9",
+        "every answer scored for *mathematical equivalence* in the "
+        + (f"SageMath {data['sageVersion']}" if "sageVersion" in data else "project's SageMath"),
         "container (not string-matched). Produced by",
         "`benchmarks/outcome_benchmark.workflow.js`.",
         "",

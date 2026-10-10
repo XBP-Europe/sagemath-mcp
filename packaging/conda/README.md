@@ -39,8 +39,8 @@ the cap can be lifted.
 
 ## What it deliberately does not do
 
-It does **not** depend on `sage`. The server runs `sage -python` from `PATH` at
-run time and works equally with the `[passagemath]` extra or the hardened
+It does **not** depend on `sage`. The server finds `sage` at run time -- on
+`PATH`, or beside its own Python in the same environment -- and works equally with the `[passagemath]` extra or the hardened
 container; a hard dependency would force a multi-gigabyte install on everyone.
 The `about/description` says so, and the test section only runs `--help`, which
 is the one command that works without a Sage runtime.

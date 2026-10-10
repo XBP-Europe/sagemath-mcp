@@ -26,7 +26,7 @@ Thank you for your interest in improving the SageMath MCP server! This guide exp
 
 - Create a feature branch (`git checkout -b feature/my-change`) from `main` (the default branch).
 - Open pull requests against `main` and rebase onto the latest `origin/main` before submission.
-- Run `uv run ruff check` and `uv run pytest` before submitting changes.
+- Run `make lint`, `make typecheck` and `make test` before submitting changes.
 - For Sage-backed tests, run `make integration-test` (requires the Docker container).
 - Follow the project’s [Agent Playbook](AGENTS.md) and [Testing Guide](TESTING.md) for tips on helper scripts and CI requirements.
 
@@ -39,6 +39,11 @@ code, so they are listed here rather than discovered.
   unit job. A new branch needs a test that reaches it; if a branch is genuinely
   unreachable, delete it rather than exempt it — that is how most of them were
   resolved.
+- **Lint and type check.** `uv run ruff check` includes Ruff's Bandit rules
+  (`S`) for `src/`; a finding there is fixed, or suppressed on its line with
+  `# noqa: S...` and the reason. `make typecheck` runs mypy over
+  `src/sagemath_mcp` and fails the lint job on any error -- the package ships
+  `py.typed`, so its annotations are a promise to importers.
 - **The tool inventory is snapshotted.** Adding, renaming or re-describing a tool
   changes the MCP contract and fails `tests/test_tool_inventory.py`. Regenerate
   deliberately: `python -m tests.test_tool_inventory --write`, and expect the diff
@@ -50,8 +55,11 @@ code, so they are listed here rather than discovered.
   under a policy that permits `sage_eval`, so a parameter interpolated without
   `encode_literal`, `validated_expression` or `validated_identifier` is
   arbitrary execution. A structural test fails if one appears.
-- **README claims are tested.** The security table, the badge versions and the
-  coverage number are all checked against the code and the workflows.
+- **README claims are tested.** The security table, the badge versions, the
+  coverage number and the doctest-acceptance figure are all checked against the
+  code, the workflows and `doctest-corpus-stats.md`; every workflow status badge
+  must name a workflow that runs on `main`. When the corpus sweep moves the
+  acceptance figure, update the badge with it.
 - **Documented examples must be exercised.** Anything quoted in a `Field(...)`
   description has to appear in a test — that rule exists because a documented
   spelling once shipped broken.

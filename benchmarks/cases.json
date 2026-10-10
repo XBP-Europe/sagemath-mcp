@@ -1,5 +1,5 @@
 {
-  "description": "Fixed outcome-benchmark case set for the SageMath MCP server. Each case has a verified ground-truth answer (computed in the SageMath 10.9 container). Difficulty tiers: A = grade-school arithmetic (GSM8K-style), B = competition mathematics (MATH-style), C = advanced problems a CAS is built for. Answers are checked for mathematical equivalence in Sage, not string-matched.",
+  "description": "Fixed outcome-benchmark case set for the SageMath MCP server. Each case has a verified ground-truth answer (computed in the SageMath 10.9 container, re-verified unchanged on 10.10 on 2026-10-10). Difficulty tiers: A = grade-school arithmetic (GSM8K-style), B = competition mathematics (MATH-style), C = advanced problems a CAS is built for. Answers are checked for mathematical equivalence in Sage, not string-matched.",
   "seed": 20260907,
   "cases": [
     {

@@ -10,6 +10,8 @@
 //
 // Run:  Workflow({ scriptPath: "benchmarks/outcome_benchmark.workflow.js",
 //                  args: <parsed cases.json> })
+// Lean (2 agents): add  cohortBy: 'arm', score: 'none'  to args, then score with
+// benchmarks/score_answers.py in the Sage container.
 // The case set is passed in as `args` so the script has a fixed, seeded input.
 //
 // Honest limitation: "no_tools" is prompt-enforced (the subagent is told not to
@@ -39,6 +41,15 @@ const arms = ['no_tools', 'sage']
 // a step up. Override via args.subjectModel / args.judgeModel.
 const SUBJECT_MODEL = args.subjectModel || 'haiku'
 const JUDGE_MODEL = args.judgeModel || 'sonnet'
+
+// Token budget. Each agent carries a fixed context cost, so the default -- one
+// solver per (tier, arm) plus a judge per solver, 20 agents -- spends most of
+// its tokens on overhead. `cohortBy: 'arm'` gives each arm one solver over the
+// whole set (2 agents), and `score: 'none'` skips the judges and returns the
+// answers unscored for `benchmarks/score_answers.py` to check in Sage, which
+// applies the judge prompt's rules deterministically. Both together: 2 agents.
+const COHORT_BY = args.cohortBy || 'tier'
+const SCORE = args.score || 'judge'
 
 const SOLVE_SCHEMA = {
   type: 'object',
@@ -139,14 +150,19 @@ function scorePrompt(tierCases, solved) {
 }
 
 phase('Solve')
-const cohorts = tiers.flatMap((t) => arms.map((arm) => ({ t, arm })))
+// t === null is a cohort over the whole case set.
+const cohorts =
+  COHORT_BY === 'arm'
+    ? arms.map((arm) => ({ t: null, arm }))
+    : tiers.flatMap((t) => arms.map((arm) => ({ t, arm })))
+const inCohort = (t) => cases.filter((c) => t === null || c.tier === t)
 
 const results = await pipeline(
   cohorts,
   ({ t, arm }) => {
-    const tc = cases.filter((c) => c.tier === t)
+    const tc = inCohort(t)
     return agent(solvePrompt(tc, arm), {
-      label: `solve:${t}:${arm}`,
+      label: `solve:${t || 'all'}:${arm}`,
       phase: 'Solve',
       schema: SOLVE_SCHEMA,
       agentType: 'general-purpose',
@@ -155,10 +171,10 @@ const results = await pipeline(
     }).then((sol) => ({ t, arm, sol }))
   },
   ({ t, arm, sol }) => {
-    const tc = cases.filter((c) => c.tier === t)
-    if (!sol) return { t, arm, sol: null, sc: null }
+    const tc = inCohort(t)
+    if (!sol || SCORE === 'none') return { t, arm, sol, sc: null }
     return agent(scorePrompt(tc, sol), {
-      label: `score:${t}:${arm}`,
+      label: `score:${t || 'all'}:${arm}`,
       phase: 'Score',
       schema: SCORE_SCHEMA,
       agentType: 'general-purpose',
@@ -173,7 +189,7 @@ for (const r of results.filter(Boolean)) {
   const { t, arm, sol, sc } = r
   const answers = (sol && sol.answers) || []
   const verdicts = (sc && sc.verdicts) || []
-  for (const c of cases.filter((x) => x.tier === t)) {
+  for (const c of inCohort(t)) {
     const a = answers.find((x) => x.id === c.id) || {
       answer: null,
       refused: true,
@@ -183,14 +199,14 @@ for (const r of results.filter(Boolean)) {
     const v = verdicts.find((x) => x.id === c.id) || { correct: false, note: 'no verdict' }
     perProblem.push({
       id: c.id,
-      tier: t,
+      tier: c.tier,
       arm,
       answer: a.answer,
       refused: !!a.refused,
       confident: !!a.confident,
       tool_calls: a.tool_calls || 0,
-      correct: !!v.correct,
-      wrong_confident: !!a.confident && !v.correct && !a.refused,
+      correct: SCORE === 'none' ? null : !!v.correct,
+      wrong_confident: SCORE === 'none' ? null : !!a.confident && !v.correct && !a.refused,
     })
   }
 }
@@ -214,8 +230,18 @@ for (const t of tiers) {
 }
 
 log(
-  `no_tools ${summary.overall.no_tools.correct}/${summary.overall.no_tools.total}` +
-    ` vs sage ${summary.overall.sage.correct}/${summary.overall.sage.total}`,
+  SCORE === 'none'
+    ? `unscored: ${perProblem.length} answers -- run benchmarks/score_answers.py`
+    : `no_tools ${summary.overall.no_tools.correct}/${summary.overall.no_tools.total}` +
+        ` vs sage ${summary.overall.sage.correct}/${summary.overall.sage.total}`,
 )
 
-return { tiers, arms, subjectModel: SUBJECT_MODEL, judgeModel: JUDGE_MODEL, perProblem, summary }
+return {
+  tiers,
+  arms,
+  subjectModel: SUBJECT_MODEL,
+  judgeModel: SCORE === 'none' ? null : JUDGE_MODEL,
+  cohortBy: COHORT_BY,
+  perProblem,
+  summary: SCORE === 'none' ? null : summary,
+}

@@ -169,7 +169,8 @@ The measurements below can stay as supporting material. -->
 
 Two committed benchmarks measure what the server changes. On a fixed set of 24
 problems scored for mathematical equivalence in Sage, a small model answered
-17 correctly by reasoning alone and 24 with Sage compute. The whole difference
+19 correctly by reasoning alone and 24 with Sage compute (17 and 24 in an
+earlier run on SageMath 10.9). The whole difference
 was in the compute-heavy tiers, and it included one answer that was wrong but
 stated with confidence (`benchmark-stats.md`). On a hard tier of 14 problems a
 frontier coding client scored 4/14 without the server and 14/14 with it, using

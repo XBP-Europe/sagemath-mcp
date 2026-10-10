@@ -7,6 +7,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **The outcome benchmark was re-run on SageMath 10.10, at a tenth of the
+  tokens.** `haiku` scored 19/24 by reasoning alone and 24/24 with Sage (+5;
+  the 2026-09-07 run on 10.9 read 17 and 24). Two new workflow options make
+  that cheap: `cohortBy: 'arm'` gives each arm one solver over the whole set,
+  and `score: 'none'` skips the judge agents in favour of
+  `benchmarks/score_answers.py`, which applies the judge prompt's rules in Sage
+  deterministically -- 2 agents instead of 20, about 80k subagent tokens
+  instead of 790k. The scorer reproduces the Sonnet judge's verdict on all 48
+  answers of the earlier run. The stats page counts Sage calls from the
+  transcript, not from the agent's own report, which claimed 24 for 2.
+
 ## [0.9.4] - 2026-10-10
 
 **The conda-forge release.** 0.9.3 reached conda-forge but could not start a

@@ -7,6 +7,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-10-10
+
+**The conda-forge release.** 0.9.3 reached conda-forge but could not start a
+worker on conda-forge's own `sage`; this release can, and documents the conda
+install. It also type-checks the package with mypy, adds Ruff's Bandit rules
+to lint, and refreshes the dependency lock. No change to the tool surface or
+client contract, and every security-policy verdict is unchanged (the doctest
+corpus fingerprint is identical to 0.9.3's).
+
 ### Added
 
 - **The package is on conda-forge.** conda-forge/staged-recipes#34875 merged on

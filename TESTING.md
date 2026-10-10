@@ -66,6 +66,7 @@ that gap.
 ```bash
 make test                      # unit suite, no Sage required
 make lint                      # ruff
+make typecheck                 # mypy over src/sagemath_mcp
 uv run pytest tests/test_session.py -k test_session_stateful_evaluation   # one test
 ```
 

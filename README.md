@@ -12,7 +12,7 @@
 [![FastMCP](https://img.shields.io/badge/FastMCP-4.0%2B-green.svg)](https://gofastmcp.com/)
 [![SageMath](https://img.shields.io/badge/SageMath-10.10-orange)](https://www.sagemath.org/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://docs.astral.sh/ruff/)
-[![Typed](https://img.shields.io/badge/type--checked-py.typed-blue)](https://peps.python.org/pep-0561/)
+[![Typed](https://img.shields.io/badge/type--checked-mypy-blue)](https://mypy-lang.org/)
 [![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg)](https://github.com/XBP-Europe/sagemath-mcp/actions/workflows/ci.yml)
 [![Downloads](https://img.shields.io/pypi/dm/sagemath-mcp.svg)](https://pypi.org/project/sagemath-mcp/)
 [![MCP Registry](https://img.shields.io/badge/MCP%20Registry-listed-purple)](https://registry.modelcontextprotocol.io/)
@@ -71,8 +71,8 @@ sagemath-mcp                                             # stdio (default)
 sagemath-mcp --transport streamable-http --port 8314    # HTTP on 127.0.0.1
 ```
 
-This needs a working SageMath on the host — either `sage` on your `PATH` or the
-`sagemath/sagemath` Docker image.
+This needs a working SageMath on the host — either `sage` on your `PATH` (or in
+the same environment as the server) or the `sagemath/sagemath` Docker image.
 
 **A Sage runtime without the 3 GB image ([passagemath](https://github.com/passagemath/passagemath), optional):**
 

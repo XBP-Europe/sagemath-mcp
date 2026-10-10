@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import logging
 import time
+from typing import TYPE_CHECKING, Any
 
 from fastmcp.exceptions import ToolError  # noqa: F401 - re-exported for callers and tests
 
@@ -17,6 +18,10 @@ from .app import mcp
 from .config import DEFAULT_SETTINGS  # noqa: F401 - part of this module's long-standing surface
 from .errors import SageProcessError
 from .manager import DEFAULT_SESSION_NAME
+
+if TYPE_CHECKING:
+    from starlette.requests import Request
+    from starlette.responses import Response
 
 # The tool functions are re-exported here because `sagemath_mcp.server` is the
 # documented import surface: the console script, `python -m sagemath_mcp.server`,
@@ -97,7 +102,7 @@ _SESSION_ARG_DESC = (
 # ---------------------------------------------------------------------------
 
 
-async def health_check(request: object) -> object:
+async def health_check(request: Request) -> Response:
     """Liveness: is the server process up and answering HTTP?
 
     Deliberately shallow. This must not depend on a Sage worker: a liveness
@@ -124,7 +129,7 @@ _READINESS_SESSION_KEY = "__readiness_probe__"
 _READINESS_TIMEOUT_SECONDS = 10.0
 
 
-async def readiness_check(request: object) -> object:
+async def readiness_check(request: Request) -> Response:
     """Readiness: can the server actually evaluate mathematics right now?
 
     A TCP connect or the shallow /health both pass while the Sage backend is
@@ -276,7 +281,7 @@ def main(argv: list[str] | None = None) -> None:  # pragma: no cover - CLI entry
 
     logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO))
 
-    transport_kwargs: dict[str, object] = {}
+    transport_kwargs: dict[str, Any] = {}
     if args.transport == "stdio":
         # One client for the life of the process, so the process is its
         # identity. Under fastmcp 4 the transport's session id changes every

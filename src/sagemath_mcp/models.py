@@ -7,25 +7,6 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-class EvaluateRequest(BaseModel):
-    """Input payload for executing Sage code."""
-
-    code: str = Field(..., description="SageMath code snippet to execute.")
-    capture_stdout: bool = Field(
-        default=True,
-        description="Capture stdout emitted by the Sage interpreter.",
-    )
-    want_latex: bool = Field(
-        default=False,
-        description="Attempt to convert expression results to LaTeX.",
-    )
-    timeout: float | None = Field(
-        default=None,
-        description="Override the evaluation timeout (seconds).",
-        ge=0.1,
-    )
-
-
 class EvaluateResult(BaseModel):
     result_type: Literal["expression", "statement"]
     result: str | None = Field(

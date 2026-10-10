@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 
 
 def _float_from_env(name: str, default: float) -> float:
@@ -79,32 +79,34 @@ class SageSettings:
 
     @classmethod
     def from_env(cls) -> SageSettings:
-        defaults = {field.name: field.default for field in fields(cls)}
+        # An instance rather than a dict over fields(): every field has a plain
+        # default, and attribute access keeps each one's type.
+        defaults = cls()
         return cls(
-            sage_binary=os.getenv("SAGEMATH_MCP_SAGE_BINARY", defaults["sage_binary"]),
-            startup_code=os.getenv("SAGEMATH_MCP_STARTUP", defaults["startup_code"]),
-            eval_timeout=_float_from_env("SAGEMATH_MCP_EVAL_TIMEOUT", defaults["eval_timeout"]),
-            idle_ttl=_float_from_env("SAGEMATH_MCP_IDLE_TTL", defaults["idle_ttl"]),
+            sage_binary=os.getenv("SAGEMATH_MCP_SAGE_BINARY", defaults.sage_binary),
+            startup_code=os.getenv("SAGEMATH_MCP_STARTUP", defaults.startup_code),
+            eval_timeout=_float_from_env("SAGEMATH_MCP_EVAL_TIMEOUT", defaults.eval_timeout),
+            idle_ttl=_float_from_env("SAGEMATH_MCP_IDLE_TTL", defaults.idle_ttl),
             shutdown_grace=_float_from_env(
-                "SAGEMATH_MCP_SHUTDOWN_GRACE", defaults["shutdown_grace"]
+                "SAGEMATH_MCP_SHUTDOWN_GRACE", defaults.shutdown_grace
             ),
             max_stdout_chars=_int_from_env(
-                "SAGEMATH_MCP_MAX_STDOUT", defaults["max_stdout_chars"]
+                "SAGEMATH_MCP_MAX_STDOUT", defaults.max_stdout_chars
             ),
             max_sessions=_int_from_env(
-                "SAGEMATH_MCP_MAX_SESSIONS", defaults["max_sessions"]
+                "SAGEMATH_MCP_MAX_SESSIONS", defaults.max_sessions
             ),
             warm_pool_size=_int_from_env(
-                "SAGEMATH_MCP_WARM_POOL_SIZE", defaults["warm_pool_size"]
+                "SAGEMATH_MCP_WARM_POOL_SIZE", defaults.warm_pool_size
             ),
             force_python_worker=_bool_from_env(
-                "SAGEMATH_MCP_FORCE_PYTHON_WORKER", defaults["force_python_worker"]
+                "SAGEMATH_MCP_FORCE_PYTHON_WORKER", defaults.force_python_worker
             ),
             persist_sessions=_bool_from_env(
-                "SAGEMATH_MCP_PERSIST_SESSIONS", defaults["persist_sessions"]
+                "SAGEMATH_MCP_PERSIST_SESSIONS", defaults.persist_sessions
             ),
             persist_dir=os.getenv(
-                "SAGEMATH_MCP_PERSIST_DIR", defaults["persist_dir"]
+                "SAGEMATH_MCP_PERSIST_DIR", defaults.persist_dir
             ),
             http_auth_token=_optional_str_from_env("SAGEMATH_MCP_HTTP_AUTH_TOKEN"),
         )

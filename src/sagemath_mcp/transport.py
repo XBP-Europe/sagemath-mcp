@@ -125,7 +125,7 @@ def _reconstruct_result(text: str):
     """
     try:
         return ast.literal_eval(text)
-    except Exception:
+    except Exception:  # noqa: S110 - falls through to the non-finite evaluator below
         pass
     try:
         node = ast.parse(text, mode="eval").body
@@ -140,7 +140,7 @@ def _reconstruct_result(text: str):
 _NON_FINITE_NAMES = {"inf": math.inf, "nan": math.nan}
 
 
-def _eval_literal_allowing_non_finite(node: ast.AST):
+def _eval_literal_allowing_non_finite(node: ast.AST | None):
     if isinstance(node, ast.Constant):
         return node.value
     if isinstance(node, ast.Name) and node.id in _NON_FINITE_NAMES:

@@ -7,6 +7,20 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **The package is type-checked.** It has shipped `py.typed` (and a "Typed"
+  badge) without anything checking the annotations; `make typecheck` now runs
+  mypy over `src/sagemath_mcp` and CI's lint job fails on an error, and a badge
+  test ties the claim to that step. The 88 first-run errors are fixed rather
+  than ignored: the session mixins declare what `SageSession` provides,
+  `require_context` returns the context it checked, `SageSettings.from_env`
+  reads typed defaults, and optional values are narrowed before reaching
+  `encode_literal`. No behaviour changes.
+- **Ruff's Bandit rules (`S`) guard the shipped package.** Scoped to `src/`;
+  every remaining finding is a line-level `noqa` with its reason -- the worker's
+  `exec`/`eval` are the sandbox's execution point, the asserts only narrow types.
+
 ### Changed
 
 - **Dependency lock refreshed** (`uv lock --upgrade`): fastmcp 4.1.0,
@@ -14,6 +28,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   other patch updates; `requirements-passagemath.txt` re-exported to match.
   `pip-audit` clean; the unit suite, the cache-isolation tests and lint pass
   unchanged.
+
+### Removed
+
+- **`models.EvaluateRequest`**, a Pydantic model nothing used.
 
 ### Fixed
 

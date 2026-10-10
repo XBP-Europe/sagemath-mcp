@@ -8,9 +8,15 @@ import json
 import logging
 import os
 import re
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .errors import SageProcessError
+
+if TYPE_CHECKING:
+    from .config import SageSettings
+    from .session import WorkerResult
 
 # The session logger, not this module's own: these lines were logged under
 # `sagemath_mcp.session` before the 2026-09 split and still are.
@@ -41,6 +47,12 @@ class JournalMixin:
     subject -- file naming, legacy paths, crash-safe writes -- and none of it
     touches the worker process.
     """
+
+    # Provided by SageSession; declared so the type checker sees them here.
+    session_id: str
+    settings: SageSettings
+    _code_journal: list[tuple[str, bool]]
+    evaluate: Callable[..., Awaitable[WorkerResult]]
 
     def _persist_path(self) -> Path | None:
         """Return the journal file path if persistence is enabled."""
@@ -77,8 +89,7 @@ class JournalMixin:
         sanitized = re.sub(r"[^A-Za-z0-9._-]", "_", self.session_id)
         if sanitized == self.session_id and self.session_id:
             candidates.append(d / f"{self.session_id}.journal.json")
-        seen: set[Path] = set()
-        return [p for p in candidates if not (p in seen or seen.add(p))]
+        return list(dict.fromkeys(candidates))     # de-duplicated, order kept
 
     def _discard_persisted_journal(self) -> None:
         """Delete the on-disk journal, so a reset is not undone by a replay.

@@ -8,7 +8,7 @@ import re
 import textwrap
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypeGuard
 
 from .imports import attribute_segments
 from .policy import SECURITY_POLICY, SecurityPolicy, SecurityViolation
@@ -95,7 +95,7 @@ def attrcall_attribute_violation(
     return None
 
 
-def _screened_attrcall(node: ast.AST, policy: SecurityPolicy) -> bool:
+def _screened_attrcall(node: ast.AST, policy: SecurityPolicy) -> TypeGuard[ast.Call]:
     """Is *node* an `attrcall('name', ...)` whose literal passes the screen?
 
     The shape is judged as strictly as the name: the first positional argument

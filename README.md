@@ -83,12 +83,12 @@ the same environment as the server) or the `sagemath/sagemath` Docker image.
 **From conda-forge (Linux and macOS, next to conda-forge's Sage):**
 
 ```bash
-conda install -c conda-forge sagemath-mcp sage
+conda install -c conda-forge "sagemath-mcp>=0.9.4" sage
 sagemath-mcp
 ```
 
-Needs sagemath-mcp 0.9.4 or later; earlier releases cannot start a worker on
-conda-forge's `sage`. That `sage` is 10.9, one release behind the 10.10 the
+The version floor matters: earlier releases cannot start a worker on
+conda-forge's `sage`, and without it the solver may pick one. That `sage` is 10.9, one release behind the 10.10 the
 security artifacts are generated from, so names 10.10 added are unavailable and
 nothing outside the allowlist is admitted.
 

@@ -55,6 +55,14 @@ def render(data: dict, generated: str) -> str:
         f"- Cases: {nt['total']} across tiers: {', '.join(tiers)}",
         f"- Subject model (under test): `{data.get('subjectModel', 'unknown')}`"
         f"; scoring judge: `{data.get('judgeModel', 'unknown')}`",
+        *(
+            [
+                "- Cohorts: one solver per arm over the whole case set (the lean, 2-agent",
+                "  mode); earlier runs used one solver per tier and arm.",
+            ]
+            if data.get("cohortBy") == "arm"
+            else []
+        ),
         "- This is as much a measurement of the subject model as of the server; a",
         "  stronger model closes the gap on its own. Never CI-gated.",
         "",
@@ -63,12 +71,20 @@ def render(data: dict, generated: str) -> str:
         "| Arm | Correct | Wrong-confident | Refused | Sage calls |",
         "| --- | ---: | ---: | ---: | ---: |",
     ]
+    measured = data.get("sageInvocationsMeasured")
     for arm in arms:
         t = overall[arm]
+        calls = f"{measured}†" if arm == "sage" and measured is not None else t["toolCalls"]
         lines.append(
             f"| {ARM_LABEL.get(arm, arm)} | {_acc(t)} | {t['wrongConfident']} "
-            f"| {t['refused']} | {t['toolCalls']} |"
+            f"| {t['refused']} | {calls} |"
         )
+    if measured is not None:
+        lines += [
+            "",
+            f"† Counted from the agent's transcript: {measured} Sage invocations, one script",
+            "  computing every problem. The agent's own per-problem count is not used.",
+        ]
     lines += [
         "",
         f"**Delta: +{delta}** answers correct with Sage compute "

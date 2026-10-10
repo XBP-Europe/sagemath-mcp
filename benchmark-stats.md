@@ -2,13 +2,15 @@
 
 Does the model get more mathematics right when it can run Sage, versus
 reasoning alone? Two arms over the fixed case set in `benchmarks/cases.json`,
-every answer scored for *mathematical equivalence* in the SageMath 10.9
+every answer scored for *mathematical equivalence* in the SageMath 10.10
 container (not string-matched). Produced by
 `benchmarks/outcome_benchmark.workflow.js`.
 
-- Generated: 2026-09-07
+- Generated: 2026-10-10
 - Cases: 24 across tiers: arithmetic, competition, advanced, compute-heavy, infeasible
-- Subject model (under test): `haiku`; scoring judge: `sonnet`
+- Subject model (under test): `haiku`; scoring judge: `none (deterministic Sage check, benchmarks/score_answers.py)`
+- Cohorts: one solver per arm over the whole case set (the lean, 2-agent
+  mode); earlier runs used one solver per tier and arm.
 - This is as much a measurement of the subject model as of the server; a
   stronger model closes the gap on its own. Never CI-gated.
 
@@ -16,10 +18,13 @@ container (not string-matched). Produced by
 
 | Arm | Correct | Wrong-confident | Refused | Sage calls |
 | --- | ---: | ---: | ---: | ---: |
-| Reasoning only | 17/24 (71%) | 1 | 6 | 0 |
-| With Sage compute | 24/24 (100%) | 0 | 0 | 37 |
+| Reasoning only | 19/24 (79%) | 1 | 4 | 0 |
+| With Sage compute | 24/24 (100%) | 0 | 0 | 2† |
 
-**Delta: +7** answers correct with Sage compute (17/24 (71%) → 24/24 (100%)).
+† Counted from the agent's transcript: 2 Sage invocations, one script
+  computing every problem. The agent's own per-problem count is not used.
+
+**Delta: +5** answers correct with Sage compute (19/24 (79%) → 24/24 (100%)).
 
 ## By tier
 
@@ -28,8 +33,8 @@ container (not string-matched). Produced by
 | arithmetic | 4/4 (100%) | 4/4 (100%) | 0 |
 | competition | 5/5 (100%) | 5/5 (100%) | 0 |
 | advanced | 5/5 (100%) | 5/5 (100%) | 0 |
-| compute-heavy | 3/5 (60%) | 5/5 (100%) | +2 |
-| infeasible | 0/5 (0%) | 5/5 (100%) | +5 |
+| compute-heavy | 4/5 (80%) | 5/5 (100%) | +1 |
+| infeasible | 1/5 (20%) | 5/5 (100%) | +4 |
 
 ## Per problem
 
@@ -55,11 +60,11 @@ a wrong-confident cell (⚠) is the failure mode `verify_claim` exists for.
 | D1 | compute-heavy | ✓ | ✓ |
 | D2 | compute-heavy | ✓ | ✓ |
 | D3 | compute-heavy | ⚠ wrong | ✓ |
-| D4 | compute-heavy | — (refused) | ✓ |
+| D4 | compute-heavy | ✓ | ✓ |
 | D5 | compute-heavy | ✓ | ✓ |
 | E1 | infeasible | — (refused) | ✓ |
 | E2 | infeasible | — (refused) | ✓ |
-| E3 | infeasible | — (refused) | ✓ |
+| E3 | infeasible | ✓ | ✓ |
 | E4 | infeasible | — (refused) | ✓ |
 | E5 | infeasible | — (refused) | ✓ |
 

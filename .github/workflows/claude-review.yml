@@ -73,7 +73,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      - uses: anthropics/claude-code-action@97c53473391bff1901034d4b454b5bac7ab7a029 # v1.0
+      - uses: anthropics/claude-code-action@2dca132ff0e0c4094ce6048b422c6915a071210b # v1.0
         if: steps.creds.outputs.present == 'true'
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}

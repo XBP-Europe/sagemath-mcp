@@ -14,6 +14,30 @@
       "registryType": "pypi",
       "identifier": "sagemath-mcp",
       "version": "0.9.4",
+      "runtimeHint": "uvx",
+      "runtimeArguments": [
+        {
+          "type": "named",
+          "name": "--from",
+          "value": "sagemath-mcp[passagemath]==0.9.4",
+          "description": "Installs the passagemath extra, which brings the Sage runtime (about 1 GB, downloaded on first launch). Without it the server starts but every evaluation fails for want of a Sage to drive."
+        }
+      ],
+      "transport": {
+        "type": "stdio"
+      }
+    },
+    {
+      "registryType": "oci",
+      "identifier": "ghcr.io/xbp-europe/sagemath-mcp:0.9.4",
+      "packageArguments": [
+        {
+          "type": "named",
+          "name": "--transport",
+          "value": "stdio",
+          "description": "The image serves streamable HTTP by default; a client that runs it with docker run -i speaks stdio."
+        }
+      ],
       "transport": {
         "type": "stdio"
       }

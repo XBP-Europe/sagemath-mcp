@@ -21,6 +21,7 @@ CITATION_PATH = PROJECT_ROOT / "CITATION.cff"
 MCPB_MANIFEST_PATH = PROJECT_ROOT / "packaging" / "mcpb" / "manifest.json"
 MCPB_PYPROJECT_PATH = PROJECT_ROOT / "packaging" / "mcpb" / "pyproject.toml"
 GEMINI_EXTENSION_PATH = PROJECT_ROOT / "gemini-extension.json"
+CLAUDE_PLUGIN_PATH = PROJECT_ROOT / "packaging" / "claude-plugin" / ".claude-plugin" / "plugin.json"
 
 PYPROJECT_VERSION_PATTERN: Pattern[str] = re.compile(
     r'^(version\s*=\s*)"(?P<version>\d+\.\d+\.\d+)"\s*$', re.MULTILINE
@@ -108,7 +109,16 @@ def _write_server_json(new_version: str) -> None:
     manifest = json.loads(SERVER_JSON_PATH.read_text(encoding="utf-8"))
     manifest["version"] = new_version
     for package in manifest.get("packages", []):
+        if package.get("registryType") == "oci":
+            # An image carries its version as the tag in `identifier`.
+            package["identifier"] = re.sub(
+                r":\d+\.\d+\.\d+$", f":{new_version}", package["identifier"]
+            )
+            continue
         package["version"] = new_version
+        for argument in package.get("runtimeArguments", []):
+            if "value" in argument:
+                argument["value"] = _repin(argument["value"], new_version)
     SERVER_JSON_PATH.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
 
@@ -126,6 +136,7 @@ def _write_all(new_version: str) -> None:
     _write_citation(new_version)
     _write_mcpb(new_version)
     _write_gemini_extension(new_version)
+    _write_claude_plugin(new_version)
 
 
 def _write_mcpb(new_version: str) -> None:
@@ -164,14 +175,31 @@ def _write_gemini_extension(new_version: str) -> None:
     manifest = json.loads(GEMINI_EXTENSION_PATH.read_text(encoding="utf-8"))
     manifest["version"] = new_version
     for server in manifest.get("mcpServers", {}).values():
-        server["args"] = [
-            re.sub(r"^(sagemath-mcp\[passagemath\]==)\d+\.\d+\.\d+$",
-                   rf"\g<1>{new_version}", arg)
-            for arg in server.get("args", [])
-        ]
+        server["args"] = [_repin(arg, new_version) for arg in server.get("args", [])]
     GEMINI_EXTENSION_PATH.write_text(
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
     )
+
+
+def _repin(arg: str, new_version: str) -> str:
+    """Move a `sagemath-mcp[passagemath]==X.Y.Z` launcher pin to the new version."""
+    return re.sub(r"^(sagemath-mcp\[passagemath\]==)\d+\.\d+\.\d+$",
+                  rf"\g<1>{new_version}", arg)
+
+
+def _write_claude_plugin(new_version: str) -> None:
+    """Update the Claude plugin's version and the release its server launches.
+
+    The Claude directory requires the launcher to pin an exact release, and it
+    re-scans each new plugin version, so both move together.
+    """
+    if not CLAUDE_PLUGIN_PATH.exists():
+        return
+    manifest = json.loads(CLAUDE_PLUGIN_PATH.read_text(encoding="utf-8"))
+    manifest["version"] = new_version
+    for server in manifest.get("mcpServers", {}).values():
+        server["args"] = [_repin(arg, new_version) for arg in server.get("args", [])]
+    CLAUDE_PLUGIN_PATH.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
 
 def _write_citation(new_version: str) -> None:

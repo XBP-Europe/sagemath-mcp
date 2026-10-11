@@ -7,6 +7,22 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **A Claude Code plugin, and this repository as its marketplace.**
+  `/plugin install sagemath-mcp --marketplace XBP-Europe/sagemath-mcp` installs
+  `packaging/claude-plugin/`, which launches the server through `uvx`, pinned to
+  the release the plugin version names (the bump script moves both). The Claude
+  directory no longer accepts local servers as `.mcpb` bundles, only inside a
+  plugin, so this is also the shape a directory submission takes.
+- **Install in VS Code and Install in Cursor buttons** in the README.
+- **`PRIVACY.md`**: the server sends nothing anywhere; what it keeps (session
+  state in memory, journals only when enabled, logs) and where. Directory
+  submissions ask for one.
+- **An icon** (`docs/assets/icon.png`), also shipped in the `.mcpb` bundle.
+- **The image carries `io.modelcontextprotocol.server.name`**, the label the
+  official registry checks before listing an image as this server's.
+
 ### Changed
 
 - **The outcome benchmark was re-run on SageMath 10.10, at a tenth of the
@@ -19,6 +35,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   instead of 790k. The scorer reproduces the Sonnet judge's verdict on all 48
   answers of the earlier run. The stats page counts Sage calls from the
   transcript, not from the agent's own report, which claimed 24 for 2.
+
+### Fixed
+
+- **Installing from the official MCP registry gave a server with no Sage.** The
+  registry entry listed plain `sagemath-mcp` from PyPI, so a client or gallery
+  that builds its install command from the registry entry started a server whose every evaluation failed with "Unable to locate Sage
+  executable". The PyPI package now carries a `uvx --from=sagemath-mcp[passagemath]==<version>`
+  hint, and the entry lists the GHCR image as a second package, run with
+  `--transport=stdio` (checked end to end against the 0.9.4 image: 40 tools, a
+  correct evaluation). The release publishes the entry only after the image
+  exists, and pins the version, the `--from` extra and the image tag together.
+- USAGE.md and INSTALLATION.md still pinned 0.8.2 in their install examples.
 
 ## [0.9.4] - 2026-10-10
 

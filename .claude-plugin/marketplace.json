@@ -1,0 +1,15 @@
+{
+  "name": "sagemath-mcp",
+  "description": "The SageMath MCP server as a Claude plugin, from the sagemath-mcp repository.",
+  "owner": {
+    "name": "XBP Europe",
+    "url": "https://github.com/XBP-Europe"
+  },
+  "plugins": [
+    {
+      "name": "sagemath-mcp",
+      "source": "./packaging/claude-plugin",
+      "description": "40 sandboxed SageMath tools with a persistent Sage session per conversation."
+    }
+  ]
+}

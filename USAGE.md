@@ -1040,31 +1040,47 @@ use `kubectl port-forward` (see chart `NOTES.txt`) or expose an ingress to reach
 
 ## Integrating with MCP Clients
 
-Three clients have a one-command install; everything else takes the JSON below.
+Four clients have a one-command install and two editors a one-click button;
+everything else takes the JSON below.
 
 **Claude Desktop and other MCPB hosts.** Download
 `sagemath-mcp-<version>.mcpb` from the
 [latest release](https://github.com/XBP-Europe/sagemath-mcp/releases/latest) and
 open it. See [`packaging/mcpb/README.md`](packaging/mcpb/README.md).
 
+**Claude Code.** This repository is a plugin marketplace, and the plugin in
+[`packaging/claude-plugin/`](packaging/claude-plugin/) launches the server pinned
+to the release its version names. Inside a session:
+
+```
+/plugin install sagemath-mcp --marketplace XBP-Europe/sagemath-mcp
+```
+
+`claude mcp add sagemath -- uvx --from "sagemath-mcp[passagemath]==0.9.4" sagemath-mcp`
+does the same without the plugin.
+
+**VS Code (Copilot) and Cursor.** The *Install in VS Code* and *Install in
+Cursor* buttons in the [README](README.md#connect-an-mcp-client) add the server
+with the same `uvx` command, unpinned.
+
 **Gemini CLI.** The repository is itself an extension:
 
 ```bash
-gemini extensions install https://github.com/XBP-Europe/sagemath-mcp --ref v0.8.2
+gemini extensions install https://github.com/XBP-Europe/sagemath-mcp --ref v0.9.4
 ```
 
 Pass the release tag you want as `--ref`; without it you get whatever `main`
 currently pins. `gemini extensions list` shows it afterwards, `uninstall`
 removes it.
 
-**Codex CLI.** Codex has no extension or bundle format, so it is one command
-rather than a package:
+**Codex CLI.** Codex's plugin directory lists only hosted servers, so for a
+local server it is one command:
 
 ```bash
-codex mcp add sagemath -- uvx --from "sagemath-mcp[passagemath]==0.8.2" sagemath-mcp
+codex mcp add sagemath -- uvx --from "sagemath-mcp[passagemath]==0.9.4" sagemath-mcp
 ```
 
-All three routes install a Sage runtime along with the server through the
+All of these install a Sage runtime along with the server through the
 `[passagemath]` extra, which is roughly a 1 GB download the first time and
 cached afterwards. They need `uv` on your PATH. If you would rather bring your
 own Sage, drop `[passagemath]` from the specification and make sure `sage` is on

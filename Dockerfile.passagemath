@@ -71,6 +71,10 @@ ENV HOME=/home/sage
 # /home/sage/.sage; matplotlib's default config dir under ~/.config is neither.
 ENV MPLCONFIGDIR=/tmp/matplotlib
 
+# The official MCP registry proves this image belongs to the server it lists by
+# reading this label; it must equal `name` in server.json.
+LABEL io.modelcontextprotocol.server.name="io.github.XBP-Europe/sagemath-mcp"
+
 EXPOSE 8314
 # passagemath-environment ships the `sage` wrapper (it accepts -python), so the
 # entrypoint and the worker's launch path are the same as in the monolithic

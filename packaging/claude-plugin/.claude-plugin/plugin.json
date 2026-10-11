@@ -1,0 +1,30 @@
+{
+  "name": "sagemath-mcp",
+  "displayName": "SageMath MCP",
+  "version": "0.9.4",
+  "description": "40 sandboxed SageMath tools for Claude: symbolic calculus, number theory, linear algebra, graphs, groups, elliptic curves, plotting and claim verification, with a persistent Sage session per conversation.",
+  "author": {
+    "name": "XBP Europe",
+    "url": "https://github.com/XBP-Europe"
+  },
+  "homepage": "https://github.com/XBP-Europe/sagemath-mcp",
+  "repository": "https://github.com/XBP-Europe/sagemath-mcp",
+  "license": "MIT",
+  "keywords": [
+    "sagemath",
+    "mathematics",
+    "computer-algebra",
+    "symbolic",
+    "number-theory"
+  ],
+  "mcpServers": {
+    "sagemath": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "sagemath-mcp[passagemath]==0.9.4",
+        "sagemath-mcp"
+      ]
+    }
+  }
+}

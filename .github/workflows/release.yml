@@ -672,15 +672,17 @@ jobs:
   # The registry verifies ownership by looking for an "mcp-name:" marker in the
   # published PyPI description, so this can only run once the package is live.
   mcp-registry:
-    needs: [publish]
+    needs: [publish, docker]
     # On a tag push, gated on a successful PyPI publish so the registry can never
     # announce a version that was not shipped. On a manual dispatch, publish is
     # skipped and this runs in dry-run mode. Same push-only publish policy as the
-    # steps below.
+    # steps below. Gated on `docker` too: server.json lists the GHCR image, and
+    # the registry verifies it by reading the image's
+    # io.modelcontextprotocol.server.name label, so the tag must exist first.
     if: >-
       always() &&
       ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-        && needs.publish.result == 'success')
+        && needs.publish.result == 'success' && needs.docker.result == 'success')
        || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
@@ -692,7 +694,17 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           VERSION="${VERSION:-0.0.0-dryrun}"
-          jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' \
+          # Every pin: the PyPI package's version and its `--from` extra, and
+          # the image tag, which an OCI package carries in its identifier.
+          jq --arg v "$VERSION" '
+            .version = $v
+            | .packages |= map(
+                if .registryType == "oci" then .identifier |= sub(":[^:]+$"; ":" + $v)
+                else .version = $v
+                  | if has("runtimeArguments") then .runtimeArguments |= map(
+                      if .name == "--from" then .value = "sagemath-mcp[passagemath]==" + $v
+                      else . end) else . end
+                end)' \
             server.json > server.tmp && mv server.tmp server.json
           cat server.json
       - name: Install mcp-publisher

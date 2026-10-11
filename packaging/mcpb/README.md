@@ -6,8 +6,9 @@ install format desktop MCP hosts use, Claude Desktop among them.
 
 ## What it does
 
-It uses the **`uv` server type**, so the bundle itself is about 2 KB: three
-files, no vendored dependencies. The host resolves `pyproject.toml` with uv at
+It uses the **`uv` server type**, so the bundle itself is about 27 KB: three
+small text files and the 512 px icon (`icon.png`, the same image as
+`docs/assets/icon.png`), no vendored dependencies. The host resolves `pyproject.toml` with uv at
 first launch, and that pins one thing —
 
 ```

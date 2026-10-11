@@ -33,7 +33,18 @@ def _declared_versions(root: Path) -> dict[str, str]:
 
     manifest = json.loads((root / "server.json").read_text(encoding="utf-8"))
     found["server.json"] = manifest["version"]
-    found["server.json.package"] = manifest["packages"][0]["version"]
+    # Every package, and every pin inside one: a registry client builds its
+    # install command from these, so a stale `--from` pin or image tag installs
+    # the previous release under the new version's listing.
+    for package in manifest["packages"]:
+        kind = package["registryType"]
+        if kind == "oci":
+            found[f"server.json.{kind}.tag"] = package["identifier"].rsplit(":", 1)[1]
+            continue
+        found[f"server.json.{kind}"] = package["version"]
+        for argument in package.get("runtimeArguments", []):
+            if argument.get("name") == "--from":
+                found[f"server.json.{kind}.from"] = argument["value"].split("==")[-1]
 
     # CITATION.cff is what GitHub's "Cite this repository" box and Zenodo read;
     # a stale version there is a citation to a release that does not exist.
@@ -64,6 +75,15 @@ def _declared_versions(root: Path) -> dict[str, str]:
         args = gemini["mcpServers"]["sagemath"]["args"]
         found["gemini.pin"] = args[args.index("--from") + 1].split("==")[-1]
 
+    # The Claude plugin pins the release its server launches; the directory
+    # rejects an unpinned launcher, so a stale pin is a stale install.
+    plugin_path = root / "packaging" / "claude-plugin" / ".claude-plugin" / "plugin.json"
+    if plugin_path.exists():
+        plugin = json.loads(plugin_path.read_text(encoding="utf-8"))
+        found["claude-plugin.manifest"] = plugin["version"]
+        args = plugin["mcpServers"]["sagemath"]["args"]
+        found["claude-plugin.pin"] = args[args.index("--from") + 1].split("==")[-1]
+
     # uv.lock records this project as a package. The v0.5.0 release bumped every
     # other file and left the lock saying 0.4.0, so `uv lock --check` failed and
     # anyone installing with `uv sync` got metadata for a version that was never
@@ -91,6 +111,7 @@ VERSIONED_FILES = (
     "packaging/mcpb/manifest.json",
     "packaging/mcpb/pyproject.toml",
     "gemini-extension.json",
+    "packaging/claude-plugin/.claude-plugin/plugin.json",
     "scripts/bump_version.py",
 )
 

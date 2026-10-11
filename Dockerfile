@@ -26,6 +26,10 @@ RUN chown -R sage:sage /workspace
 
 USER sage
 
+# The official MCP registry proves this image belongs to the server it lists by
+# reading this label; it must equal `name` in server.json.
+LABEL io.modelcontextprotocol.server.name="io.github.XBP-Europe/sagemath-mcp"
+
 EXPOSE 8314
 
 ENTRYPOINT ["sage", "-python", "-m", "sagemath_mcp.server"]

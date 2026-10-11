@@ -143,14 +143,23 @@ Source install, Docker Compose, and the Kubernetes Helm chart are in
 
 ## Connect an MCP client
 
-One command each. All four routes install a Sage runtime alongside the server,
-so there is nothing else to set up.
+One command or one click each. Every route below installs a Sage runtime
+alongside the server, so there is nothing else to set up.
+
+[![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_SageMath-0098FF?logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect?url=vscode%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522sagemath%2522%252C%2522command%2522%253A%2522uvx%2522%252C%2522args%2522%253A%255B%2522--from%2522%252C%2522sagemath-mcp%255Bpassagemath%255D%2522%252C%2522sagemath-mcp%2522%255D%257D)
+[![Install in Cursor](https://img.shields.io/badge/Cursor-Install_SageMath-000000?logo=cursor&logoColor=white)](https://cursor.com/en/install-mcp?name=sagemath&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJzYWdlbWF0aC1tY3BbcGFzc2FnZW1hdGhdIiwic2FnZW1hdGgtbWNwIl19)
 
 **Claude Desktop** — download `sagemath-mcp-<version>.mcpb` from the
 [latest release](https://github.com/XBP-Europe/sagemath-mcp/releases/latest) and
 open it. One click, no config file.
 
-**Claude Code**
+**Claude Code** — as a plugin from this repository's marketplace, inside a session:
+
+```
+/plugin install sagemath-mcp --marketplace XBP-Europe/sagemath-mcp
+```
+
+or as a plain MCP server:
 
 ```bash
 claude mcp add sagemath -- uvx --from "sagemath-mcp[passagemath]" sagemath-mcp
@@ -294,7 +303,8 @@ Full threat model and the complete blocked / allowed tables:
 - **[CHANGELOG.md](CHANGELOG.md)** · **[ROADMAP.md](ROADMAP.md)** ·
   **[CONTRIBUTING.md](CONTRIBUTING.md)** · **[SECURITY.md](SECURITY.md)** ·
   **[SUPPORT.md](SUPPORT.md)** — what "supported" means, release cadence,
-  where to ask.
+  where to ask. **[PRIVACY.md](PRIVACY.md)** — what the server keeps (nothing
+  leaves the machine it runs on).
 
 ## Requirements
 

@@ -73,7 +73,7 @@ the container image, and then publishes every artefact from that one run (see
 | `sagemath-mcp-source.spdx.json`, `sagemath-mcp-image.spdx.json`, `sagemath-mcp-image-passagemath-{amd64,arm64}.spdx.json` | assets on the GitHub release | the same SBOMs as files, for consumers who do not read registry attestations |
 | `sagemath-mcp-<version>.mcpb` | asset on the GitHub release | the one-click desktop bundle, packed (and schema-validated) in the same job that builds the wheel, so a bad manifest fails before anything publishes. It is **SLSA-attested** like the wheel |
 | `sagemath-mcp-<version>.intoto.jsonl` | asset on the GitHub release | the Sigstore bundle naming the wheel, sdist and desktop bundle as its subjects — the same provenance as above, as a file, so an artefact can be verified offline and a scanner reading release assets can see it |
-| registry entry | the official MCP registry | published with GitHub OIDC after PyPI succeeds |
+| registry entry | the official MCP registry | published with GitHub OIDC after PyPI and the image succeed. It lists two packages: the PyPI one with a `uvx --from=sagemath-mcp[passagemath]==<version>` hint, so a client that builds the install command from the registry gets a Sage runtime too, and the GHCR image run with `--transport=stdio`, which the registry verifies through the image's `io.modelcontextprotocol.server.name` label |
 
 **conda-forge publishes from its own feedstock, not from this workflow.** The
 package has been on conda-forge since 2026-10-09
@@ -91,6 +91,24 @@ says what has to reach the feedstock by hand.
 A manual `twine upload` would work but would ship files with no attestation, so it
 is not the supported path. The `workflow_dispatch` dry run exercises the build,
 smoke test and SBOM generation without publishing or attesting anything.
+
+### Directories and plugin catalogs
+
+None of these is published by the release workflow; each is a listing that
+points at the artefacts above. What the repository provides for them:
+
+| Where | What it reads | State |
+| --- | --- | --- |
+| Official MCP registry | `server.json`, published by the release | Listed |
+| Claude Code plugin | `.claude-plugin/marketplace.json` (this repository is a marketplace) and the plugin in `packaging/claude-plugin/`, whose launcher pins the release | Installable with `/plugin install sagemath-mcp --marketplace XBP-Europe/sagemath-mcp`. The Claude directory takes local servers only as plugins, no longer as `.mcpb` bundles; submission goes through claude.ai/directory/manage |
+| Gemini CLI extension gallery | `gemini-extension.json` at the root, found through the `gemini-cli-extension` repository topic | The gallery crawls tagged repositories with that topic daily; the topic is a repository setting, not a file |
+| VS Code, Cursor | the install buttons in the README | No listing needed |
+| Glama, MCP Market, LobeHub | crawled from this repository | Listed; MCP Market and LobeHub listings are unclaimed |
+
+Directories that ask for an icon or a privacy policy get `docs/assets/icon.png`
+(also bundled in the `.mcpb`) and [PRIVACY.md](PRIVACY.md). ChatGPT's and
+Claude's connector directories accept only remote servers on a public HTTPS
+URL; this project does not run a hosted endpoint, so it is not listed there.
 
 ### Container Artifacts (GHCR)
 

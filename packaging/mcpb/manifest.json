@@ -12,6 +12,7 @@
   "homepage": "https://github.com/XBP-Europe/sagemath-mcp",
   "documentation": "https://github.com/XBP-Europe/sagemath-mcp/blob/main/USAGE.md",
   "support": "https://github.com/XBP-Europe/sagemath-mcp/issues",
+  "icon": "icon.png",
   "server": {
     "type": "uv",
     "entry_point": "src/server.py",

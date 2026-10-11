@@ -288,6 +288,7 @@ through GitHub's private vulnerability reporting:
 
 - [Report a vulnerability](https://github.com/XBP-Europe/sagemath-mcp/security/advisories/new) (the repository's **Security** tab →
   **Report a vulnerability**). Only you and the maintainers can see the report.
+- Or email: 5gxma24v1@mozmail.com
 
 Please include:
 

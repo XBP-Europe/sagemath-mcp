@@ -220,7 +220,7 @@ Participation in this project is governed by our [Code of Conduct](CODE_OF_CONDU
 ## Questions?
 
 Ask in [GitHub Discussions](https://github.com/XBP-Europe/sagemath-mcp/discussions)
-(Q&A), or reach the maintainers at sagemath-mcp-maintainers@proton.me.
+(Q&A).
 [SUPPORT.md](SUPPORT.md) says what is supported, how releases are cut and what
 response to expect. Security problems go by email only, per
 [SECURITY.md](SECURITY.md).

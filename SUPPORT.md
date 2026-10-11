@@ -93,8 +93,8 @@ organisation's account, and the honest expectation follows from that:
 
 Every commitment above is best effort, and none of it is a service-level
 agreement. If you need one, or need the runtime pinned to a different Sage
-version than the project ships, the maintainers can be reached at
-sagemath-mcp-maintainers@proton.me.
+version than the project ships, start a thread in
+[GitHub Discussions](https://github.com/XBP-Europe/sagemath-mcp/discussions).
 
 ## Code review, and what this project does not have
 

@@ -28,7 +28,7 @@ each through `preparse` + `validate_module`. Examples are grouped **by
 docstring**, and names bound by earlier examples authorise later reads — which
 is what a session does, and without it ordinary code looks refused.
 
-Five assertions:
+Seven assertions:
 
 | test | what it protects |
 |---|---|
@@ -86,9 +86,10 @@ accepted 375,891   refused 4,259   out of scope 57,794   unparsed 180
 acceptance among in-scope examples: 98.88%   (enforced floor: 98.50%)
 ```
 
-The same sweep on the passagemath runtime (`passagemath-standard==10.8.11`,
-its own CI lane) reads 3,232 files, 433,289 examples, 362,323 accepted,
-3,971 refused, 66,815 out of scope — 98.92%. The two runtimes differ in what
+The same sweep on the passagemath runtime (its own CI lane) reads 433,281
+examples at 98.9725% on `passagemath-standard==10.8.12`, the current pin; on
+10.8.11 it read 3,232 files, 433,289 examples, 362,323 accepted, 3,971
+refused, 66,815 out of scope — 98.92%. The two runtimes differ in what
 is *out of scope* (passagemath's modular layout tags more examples
 `# needs`), not in what is refused. The committed
 [`doctest-corpus-stats.md`](../doctest-corpus-stats.md) is the monolithic
@@ -145,7 +146,7 @@ examples containing an import have it dropped and 1,819 then run — the change
 moves that number, not this one.
 
 Out of scope means the example uses a capability this server does not offer:
-imports (19,149), examples tagged `# optional`/`# needs` (30,219), persistence,
+imports (19,476 on 10.10), examples tagged `# optional`/`# needs` (29,382), persistence,
 file paths, external CAS interfaces, `%` magics, network, and dunder protocol
 calls. Those are classified and counted, never asserted over.
 

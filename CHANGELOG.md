@@ -7,6 +7,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.5] - 2026-10-12
+
+**The distribution release.** Installing from the official MCP registry now
+gives a working server: the entry used to install the package without Sage, so
+every evaluation failed. The registry also lists the signed container image,
+and the image carries the label that proves it belongs to this server. The
+release also adds a Claude Code plugin with this repository as its marketplace,
+a privacy policy and an icon, which plugin directories ask for, and Install in
+VS Code / Cursor buttons. No change to the tool surface or client contract, and
+every security-policy verdict is unchanged (the doctest corpus fingerprint is
+identical to 0.9.4's).
+
 ### Added
 
 - **A Claude Code plugin, and this repository as its marketplace.**
@@ -35,18 +47,29 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   instead of 790k. The scorer reproduces the Sonnet judge's verdict on all 48
   answers of the earlier run. The stats page counts Sage calls from the
   transcript, not from the agent's own report, which claimed 24 for 2.
+- The `-passagemath` image is built on a refreshed `python:3.12-slim-bookworm`
+  base (#218).
 
 ### Fixed
 
 - **Installing from the official MCP registry gave a server with no Sage.** The
   registry entry listed plain `sagemath-mcp` from PyPI, so a client or gallery
-  that builds its install command from the registry entry started a server whose every evaluation failed with "Unable to locate Sage
-  executable". The PyPI package now carries a `uvx --from=sagemath-mcp[passagemath]==<version>`
+  that builds its install command from the registry entry started a server
+  whose every evaluation failed with "Unable to locate Sage executable". The
+  PyPI package now carries a `uvx --from=sagemath-mcp[passagemath]==<version>`
   hint, and the entry lists the GHCR image as a second package, run with
   `--transport=stdio` (checked end to end against the 0.9.4 image: 40 tools, a
   correct evaluation). The release publishes the entry only after the image
   exists, and pins the version, the `--from` extra and the image tag together.
-- USAGE.md and INSTALLATION.md still pinned 0.8.2 in their install examples.
+- USAGE.md and INSTALLATION.md still pinned 0.8.2 in their install examples,
+  and DISTRIBUTION.md's `docker pull` line did too. The bump script now moves
+  the pins in all three with the version, and `test_version_consistency` fails
+  if one is left behind.
+- **SECURITY.md named a maintainer address that never received mail**, as the
+  only private way to report a vulnerability. Reports now go through GitHub's
+  private vulnerability reporting (enabled on the repository, and linked from
+  the issue chooser), with 5gxma24v1@mozmail.com as the email alternative; the
+  Code of Conduct, CONTRIBUTING and SUPPORT name the same address.
 
 ## [0.9.4] - 2026-10-10
 

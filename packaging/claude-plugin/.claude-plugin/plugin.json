@@ -1,7 +1,7 @@
 {
   "name": "sagemath-mcp",
   "displayName": "SageMath MCP",
-  "version": "0.9.4",
+  "version": "0.9.5",
   "description": "40 sandboxed SageMath tools for Claude: symbolic calculus, number theory, linear algebra, graphs, groups, elliptic curves, plotting and claim verification, with a persistent Sage session per conversation.",
   "author": {
     "name": "XBP Europe",
@@ -22,7 +22,7 @@
       "command": "uvx",
       "args": [
         "--from",
-        "sagemath-mcp[passagemath]==0.9.4",
+        "sagemath-mcp[passagemath]==0.9.5",
         "sagemath-mcp"
       ]
     }

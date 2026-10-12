@@ -2,12 +2,8 @@
 # it as the repository's "Cite this repository" box and Zenodo reads it when
 # minting a release DOI. `version` must equal pyproject.toml's -- the
 # version-consistency test enforces it, and scripts/bump_version.py rewrites
-# both `version` and `date-released` on every bump. When Zenodo has minted a
-# concept DOI for the repository, add it here as
-#   identifiers:
-#     - type: doi
-#       value: 10.5281/zenodo.XXXXXXX
-#       description: Concept DOI for all versions
+# both `version` and `date-released` on every bump. The concept DOI below
+# resolves to the newest release.
 identifiers:
   - type: doi
     value: 10.5281/zenodo.22939422
@@ -29,8 +25,8 @@ authors:
     affiliation: XBP Europe
   - name: XBP Europe
     website: https://github.com/XBP-Europe
-version: 0.9.4
-date-released: 2026-10-10
+version: 0.9.5
+date-released: 2026-10-12
 license: MIT
 repository-code: https://github.com/XBP-Europe/sagemath-mcp
 repository-artifact: https://pypi.org/project/sagemath-mcp/

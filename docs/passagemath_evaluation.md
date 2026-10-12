@@ -2,7 +2,7 @@
 
 Evaluated 2026-09-06, against passagemath 10.8.9/10.8.10/10.8.11 on Linux
 x86_64 (Python 3.12, uv), with the monolithic comparison namespace taken from
-the `sagemath/sagemath:10.10` container this repository tests against. Every
+the `sagemath/sagemath:10.9` container this repository tested against then. Every
 number below marked *measured* was produced on this machine during the
 evaluation; everything else cites its source. This is the evaluation the
 roadmap item "passagemath runtime extra" (field survey, 2026-08-24) asked for.
@@ -72,7 +72,7 @@ dangers). Blockers and triggers are at the end.
 | Download + prepare time (this connection) | 44.6 s |
 | Install (link) time after download | 8.1 s |
 | venv on disk | **3.8 GB** |
-| `sagemath/sagemath:10.10` Docker image, for comparison | 3.02 GB |
+| `sagemath/sagemath:10.9` Docker image, for comparison | 3.02 GB |
 | `from sage.all import *`, cold interpreter | 2.4 s |
 
 Two honest corrections to the roadmap's framing:
@@ -331,6 +331,7 @@ path": two consecutive passagemath stable releases passing this project's
 cold-install smoke gate on first try. The two most recent did not (§4); the
 release *before* them did. 10.8.11 passes now, but only after a `.post1`
 reissue, and a post-release fix is not a first-try pass — the counter stays at
-zero and 10.8.12 is the first release that can count. If that record holds for a couple of cycles, the
+zero. 10.8.12 passed on first try and became the pin on 2026-10-05 (#205), so
+the counter stands at one. If that record holds for a couple of cycles, the
 pin can track stable with a one-release lag and this becomes the primary
 distribution story the field survey asked for.

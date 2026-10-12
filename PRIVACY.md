@@ -23,8 +23,8 @@ Everything stays where the server runs:
   process and are gone when the session ends, is reset, or is culled after
   `SAGEMATH_MCP_IDLE_TTL` seconds of inactivity.
 - **Journals, only if you turn them on.** With `SAGEMATH_MCP_PERSIST_SESSIONS=true`,
-  the code each session ran is written to `SAGEMATH_MCP_PERSIST_DIR` (a temporary
-  directory if unset) so a restarted worker can replay it. It is off by default,
+  the code each session ran is written to `SAGEMATH_MCP_PERSIST_DIR` (if that is
+  unset, nothing is written) so a restarted worker can replay it. It is off by default,
   and `reset_sage_session` deletes a session's journal.
 - **Logs.** The server logs to standard error. By default
   (`SAGEMATH_MCP_SECURITY_LOG_VIOLATIONS=true`) a refused snippet is logged with

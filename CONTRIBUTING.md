@@ -181,13 +181,17 @@ Every tag is archived by Zenodo and gets its own version DOI; the concept DOI [1
 directly. The flow is:
 
 1. Run the **Bump Version** workflow (`workflow_dispatch`) with the segment to bump. It
-   updates all eight files that carry the version — `pyproject.toml`,
+   updates every file that carries the version — `pyproject.toml`,
    `src/sagemath_mcp/__init__.py`, `charts/sagemath-mcp/Chart.yaml`,
    `server.json`, `CITATION.cff` (version and release date),
-   `packaging/mcpb/manifest.json`, `packaging/mcpb/pyproject.toml` and
-   `gemini-extension.json` — then opens a pull request.
-   `tests/test_version_consistency.py` fails if any of them disagree. The last
-   three decide which release a one-click install pulls.
+   `packaging/mcpb/manifest.json`, `packaging/mcpb/pyproject.toml`,
+   `gemini-extension.json`, `packaging/claude-plugin/.claude-plugin/plugin.json`
+   and the install examples in `USAGE.md`, `INSTALLATION.md` and
+   `DISTRIBUTION.md` — re-locks `uv.lock`, then opens a pull request.
+   `tests/test_version_consistency.py` fails if any of them disagree. The
+   bundle, extension and plugin manifests decide which release a one-click
+   install pulls. `SECURITY.md`'s verification commands are restated by hand in
+   the same pull request.
 2. Merge that pull request once CI passes.
 3. Push the tag to publish:
 
@@ -222,5 +226,6 @@ Participation in this project is governed by our [Code of Conduct](CODE_OF_CONDU
 Ask in [GitHub Discussions](https://github.com/XBP-Europe/sagemath-mcp/discussions)
 (Q&A), or reach the maintainers at 5gxma24v1@mozmail.com.
 [SUPPORT.md](SUPPORT.md) says what is supported, how releases are cut and what
-response to expect. Security problems go by email only, per
-[SECURITY.md](SECURITY.md).
+response to expect. Security problems go privately, through GitHub's
+vulnerability reporting form or by email, per [SECURITY.md](SECURITY.md) --
+never in an issue.

@@ -22,6 +22,19 @@ MCPB_MANIFEST_PATH = PROJECT_ROOT / "packaging" / "mcpb" / "manifest.json"
 MCPB_PYPROJECT_PATH = PROJECT_ROOT / "packaging" / "mcpb" / "pyproject.toml"
 GEMINI_EXTENSION_PATH = PROJECT_ROOT / "gemini-extension.json"
 CLAUDE_PLUGIN_PATH = PROJECT_ROOT / "packaging" / "claude-plugin" / ".claude-plugin" / "plugin.json"
+# Install examples in the docs that pin a release. They were left out of the
+# bump, so USAGE.md and INSTALLATION.md told readers to install 0.8.2 for seven
+# releases after it. SECURITY.md is restated by hand: its prose names the release
+# its commands were last run against.
+DOC_PIN_PATHS = tuple(
+    PROJECT_ROOT / name for name in ("USAGE.md", "INSTALLATION.md", "DISTRIBUTION.md")
+)
+DOC_PIN_PATTERNS: tuple[Pattern[str], ...] = (
+    re.compile(r"(sagemath-mcp\[passagemath\]==)\d+\.\d+\.\d+"),
+    re.compile(r"(--ref v)\d+\.\d+\.\d+"),
+    re.compile(r"(image\.tag=v)\d+\.\d+\.\d+"),
+    re.compile(r"(ghcr\.io/xbp-europe/sagemath-mcp:v?)\d+\.\d+\.\d+"),
+)
 
 PYPROJECT_VERSION_PATTERN: Pattern[str] = re.compile(
     r'^(version\s*=\s*)"(?P<version>\d+\.\d+\.\d+)"\s*$', re.MULTILINE
@@ -137,6 +150,7 @@ def _write_all(new_version: str) -> None:
     _write_mcpb(new_version)
     _write_gemini_extension(new_version)
     _write_claude_plugin(new_version)
+    _write_doc_pins(new_version)
 
 
 def _write_mcpb(new_version: str) -> None:
@@ -200,6 +214,21 @@ def _write_claude_plugin(new_version: str) -> None:
     for server in manifest.get("mcpServers", {}).values():
         server["args"] = [_repin(arg, new_version) for arg in server.get("args", [])]
     CLAUDE_PLUGIN_PATH.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
+
+def _write_doc_pins(new_version: str) -> None:
+    """Move the release pinned in the docs' install examples.
+
+    The conda floor (`sagemath-mcp>=0.9.4`) is deliberately not a pin: it names
+    the first release that runs on conda-forge's `sage`, so it stays put.
+    """
+    for path in DOC_PIN_PATHS:
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8")
+        for pattern in DOC_PIN_PATTERNS:
+            text = pattern.sub(rf"\g<1>{new_version}", text)
+        path.write_text(text, encoding="utf-8")
 
 
 def _write_citation(new_version: str) -> None:

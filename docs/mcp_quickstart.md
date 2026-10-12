@@ -14,7 +14,7 @@ All tools use **SageMath** as the computation backend unless noted.
 - **Number Theory (Sage):** `number_theory_operation` (is_prime, factor_integer, next_prime, gcd, lcm).
 - **Combinatorics (Sage):** `combinatorics_operation` (binomial, permutations, combinations, partitions, factorial, Catalan, Fibonacci, Bell).
 - **Graph Theory (Sage):** `graph_operation` (chromatic number, connectivity, planarity, diameter, shortest path).
-- **Group Theory (Sage):** `group_operation` (order, abelian/cyclic test, center, exponent).
+- **Group Theory (Sage):** `group_operation` (order, abelian/cyclic test, center order, conjugacy class count, exponent).
 - **Elliptic Curves (Sage):** `elliptic_curve_operation` (rank, torsion, discriminant, j-invariant, conductor).
 - **Coding Theory (Sage):** `coding_theory_operation` (length, dimension, minimum distance, rate).
 - **Boolean Algebra (Sage):** `boolean_algebra_operation` (evaluate, variables, degree).
@@ -78,7 +78,8 @@ The refusals worth knowing before you hit them:
   that reaches a name indirectly.
 - **No other CAS.** `gp`, `maxima`, `singular`, `pari` each spawn the real
   program, and those have shell escapes — `pari('system("id")')` ran one.
-- **No `show()`, `view()`, `latex()`, `html()` or `animate()`.** This is the one
+- **No `show()`, `view()`, `html()` or `animate()`** (`latex(expr)` works;
+  `latex.<attr>` does not). This is the one
   that catches people, because `show(plot(...))` is how you would do it in a
   notebook. Over MCP you want **`plot_expression`** and its siblings, which
   return rendered image content the client actually displays; `show` would write a file

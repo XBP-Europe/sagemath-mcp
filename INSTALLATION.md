@@ -3,31 +3,39 @@
 This document collects platform-specific notes for installing and running the
 SageMath MCP server.
 
-> **SageMath itself is required, not optional.** Installing this package gives
-> you the MCP server; it does not give you Sage. Without a Sage runtime the
+> **SageMath itself is required, not optional.** A plain `pip install
+> sagemath-mcp` gives you the MCP server, not Sage. Without a Sage runtime the
 > server starts and advertises all 40 tools, and then every evaluation fails
-> with `Unable to locate Sage executable 'sage'`. The supported way to supply
-> one is the Docker container below — the project is built and tested against
-> **SageMath 10.10**, and the set of names callers may use is generated from that
-> version.
+> with `Unable to locate Sage executable 'sage'`. Pick one of these:
 >
-> If `sage` is on your `PATH` already, or installed in the same environment as
-> the server (a conda env or venv, even when not activated), the server uses it
-> and no container is needed. Point `SAGEMATH_MCP_SAGE_BINARY` at it if it is installed somewhere
-> unusual.
+> - **The container image** (all platforms): Sage is baked in. See
+>   [Docker Compose](#docker-compose-all-platforms) below, or the `docker run`
+>   line in the README. The project is built and tested against **SageMath
+>   10.10**, and the set of names callers may use is generated from that version.
+> - **The `[passagemath]` extra** (macOS and Linux):
+>   `pip install "sagemath-mcp[passagemath]"` installs a pip-built Sage runtime
+>   (~1 GB) next to the server. Native Windows is not supported (see below).
+> - **conda-forge** (macOS and Linux):
+>   `conda install -c conda-forge "sagemath-mcp>=0.9.4" sage`.
+> - **A Sage you already have.** If `sage` is on your `PATH`, or installed in the
+>   same environment as the server (a conda env or venv, even when not
+>   activated), the server uses it. Point `SAGEMATH_MCP_SAGE_BINARY` at it if it
+>   is installed somewhere unusual.
+>
+> A server running on the host cannot use a Sage that lives inside a container,
+> so `make sage-container` (a development and test fixture) is not a runtime.
 
 ## Cross-platform (pip/uv)
 
 ```bash
-pip install sagemath-mcp
+pip install "sagemath-mcp[passagemath]"   # or plain sagemath-mcp next to your own Sage
 sagemath-mcp --transport streamable-http --host 127.0.0.1 --port 8314
 ```
 
 Or with [uv](https://docs.astral.sh/uv/):
 
 ```bash
-uv tool install sagemath-mcp
-uvx sagemath-mcp --transport http --host 127.0.0.1 --port 8314
+uvx --from "sagemath-mcp[passagemath]" sagemath-mcp --transport http --host 127.0.0.1 --port 8314
 ```
 
 ### Docker Compose (all platforms)
@@ -56,37 +64,40 @@ drop the `:ro` on that one volume rather than changing ownership of the tree.
 
 ```bash
 helm install sagemath charts/sagemath-mcp \
-  --set image.repository=<your-ghcr-namespace>/sagemath-mcp \
-  --set image.tag=v0.9.4
+  --set image.tag=v0.9.5
 ```
 
-Pin the tag to a released version rather than `latest`. `latest` gives you no
-way to say which build is running when something breaks, no clean rollback, and
-no guarantee that a restarted pod matches its neighbours.
+The chart pulls `ghcr.io/xbp-europe/sagemath-mcp`; set `image.repository` only
+for your own build. Pin the tag to a released version rather than `latest`.
+`latest` gives you no way to say which build is running when something breaks,
+no clean rollback, and no guarantee that a restarted pod matches its neighbours.
 
 The chart enforces non-root execution and drops Linux capabilities. Edit `values.yaml` to customise
 ingress, resource limits, or environment variables.
 
 ## Windows 11
 
-1. Install Python 3.12+ from [python.org](https://python.org/) (check "Add to PATH").
-2. Optionally install `uv`:
-   ```powershell
-   powershell -ExecutionPolicy RemoteSigned -Command "Invoke-WebRequest https://astral.sh/uv/install.ps1 -UseBasicParsing | Invoke-Expression"
-   ```
-3. Install the package:
-   ```powershell
-   pip install sagemath-mcp
-   ```
-4. Launch the server:
-   ```powershell
-   sagemath-mcp
-   ```
-   (Use `python -m sagemath_mcp.server` if the command is not on `PATH`.)
-5. Sage runtime (**required** — the server cannot evaluate anything without it):
-   - Install [Docker Desktop](https://www.docker.com/products/docker-desktop/).
-   - Run `pwsh -File scripts/setup_sage_container.ps1` to launch the container, or use Git Bash/WSL with `make sage-container`.
-6. For source development, clone the repository and run `uv pip install -e .[dev]`.
+SageMath has no native Windows build, and passagemath's native Windows support
+is partial (no PARI, Singular or Maxima), so run the server where Sage does:
+
+- **The container image** (recommended): install
+  [Docker Desktop](https://www.docker.com/products/docker-desktop/), then run
+  the image as in the README (`docker run … -p 127.0.0.1:8314:8314
+  ghcr.io/xbp-europe/sagemath-mcp:0.9.5`), or `docker compose up` in a checkout.
+  The server is then at `http://127.0.0.1:8314/mcp`.
+- **WSL**: inside a WSL distribution, follow the Linux instructions
+  (`pip install "sagemath-mcp[passagemath]"`).
+
+For source development, install Python 3.12+ from
+[python.org](https://python.org/) (check "Add to PATH") and, optionally, `uv`:
+
+```powershell
+powershell -ExecutionPolicy RemoteSigned -Command "Invoke-WebRequest https://astral.sh/uv/install.ps1 -UseBasicParsing | Invoke-Expression"
+```
+
+then clone the repository and run `uv pip install -e .[dev]`.
+`pwsh -File scripts/setup_sage_container.ps1` starts the development container
+the integration tests run in.
 
 ## macOS (Intel & Apple Silicon)
 
@@ -98,19 +109,18 @@ ingress, resource limits, or environment variables.
    ```bash
    curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
-3. Install the package:
+3. Install the package with its Sage runtime:
    ```bash
-   pip3 install sagemath-mcp
+   pip3 install "sagemath-mcp[passagemath]"
    ```
+   (or conda-forge: `conda install -c conda-forge "sagemath-mcp>=0.9.4" sage`)
 4. Launch the server:
    ```bash
    sagemath-mcp
    ```
-5. Sage runtime via Docker Desktop (**required** — without it every evaluation fails):
-   ```bash
-   make sage-container  # or ./scripts/setup_sage_container.sh
-   ```
-6. For development, clone the repo and run `uv pip install -e .[dev]`.
+5. For development, clone the repo and run `uv pip install -e .[dev]`.
+   `make sage-container` starts the development container the integration
+   tests run in; it is not a runtime for the server.
 
 ## Linux
 
@@ -135,8 +145,9 @@ make test
   path needs to belong to UID/GID 1001 (`chown 1001:1001 <that-path>`). The checkout
   itself is mounted read-only by design; do not widen it to fix a permission error.
 - **"Unable to locate Sage executable"** means exactly that: the package is
-  installed but there is no Sage for it to drive. Start the container, or set
-  `SAGEMATH_MCP_SAGE_BINARY` to your own installation.
+  installed but there is no Sage for it to drive. Install the `[passagemath]`
+  extra, run the container image instead, or set `SAGEMATH_MCP_SAGE_BINARY` to
+  your own installation.
 - **Security policy errors** ("Import statements are disabled", "is not a name
   this server offers") are the sandbox working as intended. Caller code is
   checked against an allowlist, so the fix is a Sage primitive or the matching

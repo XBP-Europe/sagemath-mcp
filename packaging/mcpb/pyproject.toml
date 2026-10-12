@@ -1,5 +1,5 @@
 # Dependencies for the MCPB bundle. The host application installs these with uv
-# on first launch, which is what lets the bundle stay about 2 KB while still
+# on first launch, which is what lets the bundle stay about 27 KB (most of it the icon) while still
 # shipping a working Sage.
 #
 # The Sage runtime is the [passagemath] extra -- a pip-installable SageMath, the
@@ -8,9 +8,9 @@
 # local `sage` on PATH, which no one-click install can promise.
 [project]
 name = "sagemath-mcp-bundle"
-version = "0.9.4"
+version = "0.9.5"
 description = "MCPB bundle for the SageMath MCP server"
 requires-python = ">=3.12"
 dependencies = [
-    "sagemath-mcp[passagemath]==0.9.4",
+    "sagemath-mcp[passagemath]==0.9.5",
 ]

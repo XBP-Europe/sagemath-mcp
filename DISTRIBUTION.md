@@ -5,13 +5,16 @@
 Use the **Bump Version** workflow (GitHub Actions → *Bump Version*) before starting a release. The workflow:
 
 - increments the selected segment (patch by default) via `scripts/bump_version.py`,
-- updates all **eight** files a version appears in — `pyproject.toml`,
+- updates every file a version appears in — `pyproject.toml`,
   `src/sagemath_mcp/__init__.py`, `charts/sagemath-mcp/Chart.yaml` (twice),
-  `server.json` (twice), `CITATION.cff` (with the release date),
-  `packaging/mcpb/manifest.json`, `packaging/mcpb/pyproject.toml` and
-  `gemini-extension.json` — because a test fails when they disagree. The last
-  three decide which release a one-click install pulls, so a miss there ships a
-  bundle that installs the previous version,
+  `server.json` (the version, the `--from` pin and the image tag),
+  `CITATION.cff` (with the release date), `packaging/mcpb/manifest.json`,
+  `packaging/mcpb/pyproject.toml`, `gemini-extension.json`,
+  `packaging/claude-plugin/.claude-plugin/plugin.json` (the version and the
+  launcher pin) and the install examples in `USAGE.md`, `INSTALLATION.md` and
+  this file — and re-locks `uv.lock`, because a test fails when they disagree.
+  The bundle, extension and plugin manifests decide which release a one-click
+  install pulls, so a miss there ships one that installs the previous version,
 - pushes a branch and **opens a pull request**; `main` is protected by required
   status checks, so nothing is committed to it directly, and
 - stops there. **You push the tag yourself once that pull request merges:**
@@ -100,10 +103,13 @@ points at the artefacts above. What the repository provides for them:
 | Where | What it reads | State |
 | --- | --- | --- |
 | Official MCP registry | `server.json`, published by the release | Listed |
-| Claude Code plugin | `.claude-plugin/marketplace.json` (this repository is a marketplace) and the plugin in `packaging/claude-plugin/`, whose launcher pins the release | Installable with `/plugin install sagemath-mcp --marketplace XBP-Europe/sagemath-mcp`. The Claude directory takes local servers only as plugins, no longer as `.mcpb` bundles; submission goes through claude.ai/directory/manage |
-| Gemini CLI extension gallery | `gemini-extension.json` at the root, found through the `gemini-cli-extension` repository topic | The gallery crawls tagged repositories with that topic daily; the topic is a repository setting, not a file |
+| Claude Code plugin | `.claude-plugin/marketplace.json` (this repository is a marketplace) and the plugin in `packaging/claude-plugin/`, whose launcher pins the release | Installable with `/plugin install sagemath-mcp --marketplace XBP-Europe/sagemath-mcp`. Not yet submitted to the Claude directory, which takes local servers only as plugins, no longer as `.mcpb` bundles; submission goes through claude.ai/directory/manage |
+| Gemini CLI extension gallery | `gemini-extension.json` at the root, found through the `gemini-cli-extension` repository topic | Topic set; the gallery crawls repositories with it daily. The topic is a repository setting, not a file |
 | VS Code, Cursor | the install buttons in the README | No listing needed |
-| Glama, MCP Market, LobeHub | crawled from this repository | Listed; MCP Market and LobeHub listings are unclaimed |
+| Glama, MCP Market, LobeHub | crawled from this repository | Listed; Glama's is claimed, MCP Market's and LobeHub's are not |
+| awesome-mcp-servers, Cline marketplace | a pull request to each list | Open: punkpeye/awesome-mcp-servers#16189, cline/marketplace#221 |
+| mcp.directory, mcpservers.org | their submission forms | Submitted 2026-10-11, pending review |
+| HOL awesome-ai-plugins | its `plugin-scanner` gate | Waiting on a maintainer exception for the worker's `eval` ([#166](https://github.com/XBP-Europe/sagemath-mcp/issues/166)) |
 
 Directories that ask for an icon or a privacy policy get `docs/assets/icon.png`
 (also bundled in the `.mcpb`) and [PRIVACY.md](PRIVACY.md). ChatGPT's and
@@ -116,7 +122,7 @@ The release workflow automatically builds and pushes Docker images to GHCR at
 `ghcr.io/xbp-europe/sagemath-mcp`. To pull locally:
 
 ```bash
-docker pull ghcr.io/xbp-europe/sagemath-mcp:v0.8.2   # or :latest to track releases
+docker pull ghcr.io/xbp-europe/sagemath-mcp:v0.9.5   # or :latest to track releases
 ```
 
 Prefer a version tag in anything you deploy. `latest` gives no way to say which

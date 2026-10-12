@@ -14,7 +14,7 @@ that gap.
 |------|-----------|--------|
 | `test_session.py` | no | Stateful execution, reset/cancel, timeouts, idle culling |
 | `test_server.py` | no | Server-level behaviour: the lifespan and cull loop, the progress heartbeat, the `/health` route |
-| `tools/test_<domain>.py` | no | One file per `tools/` module: each tool's bindings, validation, error surfacing and progress events |
+| `tools/test_<domain>.py` | no | Each tool's bindings, validation, error surfacing and progress events; `diagnostics`, `verify` and `prompts` are tested in `test_diagnostics.py`, `test_verify.py` and `test_prompts.py` |
 | `test_security.py` | no | AST policy: blocked imports, calls, attributes |
 | `test_config.py` | no | Environment overrides and invalid values |
 | `test_generated_code_lint.py` | no | Static checks over the Sage code the package generates, and the guard that every caller string reaching a template passes a validation gate |
@@ -73,7 +73,7 @@ uv run pytest tests/test_session.py -k test_session_stateful_evaluation   # one 
 Integration tests need a Sage container with the repository mounted at `/workspace`:
 
 ```bash
-make sage-container            # start it (reads the image from the Dockerfile)
+make sage-container            # start it (sagemath/sagemath:10.10 unless SAGEMATH_MCP_DOCKER_IMAGE is set; CI passes the Dockerfile's FROM)
 make sage-deps                 # install the dev extras into Sage's own Python
 make integration-test          # run the suite inside the container
 make allowlist                 # regenerate the caller allowlist from that Sage
@@ -97,10 +97,12 @@ long period, and because the command was piped to `tee`, the failure was masked 
 
 ## Client integration (Claude, Gemini, Codex)
 
-These run nightly in CI (`.github/workflows/cli-nightly.yml`, 03:17 UTC) and on
-demand via **Actions -> CLI integration (nightly) -> Run workflow**, which takes
-a single-CLI option. They are not on the pull-request path: they need model
-credentials and cost money per run.
+`.github/workflows/cli-nightly.yml` is scheduled nightly (03:17 UTC) and can be
+run on demand via **Actions -> CLI integration (nightly) -> Run workflow**,
+which takes a single-CLI option. It is not on the pull-request path: it needs
+model credentials and costs money per run. **No API-key secrets are configured
+at present, so every nightly leg skips** -- run `make cli-extended` locally
+before a release.
 
 Each CLI needs a repository secret -- `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`,
 `OPENAI_API_KEY`. A CLI whose secret is missing is skipped with a notice rather
@@ -115,7 +117,7 @@ because the corruption happens in the client rather than the server.
 
 
 Two suites drive real CLIs against a real server. Both are opt-in: they consume
-API quota and take minutes, so neither runs in CI.
+API quota and take minutes, so neither is on the pull-request path.
 
 ```bash
 make cli-integration     # 43 breadth cases, Claude and Gemini
@@ -222,7 +224,7 @@ hardcoded expectation and catches silently-wrong results, not just errors.
 is 19 and 60 things somebody thought to type — and the last two policy defects
 were both forms nobody had. `test_sage_doctest_corpus.py` closes that by running
 **SageMath's own doctests**: every `sage: ` example in the installed library,
-432,878 of them, through `preparse` + `validate_module`, grouped by docstring so
+438,124 of them on 10.10, through `preparse` + `validate_module`, grouped by docstring so
 names bound early in a block authorise reads later, exactly as a session does.
 It takes 48 seconds and answers one question at scale — *would this server
 refuse the mathematics SageMath itself documents?* Measured against 10.10: 98.8797%
@@ -230,7 +232,7 @@ of in-scope examples accepted as of 2026-10-05 (the first measurement read
 97.81%; `docs/sage_doctest_corpus.md` keeps the ledger), every refusal
 attributable to a rule that is named and capped in the file, and no allowlist
 gap in any mathematical name. The passagemath CI lane runs the same sweep on
-its runtime and reads 98.9740%.
+its runtime (10.8.12) and reads 98.9725% of 433,281.
 
 ### The corpus is SageMath's, and is not in this repository
 
@@ -255,16 +257,21 @@ would have shelled out to.
 
 ## Key fixtures
 
-- `FakeContext` (`tests/conftest.py`) — captures info/warning/progress events emitted
-  through the MCP `Context`
+- `FakeContext` (`tests/conftest.py`) — records progress events emitted through
+  the MCP `Context`; it has no `info`/`warning`/`error` on purpose, because the
+  server sends no MCP log notifications
+- `sage_manager` (`tests/conftest.py`) — a pure-Python session manager wired into
+  the runtime for one test; new tests should take it rather than patching module
+  state by hand
 - `python_settings` (`tests/test_session.py`) — injects `force_python_worker=True`
 - `requires_sage` — skips when no `sage` executable is on PATH
 - Async tests use `asyncio_mode = "auto"`; do not call `asyncio.run` directly
 
 ## CI
 
-Eight jobs, all required by branch protection on `main`: `lint`, `test (3.12)`,
-`test (3.13)`, `security`, `helm`, `integration`, `smoke`, `passagemath`.
+Seven jobs are required by branch protection on `main`: `lint`, `test (3.12)`,
+`test (3.13)`, `security`, `helm`, `integration`, `smoke`. `passagemath` runs
+on every push too, but is not required.
 
 - `integration` starts the Sage container itself and reads the image from the Dockerfile,
   so the Sage version has a single source of truth

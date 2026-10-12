@@ -27,7 +27,7 @@
   `image.repository`/`image.tag` to the published container (non-root execution is enforced by default).
 
 ## Installing Dependencies
-Inside the repo (or inside the container):
+In a checkout:
 ```bash
 uv pip install -e .[cli]
 ```
@@ -44,9 +44,10 @@ This exposes the server over stdio and is suitable for tools like Claude Desktop
 ```bash
 uv run sagemath-mcp --transport streamable-http --host 127.0.0.1 --port 8314
 ```
-Inside Docker, prefer running through Sage to inherit the full runtime:
+Inside a Sage container, run the module on Sage's Python, which is what the
+image's entrypoint does:
 ```bash
-sage -python -m uv run sagemath-mcp --transport streamable-http --host 0.0.0.0 --port 8314
+sage -python -m sagemath_mcp.server --transport streamable-http --host 0.0.0.0 --port 8314
 ```
 > `--host 0.0.0.0` is correct **inside a container**, where it means "listen on
 > the container's interfaces" and the published port decides who can reach it.
@@ -55,6 +56,16 @@ sage -python -m uv run sagemath-mcp --transport streamable-http --host 0.0.0.0 -
 > the network. The bundled compose file publishes to `127.0.0.1` for the same
 > reason.
 The server advertises its MCP endpoint at `http://HOST:PORT/mcp`.
+
+#### Command-line options
+
+| Flag | Default | What it does |
+| --- | --- | --- |
+| `--transport` | `stdio` | `stdio`, `streamable-http` (`http` is the same), or the legacy `sse`. |
+| `--host` | `127.0.0.1` | Interface the HTTP transports bind. |
+| `--port` | `8314` | Port the HTTP transports listen on. |
+| `--path` | `/mcp` (`/sse` for `sse`) | URL path of the MCP endpoint on the HTTP transports. |
+| `--log-level` | `INFO` | Root logging level. |
 
 #### Optional bearer-token authentication
 
@@ -107,12 +118,12 @@ All math tools use **SageMath** as the computation backend.
 | `verify_claim` | Sage | Independently re-check a stated claim (`sin(x)^2 + cos(x)^2 == 1`) through a proof ladder: symbolic prover, exact difference, exact algebraic arithmetic, certified intervals, numeric sampling. Answers `proved`, `refuted`, `supported` or `undecided`, always with its evidence. |
 | `vector_calculus_operation` | Sage | Gradient, divergence, curl, Laplacian on scalar/vector fields. |
 | `graph_operation` | Sage | Named graphs and adjacency dicts; chromatic number, connectivity, planarity, diameter, shortest path. |
-| `group_operation` | Sage | Symmetric, dihedral, cyclic, alternating groups; order, abelian/cyclic test, center, exponent. |
+| `group_operation` | Sage | Symmetric, dihedral, cyclic, alternating groups; order, abelian/cyclic test, center order, conjugacy class count, exponent. |
 | `elliptic_curve_operation` | Sage | Rank, torsion, discriminant, j-invariant, conductor, generators. |
 | `coding_theory_operation` | Sage | Hamming, Reed-Solomon codes; length, dimension, minimum distance, generator matrix, rate. |
 | `boolean_algebra_operation` | Sage | Boolean polynomial ring; evaluate, variables, degree, zero/one test. |
 | `polynomial_ring_operation` | Sage | Groebner bases, ideal dimension/variety, reduction, Groebner test. |
-| `geometry_operation` | Sage | Distance, polygon area, polytope volume, convex hull, compactness via `Polyhedron`. |
+| `geometry_operation` | Sage | Distance, polygon area, polytope volume, convex hull vertices, convexity test via `Polyhedron`. |
 | `interrupt_sage_session` | Worker | Interrupt a running computation **and keep the variables defined so far**. Prefer this over cancelling. |
 | `cancel_sage_session` | Worker | Cancel the active computation and restart the underlying worker, discarding its variables. |
 | `reset_sage_session` | Worker | Clear the session state without cancelling a running job. |
@@ -121,7 +132,7 @@ All math tools use **SageMath** as the computation backend.
 | `stop_sage_session` | Worker | Stop a named workspace and release its worker. |
 | `check_sage_health` | Worker | Probe readiness: spins up (or reuses) the workspace worker, evaluates `1+1`, reports `ok`/latency instead of erroring. |
 | `lookup_sage_doc` | Server | Documentation links for a SageMath name, plus whether this server offers it to caller code. |
-| `resource://sagemath/session/{scope}` | Server | Inspect active sessions (`scope=all` or specific session id). |
+| `resource://sagemath/session/{scope}` | Server | Inspect your own workspaces (`scope=all`, or a workspace name). |
 | `resource://sagemath/monitoring/{scope}` | Server | Fetch evaluation metrics (`scope=metrics` or `all`). |
 | `resource://sagemath/docs/{scope}` | Server | Retrieve SageMath documentation links (`scope=all`, `reference`, `tutorial`). |
 | `/health` | Server | HTTP liveness endpoint: 200 while the process is up and answering. Deliberately shallow — does not touch a Sage worker, so a busy backend does not restart the pod. |
@@ -136,13 +147,14 @@ For container deployments, scrape metrics from whichever service (compose or Hel
 
 ## Tool reference
 
-Every tool's parameters and behaviour, grouped by domain. The table above is
-the index; this is the detail. `evaluate_sage` is first because it is the one
-that carries session state.
+Parameters and behaviour of the most-used tools, grouped by domain. The table
+above lists all 40; a tool without a section here is described by its own
+schema, which every MCP client shows. `evaluate_sage` is first because it is
+the one that carries session state.
 
 ### `evaluate_sage` --- Open-Ended SageMath Execution
 
-Executes SageMath code — the mathematical subset the sandbox permits (see [Security Sandbox](#security-sandbox)) — inside a persistent worker process. Variables, functions, classes, and assumptions defined in one call survive into subsequent calls within the same MCP session.
+Executes SageMath code — the mathematical subset the sandbox permits (see [Security model](#security-model)) — inside a persistent worker process. Variables, functions, classes, and assumptions defined in one call survive into subsequent calls within the same MCP session.
 
 Its own tool description calls it a **LAST RESORT**, and for a single self-contained calculation a specialized tool is better: it validates arguments and returns a typed result. But that steer has one important exception. The specialized tools evaluate their input in a **fresh namespace** and cannot see variables you assigned with `evaluate_sage` — so any workflow that builds an object once and then explores it (a graph and its invariants, a number field, a polynomial ideal, a matrix decomposition) belongs in `evaluate_sage`, across as many calls as it takes. Persistent state is the reason to reach for it, not a reason to avoid it.
 
@@ -168,7 +180,7 @@ Its own tool description calls it a **LAST RESORT**, and for a single self-conta
 - While code is running, the server emits **progress heartbeats** roughly every 1.5 seconds so clients can display activity indicators.
 - If the evaluation exceeds the timeout, the worker process is restarted and a `TimeoutError` is raised. All session state from prior calls is lost.
 - If the startup code (`from sage.all import *` by default) failed when the worker launched, every subsequent `evaluate_sage` call returns a clear `StartupError` instead of a confusing NameError.
-- **Caller code is checked against an allowlist**, so a name works only if SageMath preloads it for mathematics, it is a safe builtin, or your own code defined it — including earlier in the same session. Anything else is refused, and the message names the fix where there is one: a name models tend to invent (`isprime`, `partitions`, `symbols`, `bessel_J_zeros`) is answered with the SageMath spelling, and a runtime error with a Sage-specific cause carries a hint — a Python `float` from `numerical_integral` has no `.n()` (wrap it in `N(...)`), `QQ('1e-3')` does not parse scientific notation (use `RR('1e-3')`), and a 53-bit value cannot yield 20 digits (compute at higher precision from the start). The AST validator runs on top of that (see [Security Sandbox](#security-sandbox)).
+- **Caller code is checked against an allowlist**, so a name works only if SageMath preloads it for mathematics, it is a safe builtin, or your own code defined it — including earlier in the same session. Anything else is refused, and the message names the fix where there is one: a name models tend to invent (`isprime`, `partitions`, `symbols`, `bessel_J_zeros`) is answered with the SageMath spelling, and a runtime error with a Sage-specific cause carries a hint — a Python `float` from `numerical_integral` has no `.n()` (wrap it in `N(...)`), `QQ('1e-3')` does not parse scientific notation (use `RR('1e-3')`), and a 53-bit value cannot yield 20 digits (compute at higher precision from the start). The AST validator runs on top of that (see [Security model](#security-model)).
 - **`x`, `y`, `z` and `t` are predefined**, and `evaluate_sage` auto-declares any other symbol-shaped name (`w`, `x_2`, `alpha`) as a symbol the way SageMath's SR does — so `w^2 + 1` just works. The shape is narrow and typo-guarded: a multi-letter name like `sinn` stays an error, and a name you assigned earlier keeps its value.
 - Indentation shared by every line is stripped before parsing, so a snippet pasted out of a markdown block is accepted rather than failing as a syntax error.
 
@@ -411,8 +423,8 @@ Multiply two matrices over the Symbolic Ring (`SR`). Input matrices are nested l
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `matrix_a` | `list[list[float]]` | *required* | Left matrix (rows of numbers). |
-| `matrix_b` | `list[list[float]]` | *required* | Right matrix (rows of numbers). |
+| `matrix_a` | `list[list[number \| string]]` | *required* | Left matrix (rows of numbers). Integers stay exact; pass values from 2^53 up as decimal strings. |
+| `matrix_b` | `list[list[number \| string]]` | *required* | Right matrix (rows of numbers). |
 
 **Returns:** `{"product": [[...], ...]}` --- entries are floats when real, strings otherwise.
 
@@ -427,7 +439,7 @@ Perform a single matrix operation. Supports six operations on matrices over the 
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `matrix` | `list[list[float]]` | *required* | Input matrix as nested list of numbers. |
+| `matrix` | `list[list[number \| string]]` | *required* | Input matrix as nested list of numbers. Integers stay exact; pass values from 2^53 up as decimal strings. |
 | `operation` | `string` | *required* | One of: `"determinant"`, `"inverse"`, `"eigenvalues"`, `"rank"`, `"rref"`, `"transpose"`. |
 
 **Returns:** `{"operation": "...", "result": ...}` --- result type varies by operation:
@@ -502,8 +514,8 @@ Perform common number-theoretic operations using Sage's built-in functions.
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `operation` | `string` | *required* | One of: `"is_prime"`, `"factor_integer"`, `"next_prime"`, `"gcd"`, `"lcm"`. |
-| `a` | `int` | *required* | Primary integer argument. |
-| `b` | `int` or `null` | `null` | Second integer. **Required** for `gcd` and `lcm`; ignored otherwise. |
+| `a` | `int` or `string` | *required* | Primary integer argument. Pass values above 2^53 as a decimal string. |
+| `b` | `int`, `string` or `null` | `null` | Second integer. **Required** for `gcd` and `lcm`; ignored otherwise. |
 
 **Returns:** `{"operation": "...", "result": ...}` --- result type varies:
 
@@ -542,7 +554,7 @@ Compute descriptive statistics for a numeric dataset using Sage's `mean()` and `
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `data` | `list[float]` | *required* | List of numeric values. Must contain at least 2 elements for variance/std dev. |
+| `data` | `list[float]` | *required* | List of numeric values; at least one. With a single value the sample variance and standard deviation are `0.0`. |
 
 **Returns:** a dictionary with all of:
 
@@ -576,6 +588,7 @@ Render a 2D plot of an expression and return it as MCP image content (PNG by def
 | `variable` | `string` | `"x"` | The plot variable. |
 | `range_min` | `float` | `-10.0` | Lower bound of the plot range. |
 | `range_max` | `float` | `10.0` | Upper bound of the plot range. |
+| `image_format` | `string` | `"png"` | `"png"` (raster) or `"svg"` (vector, smaller). |
 
 **Returns:** an MCP **image content block**, not JSON.
 
@@ -602,118 +615,6 @@ Nothing has to parse a string or build a `data:` URI.
 Clear all variables, functions, and definitions in the current session. The underlying worker process continues running (fast). Equivalent to restarting a fresh Sage shell.
 
 **Returns:** `{"message": "Session cleared"}`
-
-## How Code Is Interpreted
-
-`evaluate_sage` runs your code through Sage's preparser, exactly as the Sage REPL
-does, so it is Sage that you are writing and not Python:
-
-| You send | You get | Note |
-|----------|---------|------|
-| `2^3` | `8` | `^` is exponentiation. `^^` is XOR |
-| `type(2)` | `sage.rings.integer.Integer` | not a machine `int` |
-| `K.<a> = NumberField(x^3 - 2)` | works | preparser-only syntax |
-| `x`, `y`, `z`, `t` | symbolic | predefined. The REPL gives you only `x`; the tools have always declared four, so caller code does too |
-
-Integers at or above 2^53 travel as **decimal strings** in both directions,
-because a JSON number that large has already been rounded by a JavaScript-based
-client before the server sees it:
-
-```json
-{"operation": "bell", "n": 30}  ->  {"result": "846749014511809332450147"}
-```
-
-Interrupting is not cancelling. `interrupt_sage_session` abandons the running
-computation and keeps every variable; `cancel_sage_session` restarts the worker
-and discards them. Prefer the first.
-
-### Worked example: general relativity through `evaluate_sage`
-
-There is no dedicated tensor tool — deliberately, see ROADMAP.md — because the
-whole SageManifolds workflow passes the policy as ordinary `evaluate_sage`
-calls, including the preparser-only chart syntax. Curvature of the hyperbolic
-plane (the 2D Anti-de Sitter analogue), one call:
-
-```python
-H = Manifold(2, 'H', structure='Riemannian')
-X.<p,q> = H.chart('p q:(0,+oo)')
-g = H.metric('g')
-g[0,0] = 1/q^2
-g[1,1] = 1/q^2
-g.ricci_scalar().expr()   # -> -2, constant negative curvature
-```
-
-Lorentzian signatures (`structure='Lorentzian'`), the metric catalog
-(`manifolds.Sphere(2).induced_metric()`), Ricci and Riemann tensors and
-connections all work the same way; the session keeps the manifold alive across
-calls, so the metric can be defined once and interrogated repeatedly.
-`tests/test_use_cases.py::test_use_cases_cover_the_sympy_mcp_showcase` pins
-this workflow against a real Sage runtime.
-
-## Sage semantics and number handling
-
-### Sage semantics
-
-`evaluate_sage` runs your code through Sage's preparser, exactly as the Sage
-REPL does. `2^3` is 8, not 1; integer literals are Sage `Integer`s; generator
-syntax such as `K.<a> = NumberField(x^3 - 2)` parses; and `x`, `y`, `z` and `t`
-are predefined. Use `^^` for XOR, as in Sage.
-
-Sage's own REPL predefines `x` alone. This server predefines four, because the
-specialised tools have always declared `x, y, z, t` in their prelude: with only
-`x`, `differentiate_expression("x^2*y^3")` worked while the identical
-mathematics through `evaluate_sage` failed.
-
-**In `evaluate_sage`, any other symbol-shaped name is declared for you** —
-`w`, `x_2`, `k1`, `alpha`, `α`. SageMath's own rule is stricter (`w + 1` typed
-as *code* is a `NameError` there), and this is a deliberate departure: the
-specialised tools already declared a symbol on sight, so the two paths
-disagreed about which names exist. A name that is *not* symbol-shaped stays an
-error, so a typo like `sinn` is reported rather than quietly becoming a symbol.
-`var('w')` still works and is never wrong to write.
-
-**The specialised tools declare a symbol on sight,** because they take an
-expression as a *string* and that is SageMath's other rule — `SR("a*b + a")`
-creates `a` and `b`. So `simplify_expression("w^2 + w^2")` answers `2*w^2`, and
-`expand_expression("(θ + φ)^2")` answers in the letters you wrote.
-
-Narrower than `SR` in the way that matters: `SR` invents *any* identifier, so
-`SR("sinn(x)")` returns `sinn(x)` and a typo becomes a silent wrong answer.
-Only symbol-shaped names are declared — a letter with an optional index (`a`,
-`w`, `x_2`), a spelled-out Greek name (`alpha`), or a Greek letter (`α`, `Ω`) —
-so `sinn`, `foobar` and `pi2` are still errors. Names SageMath already defines
-are never shadowed: `e` stays Euler's number, `I` the imaginary unit, and
-`gamma`, `zeta`, `π`, `σ`, `Γ` and `ψ` stay the functions they are.
-
-Only caller code is preparsed. The specialised tools build plain Python around
-`sage_eval`, and preparsing those templates would change what they mean.
-
-### Large integers
-
-Mathematics produces integers that JSON numbers cannot carry. Above 2^53 a JSON
-number stops being exact, and JavaScript-based MCP clients parse every number as
-an IEEE double --- so `bell(30)` arrived in one CLI as `846749014511809388871680`
-instead of `846749014511809332450147`. Nothing errored; the number was simply
-wrong, which is the worst way for it to fail.
-
-Both directions therefore speak decimal strings past that boundary:
-
-- **In:** integer parameters from 2^53 upward must be passed as decimal strings;
-  a numeric literal that large is rejected rather than silently rounded. The
-  boundary is JavaScript's `Number.MAX_SAFE_INTEGER` (2^53 - 1), not 2^53:
-  2^53 + 1 rounds to exactly 2^53, so those two arrive indistinguishable and
-  neither can be trusted.
-- **Out:** integer results beyond that boundary come back as decimal strings.
-  Smaller integers keep their numeric type, so ordinary results are unchanged.
-- **Matrices:** entries may be integers, decimal strings or floats. Integer
-  entries stay exact rather than being rounded through a double, and an
-  integral result past the boundary comes back exact. Float matrices behave
-  exactly as before.
-
-```json
-{"operation": "bell", "result": "846749014511809332450147"}
-{"operation": "binomial", "result": 120}
-```
 
 #### `interrupt_sage_session`
 
@@ -865,9 +766,123 @@ state.
 
 | Resource URI | Scope values | Description |
 |-------------|-------------|-------------|
-| `resource://sagemath/session/{scope}` | `all`, or a specific session ID | Returns JSON with: `session_id`, `live` (bool), `started_at`, `last_used_at`, `idle_seconds`. |
+| `resource://sagemath/session/{scope}` | `all` (every workspace this client owns), or a workspace name | Returns JSON with: `session_id` (the workspace name, never the raw MCP session id), `live` (bool), `started_at`, `last_used_at`, `idle_seconds`. Another client's workspaces are never listed. |
 | `resource://sagemath/monitoring/{scope}` | `metrics`, `all` | Returns JSON with the process-wide aggregates only: `attempts`, `successes`, `failures`, `security_failures`, `avg_elapsed_ms`, `max_elapsed_ms`, `last_run_at`. Per-failure error text and stdout are not exposed here (they are shared process-global state); see the server logs instead. |
 | `resource://sagemath/docs/{scope}` | `all`, `reference`, `tutorial` | Returns documentation link objects with URLs to SageMath documentation. |
+
+---
+
+## How Code Is Interpreted
+
+`evaluate_sage` runs your code through Sage's preparser, exactly as the Sage REPL
+does, so it is Sage that you are writing and not Python:
+
+| You send | You get | Note |
+|----------|---------|------|
+| `2^3` | `8` | `^` is exponentiation. `^^` is XOR |
+| `type(2)` | `sage.rings.integer.Integer` | not a machine `int` |
+| `K.<a> = NumberField(x^3 - 2)` | works | preparser-only syntax |
+| `x`, `y`, `z`, `t` | symbolic | predefined. The REPL gives you only `x`; the tools have always declared four, so caller code does too |
+
+Integers at or above 2^53 travel as **decimal strings** in both directions,
+because a JSON number that large has already been rounded by a JavaScript-based
+client before the server sees it:
+
+```json
+{"operation": "bell", "n": 30}  ->  {"result": "846749014511809332450147"}
+```
+
+Interrupting is not cancelling. `interrupt_sage_session` abandons the running
+computation and keeps every variable; `cancel_sage_session` restarts the worker
+and discards them. Prefer the first.
+
+### Worked example: general relativity through `evaluate_sage`
+
+There is no dedicated tensor tool — deliberately, see ROADMAP.md — because the
+whole SageManifolds workflow passes the policy as ordinary `evaluate_sage`
+calls, including the preparser-only chart syntax. Curvature of the hyperbolic
+plane (the 2D Anti-de Sitter analogue), one call:
+
+```python
+H = Manifold(2, 'H', structure='Riemannian')
+X.<p,q> = H.chart('p q:(0,+oo)')
+g = H.metric('g')
+g[0,0] = 1/q^2
+g[1,1] = 1/q^2
+g.ricci_scalar().expr()   # -> -2, constant negative curvature
+```
+
+Lorentzian signatures (`structure='Lorentzian'`), the metric catalog
+(`manifolds.Sphere(2).induced_metric()`), Ricci and Riemann tensors and
+connections all work the same way; the session keeps the manifold alive across
+calls, so the metric can be defined once and interrogated repeatedly.
+`tests/test_use_cases.py::test_use_cases_cover_the_sympy_mcp_showcase` pins
+this workflow against a real Sage runtime.
+
+## Sage semantics and number handling
+
+### Sage semantics
+
+`evaluate_sage` runs your code through Sage's preparser, exactly as the Sage
+REPL does. `2^3` is 8, not 1; integer literals are Sage `Integer`s; generator
+syntax such as `K.<a> = NumberField(x^3 - 2)` parses; and `x`, `y`, `z` and `t`
+are predefined. Use `^^` for XOR, as in Sage.
+
+Sage's own REPL predefines `x` alone. This server predefines four, because the
+specialised tools have always declared `x, y, z, t` in their prelude: with only
+`x`, `differentiate_expression("x^2*y^3")` worked while the identical
+mathematics through `evaluate_sage` failed.
+
+**In `evaluate_sage`, any other symbol-shaped name is declared for you** —
+`w`, `x_2`, `k1`, `alpha`, `α`. SageMath's own rule is stricter (`w + 1` typed
+as *code* is a `NameError` there), and this is a deliberate departure: the
+specialised tools already declared a symbol on sight, so the two paths
+disagreed about which names exist. A name that is *not* symbol-shaped stays an
+error, so a typo like `sinn` is reported rather than quietly becoming a symbol.
+`var('w')` still works and is never wrong to write.
+
+**The specialised tools declare a symbol on sight,** because they take an
+expression as a *string* and that is SageMath's other rule — `SR("a*b + a")`
+creates `a` and `b`. So `simplify_expression("w^2 + w^2")` answers `2*w^2`, and
+`expand_expression("(θ + φ)^2")` answers in the letters you wrote.
+
+Narrower than `SR` in the way that matters: `SR` invents *any* identifier, so
+`SR("sinn(x)")` returns `sinn(x)` and a typo becomes a silent wrong answer.
+Only symbol-shaped names are declared — a letter with an optional index (`a`,
+`w`, `x_2`), a spelled-out Greek name (`alpha`), or a Greek letter (`α`, `Ω`) —
+so `sinn`, `foobar` and `pi2` are still errors. Names SageMath already defines
+are never shadowed: `e` stays Euler's number, `I` the imaginary unit, and
+`gamma`, `zeta`, `π`, `σ`, `Γ` and `ψ` stay the functions they are.
+
+Only caller code is preparsed. The specialised tools build plain Python around
+`sage_eval`, and preparsing those templates would change what they mean.
+
+### Large integers
+
+Mathematics produces integers that JSON numbers cannot carry. Above 2^53 a JSON
+number stops being exact, and JavaScript-based MCP clients parse every number as
+an IEEE double --- so `bell(30)` arrived in one CLI as `846749014511809388871680`
+instead of `846749014511809332450147`. Nothing errored; the number was simply
+wrong, which is the worst way for it to fail.
+
+Both directions therefore speak decimal strings past that boundary:
+
+- **In:** integer parameters from 2^53 upward must be passed as decimal strings;
+  a numeric literal that large is rejected rather than silently rounded. The
+  boundary is JavaScript's `Number.MAX_SAFE_INTEGER` (2^53 - 1), not 2^53:
+  2^53 + 1 rounds to exactly 2^53, so those two arrive indistinguishable and
+  neither can be trusted.
+- **Out:** integer results beyond that boundary come back as decimal strings.
+  Smaller integers keep their numeric type, so ordinary results are unchanged.
+- **Matrices:** entries may be integers, decimal strings or floats. Integer
+  entries stay exact rather than being rounded through a double, and an
+  integral result past the boundary comes back exact. Float matrices behave
+  exactly as before.
+
+```json
+{"operation": "bell", "result": "846749014511809332450147"}
+{"operation": "binomial", "result": 120}
+```
 
 ---
 
@@ -919,10 +934,13 @@ The rules below still apply, and now serve as defence in depth behind it.
 
 Names in the first three rows are rejected **anywhere they are read** --- called,
 assigned, aliased, defaulted into a `lambda`, placed in a list, or reached through
-an attribute chain --- not only in call position. The last of those matters more
-than it sounds: `sage` is an allowed import root, so
+an attribute chain --- not only in call position. The last of those mattered
+more than it sounds: when `sage` was still an allowed root,
 `sage.misc.sage_eval.sage_eval("...")` reached the same function that a bare
-`sage_eval` could not.
+`sage_eval` could not. `eval`, `input`, `locals` and `vars` are the exception:
+the bare names reach nothing (no builtin, worker name or allowlist entry
+offers them), so mathematics may use them as variable names (`eval = ...`,
+`def f(vars): ...`), and they are refused as *attributes* (`latex.eval`).
 
 | Category | Details |
 |----------|---------|
@@ -1056,7 +1074,7 @@ to the release its version names. Inside a session:
 /plugin install sagemath-mcp --marketplace XBP-Europe/sagemath-mcp
 ```
 
-`claude mcp add sagemath -- uvx --from "sagemath-mcp[passagemath]==0.9.4" sagemath-mcp`
+`claude mcp add sagemath -- uvx --from "sagemath-mcp[passagemath]==0.9.5" sagemath-mcp`
 does the same without the plugin.
 
 **VS Code (Copilot) and Cursor.** The *Install in VS Code* and *Install in
@@ -1066,7 +1084,7 @@ with the same `uvx` command, unpinned.
 **Gemini CLI.** The repository is itself an extension:
 
 ```bash
-gemini extensions install https://github.com/XBP-Europe/sagemath-mcp --ref v0.9.4
+gemini extensions install https://github.com/XBP-Europe/sagemath-mcp --ref v0.9.5
 ```
 
 Pass the release tag you want as `--ref`; without it you get whatever `main`
@@ -1077,7 +1095,7 @@ removes it.
 local server it is one command:
 
 ```bash
-codex mcp add sagemath -- uvx --from "sagemath-mcp[passagemath]==0.9.4" sagemath-mcp
+codex mcp add sagemath -- uvx --from "sagemath-mcp[passagemath]==0.9.5" sagemath-mcp
 ```
 
 All of these install a Sage runtime along with the server through the
@@ -1115,7 +1133,7 @@ here.
 | Variable | Default | What it does |
 | --- | --- | --- |
 | `SAGEMATH_MCP_SAGE_BINARY` | `sage` | The Sage executable the worker is spawned with. Looked up on `PATH`, then beside the server's own Python, so a conda env or venv works without being activated. A `sage` installed as a Python console script (conda-forge's) starts the worker on the interpreter it names; a shell launcher gets `sage -python`. |
-| `SAGEMATH_MCP_STARTUP` | *(empty)* | Code run once in each new worker namespace, before any caller code. |
+| `SAGEMATH_MCP_STARTUP` | `from sage.all import *` | Code each new worker namespace runs before any caller code. Setting it *replaces* the default import, so keep `from sage.all import *` in anything you set. |
 | `SAGEMATH_MCP_EVAL_TIMEOUT` | `30` | Seconds per evaluation. A tool's `timeout` argument overrides it. |
 | `SAGEMATH_MCP_MAX_STDOUT` | `100000` | Characters of captured stdout kept; the rest is truncated. |
 | `SAGEMATH_MCP_MAX_SESSIONS` | `128` | Ceiling on live workers. Reaching it refuses new sessions rather than exhausting memory. |
@@ -1135,7 +1153,7 @@ would trust with the session itself.
 | Variable | Default | What it does |
 | --- | --- | --- |
 | `SAGEMATH_MCP_PERSIST_SESSIONS` | `false` | Journal session state to disk and replay it on respawn. |
-| `SAGEMATH_MCP_PERSIST_DIR` | *(empty)* | Where journals are written. Empty means a temporary directory. |
+| `SAGEMATH_MCP_PERSIST_DIR` | *(empty)* | Where journals are written. Empty disables persistence even when `SAGEMATH_MCP_PERSIST_SESSIONS` is true, so set both. |
 
 ### HTTP
 

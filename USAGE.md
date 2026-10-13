@@ -1,37 +1,44 @@
 # SageMath MCP Server Usage Guide
 
 ## Prerequisites
-- Python 3.12+ with [uv](https://docs.astral.sh/uv/) installed (`curl -LsSf https://astral.sh/uv/install.sh | sh`).
-- A working SageMath installation. The reference environment uses Docker:  
+- Python 3.12+. [uv](https://docs.astral.sh/uv/) is the easiest way to run the
+  server (`curl -LsSf https://astral.sh/uv/install.sh | sh`); `uvx` needs no
+  install step.
+- A Sage runtime the server can start. The recommended one is the
+  `[passagemath]` extra, which installs it next to the server (macOS and Linux,
+  ~1 GB, pinned to a release this project's CI verifies):
   ```bash
-  docker pull sagemath/sagemath:10.10
-  docker run --name sage-mcp -d -v "$PWD":/workspace -w /workspace sagemath/sagemath:10.10 tail -f /dev/null
+  pip install "sagemath-mcp[passagemath]"
+  # or, without installing: uvx --from "sagemath-mcp[passagemath]" sagemath-mcp
   ```
-  Pin the version rather than taking `:latest`. The set of names callers may use
-  is generated from a specific SageMath and baked into the package, so a
-  different release can offer names this build does not admit. A scheduled job
-  and an integration test both fail when the two disagree.
-- Alternatively, run `make sage-container` (or `./scripts/setup_sage_container.sh`) to pull and launch
-  the Docker image automatically.
-- Optional: `sage` on your `PATH` if running outside Docker.
+  A pip install runs with your own privileges; for untrusted input or a shared
+  host, run the container image instead (below, and in the README).
 - Or install the server and Sage together from conda-forge (Linux and macOS):
   `conda install -c conda-forge "sagemath-mcp>=0.9.4" sage`. Keep the floor --
   earlier releases cannot start a worker on conda-forge's `sage`.
   conda-forge's `sage` is 10.9, a release behind the 10.10 the allowlist is
   generated from, so names 10.10 added are unavailable.
+- Or a `sage` you already have, on your `PATH` or in the server's own
+  environment. Prefer 10.10: the set of names callers may use is generated from
+  a specific SageMath and baked into the package, so a different release can
+  offer names this build does not admit.
+- A Sage inside a container is out of reach of a server on the host. `make
+  sage-container` starts the Sage container the integration tests run in; it is
+  a development fixture, not a runtime.
 - `docker compose up --build` (or `docker-compose up --build` on Compose v1) launches the bundled stack on `http://127.0.0.1:8314/mcp` using the
   non-root `sage` user (UID/GID 1001). The project directory is mounted
   **read-only**, so it needs no ownership change — do not `chown -R` your
   checkout.
 - To deploy to Kubernetes, use the Helm chart in `charts/sagemath-mcp` and set
-  `image.repository`/`image.tag` to the published container (non-root execution is enforced by default).
+  `image.tag` to a released version (non-root execution is enforced by default).
 
 ## Installing Dependencies
 In a checkout:
 ```bash
-uv pip install -e .[cli]
+uv pip install -e '.[cli,passagemath]'
 ```
-This installs the MCP server along with the `mcp` CLI helpers.
+This installs the MCP server, the `mcp` CLI helpers and the passagemath Sage
+runtime. Leave out `passagemath` if the server should use a Sage you already have.
 
 ## Running the Server
 ### StdIO Transport (local development)

@@ -9,6 +9,13 @@ roadmap item "passagemath runtime extra" (field survey, 2026-08-24) asked for.
 
 ## Verdict
 
+**Status 2026-10-13:** the gate this evaluation set before recommending
+passagemath (two consecutive releases passing the cold-install smoke gate on
+first try, §"Not blocking" below) was met by 10.8.12 and 10.8.13, and the
+`[passagemath]` extra became the recommended install. The monolithic container
+image stays the route for isolation and the runtime the release is built and
+smoke-tested on.
+
 **Adopt — pinned to a verified release, after two pieces of prework.** The
 technical fit is better than the roadmap sketch assumed: `pip install
 passagemath-standard` yields a runtime where `from sage.all import *` works,

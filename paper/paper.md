@@ -108,8 +108,8 @@ they screen caller code; the 2026-08-24 code read did not record it. -->
 Contributing these ideas upstream wouldn't work, because the contribution is
 the policy boundary rather than more mathematics. SageMath's own interfaces are
 built to execute whatever they are given. The server also uses the modular
-passagemath [@passagemath] distribution as an optional runtime, which cuts the
-install from a roughly 3 GB container to a roughly 1 GB `pip install`.
+passagemath [@passagemath] distribution as its recommended local runtime, which
+cuts the install from a roughly 3 GB container to a roughly 1 GB `pip install`.
 
 <!-- OUTLINE: the Jupyter-kernel design was prototyped and rejected here
 (prototypes/jupyter_transport/FINDINGS.md): stock ipykernel executes code the

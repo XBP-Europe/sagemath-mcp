@@ -60,7 +60,7 @@ allowlist:
 # unit suite) nor the container. Write through /tmp: the generator imports the
 # file it replaces. Regenerate the allowlist AFTER any denylist change, never
 # before -- the allowlist is the namespace minus the strip.
-PASSAGEMATH_PIN ?= passagemath-standard==10.8.12
+PASSAGEMATH_PIN ?= passagemath-standard==10.8.13
 allowlist-passagemath:
 	PYTHONPATH=src uv run --no-project --python 3.12 --with "$(PASSAGEMATH_PIN)" python scripts/generate_allowlist.py > /tmp/allowlist_passagemath_new.py
 	mv /tmp/allowlist_passagemath_new.py src/sagemath_mcp/allowlist_passagemath.py

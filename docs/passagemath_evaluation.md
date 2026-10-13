@@ -331,7 +331,11 @@ path": two consecutive passagemath stable releases passing this project's
 cold-install smoke gate on first try. The two most recent did not (§4); the
 release *before* them did. 10.8.11 passes now, but only after a `.post1`
 reissue, and a post-release fix is not a first-try pass — the counter stays at
-zero. 10.8.12 passed on first try and became the pin on 2026-10-05 (#205), so
-the counter stands at one. If that record holds for a couple of cycles, the
-pin can track stable with a one-release lag and this becomes the primary
-distribution story the field survey asked for.
+zero. 10.8.12 passed on first try and became the pin on 2026-10-05 (#205).
+10.8.13 -- which carries the Maxima 5.50 upgrade (passagemath/passagemath#2632)
+the 10.8.10 regression was waiting on -- passed on first try too, and became the
+pin on 2026-10-13 (#228): its security artifacts were byte-identical, the smoke checks
+and the whole suite passed, and corpus acceptance read 98.9730%. **The counter
+stands at two, so the gate is met.** Making passagemath the recommended install
+path is now a decision rather than a wait; the pin can track stable with a
+one-release lag.

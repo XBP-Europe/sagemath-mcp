@@ -7,6 +7,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **passagemath pin moved to 10.8.13** (2026-10-11), the gated bump. It brings
+  Maxima 5.50, FLINT 3.6 and the HiGHS mixed-integer backend, which
+  `passagemath-standard` now installs and Sage picks by default, so a MILP
+  answer can differ from GLPK's in its last floating-point digits.
+  Smoke-verified on integrate/solve/limit/desolve/maxima/gap/MILP; the
+  passagemath allowlist and star-exports are byte-identical; corpus acceptance
+  is 98.9730% of 433,687 examples. It is the second consecutive passagemath
+  release to pass the cold-install gate on first try, the bar
+  `docs/passagemath_evaluation.md` set before recommending it as an install path.
+
 ## [0.9.5] - 2026-10-13
 
 **The distribution release.** Installing from the official MCP registry now

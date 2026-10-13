@@ -103,12 +103,13 @@ points at the artefacts above. What the repository provides for them:
 | Where | What it reads | State |
 | --- | --- | --- |
 | Official MCP registry | `server.json`, published by the release | Listed |
+| GitHub MCP registry | curated by GitHub from the official registry | Requested from partnerships@github.com 2026-10-13, awaiting a reply |
 | Claude Code plugin | `.claude-plugin/marketplace.json` (this repository is a marketplace) and the plugin in `packaging/claude-plugin/`, whose launcher pins the release | Installable with `/plugin install sagemath-mcp --marketplace XBP-Europe/sagemath-mcp`. Not yet submitted to the Claude directory, which takes local servers only as plugins, no longer as `.mcpb` bundles; submission goes through claude.ai/directory/manage |
 | Gemini CLI extension gallery | `gemini-extension.json` at the root, found through the `gemini-cli-extension` repository topic | Topic set; the gallery crawls repositories with it daily. The topic is a repository setting, not a file |
 | VS Code, Cursor | the install buttons in the README | No listing needed |
 | Glama, MCP Market, LobeHub | crawled from this repository | Listed; Glama's is claimed, MCP Market's and LobeHub's are not |
 | awesome-mcp-servers, Cline marketplace | a pull request to each list | Open: punkpeye/awesome-mcp-servers#16189, cline/marketplace#221 |
-| mcp.directory, mcpservers.org | their submission forms | Submitted 2026-10-11, pending review |
+| mcp.directory, mcpservers.org | their submission forms | Submitted 2026-10-11, pending review (mcpservers.org's contact address corrected by email 2026-10-13) |
 | HOL awesome-ai-plugins | its `plugin-scanner` gate | Waiting on a maintainer exception for the worker's `eval` ([#166](https://github.com/XBP-Europe/sagemath-mcp/issues/166)) |
 
 Directories that ask for an icon or a privacy policy get `docs/assets/icon.png`

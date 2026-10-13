@@ -42,12 +42,12 @@ what a doctest *is* rather than what Sage computes:
    the same tag as `# not implemented` with a word in front of it, and
    `QQ['x'] in Algebras(Fields())` is written expecting `True` while returning
    `False` today. Comparing against one fails for the reason the tag exists.
-5. **Sage's REPL lays matrices out in columns.** A sequence of matrices prints
+5. **Sage's REPL lays matrices out in columns.** A sequence of matrices printed
    side by side there and stacked here, because that formatting lives in
-   `sage.repl.display` and results come back as `repr`. The mathematics is
-   identical; the layout is not, and it is on the queue rather than hidden.
+   `sage.repl.display`. That was a defect in this server, not in the doctests:
+   results now go through Sage's own `format_list`, so those comparisons are made.
 
-Measured after all five: 400 docstrings, 2,163 examples, 1,259 comparable,
+Measured after all five: 400 docstrings, 2,163 examples, 1,279 comparable,
 **100% agreement, no mismatches and no unexpected errors**.
 
 Comparison is SageMath's own `SageOutputChecker`, which implements the `...`

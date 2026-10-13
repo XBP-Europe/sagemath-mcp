@@ -3,7 +3,7 @@
   "name": "io.github.XBP-Europe/sagemath-mcp",
   "title": "SageMath",
   "description": "Stateful SageMath MCP server with 40 tools and a sandboxed Sage session per client.",
-  "version": "0.9.4",
+  "version": "0.9.5",
   "websiteUrl": "https://github.com/XBP-Europe/sagemath-mcp",
   "repository": {
     "url": "https://github.com/XBP-Europe/sagemath-mcp",
@@ -13,13 +13,13 @@
     {
       "registryType": "pypi",
       "identifier": "sagemath-mcp",
-      "version": "0.9.4",
+      "version": "0.9.5",
       "runtimeHint": "uvx",
       "runtimeArguments": [
         {
           "type": "named",
           "name": "--from",
-          "value": "sagemath-mcp[passagemath]==0.9.4",
+          "value": "sagemath-mcp[passagemath]==0.9.5",
           "description": "Installs the passagemath extra, which brings the Sage runtime (about 1 GB, downloaded on first launch). Without it the server starts but every evaluation fails for want of a Sage to drive."
         }
       ],
@@ -29,7 +29,7 @@
     },
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/xbp-europe/sagemath-mcp:0.9.4",
+      "identifier": "ghcr.io/xbp-europe/sagemath-mcp:0.9.5",
       "packageArguments": [
         {
           "type": "named",

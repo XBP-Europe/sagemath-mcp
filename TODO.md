@@ -14,6 +14,12 @@ removed from here once they ship or are decided against.
       talk to CoCalc (hosted Sage). Lead with the doctest-corpus acceptance
       figure — the strongest single credibility claim.
 
+- [ ] **Directory listings that need the maintainer's accounts** (see
+      [DISTRIBUTION.md](DISTRIBUTION.md#directories-and-plugin-catalogs)):
+      submit the Claude Code plugin at claude.ai/directory/manage; claim the
+      MCP Market and LobeHub listings; ask partnerships@github.com to list the
+      server in the GitHub MCP registry once 0.9.5 is out.
+
 - [ ] **The JOSS paper.** The skeleton is `paper/paper.md`, built to PDF by
       `.github/workflows/paper.yml`. The Zenodo concept DOI now exists
       (10.5281/zenodo.22939422, recorded 2026-09-24), so what still blocks it

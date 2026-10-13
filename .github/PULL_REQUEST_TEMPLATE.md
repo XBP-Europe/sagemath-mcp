@@ -10,7 +10,7 @@
 
 ## Testing
 
-- [ ] `uv run pytest` (coverage is gated at 100%, statements and branches)
+- [ ] `uv run pytest --cov=sagemath_mcp --cov-branch --cov-fail-under=100` (CI gates coverage at 100%, statements and branches; bare `pytest` does not check it)
 - [ ] `uv run ruff check` — the bare command, as CI runs it
 - [ ] `make typecheck` (mypy over `src/sagemath_mcp`)
 - [ ] `make integration-test` (if Sage container available)

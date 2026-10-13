@@ -43,11 +43,11 @@ Caller code is **deny-by-default**: the full breadth of Sage mathematics is
 reachable, but imports, the external CAS interfaces, and the file / display /
 persistence primitives are not. The policy accepts **98.9% of SageMath's own
 438,124 documented doctest examples** (4,259 in-scope refusals, every one
-attributed to a named rule; 99.0% of 433,289 on the passagemath runtime) while
+attributed to a named rule; 98.9% of 433,281 on the passagemath runtime) while
 refusing the rest — measured on every CI run (see [Security](#security)).
 
-Full manual: **[USAGE.md](USAGE.md)** — every tool's parameters and examples, how
-code is interpreted, and the security model in depth.
+Full manual: **[USAGE.md](USAGE.md)** — the tools and their parameters, how code
+is interpreted, and the security model in depth.
 
 ## Install & run
 
@@ -77,8 +77,10 @@ sagemath-mcp                                             # stdio (default)
 sagemath-mcp --transport streamable-http --port 8314    # HTTP on 127.0.0.1
 ```
 
-This needs a working SageMath on the host — either `sage` on your `PATH` (or in
-the same environment as the server) or the `sagemath/sagemath` Docker image.
+This needs a working SageMath on the host: `sage` on your `PATH`, or in the same
+environment as the server. A Sage inside a container is out of reach of a server
+on the host; without a Sage of your own, use the `[passagemath]` extra or
+conda-forge below, or the container image above.
 
 **From conda-forge (Linux and macOS, next to conda-forge's Sage):**
 
@@ -132,7 +134,7 @@ where the monolithic one stays primary.
 **One click in a desktop MCP host (Claude Desktop and friends):** download
 `sagemath-mcp-<version>.mcpb` from the
 [latest release](https://github.com/XBP-Europe/sagemath-mcp/releases/latest) and
-open it. The bundle is a couple of kilobytes; your host installs the server *and*
+open it. The bundle is about 27 KB; your host installs the server *and*
 a Sage runtime with uv on first launch, which is roughly a 1 GB download once.
 macOS and Linux — native Windows is excluded because passagemath's Windows
 support is partial. A bundle is a local install with your own privileges; for
@@ -207,8 +209,8 @@ Each builds an object once and explores it across calls — the case for
 
 ## The 40 tools
 
-The math tools use SageMath as the backend; full parameters and examples are in
-**[USAGE.md](USAGE.md#tool-reference)**.
+The math tools use SageMath as the backend; parameters and examples for the
+most-used ones are in **[USAGE.md](USAGE.md#tool-reference)**.
 
 | Category | Tools |
 |----------|-------|

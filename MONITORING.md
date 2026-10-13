@@ -26,8 +26,8 @@ rejected code and captured stdout of the latest failure are deliberately **not**
 exposed here: the metrics are a single process-global record shared by every
 client, so a per-request error field would hand one client another client's
 inputs and outputs. Those details are available to operators in the server logs
-instead — set `SAGEMATH_MCP_SECURITY_LOG_VIOLATIONS=true` to log blocked code
-alongside the counters.
+instead: blocked code is logged alongside the counters by default
+(`SAGEMATH_MCP_SECURITY_LOG_VIOLATIONS`, default `true`).
 
 ## Manual Inspection
 
@@ -144,10 +144,10 @@ Add the endpoint to Prometheus, then build dashboards for `sagemath_mcp_failures
 
 ## Integration Testing
 
-`tests/test_integration.py` exercises this resource against a real Sage binary. From the provided Sage Docker container:
+`tests/test_integration.py` exercises this resource against a real Sage binary. With the development container running (`make sage-container`):
 
 ```bash
-docker exec sage-mcp bash -lc 'cd /workspace && sage -python -m pytest'
+make integration-test   # installs the test dependencies into Sage, then runs the suite in the container
 ```
 
 All integration tests should pass, confirming that metrics update correctly under live Sage workloads.

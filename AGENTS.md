@@ -1,8 +1,8 @@
 # Agent Playbook
 
 ## Environment & Setup
-- `uv pip install -e .[dev]` primes the venv with runtime+dev extras; prefer `sage -python -m uv ...` inside the Docker image.
-- `make sage-container` (script: `scripts/setup_sage_container.sh`) ensures the Sage runtime is available for integration work.
+- `uv pip install -e .[dev]` primes the venv with runtime+dev extras; inside the Sage container use `sage -python -m pip ...` (what the image and `make sage-deps` do).
+- `make sage-container` (script: `scripts/setup_sage_container.sh`) starts the development Sage container the integration tests run in; it is not a runtime deployment.
 - Keep `TODO.md` in sync with outstanding initiatives; the unchecked items at the bottom reflect the current priority queue.
 - `docker-compose.yml` spins up the Sage-backed MCP server locally; the Helm chart under `charts/sagemath-mcp` mirrors the deployment knobs for Kubernetes and enforces the non-root `sage` user (UID/GID 1001 on SageMath 10.10).
 - Release workflow publishes signed images to `ghcr.io/xbp-europe/sagemath-mcp`; verify with Cosign if you consume the container directly.
@@ -17,11 +17,12 @@
 - `make build` → `uv run python scripts/build_release.py` (sdist/wheel; respects prerequisite guardrails)
 - `make all` → convenience alias (`make test` + `make integration-test`); keep targets separate when adding CI steps.
 - `make allowlist` → regenerates `src/sagemath_mcp/allowlist.py` from the installed Sage. Two steps on purpose: the generator imports the module it writes, so a single redirect truncates its own input. **Review every added name** before committing.
-- `make cli-extended` → drives the real Claude/Gemini/Codex CLIs and asserts from the proxy wire log that a tool was called. Costs model credits; runs nightly in CI and is worth a manual run before a release.
+- `make cli-extended` → drives the real Claude/Gemini/Codex CLIs and asserts from the proxy wire log that a tool was called. Costs model credits. `cli-nightly.yml` is scheduled but has no API-key secrets, so it skips every CLI; run this by hand before a release.
 
 ## Where Code Goes
 - A new tool belongs in the matching `src/sagemath_mcp/tools/` module (`core`, `calculus`,
-  `algebra`, `discrete`, `stats`, `plotting`, `session`, `diagnostics`, `verify`) and must be listed in
+  `algebra`, `discrete`, `stats`, `plotting`, `session`, `diagnostics`, `verify`; `prompts`
+  holds the 3 MCP prompts and `hints` the tool annotations) and must be listed in
   `tools/__init__.py` -- a module missing from that list registers nothing.
 - Decorate against `mcp` imported from `..app`. Never use FastMCP's `mount`/`import_server`
   to compose them: it prefixes tool names, renaming every tool a client has configured.
@@ -44,7 +45,7 @@
 ## Testing Expectations
 - Add new tests under `tests/`, mirroring the module under `src/`; mark async cases with `@pytest.mark.asyncio`.
 - Exercise both `make test` and `make integration-test` before landing changes; the latter requires the Sage container.
-- Cover MCP helper tools in `tests/tools/test_<domain>.py` (one per `tools/` module; server-level behaviour in `tests/test_server.py`) and the code-building helpers (`evaluate_structured`, the prelude, the validation gates) in `tests/test_codegen.py`; use `tests/test_use_cases.py` for Sage-manual scenarios.
+- Cover MCP helper tools in `tests/tools/test_<domain>.py` (`diagnostics`, `verify` and `prompts` in `tests/test_diagnostics.py`, `test_verify.py` and `test_prompts.py`; server-level behaviour in `tests/test_server.py`) and the code-building helpers (`evaluate_structured`, the prelude, the validation gates) in `tests/test_codegen.py`; use `tests/test_use_cases.py` for Sage-manual scenarios.
 - CI enforces `--cov-fail-under=100`, so a new branch needs a test that reaches it.
 - Security work has a counterweight: every test in `tests/test_security_bypass.py`
   asserts something is **blocked**, so a policy that refused everything would
@@ -58,7 +59,7 @@
 - Update `README.md`, `USAGE.md`, and the monitoring docs whenever you touch CLI flags, security toggles, or observability outputs.
 - Surface new automation (e.g., build pipeline steps, artifact locations) in `AGENTS.md` and `TODO.md` so follow-on work is visible.
 - Keep distribution guidance current (`INSTALLATION.md`, `DISTRIBUTION.md`) and maintain cross-platform notes (Windows/macOS).
-- Kick off the **Bump Version** workflow ahead of a release to increment the package version and push the matching `vX.Y.Z` tag.
+- Kick off the **Bump Version** workflow ahead of a release: it bumps every versioned file and opens a pull request. Push the `vX.Y.Z` tag yourself once that merges.
 
 ## Extra Tips
 - Use `interrupt_sage_session` to stop a long Sage computation: it keeps the session's variables, where `cancel_sage_session` restarts the worker and discards them.

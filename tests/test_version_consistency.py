@@ -84,6 +84,19 @@ def _declared_versions(root: Path) -> dict[str, str]:
         args = plugin["mcpServers"]["sagemath"]["args"]
         found["claude-plugin.pin"] = args[args.index("--from") + 1].split("==")[-1]
 
+    # The docs' install examples pin a release; USAGE.md and INSTALLATION.md
+    # named 0.8.2 for seven releases because nothing moved them.
+    for doc in ("USAGE.md", "INSTALLATION.md", "DISTRIBUTION.md"):
+        text = (root / doc).read_text(encoding="utf-8")
+        pins = re.findall(
+            r"(?:sagemath-mcp\[passagemath\]==|--ref v|image\.tag=v"
+            r"|ghcr\.io/xbp-europe/sagemath-mcp:v?)(\d+\.\d+\.\d+)",
+            text,
+        )
+        assert pins, f"{doc} no longer pins a release; drop it from this check"
+        for index, pin in enumerate(pins):
+            found[f"{doc}.pin{index}"] = pin
+
     # uv.lock records this project as a package. The v0.5.0 release bumped every
     # other file and left the lock saying 0.4.0, so `uv lock --check` failed and
     # anyone installing with `uv sync` got metadata for a version that was never
@@ -112,6 +125,9 @@ VERSIONED_FILES = (
     "packaging/mcpb/pyproject.toml",
     "gemini-extension.json",
     "packaging/claude-plugin/.claude-plugin/plugin.json",
+    "USAGE.md",
+    "INSTALLATION.md",
+    "DISTRIBUTION.md",
     "scripts/bump_version.py",
 )
 

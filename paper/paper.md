@@ -51,7 +51,7 @@ make these mistakes with confidence. Computer algebra systems don't make those
 mistakes, but they need an interface a model can use. `sagemath-mcp` is a
 Model Context Protocol [@mcp] server that gives a language model a SageMath
 [@sagemath] session. It exposes 40 tools: a general `evaluate_sage` entry point,
-33 Sage-backed helpers across calculus, algebra, number theory, combinatorics,
+29 domain helpers across calculus, algebra, number theory, combinatorics,
 graph and group theory, elliptic curves, coding theory, statistics and
 plotting, a `verify_claim` tool that re-checks a stated mathematical claim, and
 session and diagnostic tools. Each client gets a dedicated Sage process whose
@@ -137,9 +137,9 @@ documentation: all 438,124 `sage:` doctest examples are pushed through the
 validator, and 98.8797% of those in scope are accepted on SageMath 10.10, with
 4,259 refused (`doctest-corpus-stats.md`, 2026-10-05). CI fails if acceptance
 drops below 98.50%. Executing a 400-docstring sample agreed with Sage's
-documented output on all 1,259 comparable examples.
+documented output on all 1,279 comparable examples.
 
-**Adversarial verification.** The security record (`REVIEW_ACTIONS.md`, 95
+**Adversarial verification.** The security record (`REVIEW_ACTIONS.md`, 99
 items) documents every bypass found with its reproduction, fix and regression
 test. Generative fuzzers cover the validator, the code-generation gates and
 the worker protocol.
@@ -164,7 +164,7 @@ before submitting:
     which is on TODO.md anyway);
   - downloads (PyPI, GHCR pulls) and registry listings as supporting, not
     primary, evidence;
-  - the conda-forge feedstock once merged.
+  - the conda-forge package (feedstock merged 2026-10-09).
 The measurements below can stay as supporting material. -->
 
 Two committed benchmarks measure what the server changes. On a fixed set of 24
@@ -176,8 +176,8 @@ stated with confidence (`benchmark-stats.md`). On a hard tier of 14 problems a
 frontier coding client scored 4/14 without the server and 14/14 with it, using
 exactly one tool call per case (`tool-surface-stats.md`).
 
-The server is published on PyPI, as signed container images, and in the
-official MCP registry.
+The server is published on PyPI, on conda-forge, as signed container images,
+and in the official MCP registry.
 
 # AI usage disclosure
 

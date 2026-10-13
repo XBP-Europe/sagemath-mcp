@@ -17,8 +17,7 @@ removed from here once they ship or are decided against.
 - [ ] **Directory listings that need the maintainer's accounts** (see
       [DISTRIBUTION.md](DISTRIBUTION.md#directories-and-plugin-catalogs)):
       submit the Claude Code plugin at claude.ai/directory/manage; claim the
-      MCP Market and LobeHub listings; ask partnerships@github.com to list the
-      server in the GitHub MCP registry once 0.9.5 is out.
+      MCP Market and LobeHub listings.
 
 - [ ] **The JOSS paper.** The skeleton is `paper/paper.md`, built to PDF by
       `.github/workflows/paper.yml`. The Zenodo concept DOI now exists

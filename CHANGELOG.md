@@ -18,6 +18,20 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is 98.9730% of 433,687 examples. It is the second consecutive passagemath
   release to pass the cold-install gate on first try, the bar
   `docs/passagemath_evaluation.md` set before recommending it as an install path.
+- **The `[passagemath]` extra is the recommended install.** Two consecutive
+  passagemath releases (10.8.12, 10.8.13) passed the cold-install gate on first
+  try, the bar `docs/passagemath_evaluation.md` set. The README, INSTALLATION.md,
+  USAGE.md and SUPPORT.md now lead with `pip install "sagemath-mcp[passagemath]"`
+  (or `uvx`), the route every client install already took; the container image
+  stays the route for isolation, and each says so where the pip route is offered.
+
+### Fixed
+
+- **USAGE.md's prerequisites no longer send readers to a separate Sage
+  container.** They said to run `sagemath/sagemath:10.10` beside the server,
+  which a server on the host cannot reach -- the same advice #226 removed from
+  INSTALLATION.md and the README. They now name the routes that work, and its
+  checkout install includes the passagemath runtime.
 
 ## [0.9.5] - 2026-10-13
 

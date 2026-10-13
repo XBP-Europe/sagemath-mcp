@@ -51,7 +51,36 @@ is interpreted, and the security model in depth.
 
 ## Install & run
 
-**Recommended — the container image (SageMath is baked in):**
+**Recommended — pip, with the [passagemath](https://github.com/passagemath/passagemath) Sage runtime:**
+
+```bash
+pip install "sagemath-mcp[passagemath]"    # ~1 GB, no Docker, no local Sage build
+sagemath-mcp                                             # stdio (default)
+sagemath-mcp --transport streamable-http --port 8314    # HTTP on 127.0.0.1
+```
+
+or, with [uv](https://docs.astral.sh/uv/) and nothing installed permanently,
+`uvx --from "sagemath-mcp[passagemath]" sagemath-mcp`. This is the route every
+client install below takes.
+
+passagemath is a pip-installable, modularized SageMath. `from sage.all import *`
+and the worker run unmodified; the server detects the runtime at import and
+loads the matching security artifacts, so the deny-by-default policy is
+equivalent on both. It is pinned exactly (`passagemath-standard==10.8.13`) and
+exercised by its own CI lane — the whole suite plus the doctest-corpus sweep
+against the pin — so a pin bump is verified end to end before it ships, and the
+last two releases passed that gate on first try
+([docs/passagemath_evaluation.md](docs/passagemath_evaluation.md)).
+macOS and Linux; native Windows support is partial, so on Windows use the
+container or WSL.
+
+**A pip install runs with your own privileges.** The security policy refuses
+code that reaches outside mathematics, but it is not an operating-system
+boundary ([SECURITY.md](SECURITY.md#security-model)). That suits your own client
+on your own machine. For untrusted input, a shared host or multi-tenant use, run
+the container.
+
+**For isolation — the container image (SageMath is baked in):**
 
 ```bash
 docker run --rm \
@@ -68,49 +97,6 @@ Released images are signed with Cosign and carry SLSA provenance and an SPDX
 SBOM as registry attestations; the PyPI files carry PEP 740 attestations.
 [DISTRIBUTION.md](DISTRIBUTION.md#verifying-signatures-provenance-and-sboms)
 shows how to verify each.
-
-**From PyPI (bring your own Sage runtime):**
-
-```bash
-pip install sagemath-mcp
-sagemath-mcp                                             # stdio (default)
-sagemath-mcp --transport streamable-http --port 8314    # HTTP on 127.0.0.1
-```
-
-This needs a working SageMath on the host: `sage` on your `PATH`, or in the same
-environment as the server. A Sage inside a container is out of reach of a server
-on the host; without a Sage of your own, use the `[passagemath]` extra or
-conda-forge below, or the container image above.
-
-**From conda-forge (Linux and macOS, next to conda-forge's Sage):**
-
-```bash
-conda install -c conda-forge "sagemath-mcp>=0.9.4" sage
-sagemath-mcp
-```
-
-The version floor matters: earlier releases cannot start a worker on
-conda-forge's `sage`, and without it the solver may pick one. That `sage` is 10.9, one release behind the 10.10 the
-security artifacts are generated from, so names 10.10 added are unavailable and
-nothing outside the allowlist is admitted.
-
-**A Sage runtime without the 3 GB image ([passagemath](https://github.com/passagemath/passagemath), optional):**
-
-```bash
-pip install "sagemath-mcp[passagemath]"    # ~1 GB, no Docker, no local Sage build
-sagemath-mcp
-```
-
-A pip-installable, modularized fork of SageMath. `from sage.all import *` and the
-worker run unmodified; the server detects the runtime at import and loads the
-matching security artifacts, so the deny-by-default policy is equivalent on both.
-It is pinned exactly (`passagemath-standard==10.8.13`) and exercised by its own CI
-lane — the whole suite plus the doctest-corpus sweep against the pin — so a pin
-bump is verified end to end before it ships
-([docs/passagemath_evaluation.md](docs/passagemath_evaluation.md)). It is the
-optional runtime; the monolithic image stays primary, and for untrusted or
-multi-tenant use run the container regardless of runtime — a pip install has your
-user's privileges, the container adds OS-level isolation.
 
 **On arm64 (Apple silicon, Graviton): the passagemath image.** The monolithic
 image above is published for `linux/amd64` only, so on arm64 it runs under
@@ -139,6 +125,30 @@ a Sage runtime with uv on first launch, which is roughly a 1 GB download once.
 macOS and Linux — native Windows is excluded because passagemath's Windows
 support is partial. A bundle is a local install with your own privileges; for
 untrusted or multi-tenant use run the container instead.
+
+**With a Sage you already have (PyPI):**
+
+```bash
+pip install sagemath-mcp
+sagemath-mcp                                             # stdio (default)
+sagemath-mcp --transport streamable-http --port 8314    # HTTP on 127.0.0.1
+```
+
+This needs a working SageMath on the host: `sage` on your `PATH`, or in the same
+environment as the server. A Sage inside a container is out of reach of a server
+on the host; without a Sage of your own, use the `[passagemath]` extra above.
+
+**From conda-forge (Linux and macOS, next to conda-forge's Sage):**
+
+```bash
+conda install -c conda-forge "sagemath-mcp>=0.9.4" sage
+sagemath-mcp
+```
+
+The version floor matters: earlier releases cannot start a worker on
+conda-forge's `sage`, and without it the solver may pick one. That `sage` is 10.9, one release behind the 10.10 the
+security artifacts are generated from, so names 10.10 added are unavailable and
+nothing outside the allowlist is admitted.
 
 Source install, Docker Compose, and the Kubernetes Helm chart are in
 **[USAGE.md](USAGE.md)**.

@@ -8,13 +8,15 @@ SageMath MCP server.
 > server starts and advertises all 40 tools, and then every evaluation fails
 > with `Unable to locate Sage executable 'sage'`. Pick one of these:
 >
-> - **The container image** (all platforms): Sage is baked in. See
->   [Docker Compose](#docker-compose-all-platforms) below, or the `docker run`
->   line in the README. The project is built and tested against **SageMath
->   10.10**, and the set of names callers may use is generated from that version.
-> - **The `[passagemath]` extra** (macOS and Linux):
+> - **The `[passagemath]` extra** (macOS and Linux), the recommended route:
 >   `pip install "sagemath-mcp[passagemath]"` installs a pip-built Sage runtime
->   (~1 GB) next to the server. Native Windows is not supported (see below).
+>   (~1 GB) next to the server, pinned to a release this project's CI has
+>   verified. Native Windows is not supported (see below). A pip install runs
+>   with your own privileges; the container below adds OS-level isolation.
+> - **The container image** (all platforms), for isolation: Sage is baked in. See
+>   [Docker Compose](#docker-compose-all-platforms) below, or the `docker run`
+>   line in the README. The image runs **SageMath 10.10**, the version the set
+>   of names callers may use is generated from.
 > - **conda-forge** (macOS and Linux):
 >   `conda install -c conda-forge "sagemath-mcp>=0.9.4" sage`.
 > - **A Sage you already have.** If `sage` is on your `PATH`, or installed in the

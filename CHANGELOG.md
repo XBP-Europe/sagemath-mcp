@@ -7,6 +7,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **The Claude plugin ships its own `LICENSE` and `SECURITY.md`.** A plugin is
+  installed as its own directory, without the repository around it, so the MIT
+  notice and the private reporting channels now travel with it. The `LICENSE`
+  is a byte-for-byte copy, and the plugin's policy points to the full one; a
+  test fails if either drifts from the root. HOL's `plugin-scanner` had flagged
+  both as missing (two low findings); its score for the repository is now 94.
+
 ### Changed
 
 - **passagemath pin moved to 10.8.13** (2026-10-11), the gated bump. It brings

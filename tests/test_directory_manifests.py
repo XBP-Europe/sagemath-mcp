@@ -89,6 +89,26 @@ def test_the_plugin_readme_is_long_enough_to_list() -> None:
     assert len(prose.split()) >= 40
 
 
+def test_the_plugin_ships_its_license_and_reporting_channels() -> None:
+    """A plugin is installed as its own directory, without the repository around it.
+
+    MIT requires the notice to travel with the code, and a reporter holding only
+    the plugin needs the private channels. Plugin scanners check for both. The
+    copies are tied to the root files: the reporting address was replaced once,
+    and a copy nobody checks would still name the dead one.
+    """
+    assert (PLUGIN_DIR / "LICENSE").read_bytes() == (ROOT / "LICENSE").read_bytes()
+    root_policy = (ROOT / "SECURITY.md").read_text(encoding="utf-8")
+    reporting = root_policy.split("## Reporting a Vulnerability", 1)[1].split("\n## ", 1)[0]
+    channels = re.findall(
+        r"https://github\.com/\S+/security/advisories/new|[\w.+-]+@[\w-]+\.\w+", reporting
+    )
+    assert channels, "the root policy no longer names a private reporting channel"
+    plugin_policy = (PLUGIN_DIR / "SECURITY.md").read_text(encoding="utf-8")
+    for channel in channels:
+        assert channel in plugin_policy, f"the plugin's SECURITY.md lacks {channel}"
+
+
 def test_the_desktop_bundle_ships_its_icon() -> None:
     manifest = json.loads(
         (ROOT / "packaging" / "mcpb" / "manifest.json").read_text(encoding="utf-8")

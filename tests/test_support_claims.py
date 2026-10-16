@@ -37,7 +37,7 @@ def test_the_note_does_not_overstate_the_protection() -> None:
     claiming protection without those qualifiers would read as stronger than
     it is."""
     prose = " ".join(SUPPORT.split())
-    assert "requires seven status checks" in prose
+    assert "requires eight status checks" in prose
     assert "does not require an approving review" in prose
     assert "administrator enforcement is off" in prose
 
@@ -55,7 +55,7 @@ def test_the_note_cites_the_incident_rather_than_only_the_principle() -> None:
 
 
 def test_the_claimed_check_count_matches_the_workflows() -> None:
-    """Seven required status checks is a number, and numbers in prose drift.
+    """Eight required status checks is a number, and numbers in prose drift.
     It cannot be read from the API without admin rights in CI, so this checks
     the weaker thing it can: that the repository still has at least that many
     distinct CI jobs to require."""
@@ -65,7 +65,7 @@ def test_the_claimed_check_count_matches_the_workflows() -> None:
     for workflow in (ROOT / ".github" / "workflows").glob("*.yml"):
         config = yaml.safe_load(workflow.read_text(encoding="utf-8"))
         jobs |= set(config.get("jobs") or {})
-    assert len(jobs) >= 7, (
-        f"SUPPORT.md claims seven required status checks; only {len(jobs)} "
+    assert len(jobs) >= 8, (
+        f"SUPPORT.md claims eight required status checks; only {len(jobs)} "
         "jobs exist across all workflows"
     )

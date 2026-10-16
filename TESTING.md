@@ -269,9 +269,10 @@ would have shelled out to.
 
 ## CI
 
-Seven jobs are required by branch protection on `main`: `lint`, `test (3.12)`,
-`test (3.13)`, `security`, `helm`, `integration`, `smoke`. `passagemath` runs
-on every push too, but is not required.
+Eight jobs are required by branch protection on `main`: `lint`, `test (3.12)`,
+`test (3.13)`, `security`, `helm`, `integration`, `smoke` and `passagemath`.
+`passagemath` became required on 2026-10-16, once the `[passagemath]` extra
+became the recommended install: a change that breaks that route cannot merge.
 
 - `integration` starts the Sage container itself and reads the image from the Dockerfile,
   so the Sage version has a single source of truth

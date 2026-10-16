@@ -104,7 +104,7 @@ than leaving a reader to infer it from a badge.
 
 **No second person reads a change before it lands.** One account opens and
 merges everything, including every security fix. `main` is protected and
-requires seven status checks to pass, but it does not require an approving
+requires eight status checks to pass, but it does not require an approving
 review, and administrator enforcement is off — so the gates are the automated
 ones, and the maintainer can in principle bypass those too.
 

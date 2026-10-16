@@ -18,6 +18,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **The `passagemath` CI check is required on `main`** (2026-10-16), next to the
+  seven that already were. It cold-installs the pinned passagemath and runs the
+  whole suite plus the corpus sweep; now that the `[passagemath]` extra is the
+  recommended install, a change that breaks it cannot merge.
 - **passagemath pin moved to 10.8.13** (2026-10-11), the gated bump. It brings
   Maxima 5.50, FLINT 3.6 and the HiGHS mixed-integer backend, which
   `passagemath-standard` now installs and Sage picks by default, so a MILP

@@ -111,7 +111,7 @@ it was violated:
 
 ## CI/CD
 
-- **ci.yml**: `lint` (ruff + mypy), `test (3.12)`/`test (3.13)` (unit, 100% coverage), `security` (pip-audit, `uv lock --check`), `helm`, `integration` (Sage container), `smoke` (Docker Compose + `make build`) and `passagemath` (cold-installs the pin, runs the suite). The first seven are required on `main`. Runs on push to main and PRs.
+- **ci.yml**: `lint` (ruff + mypy), `test (3.12)`/`test (3.13)` (unit, 100% coverage), `security` (pip-audit, `uv lock --check`), `helm`, `integration` (Sage container), `smoke` (Docker Compose + `make build`) and `passagemath` (cold-installs the pin, runs the suite). All eight are required on `main`. Runs on push to main and PRs.
 - **release.yml**: triggered by `vX.Y.Z` tags. Tests on Python 3.12/3.13, builds wheel/sdist/`.mcpb`, pushes the signed GHCR image and the multi-arch `-passagemath` image, publishes to PyPI, then the MCP registry entry, then the GitHub release.
 - **version-bump.yml**: manual; runs `scripts/bump_version.py` over every versioned file and opens a PR on `release/vX.Y.Z`. It creates no tag: push `vX.Y.Z` yourself after the PR merges.
 - Also: `audit`, `fuzz`, `codeql`, `scorecard`, `mutation`, `cli-nightly` (skips without API-key secrets), `paper`, `regenerate-export`, `claude-review`.

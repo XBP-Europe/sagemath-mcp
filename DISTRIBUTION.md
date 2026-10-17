@@ -103,7 +103,7 @@ points at the artefacts above. What the repository provides for them:
 | Where | What it reads | State |
 | --- | --- | --- |
 | Official MCP registry | `server.json`, published by the release | Listed |
-| GitHub MCP registry | curated by GitHub from the official registry | Requested from partnerships@github.com 2026-10-13, awaiting a reply |
+| GitHub MCP registry | curated by GitHub from the official registry | Listed since 2026-10-16 ([github.com/mcp/XBP-Europe/sagemath-mcp](https://github.com/mcp/XBP-Europe/sagemath-mcp)), after GitHub approved the request on 2026-10-15 |
 | Claude Code plugin | `.claude-plugin/marketplace.json` (this repository is a marketplace) and the plugin in `packaging/claude-plugin/`, whose launcher pins the release | Installable with `/plugin install sagemath-mcp --marketplace XBP-Europe/sagemath-mcp`. Not yet submitted to the Claude directory, which takes local servers only as plugins, no longer as `.mcpb` bundles; submission goes through claude.ai/directory/manage |
 | Gemini CLI extension gallery | `gemini-extension.json` at the root, found through the `gemini-cli-extension` repository topic | Topic set; the gallery crawls repositories with it daily. The topic is a repository setting, not a file |
 | VS Code, Cursor | the install buttons in the README | No listing needed |
@@ -123,7 +123,7 @@ The release workflow automatically builds and pushes Docker images to GHCR at
 `ghcr.io/xbp-europe/sagemath-mcp`. To pull locally:
 
 ```bash
-docker pull ghcr.io/xbp-europe/sagemath-mcp:v0.9.5   # or :latest to track releases
+docker pull ghcr.io/xbp-europe/sagemath-mcp:v0.9.6   # or :latest to track releases
 ```
 
 Prefer a version tag in anything you deploy. `latest` gives no way to say which

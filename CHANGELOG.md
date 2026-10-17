@@ -7,6 +7,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.6] - 2026-10-17
+
+**The passagemath release.** `pip install "sagemath-mcp[passagemath]"` is now
+the recommended install, after two consecutive passagemath releases passed the
+cold-install gate on first try, and it pins passagemath 10.8.13 (Maxima 5.50,
+FLINT 3.6, HiGHS). The `passagemath` CI check is now required on `main`, so that
+route cannot regress unnoticed. The container image stays the route for
+isolation. No change to the tool surface or client contract, and the
+monolithic security policy is unchanged (the passagemath allowlist and
+star-exports are byte-identical to 0.9.5's). The GitHub MCP Registry has listed
+the server since 2026-10-16.
+
 ### Added
 
 - **The Claude plugin ships its own `LICENSE` and `SECURITY.md`.** A plugin is

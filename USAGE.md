@@ -1081,7 +1081,7 @@ to the release its version names. Inside a session:
 /plugin install sagemath-mcp --marketplace XBP-Europe/sagemath-mcp
 ```
 
-`claude mcp add sagemath -- uvx --from "sagemath-mcp[passagemath]==0.9.5" sagemath-mcp`
+`claude mcp add sagemath -- uvx --from "sagemath-mcp[passagemath]==0.9.6" sagemath-mcp`
 does the same without the plugin.
 
 **VS Code (Copilot) and Cursor.** The *Install in VS Code* and *Install in
@@ -1091,7 +1091,7 @@ with the same `uvx` command, unpinned.
 **Gemini CLI.** The repository is itself an extension:
 
 ```bash
-gemini extensions install https://github.com/XBP-Europe/sagemath-mcp --ref v0.9.5
+gemini extensions install https://github.com/XBP-Europe/sagemath-mcp --ref v0.9.6
 ```
 
 Pass the release tag you want as `--ref`; without it you get whatever `main`
@@ -1102,7 +1102,7 @@ removes it.
 local server it is one command:
 
 ```bash
-codex mcp add sagemath -- uvx --from "sagemath-mcp[passagemath]==0.9.5" sagemath-mcp
+codex mcp add sagemath -- uvx --from "sagemath-mcp[passagemath]==0.9.6" sagemath-mcp
 ```
 
 All of these install a Sage runtime along with the server through the

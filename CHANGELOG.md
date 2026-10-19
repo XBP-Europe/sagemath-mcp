@@ -93,6 +93,11 @@ unchanged (the passagemath allowlist and star-exports are byte-identical to
   USAGE.md and SUPPORT.md now lead with `pip install "sagemath-mcp[passagemath]"`
   (or `uvx`), the route every client install already took; the container image
   stays the route for isolation, and each says so where the pip route is offered.
+- **Dependencies refreshed**: `pydantic` 2.14.0 → 2.14.1 (with `pydantic-core`
+  2.50.1; validation fixes and fewer allocations, no API change) and
+  `hypothesis` 6.168.5 → 6.169.4 for the tests (#238). The workflows move to
+  CodeQL 4.39.0, `setup-uv` 10.3.0, `sbom-action` 0.24.3 and Scorecard 2.5.0
+  (#233-#237); each pin was checked against its release tag.
 
 ### Fixed
 

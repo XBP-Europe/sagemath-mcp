@@ -86,6 +86,16 @@ code, so they are listed here rather than discovered.
   checkout: run the **Regenerate the passagemath export** workflow from the
   Actions tab and give it the PR's branch name. If the PR is otherwise
   unwanted, #153 is the pattern for doing the whole bump by hand instead.
+- **Security fixes for Sage's own packages go in `sage-security-floors.txt`.**
+  The monolithic image runs on the Python environment of the
+  `sagemath/sagemath` base, so a package it ships (Pillow, certifi) keeps the
+  base image's version whatever `uv.lock` says. When an advisory lands before a
+  new base image does, add a `>=` floor there with the advisory beside it. The
+  release Dockerfile and `make sage-deps` both install the file, so the
+  integration suite runs on what the image ships, and
+  `tests/test_sage_security_floors.py` fails if either stops installing it or
+  if `uv.lock` (the passagemath runtime) falls below a floor. Remove a floor
+  once the base image catches up.
 - **Actions are pinned to a commit, with the version in a comment.** A tag is
   mutable, and a job here holds the secrets that publish to PyPI and GHCR.
   `tests/test_workflow_pins.py` fails on a mutable ref, and on a bare hash

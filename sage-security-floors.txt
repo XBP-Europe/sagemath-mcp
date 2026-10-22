@@ -1,0 +1,18 @@
+# Minimum versions for packages that the sagemath/sagemath base image ships in
+# Sage's own Python environment, raised when a security fix lands before a new
+# base image carries it. The release Dockerfile and `make sage-deps` (which the
+# integration suite runs on) both install this file, so CI tests exactly what
+# the image ships. pip only acts when the installed version is below a floor.
+# The passagemath runtime takes these packages from uv.lock instead, and
+# tests/test_sage_security_floors.py fails if the lock falls below a floor.
+#
+# Remove a line once the base image ships a version at or above it.
+
+# GHSA-6q48-6c7w-9gw2 (critical, 2026-10-20): the bundle trusted emSign roots
+# whose intermediate CA keys were compromised. Base image 10.10: 2026.02.25.
+certifi>=2026.10.19
+
+# 28 advisories (3 critical, 16 high) published 2026-10-20/21, among them heap
+# overflows in the TIFF and JPEG code and a Ghostscript argument injection,
+# all fixed in 13.0.0. Base image 10.10: 12.1.1.
+pillow>=13.0.0

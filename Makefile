@@ -12,7 +12,7 @@ test:
 # Sage bundles pytest but not pytest-asyncio, so the async suite cannot run
 # until the dev extras are installed into Sage's own Python.
 sage-deps:
-	docker exec $(SAGEMATH_MCP_DOCKER_CONTAINER) bash -lc "cd /workspace && sage -python -m pip install --quiet -e '.[dev]'"
+	docker exec $(SAGEMATH_MCP_DOCKER_CONTAINER) bash -lc "cd /workspace && sage -python -m pip install --quiet -r sage-security-floors.txt -e '.[dev]'"
 
 # The corpus sweep in tests/test_sage_doctest_corpus.py is the most important
 # functional test of the security guardrails; it writes its statistics inside

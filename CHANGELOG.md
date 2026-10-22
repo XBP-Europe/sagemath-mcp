@@ -7,6 +7,24 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- **Pillow 13.0.0 and certifi 2026.10.19 in both images and the passagemath
+  runtime.** Pillow 12.x has 28 advisories published 2026-10-20/21 (3
+  critical, 16 high: heap overflows in the TIFF and JPEG code, a Ghostscript
+  argument injection), all fixed in 13.0.0; certifi before 2026.10.19 trusts
+  emSign roots whose intermediate CA keys were compromised
+  (GHSA-6q48-6c7w-9gw2, critical). Exposure here was low -- caller code cannot
+  reach `PIL` or `matplotlib`, the plot tools only write PNG and SVG, and the
+  server makes no outbound TLS connections -- but both shipped in the images.
+  `uv.lock` and `requirements-passagemath.txt` move to the fixed versions. The
+  monolithic image needed more: it runs on Sage's own environment, which ships
+  Pillow 12.1.1 and certifi 2026.02.25 regardless of the lock, so the new
+  `sage-security-floors.txt` raises them there, and `make sage-deps` installs
+  the same floors so the integration suite runs on what the image ships.
+  Installs pinned to 0.9.5 keep a cached environment with the old versions;
+  0.9.6 moves every pin, which gives them a fresh one.
+
 ### Added
 
 - **The Claude plugin ships its own `LICENSE` and `SECURITY.md`.** A plugin is

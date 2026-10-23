@@ -24,6 +24,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the same floors so the integration suite runs on what the image ships.
   Installs pinned to 0.9.5 keep a cached environment with the old versions;
   0.9.6 moves every pin, which gives them a fresh one.
+- **No known-vulnerable package left in the monolithic image.** Scanning the
+  image as built found 11 more packages from the Sage base with open
+  advisories: Sage's Jupyter notebook stack (jupyter-server, jupyterlab,
+  notebook, nbconvert, mistune, soupsieve, tornado; 100 advisories, up to
+  critical), `urllib3` (10) and the build tooling left in the image
+  (setuptools, virtualenv, pytest; 20). None is on the server's path -- no
+  Jupyter or Tornado server is started, caller code cannot import them, and
+  the server makes no outbound HTTP -- so these are raised for a clean image,
+  not for a reachable flaw. They are floors in the same file.
 
 ### Added
 

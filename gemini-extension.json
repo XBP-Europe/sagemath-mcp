@@ -6,6 +6,8 @@
     "sagemath": {
       "command": "uvx",
       "args": [
+        "--python",
+        "3.12",
         "--from",
         "sagemath-mcp[passagemath]==0.9.6",
         "sagemath-mcp"

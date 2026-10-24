@@ -18,6 +18,12 @@
       "runtimeArguments": [
         {
           "type": "named",
+          "name": "--python",
+          "value": "3.12",
+          "description": "The Python the passagemath extra is tested on, and the newest every one of its dependencies has wheels for. Without it uv picks its own newest Python, where some must be compiled and the install fails on a machine with no C compiler."
+        },
+        {
+          "type": "named",
           "name": "--from",
           "value": "sagemath-mcp[passagemath]==0.9.6",
           "description": "Installs the passagemath extra, which brings the Sage runtime (about 1 GB, downloaded on first launch). Without it the server starts but every evaluation fails for want of a Sage to drive."

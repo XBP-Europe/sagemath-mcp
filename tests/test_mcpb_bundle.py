@@ -73,12 +73,15 @@ def test_the_declared_platforms_match_what_passagemath_supports() -> None:
     """
     platforms = MANIFEST["compatibility"]["platforms"]
     assert set(platforms) == {"darwin", "linux"}, platforms
-    floor = MANIFEST["compatibility"]["runtimes"]["python"]
-    assert floor == PYPROJECT["project"]["requires-python"], (
-        f"bundle requires python {floor}, project requires "
+    runtime = MANIFEST["compatibility"]["runtimes"]["python"]
+    assert runtime.split()[0] == PYPROJECT["project"]["requires-python"], (
+        f"bundle requires python {runtime}, project requires "
         f"{PYPROJECT['project']['requires-python']}"
     )
-    assert BUNDLE_PYPROJECT["project"]["requires-python"] == floor
+    # The same range in each file's syntax: the manifest separates the bounds
+    # with a space, PEP 440 with a comma. The cap is checked against CI in
+    # tests/test_install_routes.py.
+    assert BUNDLE_PYPROJECT["project"]["requires-python"] == runtime.replace(" ", ",")
 
 
 def test_the_description_warns_about_the_first_launch_download() -> None:

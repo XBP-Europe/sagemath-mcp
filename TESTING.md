@@ -295,6 +295,11 @@ skipped required check as passed.
   with no repository change
 - `smoke` brings up the compose stack and runs `scripts/exercise_mcp.py` plus the
   monitoring resource check
+- `clean install` (not required yet) runs the `uvx` launcher from `server.json` in
+  a container with no Python and no C compiler, then `scripts/exercise_mcp.py`
+  against it. It exists because the `passagemath` lane's runner has both, so a
+  dependency that must be compiled builds there and fails for a user without
+  them
 
 Renaming a CI job means updating the required-checks list in branch protection too.
 Otherwise the old name stays required and every pull request waits forever on a check

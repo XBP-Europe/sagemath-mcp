@@ -11,7 +11,8 @@ SageMath MCP server.
 > - **The `[passagemath]` extra** (macOS and Linux), the recommended route:
 >   `pip install "sagemath-mcp[passagemath]"` installs a pip-built Sage runtime
 >   (~1 GB) next to the server, pinned to a release this project's CI has
->   verified. Native Windows is not supported (see below). A pip install runs
+>   verified. Use Python 3.12: on 3.13 and later one of its dependencies has no
+>   wheel and needs a C compiler to build. Native Windows is not supported (see below). A pip install runs
 >   with your own privileges; the container below adds OS-level isolation.
 > - **The container image** (all platforms), for isolation: Sage is baked in. See
 >   [Docker Compose](#docker-compose-all-platforms) below, or the `docker run`
@@ -30,15 +31,20 @@ SageMath MCP server.
 ## Cross-platform (pip/uv)
 
 ```bash
-pip install "sagemath-mcp[passagemath]"   # or plain sagemath-mcp next to your own Sage
+pip install "sagemath-mcp[passagemath]"   # Python 3.12; or plain sagemath-mcp next to your own Sage
 sagemath-mcp --transport streamable-http --host 127.0.0.1 --port 8314
 ```
 
-Or with [uv](https://docs.astral.sh/uv/):
+Or with [uv](https://docs.astral.sh/uv/), which fetches Python 3.12 itself when
+the machine has none:
 
 ```bash
-uvx --from "sagemath-mcp[passagemath]" sagemath-mcp --transport http --host 127.0.0.1 --port 8314
+uvx --python 3.12 --from "sagemath-mcp[passagemath]" sagemath-mcp --transport http --host 127.0.0.1 --port 8314
 ```
+
+Keep `--python 3.12`. Without it uv picks its own newest Python (3.15 at the time
+of writing), where passagemath's dependencies have no wheels, and the install
+fails on a machine without a C compiler.
 
 ### Docker Compose (all platforms)
 
@@ -111,7 +117,7 @@ the integration tests run in.
    ```bash
    curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
-3. Install the package with its Sage runtime:
+3. Install the package with its Sage runtime, in a Python 3.12 environment:
    ```bash
    pip3 install "sagemath-mcp[passagemath]"
    ```

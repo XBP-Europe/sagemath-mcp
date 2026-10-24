@@ -42,6 +42,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   does not use. The monolithic image already resolved fastmcp 4.1.3; the lock
   is what the passagemath image installs. filelock is dev-only (pip-audit);
   setuptools comes in under passagemath through `dot2tex`.
+- **gitpython 3.2.1** (GHSA-83vg-56qc-22m7, high: code execution through a
+  crafted submodule while cloning). Dev-only -- it arrives through
+  `cosmic-ray`, the mutation-testing tool, and is in neither image nor any
+  install of the server. With it, no package in `uv.lock` has an open advisory.
 
 ### Added
 

@@ -14,9 +14,9 @@
 # the first launch then fails.
 [project]
 name = "sagemath-mcp-bundle"
-version = "0.9.6"
+version = "0.9.7"
 description = "MCPB bundle for the SageMath MCP server"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    "sagemath-mcp[passagemath]==0.9.6",
+    "sagemath-mcp[passagemath]==0.9.7",
 ]

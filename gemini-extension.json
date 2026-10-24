@@ -1,6 +1,6 @@
 {
   "name": "sagemath",
-  "version": "0.9.6",
+  "version": "0.9.7",
   "description": "Stateful SageMath computations: symbolic calculus, number theory, linear algebra, graphs, groups, elliptic curves, plotting and claim verification.",
   "mcpServers": {
     "sagemath": {
@@ -9,7 +9,7 @@
         "--python",
         "3.12",
         "--from",
-        "sagemath-mcp[passagemath]==0.9.6",
+        "sagemath-mcp[passagemath]==0.9.7",
         "sagemath-mcp"
       ]
     }

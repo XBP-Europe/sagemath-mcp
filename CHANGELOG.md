@@ -7,6 +7,22 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.6] - 2026-10-24
+
+**The security and passagemath release.** Every package with an open advisory
+in what this project ships is raised to a fixed version: Pillow 13.0.0 and
+certifi 2026.10.19 in both images and the passagemath runtime, and the
+vulnerable packages the Sage base image bundles in the monolithic image, which
+the new `sage-security-floors.txt` raises (see Security; none had a path from
+the server). `pip install "sagemath-mcp[passagemath]"` is now the recommended
+install, after two consecutive passagemath releases passed the cold-install gate
+on first try, and it pins passagemath 10.8.13 (Maxima 5.50, FLINT 3.6, HiGHS).
+The `passagemath` CI check is required on `main`, so that route cannot regress
+unnoticed; the container image stays the route for isolation. No change to the
+tool surface or client contract, and the security policy's verdicts are
+unchanged (the passagemath allowlist and star-exports are byte-identical to
+0.9.5's). The GitHub MCP Registry has listed the server since 2026-10-16.
+
 ### Security
 
 - **Pillow 13.0.0 and certifi 2026.10.19 in both images and the passagemath
@@ -77,6 +93,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   USAGE.md and SUPPORT.md now lead with `pip install "sagemath-mcp[passagemath]"`
   (or `uvx`), the route every client install already took; the container image
   stays the route for isolation, and each says so where the pip route is offered.
+- **Dependencies refreshed**: `pydantic` 2.14.0 → 2.14.1 (with `pydantic-core`
+  2.50.1; validation fixes and fewer allocations, no API change) and
+  `hypothesis` 6.168.5 → 6.169.4 for the tests (#238). The workflows move to
+  CodeQL 4.39.0, `setup-uv` 10.3.0, `sbom-action` 0.24.3 and Scorecard 2.5.0
+  (#233-#237); each pin was checked against its release tag.
 
 ### Fixed
 

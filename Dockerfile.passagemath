@@ -45,12 +45,20 @@ COPY src ./src
 # not hash-check the *build* dependencies it fetches for an sdist fallback (the
 # arm64 cysignals build), and the project itself is installed from the checkout
 # with --no-deps, its dependencies already satisfied from the lock.
+# pip is then removed from the venv: nothing installs at runtime, and the copy
+# python -m venv seeds from the base image (25.0.1 in 0.9.6) carried a dozen
+# advisories into the published image while never being run.
 RUN python -m venv /opt/venv \
     && /opt/venv/bin/pip install --no-cache-dir --require-hashes -r requirements-passagemath.txt \
-    && /opt/venv/bin/pip install --no-cache-dir --no-deps .
+    && /opt/venv/bin/pip install --no-cache-dir --no-deps . \
+    && /opt/venv/bin/python -m pip uninstall --yes pip
 
 # --- runtime stage -----------------------------------------------------------
 FROM python:3.12-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258
+
+# The base image's own pip goes too, for the same reason as the venv's: the
+# server runs from /opt/venv and never installs anything.
+RUN python -m pip uninstall --yes pip
 
 # Same UID/GID as the `sage` user in sagemath/sagemath:10.10, so the Compose
 # file and the Helm chart (runAsUser/fsGroup 1001, tmpfs at /home/sage/.sage)

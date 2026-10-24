@@ -57,3 +57,17 @@ def test_the_lock_is_not_below_any_floor() -> None:
             assert locked[req.name] in req.specifier, (
                 f"uv.lock has {req.name} {locked[req.name]}, below the floor {req}"
             )
+
+
+def test_the_passagemath_image_ships_without_pip() -> None:
+    """Nothing installs at runtime, so pip in the shipped image is only exposure.
+
+    0.9.6's passagemath image carried pip 25.0.1 twice -- seeded into the venv
+    by `python -m venv` and in the base image's own Python -- with a dozen
+    advisories between them, and neither copy was ever run.
+    """
+    dockerfile = (ROOT / "Dockerfile.passagemath").read_text(encoding="utf-8")
+    builder, runtime = dockerfile.split("# --- runtime stage", 1)
+    assert "/opt/venv/bin/python -m pip uninstall --yes pip" in builder
+    assert "RUN python -m pip uninstall --yes pip" in runtime
+

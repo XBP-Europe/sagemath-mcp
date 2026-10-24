@@ -43,3 +43,9 @@ urllib3>=2.8.0
 setuptools>=83.0.0
 virtualenv>=21.14.9
 pytest>=9.0.3
+
+# Lock library under virtualenv, tox and python-discovery [3.25.2]:
+# GHSA-v4x8-3wr5-3wq8 (high), GHSA-9vhv-jxww-xfm5 and GHSA-567q-5qvw-pf92 (low,
+# Windows-only), 2026-10-23/24, affecting 3.20.4 up to 4.2.1. Neither the server
+# nor `sage.all` imports it; virtualenv allows <5 and tox >=3.25, so 4.2.1 fits.
+filelock>=4.2.1

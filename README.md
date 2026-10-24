@@ -54,14 +54,20 @@ is interpreted, and the security model in depth.
 **Recommended — pip, with the [passagemath](https://github.com/passagemath/passagemath) Sage runtime:**
 
 ```bash
-pip install "sagemath-mcp[passagemath]"    # ~1 GB, no Docker, no local Sage build
+pip install "sagemath-mcp[passagemath]"    # on Python 3.12; ~1 GB, no Docker, no Sage build
 sagemath-mcp                                             # stdio (default)
 sagemath-mcp --transport streamable-http --port 8314    # HTTP on 127.0.0.1
 ```
 
 or, with [uv](https://docs.astral.sh/uv/) and nothing installed permanently,
-`uvx --from "sagemath-mcp[passagemath]" sagemath-mcp`. This is the route every
-client install below takes.
+`uvx --python 3.12 --from "sagemath-mcp[passagemath]" sagemath-mcp`. This is the
+route every client install below takes.
+
+Use Python 3.12 for this extra; the `uvx` line asks for it, and uv downloads it
+when the machine has none. 3.12 is the version CI tests it on, and the newest
+for which every dependency ships a wheel: on 3.13 and later `memory-allocator`
+is compiled from source, which needs a C compiler. Without `--python`, uv picks
+its own newest Python (3.15 at the time of writing), and the install fails there.
 
 passagemath is a pip-installable, modularized SageMath. `from sage.all import *`
 and the worker run unmodified; the server detects the runtime at import and
@@ -158,8 +164,8 @@ Source install, Docker Compose, and the Kubernetes Helm chart are in
 One command or one click each. Every route below installs a Sage runtime
 alongside the server, so there is nothing else to set up.
 
-[![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_SageMath-0098FF?logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect?url=vscode%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522sagemath%2522%252C%2522command%2522%253A%2522uvx%2522%252C%2522args%2522%253A%255B%2522--from%2522%252C%2522sagemath-mcp%255Bpassagemath%255D%2522%252C%2522sagemath-mcp%2522%255D%257D)
-[![Install in Cursor](https://img.shields.io/badge/Cursor-Install_SageMath-000000?logo=cursor&logoColor=white)](https://cursor.com/en/install-mcp?name=sagemath&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJzYWdlbWF0aC1tY3BbcGFzc2FnZW1hdGhdIiwic2FnZW1hdGgtbWNwIl19)
+[![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_SageMath-0098FF?logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect?url=vscode%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522sagemath%2522%252C%2522command%2522%253A%2522uvx%2522%252C%2522args%2522%253A%255B%2522--python%2522%252C%25223.12%2522%252C%2522--from%2522%252C%2522sagemath-mcp%255Bpassagemath%255D%2522%252C%2522sagemath-mcp%2522%255D%257D)
+[![Install in Cursor](https://img.shields.io/badge/Cursor-Install_SageMath-000000?logo=cursor&logoColor=white)](https://cursor.com/en/install-mcp?name=sagemath&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLXB5dGhvbiIsIjMuMTIiLCItLWZyb20iLCJzYWdlbWF0aC1tY3BbcGFzc2FnZW1hdGhdIiwic2FnZW1hdGgtbWNwIl19)
 
 **Claude Desktop** — download `sagemath-mcp-<version>.mcpb` from the
 [latest release](https://github.com/XBP-Europe/sagemath-mcp/releases/latest) and
@@ -174,7 +180,7 @@ open it. One click, no config file.
 or as a plain MCP server:
 
 ```bash
-claude mcp add sagemath -- uvx --from "sagemath-mcp[passagemath]" sagemath-mcp
+claude mcp add sagemath -- uvx --python 3.12 --from "sagemath-mcp[passagemath]" sagemath-mcp
 ```
 
 **Gemini CLI** — the repository is itself an extension:
@@ -186,7 +192,7 @@ gemini extensions install https://github.com/XBP-Europe/sagemath-mcp
 **Codex CLI**
 
 ```bash
-codex mcp add sagemath -- uvx --from "sagemath-mcp[passagemath]" sagemath-mcp
+codex mcp add sagemath -- uvx --python 3.12 --from "sagemath-mcp[passagemath]" sagemath-mcp
 ```
 
 Then ask for some mathematics — the [examples below](#try-it) are a good start.

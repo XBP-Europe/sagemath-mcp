@@ -8,9 +8,12 @@
   `[passagemath]` extra, which installs it next to the server (macOS and Linux,
   ~1 GB, pinned to a release this project's CI verifies):
   ```bash
-  pip install "sagemath-mcp[passagemath]"
-  # or, without installing: uvx --from "sagemath-mcp[passagemath]" sagemath-mcp
+  pip install "sagemath-mcp[passagemath]"    # on Python 3.12
+  # or, without installing: uvx --python 3.12 --from "sagemath-mcp[passagemath]" sagemath-mcp
   ```
+  Python 3.12 is what CI tests the extra on. On 3.13 and later one of its
+  dependencies has no wheel and needs a C compiler; uv's own default Python is
+  newer still, so keep `--python 3.12` in the `uvx` line.
   A pip install runs with your own privileges; for untrusted input or a shared
   host, run the container image instead (below, and in the README).
 - Or install the server and Sage together from conda-forge (Linux and macOS):
@@ -1081,7 +1084,7 @@ to the release its version names. Inside a session:
 /plugin install sagemath-mcp --marketplace XBP-Europe/sagemath-mcp
 ```
 
-`claude mcp add sagemath -- uvx --from "sagemath-mcp[passagemath]==0.9.6" sagemath-mcp`
+`claude mcp add sagemath -- uvx --python 3.12 --from "sagemath-mcp[passagemath]==0.9.6" sagemath-mcp`
 does the same without the plugin.
 
 **VS Code (Copilot) and Cursor.** The *Install in VS Code* and *Install in
@@ -1102,7 +1105,7 @@ removes it.
 local server it is one command:
 
 ```bash
-codex mcp add sagemath -- uvx --from "sagemath-mcp[passagemath]==0.9.6" sagemath-mcp
+codex mcp add sagemath -- uvx --python 3.12 --from "sagemath-mcp[passagemath]==0.9.6" sagemath-mcp
 ```
 
 All of these install a Sage runtime along with the server through the

@@ -40,6 +40,24 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   release could turn main red with no change here. A test fails on a step that
   does not read the pin.
 
+### Fixed
+
+- **Every `uvx` launcher failed on a machine with no Python of its own.** The
+  registry entry, the Claude plugin, the Gemini extension, the README's install
+  buttons and the documented `claude`/`codex` commands named no Python, so uv
+  picked its own newest -- 3.15 at the time -- and ignored passagemath's
+  `requires-python < 3.15`. `memory-allocator` 0.1.4, a passagemath dependency,
+  has no wheel past cp312, so uv tried to compile it and failed without a C
+  compiler. Measured on 0.9.6 in a container with neither: the published
+  launcher failed; with `--python 3.12` it installed 191 wheels and served
+  requests. Every launcher now passes `--python 3.12`, the Python the
+  `passagemath` lane tests, and the desktop bundle caps `requires-python` at
+  3.12 because its host runs `uv run`, not `uvx`. `tests/test_install_routes.py`
+  ties each launcher, including the encoded install buttons, to the lane's
+  version, and a new CI job, `clean install`, runs `server.json`'s launcher in a
+  container with no Python and no compiler and exercises the server over MCP.
+  Users with a Python 3.12 that uv found first were not affected.
+
 ## [0.9.6] - 2026-10-24
 
 **The security and passagemath release.** Every package with an open advisory

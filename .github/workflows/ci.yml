@@ -269,3 +269,65 @@ jobs:
           name: passagemath-corpus-stats
           path: doctest-corpus-stats.md
           if-no-files-found: ignore
+
+  install-route:
+    # The launcher every client runs -- server.json's `uvx` arguments, the ones
+    # the registry, the plugin and the install buttons carry -- on a machine
+    # with no Python and no C compiler, which is most of the machines a
+    # one-click install is for. The `passagemath` lane cannot see this: the
+    # runner has both, so a dependency that has to be compiled builds there
+    # and fails for the user. 0.9.6 shipped a launcher that named no Python;
+    # uv picked 3.15, `memory-allocator` has no wheel past cp312, and the
+    # install failed. Not required yet.
+    name: clean install
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version-file: .tool-versions
+          enable-cache: true
+      - name: Install the MCP client the exercise script uses
+        run: |
+          uv venv
+          uv pip install -e .[dev]
+      - name: Run the registry launcher in a bare container
+        # This checkout stands in for the PyPI release, so the arguments are
+        # server.json's with only the package source swapped. The container is
+        # the uv image the runner's uv came from: uv and a shell, nothing else,
+        # which the first line asserts so a richer image cannot pass vacuously.
+        run: |
+          UV="$(uv --version | cut -d' ' -f2)"
+          mapfile -t ARGS < <(jq -r '.packages[] | select(.registryType == "pypi")
+            | .runtimeArguments[]
+            | .name, (if .name == "--from" then "sagemath-mcp[passagemath] @ file:///src" else .value end)' server.json)
+          echo "uvx ${ARGS[*]} sagemath-mcp"
+          docker run -d --name clean-install --network host -v "$PWD:/src:ro" \
+            "ghcr.io/astral-sh/uv:${UV}-debian-slim" sh -c '
+              if command -v python3 || command -v cc; then
+                echo "this image has a Python or a C compiler, so it would prove nothing" >&2
+                exit 1
+              fi
+              exec uvx "$@" sagemath-mcp --transport streamable-http --host 127.0.0.1 --port 8314
+            ' sh "${ARGS[@]}"
+      - name: Wait for the server
+        run: |
+          for _ in $(seq 1 120); do
+            if curl -fsS --max-time 5 http://127.0.0.1:8314/health > /dev/null 2>&1; then
+              exit 0
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' clean-install)" != true ]; then
+              echo "::error title=Launcher failed::the container exited before the server came up"
+              exit 1
+            fi
+            sleep 5
+          done
+          echo "::error title=Launcher timed out::no /health after 10 minutes"
+          exit 1
+      - name: Exercise it over MCP
+        run: uv run python scripts/exercise_mcp.py
+      - name: Launcher log
+        if: always()
+        run: docker logs clean-install 2>&1 | grep -v '^DEBUG' | tail -60 || true

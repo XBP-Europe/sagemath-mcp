@@ -16,6 +16,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   own copy was not re-scanned before 0.9.6 shipped. Not reachable -- neither
   the server nor `sage.all` imports it; only virtualenv, tox and
   python-discovery use it -- and now a floor in `sage-security-floors.txt`.
+- **No pip in the passagemath image.** The same scan of the published 0.9.6
+  passagemath image found pip 25.0.1 twice -- seeded into the venv by
+  `python -m venv`, and in the base image's own Python -- with a dozen
+  advisories between them. Nothing installs at runtime, so both copies are now
+  removed rather than upgraded outside the hash-locked set.
 
 ## [0.9.6] - 2026-10-24
 

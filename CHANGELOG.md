@@ -7,6 +7,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- **filelock 4.2.1 in the monolithic image.** Scanning the published 0.9.6
+  image found the Sage base's filelock 3.25.2 under three advisories published
+  2026-10-23/24 (GHSA-v4x8-3wr5-3wq8, high; two low, Windows-only), which
+  cover 3.20.4 up to 4.2.1. `uv.lock` already had 4.2.1, but the base image's
+  own copy was not re-scanned before 0.9.6 shipped. Not reachable -- neither
+  the server nor `sage.all` imports it; only virtualenv, tox and
+  python-discovery use it -- and now a floor in `sage-security-floors.txt`.
+
 ## [0.9.6] - 2026-10-24
 
 **The security and passagemath release.** Every package with an open advisory

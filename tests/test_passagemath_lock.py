@@ -102,8 +102,19 @@ def test_the_export_matches_the_lockfile() -> None:
     actual = _requirement_lines(EXPORTED.read_text(encoding="utf-8"))
     assert actual == expected, (
         "requirements-passagemath.txt does not match uv.lock; run `make passagemath-lock` "
-        "and commit the result (the Dockerfile installs from this file with --require-hashes)"
+        "and commit the result (the Dockerfile installs from this file with --require-hashes). "
+        f"Compared with {_uv_version(env)}; CI uses the uv pinned in .tool-versions, and "
+        "another uv version can word an environment marker differently."
     )
+
+
+def _uv_version(env: dict[str, str]) -> str:
+    """Named in the failure: a uv other than the pinned one was the cause the
+    one time this test failed on main with the lock unchanged."""
+    result = subprocess.run(
+        ["uv", "--version"], check=False, capture_output=True, text=True, timeout=30, env=env
+    )
+    return result.stdout.strip() or "an unidentified uv"
 
 
 def test_the_fastmcp_cap_covers_both_packages() -> None:

@@ -1,0 +1,10 @@
+# The uv every workflow installs: each astral-sh/setup-uv step reads this file
+# (`version-file: .tool-versions`), and tests/test_workflow_pins.py fails on a
+# step that does not.
+#
+# Pinned because uv's output is part of what CI checks. `uv export` wrote a
+# marker in requirements-passagemath.txt differently in 0.13.1 and 0.13.5, so
+# an unpinned CI turned red on main the day a new uv shipped, with no change in
+# this repository. Dependabot cannot bump this file: move it by hand, run
+# `make passagemath-lock` with the new uv, and commit both together.
+uv 0.13.5

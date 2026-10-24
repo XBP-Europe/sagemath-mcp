@@ -76,7 +76,8 @@ star-exports-passagemath:
 # hash the lock knows, so both architectures resolve). Regenerate after ANY
 # change to uv.lock -- a pin bump, a Dependabot update, `uv lock --upgrade` --
 # or tests/test_passagemath_lock.py fails, which is the point: the image must
-# install exactly what the lock says, never a resolution of its own.
+# install exactly what the lock says, never a resolution of its own. Use the uv
+# in .tool-versions: CI runs that one, and another can word a marker differently.
 passagemath-lock:
 	uv export --frozen --extra passagemath --no-dev --no-emit-project --format requirements.txt --output-file requirements-passagemath.txt
 	@git --no-pager diff --stat requirements-passagemath.txt

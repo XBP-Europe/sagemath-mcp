@@ -46,17 +46,28 @@ def test_fastmcp_badge_matches_the_declared_dependency() -> None:
 
 def test_the_python_badge_lists_the_versions_ci_tests() -> None:
     """The badge reads the release's classifiers from PyPI, so those must be the
-    versions the unit job runs, starting at the requires-python floor."""
+    versions the unit jobs run, starting at the requires-python floor: the
+    required `test` matrix plus `test-newest`, the newest CPython, which runs
+    as a job of its own until it is promoted into that matrix."""
+    import yaml
+
     assert "img.shields.io/pypi/pyversions/sagemath-mcp" in README, "no Python badge"
     classified = sorted(
         c.rsplit(" :: ", 1)[1]
         for c in PYPROJECT["project"]["classifiers"]
         if re.fullmatch(r"Programming Language :: Python :: 3\.\d+", c)
     )
-    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    matrix = re.search(r"python-version: \[([^\]]+)\]", ci)
+    jobs = yaml.safe_load((ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8"))[
+        "jobs"
+    ]
+    matrix = jobs["test"].get("strategy", {}).get("matrix", {}).get("python-version")
     assert matrix, "the CI unit job no longer has a Python version matrix"
-    tested = sorted(v.strip().strip('"') for v in matrix.group(1).split(","))
+    newest = [
+        step["with"]["python-version"]
+        for step in jobs.get("test-newest", {}).get("steps", [])
+        if str(step.get("uses", "")).startswith("astral-sh/setup-uv@")
+    ]
+    tested = sorted({str(v) for v in [*matrix, *newest]})
     assert classified == tested, f"classifiers say {classified}, CI tests {tested}"
     assert PYPROJECT["project"]["requires-python"] == f">={tested[0]}"
 

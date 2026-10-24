@@ -109,8 +109,9 @@ def test_every_setup_uv_step_installs_the_pinned_uv() -> None:
     differently from 0.13.1. With setup-uv installing the latest uv, main went
     red the day that release shipped, with no change here. Every step reads
     the version from `.tool-versions`; a step without `version-file` silently
-    gets the latest again, and so does a missing file, which setup-uv skips
-    rather than refusing.
+    gets the latest again. (A missing file or one with no `uv` line fails the
+    step outright -- "Could not determine uv version from file" -- so the
+    file check below names the cause before CI does.)
     """
     import yaml
 

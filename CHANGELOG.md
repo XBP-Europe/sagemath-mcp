@@ -7,6 +7,22 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.7] - 2026-10-24
+
+**The install-route release.** Every `uvx` launcher 0.9.6 published -- the MCP
+registry entry, the Claude plugin, the Gemini extension, the README's install
+buttons and the documented `claude`/`codex` commands -- named no Python, and so
+did the desktop bundle. Where uv found no Python 3.12 it chose its newest, 3.15,
+where a passagemath dependency has no wheel and must be compiled, and on a
+machine without a C compiler the install failed. Every launcher now asks for
+Python 3.12, the version the passagemath lane tests, and a new CI job runs the
+registry launcher on a machine with no Python and no compiler (see Fixed). Both
+published images also lose the last known-vulnerable packages the scan of 0.9.6
+found: filelock in the monolithic image is raised to 4.2.1, and the passagemath
+image ships without pip (see Security). CI adds Python 3.14 and pins uv. No
+change to the tool surface, the client contract or the security policy's
+verdicts.
+
 ### Security
 
 - **filelock 4.2.1 in the monolithic image.** Scanning the published 0.9.6

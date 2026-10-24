@@ -7,6 +7,42 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- **Pillow 13.0.0 and certifi 2026.10.19 in both images and the passagemath
+  runtime.** Pillow 12.x has 28 advisories published 2026-10-20/21 (3
+  critical, 16 high: heap overflows in the TIFF and JPEG code, a Ghostscript
+  argument injection), all fixed in 13.0.0; certifi before 2026.10.19 trusts
+  emSign roots whose intermediate CA keys were compromised
+  (GHSA-6q48-6c7w-9gw2, critical). Exposure here was low -- caller code cannot
+  reach `PIL` or `matplotlib`, the plot tools only write PNG and SVG, and the
+  server makes no outbound TLS connections -- but both shipped in the images.
+  `uv.lock` and `requirements-passagemath.txt` move to the fixed versions. The
+  monolithic image needed more: it runs on Sage's own environment, which ships
+  Pillow 12.1.1 and certifi 2026.02.25 regardless of the lock, so the new
+  `sage-security-floors.txt` raises them there, and `make sage-deps` installs
+  the same floors so the integration suite runs on what the image ships.
+  Installs pinned to 0.9.5 keep a cached environment with the old versions;
+  0.9.6 moves every pin, which gives them a fresh one.
+- **No known-vulnerable package left in the monolithic image.** Scanning the
+  image as built found 11 more packages from the Sage base with open
+  advisories: Sage's Jupyter notebook stack (jupyter-server, jupyterlab,
+  notebook, nbconvert, mistune, soupsieve, tornado; 100 advisories, up to
+  critical), `urllib3` (10) and the build tooling left in the image
+  (setuptools, virtualenv, pytest; 20). None is on the server's path -- no
+  Jupyter or Tornado server is started, caller code cannot import them, and
+  the server makes no outbound HTTP -- so these are raised for a clean image,
+  not for a reachable flaw. They are floors in the same file.
+- **fastmcp 4.1.2, filelock 4.2.1 and setuptools 84.1.0 in the lock**, for
+  advisories published 2026-10-23/24 (Dependabot #240-#243, folded in here).
+  Neither fastmcp advisory reaches this server: GHSA-7xgj-8392-5q4r needs
+  component-level authorization combined with server transforms, and the
+  server uses only a server-level bearer-token check and no transforms;
+  GHSA-vqqp-x5qm-5qp4 is in FastMCP's client OAuth helpers, which the server
+  does not use. The monolithic image already resolved fastmcp 4.1.3; the lock
+  is what the passagemath image installs. filelock is dev-only (pip-audit);
+  setuptools comes in under passagemath through `dot2tex`.
+
 ### Added
 
 - **The Claude plugin ships its own `LICENSE` and `SECURITY.md`.** A plugin is

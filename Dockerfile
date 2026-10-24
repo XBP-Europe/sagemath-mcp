@@ -14,12 +14,16 @@ USER root
 # external_docs, the 100 KB+ review file) into the image and bust this layer's
 # cache on every edit to any of them. LICENSE rides along because it belongs in
 # the image, though the build does not require it (license is declared inline).
-COPY pyproject.toml README.md LICENSE ./
+COPY pyproject.toml README.md LICENSE sage-security-floors.txt ./
 COPY src ./src
 
-# Install the MCP server into Sage's Python environment
+# Install the MCP server into Sage's Python environment, then raise the packages
+# the base image ships that have had security fixes since it was built
+# (sage-security-floors.txt; `make sage-deps` applies the same floors, so the
+# integration suite runs against what this image ships).
 RUN sage -python -m pip install --upgrade pip && \
-    sage -python -m pip install --no-cache-dir .
+    sage -python -m pip install --no-cache-dir . && \
+    sage -python -m pip install --no-cache-dir -r sage-security-floors.txt
 
 # Ensure runtime user owns the workspace.
 RUN chown -R sage:sage /workspace

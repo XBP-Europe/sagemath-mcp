@@ -1,0 +1,45 @@
+# Minimum versions for packages that the sagemath/sagemath base image ships in
+# Sage's own Python environment, raised when a security fix lands before a new
+# base image carries it. The release Dockerfile and `make sage-deps` (which the
+# integration suite runs on) both install this file, so CI tests exactly what
+# the image ships. pip only acts when the installed version is below a floor.
+# The passagemath runtime takes these packages from uv.lock instead, and
+# tests/test_sage_security_floors.py fails if the lock falls below a floor.
+#
+# Remove a line once the base image ships a version at or above it.
+
+# GHSA-6q48-6c7w-9gw2 (critical, 2026-10-20): the bundle trusted emSign roots
+# whose intermediate CA keys were compromised. Base image 10.10: 2026.02.25.
+certifi>=2026.10.19
+
+# 28 advisories (3 critical, 16 high) published 2026-10-20/21, among them heap
+# overflows in the TIFF and JPEG code and a Ghostscript argument injection,
+# all fixed in 13.0.0. Base image 10.10: 12.1.1.
+pillow>=13.0.0
+
+# The rest are advisories against packages the base image bundles but the
+# server never runs or imports: no Jupyter or Tornado server is started, caller
+# code cannot import any of them, and the server opens no outbound HTTP. They
+# are raised so the shipped image carries no known-vulnerable package, not
+# because a path to them was found. Versions are the lowest that clear every
+# advisory open on 2026-10-23; base image 10.10 ships the version in brackets.
+
+# Sage's Jupyter notebook stack [jupyter-server 2.17.0, jupyterlab 4.5.6,
+# notebook 7.5.5, nbconvert 7.17.0, mistune 3.2.0, soupsieve 2.8.3,
+# tornado 6.5.5]: 100 advisories between them, up to critical (jupyter-server).
+jupyter-server>=2.21.0
+jupyterlab>=4.5.11
+notebook>=7.6.3
+nbconvert>=7.17.2
+mistune>=3.3.0
+soupsieve>=2.9.0
+tornado>=6.5.9
+
+# HTTP client under `requests` [2.6.3]: 10 advisories, up to high.
+urllib3>=2.8.0
+
+# Build and test tooling left in the image [setuptools 82.0.1, virtualenv
+# 21.2.0, pytest 9.0.2]: 20 advisories, up to high.
+setuptools>=83.0.0
+virtualenv>=21.14.9
+pytest>=9.0.3

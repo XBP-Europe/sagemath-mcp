@@ -33,6 +33,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Jupyter or Tornado server is started, caller code cannot import them, and
   the server makes no outbound HTTP -- so these are raised for a clean image,
   not for a reachable flaw. They are floors in the same file.
+- **fastmcp 4.1.2, filelock 4.2.1 and setuptools 84.1.0 in the lock**, for
+  advisories published 2026-10-23/24 (Dependabot #240-#243, folded in here).
+  Neither fastmcp advisory reaches this server: GHSA-7xgj-8392-5q4r needs
+  component-level authorization combined with server transforms, and the
+  server uses only a server-level bearer-token check and no transforms;
+  GHSA-vqqp-x5qm-5qp4 is in FastMCP's client OAuth helpers, which the server
+  does not use. The monolithic image already resolved fastmcp 4.1.3; the lock
+  is what the passagemath image installs. filelock is dev-only (pip-audit);
+  setuptools comes in under passagemath through `dot2tex`.
 
 ### Added
 

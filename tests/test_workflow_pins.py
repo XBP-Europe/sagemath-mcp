@@ -99,3 +99,41 @@ def test_every_job_that_runs_a_repository_script_checks_the_repository_out() -> 
                     )
                     break
     assert not offenders, "\n  ".join(["", *offenders])
+
+
+def test_every_setup_uv_step_installs_the_pinned_uv() -> None:
+    """uv's own output is part of what CI checks, so its version is pinned.
+
+    `test_the_export_matches_the_lockfile` compares a fresh `uv export` with
+    the committed requirements-passagemath.txt, and uv 0.13.5 wrote one marker
+    differently from 0.13.1. With setup-uv installing the latest uv, main went
+    red the day that release shipped, with no change here. Every step reads
+    the version from `.tool-versions`; a step without `version-file` silently
+    gets the latest again, and so does a missing file, which setup-uv skips
+    rather than refusing.
+    """
+    import yaml
+
+    pins = re.findall(
+        r"(?m)^uv\s+(\S+)\s*(?:#.*)?$", (ROOT / ".tool-versions").read_text(encoding="utf-8")
+    )
+    assert len(pins) == 1 and re.fullmatch(r"\d+\.\d+\.\d+", pins[0]), (
+        f".tool-versions must pin one exact uv version, found {pins}"
+    )
+    steps = 0
+    offenders: list[str] = []
+    for workflow in WORKFLOWS:
+        config = yaml.safe_load(workflow.read_text(encoding="utf-8"))
+        for job_name, job in (config.get("jobs") or {}).items():
+            for step in job.get("steps") or []:
+                if not str(step.get("uses", "")).startswith("astral-sh/setup-uv@"):
+                    continue
+                steps += 1
+                options = step.get("with") or {}
+                if options.get("version-file") != ".tool-versions" or "version" in options:
+                    offenders.append(f"{workflow.name}:{job_name}")
+    assert steps, "no setup-uv step found; this test would pass vacuously"
+    assert not offenders, (
+        "these setup-uv steps do not read `version-file: .tool-versions`:\n  "
+        + "\n  ".join(offenders)
+    )

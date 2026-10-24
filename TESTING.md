@@ -274,12 +274,23 @@ Eight jobs are required by branch protection on `main`: `lint`, `test (3.12)`,
 `passagemath` became required on 2026-10-16, once the `[passagemath]` extra
 became the recommended install: a change that breaks that route cannot merge.
 
+`test (3.14)` runs on every push and pull request without being required: the
+unit suite on the newest CPython a Sage runtime ships for (conda-forge's). It is
+kept out of the required set until it has a record, and it is a job of its own
+rather than a leg of `test` because `integration`, `smoke` and `passagemath` need
+`test`: a failing leg there would skip all three, and branch protection counts a
+skipped required check as passed.
+
 - `integration` starts the Sage container itself and reads the image from the Dockerfile,
   so the Sage version has a single source of truth
 - `passagemath` cold-installs the exact pinned passagemath wheel into a fresh
   environment and runs the whole suite plus the corpus sweep against it, so it
   doubles as the smoke gate for bumping that pin — a bump that breaks the other
   runtime fails here rather than after release
+- every workflow installs the uv pinned in `.tool-versions`. uv's output is part of
+  what CI checks (`test_the_export_matches_the_lockfile` compares a fresh `uv export`
+  with the committed file), so a new uv release must not change CI's verdict by
+  itself. Move the pin by hand and re-run `make passagemath-lock` with it
 - `security` runs `pip-audit` and is **blocking**; a new upstream advisory turns CI red
   with no repository change
 - `smoke` brings up the compose stack and runs `scripts/exercise_mcp.py` plus the

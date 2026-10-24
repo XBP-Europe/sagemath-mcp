@@ -24,9 +24,13 @@ Before asking, [USAGE.md](USAGE.md) is the manual and
 Fixes land on `main` and ship in the next release; nothing is backported to
 earlier versions unless there is a compelling reason. Upgrade before reporting.
 
-**Python.** 3.12 and 3.13, the CI matrix (`requires-python >= 3.12`). A new
-CPython minor is added to the matrix once the Sage runtimes below ship wheels or
-an image for it, not before.
+**Python.** 3.12, 3.13 and 3.14 (`requires-python >= 3.12`). 3.12 and 3.13 are
+the required CI matrix; 3.14 runs the unit suite on every push without being
+required yet, since conda-forge builds `sage` for it. The `[passagemath]` extra
+is tested on 3.12 only: on 3.13 and later its dependency `memory-allocator`
+0.1.4 has no wheel and builds from source, which needs a C compiler. A new
+CPython minor is added to CI once the Sage runtimes below ship wheels or an
+image for it, not before.
 
 **Sage runtimes.** Two, with different guarantees:
 
@@ -35,7 +39,7 @@ an image for it, not before.
 | The published container image (monolithic SageMath 10.10, `ghcr.io/xbp-europe/sagemath-mcp`) | **Primary for isolation.** The release is built on it, smoke-tested against it and signed; run it for untrusted input or a shared host | Integration suite + doctest-corpus sweep on every push |
 | The `[passagemath]` pip extra (`passagemath-standard`, pinned exactly) | **Recommended for a local install**, and the runtime every client install route uses (the `.mcpb`, the registry entry, the plugin, the install buttons). Same policy, second generated artifact set | Its own CI lane cold-installs the pin and runs the whole suite; the pin moves only through that lane |
 | The passagemath container image (`ghcr.io/xbp-europe/sagemath-mcp:<tag>-passagemath`, linux/amd64 + linux/arm64) | **Optional on amd64; the native choice on arm64**, where the primary image runs only under emulation | Built from the same pinned extra, smoke-tested natively per architecture in the release, signed and attested like the primary image |
-| A locally installed `sage` (on `PATH`, or in the server's own environment) | Best effort | Not tested in CI. Should work on 10.10; other versions may refuse names or lack helpers. The conda-forge package (0.9.5) was verified end to end against conda-forge's `sage` 10.9 on 2026-10-16 |
+| A locally installed `sage` (on `PATH`, or in the server's own environment) | Best effort | Not tested in CI. Should work on 10.10; other versions may refuse names or lack helpers. The conda-forge package (0.9.6) was verified end to end against conda-forge's `sage` 10.9 on 2026-10-24 |
 
 The version pins are deliberate. A Sage upgrade regenerates and re-reviews the
 security allowlists, so the runtime moves when the review is done, not when

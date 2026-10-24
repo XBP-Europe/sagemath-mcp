@@ -22,6 +22,24 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   advisories between them. Nothing installs at runtime, so both copies are now
   removed rather than upgraded outside the hash-locked set.
 
+### Added
+
+- **Python 3.14 in CI.** `test (3.14)` runs the unit suite with the 100%
+  coverage gate. conda-forge builds `sage` for 3.14 and resolves to it, and its
+  0.9.6 package was checked end to end there, so 3.14 was already in use
+  without a test. Not required yet; the 3.14 classifier is added. The
+  `[passagemath]` extra stays tested on 3.12 only: its dependency
+  `memory-allocator` 0.1.4 has no wheel past cp312, so on 3.13 and later it
+  needs a C compiler.
+
+### Changed
+
+- **CI pins uv.** Every `setup-uv` step reads the version from `.tool-versions`
+  (0.13.5) instead of installing the latest. `uv export` worded one marker in
+  `requirements-passagemath.txt` differently in 0.13.1 and 0.13.5, so a new uv
+  release could turn main red with no change here. A test fails on a step that
+  does not read the pin.
+
 ## [0.9.6] - 2026-10-24
 
 **The security and passagemath release.** Every package with an open advisory

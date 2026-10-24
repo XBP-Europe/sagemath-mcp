@@ -76,6 +76,9 @@ code, so they are listed here rather than discovered.
   with `--require-hashes`, and it does not update itself: run
   `make passagemath-lock` and commit the result.
   `tests/test_passagemath_lock.py` fails until you do, and names the command.
+  Export with the uv version in `.tool-versions`, which is the one CI runs:
+  another version can word an environment marker differently, and the test
+  then fails in CI on a file that matched locally.
   It is committed rather than generated at build time on purpose — a reviewer
   can read the exact pinned set in the diff.
 

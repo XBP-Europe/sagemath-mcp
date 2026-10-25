@@ -25,7 +25,7 @@
 # copies -- the compiler never reaches the published image.
 # Pinned by digest to the multi-arch index (amd64 + arm64 resolve from it);
 # Dependabot refreshes it. The same digest is used for both stages below.
-FROM python:3.12-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258 AS builder
+FROM python:3.12-slim-bookworm@sha256:6a0e06f5ba0b373d051aabd3fffb9b873f27f9a2a3a14bcbe37dee6f0e3bbc70 AS builder
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential \
@@ -54,7 +54,7 @@ RUN python -m venv /opt/venv \
     && /opt/venv/bin/python -m pip uninstall --yes pip
 
 # --- runtime stage -----------------------------------------------------------
-FROM python:3.12-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258
+FROM python:3.12-slim-bookworm@sha256:6a0e06f5ba0b373d051aabd3fffb9b873f27f9a2a3a14bcbe37dee6f0e3bbc70
 
 # The base image's own pip goes too, for the same reason as the venv's: the
 # server runs from /opt/venv and never installs anything.

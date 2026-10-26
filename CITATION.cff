@@ -26,7 +26,7 @@ authors:
   - name: XBP Europe
     website: https://github.com/XBP-Europe
 version: 0.9.7
-date-released: 2026-10-24
+date-released: 2026-10-26
 license: MIT
 repository-code: https://github.com/XBP-Europe/sagemath-mcp
 repository-artifact: https://pypi.org/project/sagemath-mcp/

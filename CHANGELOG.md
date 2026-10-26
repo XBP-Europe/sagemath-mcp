@@ -7,7 +7,7 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.9.7] - 2026-10-24
+## [0.9.7] - 2026-10-26
 
 **The install-route release.** Every `uvx` launcher 0.9.6 published -- the MCP
 registry entry, the Claude plugin, the Gemini extension, the README's install
@@ -22,6 +22,13 @@ found: filelock in the monolithic image is raised to 4.2.1, and the passagemath
 image ships without pip (see Security). CI adds Python 3.14 and pins uv. No
 change to the tool surface, the client contract or the security policy's
 verdicts.
+
+- **Dependencies refreshed**: the passagemath image's `python:3.12-slim-bookworm`
+  base moves to its current digest (#251), and the workflows move to CodeQL
+  4.39.1, `gh-action-pypi-publish` 1.14.3, `setup-uv` 10.3.2,
+  `claude-code-action` 1.0.259 and `setup-python` 7.1.0 (#252-#256); each pin
+  was checked against its release tag, and the image digest against the tag's
+  current index.
 
 ### Security
 

@@ -72,7 +72,7 @@ drop the `:ro` on that one volume rather than changing ownership of the tree.
 
 ```bash
 helm install sagemath charts/sagemath-mcp \
-  --set image.tag=v0.9.6
+  --set image.tag=v0.9.7
 ```
 
 The chart pulls `ghcr.io/xbp-europe/sagemath-mcp`; set `image.repository` only
@@ -91,7 +91,7 @@ is partial (no PARI, Singular or Maxima), so run the server where Sage does:
 - **The container image** (recommended): install
   [Docker Desktop](https://www.docker.com/products/docker-desktop/), then run
   the image as in the README (`docker run … -p 127.0.0.1:8314:8314
-  ghcr.io/xbp-europe/sagemath-mcp:0.9.6`), or `docker compose up` in a checkout.
+  ghcr.io/xbp-europe/sagemath-mcp:0.9.7`), or `docker compose up` in a checkout.
   The server is then at `http://127.0.0.1:8314/mcp`.
 - **WSL**: inside a WSL distribution, follow the Linux instructions
   (`pip install "sagemath-mcp[passagemath]"`).

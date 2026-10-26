@@ -7,6 +7,29 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.7] - 2026-10-26
+
+**The install-route release.** Every `uvx` launcher 0.9.6 published -- the MCP
+registry entry, the Claude plugin, the Gemini extension, the README's install
+buttons and the documented `claude`/`codex` commands -- named no Python, and so
+did the desktop bundle. Where uv found no Python 3.12 it chose its newest, 3.15,
+where a passagemath dependency has no wheel and must be compiled, and on a
+machine without a C compiler the install failed. Every launcher now asks for
+Python 3.12, the version the passagemath lane tests, and a new CI job runs the
+registry launcher on a machine with no Python and no compiler (see Fixed). Both
+published images also lose the last known-vulnerable packages the scan of 0.9.6
+found: filelock in the monolithic image is raised to 4.2.1, and the passagemath
+image ships without pip (see Security). CI adds Python 3.14 and pins uv. No
+change to the tool surface, the client contract or the security policy's
+verdicts.
+
+- **Dependencies refreshed**: the passagemath image's `python:3.12-slim-bookworm`
+  base moves to its current digest (#251), and the workflows move to CodeQL
+  4.39.1, `gh-action-pypi-publish` 1.14.3, `setup-uv` 10.3.2,
+  `claude-code-action` 1.0.259 and `setup-python` 7.1.0 (#252-#256); each pin
+  was checked against its release tag, and the image digest against the tag's
+  current index.
+
 ### Security
 
 - **filelock 4.2.1 in the monolithic image.** Scanning the published 0.9.6
@@ -56,7 +79,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   ties each launcher, including the encoded install buttons, to the lane's
   version, and a new CI job, `clean install`, runs `server.json`'s launcher in a
   container with no Python and no compiler and exercises the server over MCP.
-  Users with a Python 3.12 that uv found first were not affected.
+  It is required on `main` since 2026-10-26, after 16 consecutive green runs,
+  so branch protection now requires nine checks. Users with a Python 3.12 that
+  uv found first were not affected.
 
 ## [0.9.6] - 2026-10-24
 

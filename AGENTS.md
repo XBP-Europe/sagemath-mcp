@@ -8,6 +8,8 @@
 - Release workflow publishes signed images to `ghcr.io/xbp-europe/sagemath-mcp`; verify with Cosign if you consume the container directly.
 - Configure Git hooks after cloning: `git config core.hooksPath .githooks` (pre-push runs `uv run ruff check`).
 - Use `scripts/run_ci_simulation.sh` to approximate `.github/workflows/ci.yml` locally (requires Docker, Helm, uv; it uses whichever Docker Compose is installed and says so, rather than skipping the smoke test when only v2 is present).
+- Every workflow installs the uv pinned in `.tool-versions`, and a test fails on a `setup-uv` step that does not read it. Dependabot cannot move the pin: change it by hand, re-run `make passagemath-lock` with the new uv, and commit both together.
+- The checks branch protection requires on `main` are listed in `TESTING.md` (CI). Renaming or adding a required job means changing branch protection too, and the count stated in `TESTING.md`, `SUPPORT.md` and `CLAUDE.md`.
 
 ## Fast Commands
 - `make lint` → `uv run ruff check` (Bandit rules `S` apply to `src/`)
@@ -60,6 +62,8 @@
 - Surface new automation (e.g., build pipeline steps, artifact locations) in `AGENTS.md` and `TODO.md` so follow-on work is visible.
 - Keep distribution guidance current (`INSTALLATION.md`, `DISTRIBUTION.md`) and maintain cross-platform notes (Windows/macOS).
 - Kick off the **Bump Version** workflow ahead of a release: it bumps every versioned file and opens a pull request. Push the `vX.Y.Z` tag yourself once that merges.
+- If the tag goes out on a later day than the bump, re-date the CHANGELOG entry **and** `CITATION.cff`'s `date-released` before merging; `test_the_citation_date_is_the_changelog_date` fails when they differ.
+- After the release workflow finishes: re-run the commands in `SECURITY.md` ("Verifying a release") against the new version and restate the date there, move `packaging/conda/recipe.yaml` to the new PyPI sdist and its SHA-256, and run `server.json`'s `uvx` launcher from PyPI in the bare uv image the `clean install` job uses. The conda-forge feedstock follows through the autotick bot; `SUPPORT.md` names the conda-forge version last verified end to end.
 
 ## Extra Tips
 - Use `interrupt_sage_session` to stop a long Sage computation: it keeps the session's variables, where `cancel_sage_session` restarts the worker and discards them.

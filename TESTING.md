@@ -269,10 +269,12 @@ would have shelled out to.
 
 ## CI
 
-Eight jobs are required by branch protection on `main`: `lint`, `test (3.12)`,
-`test (3.13)`, `security`, `helm`, `integration`, `smoke` and `passagemath`.
-`passagemath` became required on 2026-10-16, once the `[passagemath]` extra
-became the recommended install: a change that breaks that route cannot merge.
+Nine jobs are required by branch protection on `main`: `lint`, `test (3.12)`,
+`test (3.13)`, `security`, `helm`, `integration`, `smoke`, `passagemath` and
+`clean install`. `passagemath` became required on 2026-10-16, once the
+`[passagemath]` extra became the recommended install: a change that breaks that
+route cannot merge. `clean install` followed on 2026-10-26, after 16 consecutive
+green runs, for the same reason on the `uvx` route.
 
 `test (3.14)` runs on every push and pull request without being required: the
 unit suite on the newest CPython a Sage runtime ships for (conda-forge's). It is
@@ -295,7 +297,7 @@ skipped required check as passed.
   with no repository change
 - `smoke` brings up the compose stack and runs `scripts/exercise_mcp.py` plus the
   monitoring resource check
-- `clean install` (not required yet) runs the `uvx` launcher from `server.json` in
+- `clean install` runs the `uvx` launcher from `server.json` in
   a container with no Python and no C compiler, then `scripts/exercise_mcp.py`
   against it. It exists because the `passagemath` lane's runner has both, so a
   dependency that must be compiled builds there and fails for a user without

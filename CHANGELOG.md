@@ -79,7 +79,9 @@ verdicts.
   ties each launcher, including the encoded install buttons, to the lane's
   version, and a new CI job, `clean install`, runs `server.json`'s launcher in a
   container with no Python and no compiler and exercises the server over MCP.
-  Users with a Python 3.12 that uv found first were not affected.
+  It is required on `main` since 2026-10-26, after 16 consecutive green runs,
+  so branch protection now requires nine checks. Users with a Python 3.12 that
+  uv found first were not affected.
 
 ## [0.9.6] - 2026-10-24
 

@@ -7,6 +7,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The smoke test never stopped a running computation.** The step in
+  `scripts/exercise_mcp.py` meant to cancel a long computation sent
+  `import time` and `time.sleep`, which the policy refuses at once: the
+  "long-running" call had already failed when `cancel_sage_session` reached an
+  idle worker, and the script only printed both outcomes. It now runs a loop the
+  policy allows, waits for the server's progress heartbeat, then interrupts it
+  and checks that the session's variables survive, and runs it again, cancels
+  it and checks that they are gone and the restarted worker answers. Each stop
+  must end the call within 60 s. Runs in CI's `smoke` and `clean install`; with
+  the old code the script now fails.
+
 ## [0.9.7] - 2026-10-26
 
 **The install-route release.** Every `uvx` launcher 0.9.6 published -- the MCP

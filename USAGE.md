@@ -1061,7 +1061,7 @@ With the HTTP server running:
 ```bash
 sage -python scripts/exercise_mcp.py
 ```
-This script performs an assignment, a dependent evaluation, launches a long-running loop (emitting progress every 1.5 seconds), and cancels it using `cancel_sage_session`.
+This script performs an assignment and a dependent evaluation, then starts a loop that runs until stopped (the server reports progress every 1.5 seconds) twice: it stops the first with `interrupt_sage_session` and checks that the variables survive, and the second with `cancel_sage_session` and checks that they are gone. It exits non-zero when any step fails.
 
 When running via Docker Compose, the same script can target `http://127.0.0.1:8314/mcp`. Under Helm,
 use `kubectl port-forward` (see chart `NOTES.txt`) or expose an ingress to reach the MCP endpoint.

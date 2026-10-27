@@ -296,7 +296,9 @@ skipped required check as passed.
 - `security` runs `pip-audit` and is **blocking**; a new upstream advisory turns CI red
   with no repository change
 - `smoke` brings up the compose stack and runs `scripts/exercise_mcp.py` plus the
-  monitoring resource check
+  monitoring resource check. The script checks state across calls, then
+  interrupts and cancels a computation that is still running, and fails when
+  either stop takes longer than 60 s or keeps the wrong state
 - `clean install` runs the `uvx` launcher from `server.json` in
   a container with no Python and no C compiler, then `scripts/exercise_mcp.py`
   against it. It exists because the `passagemath` lane's runner has both, so a

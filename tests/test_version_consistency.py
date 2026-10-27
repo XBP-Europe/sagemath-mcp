@@ -115,6 +115,24 @@ def test_all_declared_versions_agree() -> None:
     assert len(set(versions.values())) == 1, f"version files disagree: {versions}"
 
 
+def test_the_citation_date_is_the_changelog_date() -> None:
+    """The bump script dates CITATION.cff on the day of the bump. When the tag
+    goes out on a later day, the release pull request re-dates the CHANGELOG
+    entry by hand, and the citation has to move with it: 0.9.7 was bumped on
+    2026-10-24 and tagged on 2026-10-26, only the CHANGELOG moved, and the
+    citation named a release day that never happened."""
+    version = _declared_versions(ROOT)["pyproject"]
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    entry = re.search(
+        rf"^## \[{re.escape(version)}\] - (\d{{4}}-\d{{2}}-\d{{2}})\s*$", changelog, re.M
+    )
+    assert entry, f"CHANGELOG.md has no dated entry for {version}"
+    assert _release_date(ROOT) == entry.group(1), (
+        f"CITATION.cff says {version} was released on {_release_date(ROOT)}, "
+        f"CHANGELOG.md says {entry.group(1)}"
+    )
+
+
 VERSIONED_FILES = (
     "pyproject.toml",
     "src/sagemath_mcp/__init__.py",

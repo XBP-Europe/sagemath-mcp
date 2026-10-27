@@ -70,7 +70,9 @@ async def _exercise(progress_cb: Callable[[float, float | None, str | None], Non
         # at once: the cancel reached an idle worker and the "long-running"
         # call had already failed, so neither interrupting nor cancelling was
         # ever exercised. A plain loop is allowed and runs for hours.
-        await _stop_a_running_computation(session, progress_cb, "interrupt_sage_session")
+        await _stop_a_running_computation(
+            session, progress_cb, "interrupt_sage_session", says="Computation interrupted"
+        )
         # Interrupting keeps the namespace: that is the point of the tool.
         kept = await session.call_tool("evaluate_sage", {"code": "value * 6"})
         print("after interrupt ->", kept.model_dump())
@@ -78,7 +80,9 @@ async def _exercise(progress_cb: Callable[[float, float | None, str | None], Non
             f"interrupting discarded the session's variables: {kept.model_dump()}"
         )
 
-        await _stop_a_running_computation(session, progress_cb, "cancel_sage_session")
+        await _stop_a_running_computation(
+            session, progress_cb, "cancel_sage_session", says="cancelled by cancel_sage_session"
+        )
         # Cancelling restarts the worker: the variables are gone, and the new
         # worker answers.
         gone = await session.call_tool("evaluate_sage", {"code": "value * 6"})
@@ -104,9 +108,11 @@ async def _stop_a_running_computation(
     session: ClientSession,
     progress_cb: Callable[[float, float | None, str | None], None],
     tool: str,
+    *,
+    says: str,
 ) -> None:
     """Start a loop that never finishes on its own, stop it with *tool*, and
-    assert the call it was running in comes back as stopped."""
+    assert the call it was running in comes back as an error saying *says*."""
     running = asyncio.Event()
 
     async def progress_wrapper(
@@ -151,6 +157,8 @@ async def _stop_a_running_computation(
         raise AssertionError(f"the loop was still running {STOP_DEADLINE}s after {tool}") from None
     print("long running result ->", stopped.model_dump())
     assert stopped.is_error, f"the loop finished instead of stopping: {stopped.model_dump()}"
+    # The stopped call is told which tool stopped it, not that something failed.
+    assert says in _text(stopped), f"the stopped call does not say {says!r}: {_text(stopped)!r}"
 
 
 async def main() -> None:

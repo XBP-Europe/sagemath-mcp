@@ -78,6 +78,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (4 of 5 against SageMath 10.10), because the dead worker's exit had not been
   collected yet. A computation ended by stopping its session now says so
   instead of reporting a crash, and the journal saved by the stop is kept.
+- **Idle culling killed long computations** (REVIEW_ACTIONS 105, low). A
+  session counted as idle from the moment its last call *finished*, and the
+  per-call `timeout` has no ceiling. So a computation given more than
+  `SAGEMATH_MCP_IDLE_TTL` (900 s by default) was culled while it ran: shut
+  down, killed after the grace period, its variables discarded. A session with
+  a computation running is no longer idle. Measured against SageMath 10.10 with
+  a 2 s TTL and a computation 4 s in: main culled the session, and the call
+  reported "The session was shut down while this computation was running."
+  Now the session survives, and an interrupt keeps its variables.
 
 ## [0.9.7] - 2026-10-26
 

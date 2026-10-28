@@ -2260,3 +2260,37 @@ async def test_the_call_a_crash_ends_waits_for_the_worker_to_exit(
     assert fake_process.returncode is not None
     assert groups_killed == ([fake_process.pid] if returncode is None else [])
     assert not fake_process.killed
+
+
+@pytest.mark.asyncio
+async def test_culling_spares_a_session_that_is_computing():
+    """Idle means no computation running, not a long time since the last answer.
+
+    `should_cull` compared the idle TTL with `last_used_at`, which moves when a
+    call finishes. The per-call `timeout` has no ceiling, so a computation given
+    more than SAGEMATH_MCP_IDLE_TTL (900 s by default) was culled while it ran:
+    shut down, killed after the grace period, its variables discarded. Once it
+    ends, the session is idle again and culling takes it as before.
+    """
+    settings = SageSettings(force_python_worker=True, idle_ttl=0.0, eval_timeout=60.0)
+    manager = SageSessionManager(settings)
+    try:
+        session = await manager.get("busy")
+        await session.evaluate("kept = 1", want_latex=False, capture_stdout=False)
+        running = await _start_long_loop(session)
+
+        await manager.cull_idle()
+        assert [entry["session_id"] for entry in manager.snapshot()] == ["busy"], (
+            "the culler shut down a session mid-computation"
+        )
+        assert session.is_alive()
+
+        assert await session.interrupt()
+        with pytest.raises(SageEvaluationError):
+            await asyncio.wait_for(running, timeout=5)
+        assert await _value_of(session, "kept") == "1"
+
+        await manager.cull_idle()
+        assert manager.snapshot() == []
+    finally:
+        await manager.shutdown()

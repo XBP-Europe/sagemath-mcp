@@ -1147,7 +1147,7 @@ here.
 | `SAGEMATH_MCP_EVAL_TIMEOUT` | `30` | Seconds per evaluation. A tool's `timeout` argument overrides it. |
 | `SAGEMATH_MCP_MAX_STDOUT` | `100000` | Characters of captured stdout kept; the rest is truncated. |
 | `SAGEMATH_MCP_MAX_SESSIONS` | `128` | Ceiling on live workers. Reaching it refuses new sessions rather than exhausting memory. |
-| `SAGEMATH_MCP_IDLE_TTL` | `900` | Seconds before the culler removes an idle session. |
+| `SAGEMATH_MCP_IDLE_TTL` | `900` | Seconds before the culler removes an idle session. A session with a computation running is not idle, whatever its `timeout`. |
 | `SAGEMATH_MCP_WARM_POOL_SIZE` | `1` | Pre-spawned workers kept ready, to hide Sage's startup cost. |
 | `SAGEMATH_MCP_SHUTDOWN_GRACE` | `2.0` | Seconds a worker is given to exit cleanly before it is killed. |
 | `SAGEMATH_MCP_FORCE_PYTHON_WORKER` | `false` | Use the pure-Python worker instead of Sage. For the test suite; not a deployment setting. |
@@ -1201,7 +1201,7 @@ before you decide to turn one off.
 ## Troubleshooting Tips
 - **ModuleNotFoundError for `sage`** in the worker: `SAGEMATH_MCP_SAGE_BINARY` (or the `sage` found first) is not the Sage you meant. The worker runs on that Sage's own Python -- `sage -python`, or the interpreter a console-script `sage` names -- so point the variable at the right executable.
 - **Long-running jobs**: use `interrupt_sage_session` first — it stops the computation and keeps your variables. `cancel_sage_session` also works but restarts the worker, so everything defined in that session is gone.
-- **Idle sessions**: the background culler removes sessions after `SAGEMATH_MCP_IDLE_TTL` seconds (default 900). Adjust it with `SAGEMATH_MCP_IDLE_TTL`; every setting is listed under [Configuration reference](#configuration-reference) above. (This line used to point at `README.md`, which documents no environment variables at all.)
+- **Idle sessions**: the background culler removes sessions after `SAGEMATH_MCP_IDLE_TTL` seconds (default 900) without a call. Culling discards the session's variables unless persistence is on. A computation still running is never culled, so a long `timeout` is safe. Adjust it with `SAGEMATH_MCP_IDLE_TTL`; every setting is listed under [Configuration reference](#configuration-reference) above. (This line used to point at `README.md`, which documents no environment variables at all.)
 - **`SecurityViolation` on ordinary-looking code**: caller code is checked
   against an **allowlist**, so the question is not "is this name forbidden" but
   "is this name offered". You get the mathematical names SageMath preloads, the

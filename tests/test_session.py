@@ -1990,3 +1990,97 @@ async def test_reset_reports_failure_if_the_journal_cannot_be_deleted(tmp_path, 
     finally:
         monkeypatch.undo()
         await session.shutdown()
+
+
+def _persisting(tmp_path, **overrides) -> SageSettings:
+    return SageSettings(
+        force_python_worker=True, idle_ttl=0.0, persist_sessions=True,
+        persist_dir=str(tmp_path), **overrides,
+    )
+
+
+async def _value_of(session: SageSession, name: str) -> str | None:
+    """The name's value in the session, or None if the session has no such name."""
+    try:
+        result = await session.evaluate(name, want_latex=False, capture_stdout=False)
+    except SageEvaluationError:
+        return None
+    return result.result
+
+
+@pytest.mark.asyncio
+async def test_a_cancel_is_not_undone_by_journal_replay(tmp_path):
+    """Cancelling discards the variables, and they must stay discarded.
+
+    `cancel()` restarted the worker but kept the code journal, so the statements
+    it had just discarded came back as soon as the journal was replayed: the
+    session went idle, culling saved the journal, and the next call restored
+    `secret` into a namespace the caller had been told was empty. Item 84 fixed
+    the same thing for `reset()` and left this path alone.
+
+    Post-cancel work must survive, and a journal already on disk -- this session
+    was saved before -- must not be restored by the next `get()` either: that
+    replays from disk whenever the in-memory journal is empty, so clearing only
+    the memory would bring `secret` back one call later instead.
+    """
+    manager = SageSessionManager(_persisting(tmp_path))
+    try:
+        session = await manager.get("canceller")
+        await session.evaluate("secret = 4242", want_latex=False, capture_stdout=False)
+        session.save_journal()
+
+        await manager.cancel("canceller")
+        live = await manager.get("canceller")
+        assert await _value_of(live, "secret") is None
+        await live.evaluate("kept = 1", want_latex=False, capture_stdout=False)
+
+        await manager.cull_idle()               # saves the journal, then stops
+        restored = await manager.get("canceller")
+        assert await _value_of(restored, "kept") == "1"
+        assert await _value_of(restored, "secret") is None, (
+            "the journal replay brought back a variable the cancel discarded"
+        )
+    finally:
+        await manager.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_a_timeout_is_not_undone_by_journal_replay(tmp_path):
+    """The timeout message says the variables were discarded; replay must agree."""
+    manager = SageSessionManager(_persisting(tmp_path, eval_timeout=1.0))
+    try:
+        session = await manager.get("slow")
+        await session.evaluate("secret = 4242", want_latex=False, capture_stdout=False)
+        with pytest.raises(TimeoutError, match="discarded"):
+            await session.evaluate(_LONG_LOOP, want_latex=False, capture_stdout=False)
+        await session.evaluate("kept = 1", want_latex=False, capture_stdout=False)
+
+        await manager.cull_idle()
+        restored = await manager.get("slow")
+        assert await _value_of(restored, "kept") == "1"
+        assert await _value_of(restored, "secret") is None, (
+            "the journal replay brought back a variable the timeout discarded"
+        )
+    finally:
+        await manager.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_a_cancel_reports_failure_if_the_journal_cannot_be_deleted(
+    tmp_path, monkeypatch
+):
+    """As for reset (REVIEW_ACTIONS 87): a journal that survives must not be silent."""
+    session = SageSession("stubborn-cancel", _persisting(tmp_path))
+    try:
+        await session.evaluate("secret = 4242", want_latex=False, capture_stdout=False)
+        session.save_journal()
+
+        def refuse(*args, **kwargs):
+            raise PermissionError("read-only filesystem")
+
+        monkeypatch.setattr(Path, "unlink", refuse)
+        with pytest.raises(SageProcessError, match="journal"):
+            await session.cancel()
+    finally:
+        monkeypatch.undo()
+        await session.shutdown()

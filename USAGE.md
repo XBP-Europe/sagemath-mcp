@@ -1157,8 +1157,10 @@ here.
 
 Off by default. When enabled, a session's statements are journalled to disk and
 replayed when the worker is respawned, which is how a workspace survives a
-restart. The journal holds caller code, so it belongs on the same storage you
-would trust with the session itself.
+restart. `reset_sage_session`, `cancel_sage_session` and a timeout discard the
+journal together with the variables, in memory and on disk, so what they discard
+is not replayed later. The journal holds caller code, so it belongs on the same
+storage you would trust with the session itself.
 
 | Variable | Default | What it does |
 | --- | --- | --- |

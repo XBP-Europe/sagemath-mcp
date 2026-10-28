@@ -327,8 +327,7 @@ class SageSession(JournalMixin, WorkerChannelMixin):
                 raise SageProcessError("Sage worker terminated during reset.")
         if not response.get("ok", False):
             raise SageProcessError("Failed to reset Sage session.")
-        self._code_journal.clear()
-        self._discard_persisted_journal()
+        self._forget_journal()
         self.last_used_at = time.time()
 
     async def interrupt(self) -> bool:
@@ -416,6 +415,11 @@ class SageSession(JournalMixin, WorkerChannelMixin):
 
     async def _restart_worker(self) -> None:
         await self._terminate_worker()
+        # The namespace died with the worker, so the journal that would rebuild
+        # it goes too. Keeping it (as item 84 deliberately did) let culling save
+        # it and the next call replay it, bringing back the variables a cancel
+        # or a timeout had just reported discarded.
+        self._forget_journal()
         await self._launch_worker()
 
     async def _terminate_worker(self) -> None:

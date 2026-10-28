@@ -41,6 +41,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `interrupt_sage_session` stops a computation while keeping them. A crash still
   reports "terminated unexpectedly", including one after a cancel. Found by the
   smoke test above, which now asserts each stopped call's message.
+- **A cancel or a timeout was undone by journal replay** (REVIEW_ACTIONS 103,
+  low). With `SAGEMATH_MCP_PERSIST_SESSIONS=1`, both restarted the worker but
+  kept the code journal. When the session was culled or stopped and used again,
+  the replay restored the variables the caller had been told were discarded.
+  Measured against SageMath 10.10, a cancelled `secret` came back after a cull.
+  Both paths now clear the journal in memory and on disk, as `reset` does since
+  item 84, and fail loudly if the file cannot be deleted. Statements made after
+  the restart are still persisted. Off by default, so unaffected without
+  persistence.
 
 ## [0.9.7] - 2026-10-26
 

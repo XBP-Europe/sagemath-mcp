@@ -4556,7 +4556,9 @@ one behind would reopen the same hole.
 A related inconsistency is left alone deliberately: `cancel()` and the timeout
 path destroy the namespace but keep the journal, which matches their documented
 wording ("variables discarded") even though the two paths disagree about what
-the journal means.
+the journal means. **Revisited in item 103:** keeping the journal is what
+made that wording false once the journal was replayed, and both paths now
+clear it.
 
 ### 84b. The workspace token reached an MCP notification
 
@@ -6177,3 +6179,77 @@ fail against 0.9.1. The corpus figure change is shared with item 101.
 
 Fixed 2026-09-27, found by the same review; the durable check was surfaced by
 the item-100 drift work.
+
+## 103. A cancel or a timeout was undone by journal replay — low — DONE
+
+### What was wrong
+
+`cancel()` and the timeout path restart the worker, which discards the
+namespace. Both say so: the timeout message reads "the session's variables were
+discarded", and since #260 so does the call a cancel ends. Neither cleared the
+code journal, though. Item 84 recorded that as a deliberate inconsistency.
+
+The journal is what persistence replays. With `SAGEMATH_MCP_PERSIST_SESSIONS=1`,
+the session went idle and culling saved the journal, including every statement
+from before the restart. The next call created a fresh session and `get()`
+restored it, so the variables the caller had been told were gone came back.
+`stop_sage_session` followed by reuse of the name did the same. The journal also
+disagreed with the live session in between: `list_sage_sessions` counted
+statements whose results no longer existed.
+
+Reproduced against a real SageMath 10.10 worker, with persistence on and the
+sequence evaluate, cancel (or time out), evaluate, cull, next call:
+
+```
+                         main (9cefe90)         fixed
+secret after cancel   -> <absent>               <absent>
+journal statements    -> 3                      1
+after cull+restore    -> secret=274177 * ...    secret=<absent>
+```
+
+The timeout path gave the same rows. Persistence is off by default, and stdio
+scopes are minted per process, so the replay happens within one server process:
+after a cull, or after a stop and a restart by name.
+
+### Why low
+
+It needs persistence, which is off by default. And the documented way to drop
+state is `reset_sage_session`, which item 84 already fixed. But
+`cancel_sage_session` is annotated `DISCARDS`, and a caller who cancels to
+abandon a computation and its intermediates is entitled to the same guarantee.
+
+### The fix
+
+`JournalMixin._forget_journal()` clears the journal in memory and deletes it on
+disk, legacy paths included. It has to do both, for the reason item 84 found:
+`get()` replays from disk whenever the in-memory journal is empty, so clearing
+only the memory brings the statements back on the next call. `reset()` now calls
+it, as does `_restart_worker()`, the one path behind both cancel and timeout.
+If the file cannot be deleted, `cancel` fails loudly, as `reset` does since
+item 87.
+
+The two kinds of statement are treated differently on purpose. Statements made
+after the restart are journaled as usual, and survive a cull. A replay that
+itself times out now ends with an empty journal, matching its empty namespace.
+Before, the replayed prefix stayed in the journal and came back at the next
+restore.
+
+### How to verify
+
+`tests/test_session.py`:
+
+- `test_a_cancel_is_not_undone_by_journal_replay` and
+  `test_a_timeout_is_not_undone_by_journal_replay` run evaluate, stop,
+  evaluate, cull and restore. Each asserts that the post-restart variable
+  survives and the discarded one does not. The cancel test starts with a
+  journal already on disk, so it also catches a fix that clears only the
+  memory.
+- `test_a_cancel_reports_failure_if_the_journal_cannot_be_deleted` covers
+  the loud failure.
+
+All three fail against 9cefe90. The table above is the real-Sage run.
+
+### Status
+
+Fixed 2026-10-28. Found while fixing the cancel message (#260); the smoke test
+that surfaced that message came from #258.

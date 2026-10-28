@@ -91,6 +91,16 @@ class JournalMixin:
             candidates.append(d / f"{self.session_id}.journal.json")
         return list(dict.fromkeys(candidates))     # de-duplicated, order kept
 
+    def _forget_journal(self) -> None:
+        """Drop the journal in memory and on disk, once its namespace is gone.
+
+        Both, always: `get()` replays from disk whenever the in-memory journal
+        is empty, so clearing only the memory brings the statements back on the
+        next call. `reset()` and every worker restart (cancel, timeout) use this.
+        """
+        self._code_journal.clear()
+        self._discard_persisted_journal()
+
     def _discard_persisted_journal(self) -> None:
         """Delete the on-disk journal, so a reset is not undone by a replay.
 

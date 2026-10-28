@@ -337,6 +337,7 @@ async def test_session_evaluate_worker_terminated(monkeypatch, python_settings):
 
     session = SageSession("terminated", python_settings)
     fake_process = _FakeProcess()
+    fake_process.returncode = -9            # dead, which is why stdout closed
 
     async def fake_ensure_started():
         session._process = fake_process
@@ -509,6 +510,7 @@ async def test_reset_worker_terminated(monkeypatch, python_settings):
     fake_process = _FakeProcess()
     # readline returns empty bytes = worker died
     fake_process.stdout = _FakeReader()  # default returns b""
+    fake_process.returncode = -9
 
     async def fake_ensure_started():
         session._process = fake_process
@@ -2084,3 +2086,177 @@ async def test_a_cancel_reports_failure_if_the_journal_cannot_be_deleted(
     finally:
         monkeypatch.undo()
         await session.shutdown()
+
+
+async def _crash_a_running_computation(session: SageSession) -> SageProcessError:
+    """Kill the worker mid-computation, as the OOM killer would; return the call's error."""
+    task = await _start_long_loop(session)
+    assert session._process is not None
+    session._process.kill()
+    with pytest.raises(SageProcessError) as excinfo:
+        await asyncio.wait_for(task, timeout=5)
+    return excinfo.value
+
+
+@pytest.mark.asyncio
+async def test_a_crash_says_the_variables_are_gone(python_settings):
+    """The call a crash ends is told what it cost, as a timeout's and a cancel's are.
+
+    "Sage worker terminated unexpectedly." said nothing about the namespace, so
+    the model learned it was empty only from the next refusal -- "'secret' is
+    not a name this server offers" -- which reads as a typo.
+    """
+    session = SageSession("crasher", python_settings)
+    try:
+        await session.evaluate("secret = 4242", want_latex=False, capture_stdout=False)
+        message = str(await _crash_a_running_computation(session))
+        assert "terminated unexpectedly" in message
+        assert "discarded" in message
+        assert await _value_of(session, "secret") is None
+    finally:
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_a_crash_is_not_undone_by_journal_replay(tmp_path):
+    """A crash loses the namespace; the journal must not bring it back later.
+
+    The worker died, the next call started a fresh one, and the journal kept
+    every statement the dead worker had run. Culling saved it and the next call
+    replayed it, restoring `secret` -- along with `list_sage_sessions` counting
+    statements no live namespace held. Item 103 fixed the same for a cancel and
+    a timeout; a crash restarted the worker by another road.
+    """
+    manager = SageSessionManager(_persisting(tmp_path))
+    try:
+        session = await manager.get("crasher")
+        await session.evaluate("secret = 4242", want_latex=False, capture_stdout=False)
+        session.save_journal()
+
+        await _crash_a_running_computation(session)
+        live = await manager.get("crasher")
+        assert await _value_of(live, "secret") is None
+        await live.evaluate("kept = 1", want_latex=False, capture_stdout=False)
+        [listed] = await manager.list_for_scope("crasher")
+        assert listed["statements"] == 1
+
+        await manager.cull_idle()
+        restored = await manager.get("crasher")
+        assert await _value_of(restored, "kept") == "1"
+        assert await _value_of(restored, "secret") is None, (
+            "the journal replay brought back a variable the crash discarded"
+        )
+    finally:
+        await manager.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_a_worker_that_died_between_calls_takes_its_journal_with_it(tmp_path):
+    """No call was running to report it, so the restart is where it is noticed.
+
+    The OOM killer picks the biggest process, which need not be the one
+    allocating: an idle worker holding a large namespace is killed for another
+    session's computation, and its next call quietly started a fresh worker.
+    """
+    manager = SageSessionManager(_persisting(tmp_path))
+    try:
+        session = await manager.get("victim")
+        await session.evaluate("secret = 4242", want_latex=False, capture_stdout=False)
+        session.save_journal()
+        assert session._process is not None
+        session._process.kill()
+        await session._process.wait()
+
+        live = await manager.get("victim")
+        assert await _value_of(live, "secret") is None
+        await live.evaluate("kept = 1", want_latex=False, capture_stdout=False)
+
+        await manager.cull_idle()
+        restored = await manager.get("victim")
+        assert await _value_of(restored, "kept") == "1"
+        assert await _value_of(restored, "secret") is None
+    finally:
+        await manager.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_a_crash_during_reset_forgets_the_journal(monkeypatch, tmp_path):
+    """The reset fails, but the namespace it was asked to discard is gone anyway."""
+    session = SageSession("reset-crash", _persisting(tmp_path))
+    session._code_journal.append(("secret = 4242", False))
+    session.save_journal()
+    fake_process = _FakeProcess()
+    fake_process.stdout = _FakeReader()     # EOF: the worker died
+
+    async def fake_ensure_started():
+        session._process = fake_process
+
+    monkeypatch.setattr(session, "ensure_started", fake_ensure_started)
+
+    with pytest.raises(SageProcessError, match="terminated during reset"):
+        await session.reset()
+    assert session._code_journal == []
+    assert session.existing_journal_path() is None
+
+
+@pytest.mark.asyncio
+async def test_stopping_a_running_session_keeps_the_journal_it_saved(tmp_path):
+    """A worker we stopped did not crash: its saved journal is the workspace's.
+
+    `stop()` saves the journal and then shuts the worker down, killing it when
+    a computation outlasts the grace period. Read as a crash, that kill would
+    delete the journal just saved -- and so would a call still holding the
+    stopped session, when it starts the worker again.
+    """
+    manager = SageSessionManager(_persisting(tmp_path, shutdown_grace=0.2))
+    try:
+        session = await manager.get("stopper")
+        await session.evaluate("secret = 4242", want_latex=False, capture_stdout=False)
+        running = await _start_long_loop(session)
+
+        assert await manager.stop("stopper", "default")
+        with pytest.raises(SageProcessError, match="shut down while this computation"):
+            await asyncio.wait_for(running, timeout=5)
+        await session.ensure_started()          # a late call on the stopped session
+        await session.shutdown()
+
+        restored = await manager.get("stopper")
+        assert await _value_of(restored, "secret") == "4242"
+    finally:
+        await manager.shutdown()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("returncode", [None, -9])
+async def test_the_call_a_crash_ends_waits_for_the_worker_to_exit(
+    monkeypatch, python_settings, returncode
+):
+    """The next call must find the dead worker dead, and start a fresh one.
+
+    The worker's stdout reaches EOF before asyncio collects its exit status.
+    Until it does, `ensure_started` takes the worker for alive, and against
+    real Sage the call after a crash wrote to its stdin and failed with
+    "Connection lost". Its process group is killed only while it is unreaped:
+    once collected, its pid may belong to someone else. And only the group:
+    Popen.kill() polls first, collecting the exit status asyncio waits for.
+    """
+    from sagemath_mcp import session as session_module
+
+    session = SageSession("reaped", python_settings)
+    fake_process = _FakeProcess()
+    fake_process.returncode = returncode
+    groups_killed: list[int] = []
+
+    async def fake_ensure_started():
+        session._process = fake_process
+
+    monkeypatch.setattr(session, "ensure_started", fake_ensure_started)
+    monkeypatch.setattr(
+        session_module.os, "killpg", lambda pid, sig: groups_killed.append(pid)
+    )
+
+    with pytest.raises(SageProcessError, match="discarded"):
+        await session.evaluate("1 + 1", want_latex=False, capture_stdout=False)
+    assert fake_process.returncode is not None
+    assert groups_killed == ([fake_process.pid] if returncode is None else [])
+    assert not fake_process.killed

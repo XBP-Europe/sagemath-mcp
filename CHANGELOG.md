@@ -50,6 +50,20 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   item 84, and fail loudly if the file cannot be deleted. Statements made after
   the restart are still persisted. Off by default, so unaffected without
   persistence.
+- **A crashed worker's journal outlived it** (REVIEW_ACTIONS 104, low). A
+  worker that died on its own -- a segfault, or the OOM killer, which may pick
+  an idle worker for another session's computation -- lost its variables but
+  kept its journal. The call it ended said only "Sage worker terminated
+  unexpectedly.", `list_sage_sessions` kept counting the dead statements, and
+  with persistence on a cull and the next call replayed them, restoring
+  variables the crash had destroyed. The journal is now discarded, not
+  replayed: a replay gives random values back different, and can rebuild the
+  state that ran the worker out of memory. The call says the variables were
+  discarded. A worker found dead between calls is handled the same way. Also
+  fixed: the call right after a crash often failed with "Connection lost"
+  (4 of 5 against SageMath 10.10), because the dead worker's exit had not been
+  collected yet. A computation ended by stopping its session now says so
+  instead of reporting a crash, and the journal saved by the stop is kept.
 
 ## [0.9.7] - 2026-10-26
 

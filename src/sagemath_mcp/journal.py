@@ -96,7 +96,8 @@ class JournalMixin:
 
         Both, always: `get()` replays from disk whenever the in-memory journal
         is empty, so clearing only the memory brings the statements back on the
-        next call. `reset()` and every worker restart (cancel, timeout) use this.
+        next call. `reset()`, every worker restart (cancel, timeout) and a
+        worker that died on its own (a crash, the OOM killer) use this.
         """
         self._code_journal.clear()
         self._discard_persisted_journal()

@@ -693,13 +693,44 @@ def test_an_invented_name_is_answered_with_the_sage_spelling():
         assert "typo" not in message, message
 
 
-def test_a_genuinely_unknown_name_keeps_the_two_honest_possibilities():
+def test_a_genuinely_unknown_name_keeps_the_honest_possibilities():
     with pytest.raises(SecurityViolation) as excinfo:
         validate_code("frobnicate_quux(3)")
     message = str(excinfo.value)
     assert message.startswith("'frobnicate_quux' is not a name this server offers. ")
     assert "If it is a typo" in message
     assert "SageMath spells it" not in message
+
+
+# --- a variable the session lost ---------------------------------------------
+#
+# A name bound in an earlier call is unknown again once the namespace is gone.
+# A crash, a timeout and a cancel now say so in the call they end, but the
+# default idle culling tells nobody, and the next call met only "is not a name
+# this server offers", which reads as a typo.
+
+
+def test_a_refused_name_says_an_earlier_variable_may_be_gone():
+    with pytest.raises(SecurityViolation) as excinfo:
+        validate_code("secret_value + 1")
+    message = str(excinfo.value)
+    # The first sentence is the rule the corpus sweep keys on.
+    assert message.startswith("'secret_value' is not a name this server offers. "), message
+    assert "If it is a typo" in message, message
+    assert "earlier call" in message, message
+    assert "idle" in message, message
+    assert "assign it again" in message, message
+
+
+def test_names_that_are_not_variables_get_no_lost_variable_hint():
+    """An invented Sage name, an external interface and a symbol were never lost."""
+    from sagemath_mcp.refusals import _SAGE_SPELLINGS
+
+    invented = next(iter(_SAGE_SPELLINGS))
+    for code in (f"{invented}(25)", "r(\"'abc'\")", "w + 1"):
+        with pytest.raises(SecurityViolation) as excinfo:
+            validate_code(code)
+        assert "earlier call" not in str(excinfo.value), str(excinfo.value)
 
 
 def test_mpmath_and_functools_imports_name_an_alternative():

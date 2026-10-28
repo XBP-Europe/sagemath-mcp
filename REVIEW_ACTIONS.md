@@ -6359,3 +6359,57 @@ All of them fail against ac00a70. The table above is the real-Sage run.
 ### Status
 
 Fixed 2026-10-28. It was the open question item 103 left.
+
+## 105. Idle culling killed long computations — low — DONE
+
+### What was wrong
+
+`SageSession.should_cull()` compared `SAGEMATH_MCP_IDLE_TTL` with
+`last_used_at`. That time moves when a call finishes, not while it runs, and
+the per-call `timeout` of `evaluate_sage` and `evaluate_sage_streaming` has no
+ceiling. A computation given more than the TTL, 900 s by default, was taken
+for an idle session once the TTL had passed since the previous call. The culler
+shut it down, killed the worker after the grace period, and discarded the
+variables.
+
+Reproduced against a real SageMath 10.10 worker, with a 2 s TTL and a
+computation 4 s in when the culler ran:
+
+```
+                         main (3ee220c)                        fixed
+sessions after cull   -> []                                    ['u']
+the long call         -> "The session was shut down while      interrupted on request,
+                          this computation was running."        "session state is preserved"
+earlier variable      -> gone                                  274177 * 67280421310721
+```
+
+With persistence on, the journal was saved first and survived, but the
+computation was lost all the same.
+
+### Why low
+
+It needs a `timeout` above the idle TTL, and a model rarely asks for 15
+minutes. But nothing warns against it. The tool schema offers the parameter
+with no limit, and the timeout message itself suggests retrying "with a larger
+per-call `timeout`". Following that advice up past the TTL turned a timeout
+into a cull, which discarded the same variables under a message that blamed a
+shutdown.
+
+### The fix
+
+`should_cull()` returns False while `_in_flight` is set. That covers the
+computation being executed, which also keeps a request waiting behind it for
+the session lock from being culled. Once the computation ends, the session is
+idle again from that moment and is culled on the usual schedule.
+
+### How to verify
+
+`tests/test_session.py::test_culling_spares_a_session_that_is_computing` uses a
+TTL of 0 and a running loop. Culling must leave the session in place, an
+interrupt must keep the earlier variable, and once the session is idle,
+culling must take it. It fails against 3ee220c. The table above is the
+real-Sage run.
+
+### Status
+
+Fixed 2026-10-28. Found while investigating item 104.

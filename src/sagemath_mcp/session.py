@@ -438,6 +438,12 @@ class SageSession(JournalMixin, WorkerChannelMixin):
         return bool(self._process and self._process.returncode is None)
 
     def should_cull(self, now: float | None = None) -> bool:
+        # A session computing is not idle, however long ago its last call
+        # finished. `last_used_at` moves when a call ends, and the per-call
+        # timeout has no ceiling, so a computation given more than the idle TTL
+        # was culled while it ran -- killed, its variables discarded.
+        if self._in_flight is not None:
+            return False
         now = now or time.time()
         return (now - self.last_used_at) > self.settings.idle_ttl
 

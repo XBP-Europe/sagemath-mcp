@@ -19,6 +19,14 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   it and checks that they are gone and the restarted worker answers. Each stop
   must end the call within 60 s. Runs in CI's `smoke` and `clean install`; with
   the old code the script now fails.
+- **A cancelled computation reported a crash.** The call that
+  `cancel_sage_session` ended came back as "Sage worker terminated
+  unexpectedly." -- what a crash says -- because the worker's output closes the
+  same way for both. It now says the computation was cancelled by
+  `cancel_sage_session`, that the session's variables were discarded, and that
+  `interrupt_sage_session` stops a computation while keeping them. A crash still
+  reports "terminated unexpectedly", including one after a cancel. Found by the
+  smoke test above, which now asserts each stopped call's message.
 
 ## [0.9.7] - 2026-10-26
 

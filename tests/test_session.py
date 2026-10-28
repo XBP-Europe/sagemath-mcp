@@ -102,6 +102,65 @@ async def test_session_cancel_restarts_worker(python_settings):
         await session.shutdown()
 
 
+_LONG_LOOP = "x = 0\nfor i in range(10**9):\n    x += i\nx"
+
+
+async def _start_long_loop(session: SageSession) -> asyncio.Task:
+    """Start a computation that does not end on its own; return once it runs."""
+    task = asyncio.create_task(
+        session.evaluate(_LONG_LOOP, want_latex=False, capture_stdout=False)
+    )
+    for _ in range(500):
+        if session._in_flight is not None:
+            return task
+        await asyncio.sleep(0.01)
+    task.cancel()
+    raise AssertionError("the loop was not running after 5 s")
+
+
+@pytest.mark.asyncio
+async def test_cancelling_a_running_computation_says_so(python_settings):
+    """The call a cancel ends is told it was cancelled, not that the worker died.
+
+    It read "Sage worker terminated unexpectedly." -- what a crash says -- for a
+    restart the caller had asked for, and did not say that the variables were
+    gone or which tool would have kept them. Found once the smoke test stopped
+    a computation that was actually running.
+    """
+    session = SageSession("cancel-running", python_settings)
+    try:
+        task = await _start_long_loop(session)
+        await session.cancel()
+        with pytest.raises(SageProcessError) as excinfo:
+            await asyncio.wait_for(task, timeout=5)
+        message = str(excinfo.value)
+        assert "cancel_sage_session" in message
+        assert "discarded" in message
+        assert "interrupt_sage_session" in message
+        assert "unexpectedly" not in message
+    finally:
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_a_crash_after_a_cancel_is_still_unexpected(python_settings):
+    """The cancel names the call it ended, not every later failure."""
+    session = SageSession("crash-after-cancel", python_settings)
+    try:
+        cancelled = await _start_long_loop(session)
+        await session.cancel()
+        with pytest.raises(SageProcessError, match="cancel_sage_session"):
+            await asyncio.wait_for(cancelled, timeout=5)
+
+        crashed = await _start_long_loop(session)
+        assert session._process is not None
+        session._process.kill()
+        with pytest.raises(SageProcessError, match="terminated unexpectedly"):
+            await asyncio.wait_for(crashed, timeout=5)
+    finally:
+        await session.shutdown()
+
+
 def test_truncate_stdout():
     pytest.importorskip("sagemath_mcp.server")
     runtime = pytest.importorskip("sagemath_mcp.runtime")

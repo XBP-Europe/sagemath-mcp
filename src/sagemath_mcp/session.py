@@ -71,6 +71,16 @@ class WorkerResult:
     elapsed_ms: float
 
 
+# What the call a cancel ended reports. It read "Sage worker terminated
+# unexpectedly." -- what a crash says -- and like the timeout message this one
+# coaches the model: what happened to the state, and the tool that keeps it.
+_CANCELLED_MESSAGE = (
+    "The computation was cancelled by cancel_sage_session. The worker was "
+    "restarted and the session's variables were discarded. To stop a "
+    "computation and keep its variables, use interrupt_sage_session."
+)
+
+
 class SageSession(JournalMixin, WorkerChannelMixin):
     """Encapsulates a single long-lived Sage worker."""
 
@@ -98,6 +108,9 @@ class SageSession(JournalMixin, WorkerChannelMixin):
         self._code_journal: list[tuple[str, bool]] = []
         # The request id the worker is executing right now, or None when idle.
         self._in_flight: str | None = None
+        # The request a cancel() ended, so its call can say so: the worker's
+        # stdout closes the same way for a cancel as for a crash.
+        self._cancelled_request: str | None = None
         self._dropped_stdout_lines = 0
         self._queued_stdout_chars = 0
 
@@ -220,6 +233,8 @@ class SageSession(JournalMixin, WorkerChannelMixin):
                 # Whatever happened, no consumer task outlives this request.
                 await self._stop_stdout_pump(pump)
             if not raw:
+                if self._cancelled_request == request_id:
+                    raise SageProcessError(_CANCELLED_MESSAGE)
                 raise SageProcessError("Sage worker terminated unexpectedly.")
         self.last_used_at = time.time()
         return self._result_from(response, code, trusted)
@@ -355,6 +370,8 @@ class SageSession(JournalMixin, WorkerChannelMixin):
         wedged badly enough that signalling it does not help.
         """
         LOGGER.info("Cancelling Sage session %s", self.session_id)
+        # Recorded before the kill, so it is in place when the request reads EOF.
+        self._cancelled_request = self._in_flight
         await self._restart_worker()
         self.last_used_at = time.time()
 

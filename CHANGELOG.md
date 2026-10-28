@@ -7,6 +7,20 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- **authlib 1.9.1.** pip-audit, which blocks CI, found authlib 1.8.0 under six
+  advisories published 2026-10-27/28 (CVE-2026-96760, a JWS signature bypass,
+  and CVE-2026-114615 to -114618 and -114620, all fixed in 1.9.0; and
+  CVE-2026-114616, an empty HMAC key, fixed in 1.9.1). They cover JOSE
+  verification and the OAuth/OpenID server and client helpers. Not reachable:
+  authlib comes in through `fastmcp-slim` for its OAuth and JWT providers,
+  which this server never configures. The optional bearer check (`auth.py`) is
+  a constant-time comparison of its own, and importing the server loads no
+  authlib module. `uv.lock` and `requirements-passagemath.txt` move to 1.9.1,
+  and nothing else changes. The published 0.9.7 images carry 1.8.0 and pick
+  up 1.9.1 with the next release. A fresh `pip install` resolves 1.9.1 already.
+
 ### Fixed
 
 - **The smoke test never stopped a running computation.** The step in

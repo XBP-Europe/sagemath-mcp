@@ -6253,3 +6253,109 @@ All three fail against 9cefe90. The table above is the real-Sage run.
 
 Fixed 2026-10-28. Found while fixing the cancel message (#260); the smoke test
 that surfaced that message came from #258.
+
+## 104. A crashed worker's journal outlived it — low — DONE
+
+### What was wrong
+
+A worker can die without this server stopping it: a segfault in a C library,
+or the kernel's OOM killer, which `mem_limit` in Docker Compose and the Helm
+chart's memory limit make the likely cause. The OOM killer picks the biggest
+process in the container, so the worker that dies may be an idle one holding a
+large namespace, killed for another session's computation.
+
+Either way the namespace was lost and the code journal was kept. That was the
+open question item 103 left: replay the journal to recover, or discard it. Until
+now it did neither on purpose.
+
+- The call the crash ended reported "Sage worker terminated unexpectedly." and
+  nothing about the variables. The model learned they were gone from the next
+  refusal, "'secret' is not a name this server offers", which reads as a typo.
+- The next call started a fresh worker silently, and the journal kept every
+  statement the dead worker had run. `list_sage_sessions` counted them. With
+  persistence on, culling saved them and the next call replayed them, so
+  variables the crash had destroyed came back. That is item 103's failure,
+  reached by a road that does not go through `_restart_worker()`.
+- A worker that died between calls was replaced on the next call with no
+  notice at all.
+- The worker's stdout closes before asyncio has collected its exit status. In
+  that window `ensure_started` took the dead worker for alive, and the call
+  after a crash wrote to its stdin and failed with `ConnectionResetError:
+  Connection lost`.
+
+Reproduced against a real SageMath 10.10 worker. The crash was a SIGKILL to the
+worker's process group in the middle of a loop, which is what the OOM killer
+does:
+
+```
+                           main (ac00a70)                  fixed
+crashed call            -> "Sage worker terminated         "...terminated unexpectedly: it
+                            unexpectedly."                  crashed or was killed ... The
+                                                            session's variables were discarded"
+call right after it     -> "Connection lost" in 4 of 5     a fresh worker, 10 of 10
+statements listed       -> 2 (1 dead)                      1
+cull, then next call    -> secret=274177 * ...             secret=<absent>
+stop mid-computation,   -> secret=274177 * ...             secret=274177 * ...
+  then restart by name
+```
+
+### Why discard and not replay
+
+A replay does not rebuild the namespace that was lost. In the same run,
+`r = random()` came back as 0.4308 after a replay instead of 0.7883, and a
+`random_matrix` determinant as 0 instead of 350. A recovered session that is
+silently different is worse for a mathematics tool than an empty one it is told
+about. The statement that crashed is never journaled, so a replay rebuilds only
+what came before it. When that state is what ran the worker out of memory, the
+next large statement crashes again. And a replay re-runs the session's whole
+history inside whichever call comes next. A cancel and a timeout already
+discard, since item 103. A crash is a third way to lose the worker, and the
+caller chose none of them.
+
+### Why low
+
+The replay needs persistence, which is off by default. The misleading message
+and the "Connection lost" call affect every deployment but cost a retry, not
+correctness or isolation.
+
+### The fix
+
+In `session.py`:
+
+- When a worker's stdout closes and neither a cancel nor a shutdown ended it,
+  `evaluate()` waits for the worker to exit (`_reap_dead_worker()`), forgets the
+  journal in memory and on disk, and says what was lost. The process group is
+  killed first only while the worker is unreaped, because once collected its pid
+  may belong to someone else. That kill also reaps a helper the worker forked.
+  It kills the group only: `_kill_worker_group()` also calls `Popen.kill()`,
+  which polls first, and on a dead worker that poll took the exit status before
+  asyncio could. asyncio then logged "exit status already read" and reported
+  255 instead of -9 (SIGKILL), seen in the first run of the fix.
+- `reset()` does the same when the worker dies under it. The namespace is gone
+  either way, which is what a reset asks for.
+- `ensure_started()` forgets the journal when it finds that the worker has
+  exited, and logs it. That covers a worker that died between calls.
+- `shutdown()` sets `_stopped`, so a worker this side stopped is not taken for
+  a crash. `stop()`, culling and the server stopping save the journal before
+  shutting the worker down. A computation still running when the grace period
+  ends is killed, and reading that as a crash would delete the journal that was
+  just saved, as would a late call that restarts the stopped session. That call
+  now says "The session was shut down while this computation was running."
+
+### How to verify
+
+`tests/test_session.py`:
+
+- `test_a_crash_says_the_variables_are_gone`
+- `test_a_crash_is_not_undone_by_journal_replay`, which starts with a journal
+  already on disk and also asserts the `list_sage_sessions` count
+- `test_a_worker_that_died_between_calls_takes_its_journal_with_it`
+- `test_a_crash_during_reset_forgets_the_journal`
+- `test_stopping_a_running_session_keeps_the_journal_it_saved`
+- `test_the_call_a_crash_ends_waits_for_the_worker_to_exit`, both branches
+
+All of them fail against ac00a70. The table above is the real-Sage run.
+
+### Status
+
+Fixed 2026-10-28. It was the open question item 103 left.

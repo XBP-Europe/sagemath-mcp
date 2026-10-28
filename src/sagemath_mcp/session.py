@@ -81,6 +81,23 @@ _CANCELLED_MESSAGE = (
 )
 
 
+# What the call a crash ended reports. The first sentence was all of it, so the
+# model learned its variables were gone only from the next refusal -- "'x' is
+# not a name this server offers" -- which reads as a typo.
+_CRASHED_MESSAGE = (
+    "Sage worker terminated unexpectedly: it crashed or was killed, for "
+    "example for running out of memory. The session's variables were "
+    "discarded, and the next call starts a fresh worker. If this computation "
+    "needs a lot of memory, try a smaller case first."
+)
+
+
+# What a computation reports when its session was shut down under it -- by
+# stop_sage_session, idle culling or the server stopping. Not a crash: the
+# journal was saved first, and it belongs to whoever starts the workspace next.
+_STOPPED_MESSAGE = "The session was shut down while this computation was running."
+
+
 class SageSession(JournalMixin, WorkerChannelMixin):
     """Encapsulates a single long-lived Sage worker."""
 
@@ -111,6 +128,9 @@ class SageSession(JournalMixin, WorkerChannelMixin):
         # The request a cancel() ended, so its call can say so: the worker's
         # stdout closes the same way for a cancel as for a crash.
         self._cancelled_request: str | None = None
+        # Set by shutdown(). From then on a dead worker is one this side
+        # stopped, not one that crashed, so its saved journal is left alone.
+        self._stopped = False
         self._dropped_stdout_lines = 0
         self._queued_stdout_chars = 0
 
@@ -122,6 +142,17 @@ class SageSession(JournalMixin, WorkerChannelMixin):
             # the winner has already launched, and must not launch a second.
             if self._process and self._process.returncode is None:
                 return
+            if self._process is not None and not self._stopped:
+                # The worker died between calls -- the OOM killer picks the
+                # biggest process, which may be an idle one -- and took the
+                # namespace with it. Its journal goes too, or culling would
+                # save it and the next call replay it, bringing back variables
+                # this fresh worker never had.
+                LOGGER.warning(
+                    "Sage worker for %s exited (returncode %s); its variables are gone",
+                    self.session_id, self._process.returncode,
+                )
+                self._forget_journal()
             await self._launch_worker()
 
     async def _launch_worker(self) -> None:
@@ -235,7 +266,15 @@ class SageSession(JournalMixin, WorkerChannelMixin):
             if not raw:
                 if self._cancelled_request == request_id:
                     raise SageProcessError(_CANCELLED_MESSAGE)
-                raise SageProcessError("Sage worker terminated unexpectedly.")
+                if self._stopped:
+                    raise SageProcessError(_STOPPED_MESSAGE)
+                # Replaying the journal instead would not rebuild this namespace:
+                # random values come back different, and the state that ran the
+                # worker out of memory comes back with them. Discard it, as a
+                # cancel and a timeout do, and say so.
+                await self._reap_dead_worker()
+                self._forget_journal()
+                raise SageProcessError(_CRASHED_MESSAGE)
         self.last_used_at = time.time()
         return self._result_from(response, code, trusted)
 
@@ -324,6 +363,9 @@ class SageSession(JournalMixin, WorkerChannelMixin):
             # "Failed to reset Sage session" for a reset that was fine.
             raw, response = await self._read_matching_response(payload["id"], None)
             if not raw:
+                # The namespace is gone either way, which is what a reset asks.
+                await self._reap_dead_worker()
+                self._forget_journal()
                 raise SageProcessError("Sage worker terminated during reset.")
         if not response.get("ok", False):
             raise SageProcessError("Failed to reset Sage session.")
@@ -375,6 +417,7 @@ class SageSession(JournalMixin, WorkerChannelMixin):
         self.last_used_at = time.time()
 
     async def shutdown(self) -> None:
+        self._stopped = True
         if not self._process or self._process.returncode is not None:
             return
         assert self._process.stdin  # noqa: S101
@@ -435,6 +478,26 @@ class SageSession(JournalMixin, WorkerChannelMixin):
                 self._kill_worker_group()
                 await self._process.wait()
         self._process = None
+
+    async def _reap_dead_worker(self) -> None:
+        """Wait for a worker whose stdout closed to exit, with what it spawned.
+
+        Its stdout reaches EOF before asyncio has collected its exit status, and
+        until then `ensure_started` takes it for alive: against real Sage the
+        call after a crash wrote to the dead worker's stdin and failed with
+        "Connection lost" instead of starting a fresh one. Killing the group
+        also reaps a helper the worker forked, which its death leaves running.
+        """
+        assert self._process is not None  # noqa: S101
+        if self._process.returncode is None:
+            # The group alone, not `_kill_worker_group()`: its Popen.kill()
+            # polls first, and on a worker already dead that poll collected the
+            # exit status before asyncio could -- logging "exit status already
+            # read" and reporting 255 for what was a SIGKILL. Only while
+            # unreaped: once collected, the pid may belong to someone else.
+            with contextlib.suppress(AttributeError, OSError):
+                os.killpg(self._process.pid, signal.SIGKILL)
+        await self._process.wait()
 
     def _kill_worker_group(self) -> None:
         """SIGKILL the worker and everything it spawned.

@@ -1159,8 +1159,12 @@ Off by default. When enabled, a session's statements are journalled to disk and
 replayed when the worker is respawned, which is how a workspace survives a
 restart. `reset_sage_session`, `cancel_sage_session` and a timeout discard the
 journal together with the variables, in memory and on disk, so what they discard
-is not replayed later. The journal holds caller code, so it belongs on the same
-storage you would trust with the session itself.
+is not replayed later. So does a worker that crashes or is killed, by the OOM
+killer for example: a replay would not rebuild the namespace it lost (random
+values come back different), and could rebuild the state that exhausted the
+memory. Stopping a session -- `stop_sage_session`, idle culling, the server
+shutting down -- saves the journal first and keeps it. The journal holds caller
+code, so it belongs on the same storage you would trust with the session itself.
 
 | Variable | Default | What it does |
 | --- | --- | --- |

@@ -151,6 +151,19 @@ def sage_spelling(name: str) -> str | None:
     return _SAGE_SPELLINGS.get(name)
 
 
+# A name the caller bound in an earlier call is unknown again once the session's
+# namespace is gone. A crash, a timeout and a cancel say so in the call they
+# end, but idle culling -- on by default -- tells nobody, and the next call met
+# only "is not a name this server offers", which reads as a typo. (A lost
+# symbol-shaped name such as `M` meets no refusal at all: evaluate_sage
+# declares it as a fresh symbol.)
+LOST_VARIABLE_HINT = (
+    "If it held a value in an earlier call, the session no longer has it: a "
+    "reset, a cancel, a timeout, a crash or a long idle period discards the "
+    "session's variables, so assign it again."
+)
+
+
 def import_alternative(module: str) -> str | None:
     root = (module or "").split(".", 1)[0]
     for name, advice in _IMPORT_ALTERNATIVES:

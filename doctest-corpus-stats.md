@@ -6,9 +6,9 @@ The most important functional test of the security guardrails: every
 the mathematics Sage itself documents. Generated on every run of
 `tests/test_sage_doctest_corpus.py`; counts only, never corpus text.
 
-- Generated: 2026-10-05 09:54:03 UTC
+- Generated: 2026-10-28 17:20:20 UTC
 - SageMath: 10.10 (`/home/sage/sage/local/var/lib/sage/venv-python3.12/lib/python3.12/site-packages/sage`)
-- Verdict fingerprint: `5f005a06e223756854f150e04056d4618a7cff255f3a9f26914026947ad76177`
+- Verdict fingerprint: `8879089b18cf24c41ed404ab1aa7cf44a0260c4adcf8dc5cec218d3662cb102f`
 
 The fingerprint is a SHA-256 over every example's outcome, refusal
 messages in full. It changes whenever any single verdict changes, even

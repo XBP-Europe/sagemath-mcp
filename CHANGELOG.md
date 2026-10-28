@@ -21,6 +21,20 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and nothing else changes. The published 0.9.7 images carry 1.8.0 and pick
   up 1.9.1 with the next release. A fresh `pip install` resolves 1.9.1 already.
 
+### Changed
+
+- **The refusal for an unknown name says an earlier variable may be gone.** A
+  session's variables are discarded by a reset, a cancel, a timeout, a crash and,
+  by default, 15 minutes idle. The first four say so in the call they affect,
+  but idle culling tells nobody. The next call that read a lost variable met
+  "'secret' is not a name this server offers. If it is a typo, check the
+  spelling; ...", which sends the model looking for a typo. The refusal now also
+  says that a name holding a value in an earlier call is gone for one of those
+  reasons, and to assign it again. The first sentence, which the corpus sweep
+  keys on, is unchanged, and so is every verdict. The verdict fingerprint moves,
+  because it covers refusal messages in full. A symbol-shaped name such as `M`
+  meets no refusal: `evaluate_sage` declares it as a fresh symbol.
+
 ### Fixed
 
 - **The smoke test never stopped a running computation.** The step in

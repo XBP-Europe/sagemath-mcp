@@ -13,6 +13,7 @@ from typing import Any, TypeGuard
 from .imports import attribute_segments
 from .policy import SECURITY_POLICY, SecurityPolicy, SecurityViolation
 from .refusals import (
+    LOST_VARIABLE_HINT,
     format_violation,
     import_alternative,
     native_equivalent,
@@ -612,14 +613,14 @@ def _refuse_unoffered_name(node: ast.Name, ctx: _ValidationContext) -> None:
         # The first sentence is the rule the corpus sweep keys on; what
         # follows it is advice, and the best advice is the spelling that
         # works. A name Sage never had gets that; anything else gets the
-        # two honest possibilities.
+        # three honest possibilities.
         spelling = sage_spelling(node.id)
         _raise_violation(
             f"'{node.id}' is not a name this server offers. "
             + (f"SageMath spells it {spelling}." if spelling else
                "If it is a typo, check the spelling; if it is a SageMath "
                "function that should be available, it needs to be added to "
-               "the allowlist"),
+               f"the allowlist. {LOST_VARIABLE_HINT}"),
             code=code,
             policy=policy,
         )

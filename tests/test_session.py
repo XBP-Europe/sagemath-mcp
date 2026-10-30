@@ -272,7 +272,7 @@ async def test_session_evaluate_handles_timeout(monkeypatch, python_settings):
 
     restart_called = False
 
-    async def fake_restart_worker() -> None:
+    async def fake_restart_worker(reason: str) -> None:
         nonlocal restart_called
         restart_called = True
 
@@ -2294,3 +2294,196 @@ async def test_culling_spares_a_session_that_is_computing():
         assert manager.snapshot() == []
     finally:
         await manager.shutdown()
+
+
+async def _refusal_of(session: SageSession, code: str) -> SageEvaluationError:
+    """The error a caller snippet fails with."""
+    with pytest.raises(SageEvaluationError) as excinfo:
+        await session.evaluate(code, want_latex=False, capture_stdout=False)
+    return excinfo.value
+
+
+@pytest.mark.asyncio
+async def test_reading_a_variable_a_cancel_lost_names_it_and_the_cancel(python_settings):
+    """A read of a lost variable is refused with the name and what discarded it.
+
+    It was not refused at all when the name had a fresh meaning. On real Sage a
+    lost `w = 7` came back as the symbol `w`, so `w + 1` answered `w + 1`, and a
+    lost `e = 5` as Euler's number, so `e * 2` answered `2*e`. A name with no
+    fresh meaning got the generic "not a name this server offers".
+    """
+    session = SageSession("lost-to-cancel", python_settings)
+    try:
+        await session.evaluate("total = 5", want_latex=False, capture_stdout=False)
+        await session.cancel()
+        error = await _refusal_of(session, "total + 1")
+        assert error.error_type == "NameError"
+        assert str(error) == (
+            "'total' held a value earlier in this session, but the session lost "
+            "its variables when cancel_sage_session restarted the worker. Assign "
+            "it again before using it."
+        )
+        # Assigning it again makes it the caller's, in the same snippet or later.
+        assert await _value_of(session, "total = 6; total + 1") == "7"
+        assert await _value_of(session, "total") == "6"
+    finally:
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_reading_a_variable_a_timeout_lost_says_it_was_the_timeout(python_settings):
+    session = SageSession("lost-to-timeout", python_settings)
+    try:
+        await session.evaluate("total = 5", want_latex=False, capture_stdout=False)
+        with pytest.raises(TimeoutError):
+            await session.evaluate(
+                _LONG_LOOP, want_latex=False, capture_stdout=False, timeout_seconds=0.3
+            )
+        assert "when a timeout restarted the worker" in str(
+            await _refusal_of(session, "total + 1")
+        )
+    finally:
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_reading_a_variable_a_crash_lost_says_it_was_a_crash(python_settings):
+    session = SageSession("lost-to-crash", python_settings)
+    try:
+        await session.evaluate("total = 5", want_latex=False, capture_stdout=False)
+        await _crash_a_running_computation(session)
+        assert "when the worker crashed or was killed" in str(
+            await _refusal_of(session, "total + 1")
+        )
+    finally:
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_a_failed_call_that_bound_a_name_still_reports_it(python_settings):
+    """`a = 1; 1/0` fails, but `a` holds 1 afterwards, so losing it is a loss."""
+    session = SageSession("failed-binder", python_settings)
+    try:
+        await _refusal_of(session, "partial = 1\n1/0")
+        await session.cancel()
+        assert "'partial' held a value" in str(await _refusal_of(session, "partial"))
+    finally:
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_a_reset_is_a_fresh_start_with_nothing_remembered(python_settings):
+    """A reset is asked for: reading a name afterwards gets no lost-variable story,
+    and neither does a name an earlier cancel had lost."""
+    session = SageSession("reset-forgets", python_settings)
+    try:
+        await session.evaluate("early = 1", want_latex=False, capture_stdout=False)
+        await session.cancel()
+        await session.evaluate("late = 2", want_latex=False, capture_stdout=False)
+        await session.reset()
+        for name in ("early", "late"):
+            error = await _refusal_of(session, f"{name} + 1")
+            assert error.error_type == "SecurityViolation"
+            assert "held a value earlier" not in str(error)
+    finally:
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_generated_code_is_not_held_to_the_callers_lost_names(python_settings):
+    """The record guards what the caller reads. A tool's own snippet binds and
+    reads its own names, and is not sent the record at all."""
+    session = SageSession("trusted-after-loss", python_settings)
+    try:
+        await session.evaluate("total = 5", want_latex=False, capture_stdout=False)
+        await session.cancel()
+        result = await session.evaluate(
+            "total = 40\ntotal + 2", want_latex=False, capture_stdout=False, trusted=True
+        )
+        assert result.result == "42"
+        assert session._lost == {"total": "cancel_sage_session restarted the worker"}
+    finally:
+        await session.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_reading_a_variable_idle_culling_lost_says_it_was_idle():
+    """Culling drops the session object, so the manager keeps the record for the
+    session that next opens the workspace. With persistence off -- the default --
+    this is how most sessions lose their variables."""
+    manager = SageSessionManager(SageSettings(force_python_worker=True, idle_ttl=0.0))
+    try:
+        session = await manager.get("idle")
+        await session.evaluate("total = 5", want_latex=False, capture_stdout=False)
+        await manager.cull_idle()
+        assert manager.snapshot() == []
+
+        fresh = await manager.get("idle")
+        assert fresh is not session
+        assert "when it went unused for longer than the idle limit" in str(
+            await _refusal_of(fresh, "total + 1")
+        )
+        assert "idle" not in manager._lost_variables       # handed over once
+    finally:
+        await manager.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_a_variable_the_journal_restores_after_culling_is_not_lost(tmp_path):
+    """With persistence on, culling saves the journal and the next session
+    replays it: the variable is back, and the record must not refuse it."""
+    manager = SageSessionManager(SageSettings(
+        force_python_worker=True, idle_ttl=0.0,
+        persist_sessions=True, persist_dir=str(tmp_path),
+    ))
+    try:
+        session = await manager.get("persisted")
+        await session.evaluate("total = 5", want_latex=False, capture_stdout=False)
+        await manager.cull_idle()
+        fresh = await manager.get("persisted")
+        assert await _value_of(fresh, "total + 1") == "6"
+        assert fresh._lost == {}
+    finally:
+        await manager.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_stopping_a_culled_workspace_forgets_what_it_lost():
+    manager = SageSessionManager(SageSettings(force_python_worker=True, idle_ttl=0.0))
+    key = manager.key_for("client", "work")
+    try:
+        session = await manager.get(key)
+        await session.evaluate("total = 5", want_latex=False, capture_stdout=False)
+        await manager.cull_idle()
+        assert key in manager._lost_variables
+        assert await manager.stop("client", "work") is False
+        assert key not in manager._lost_variables
+    finally:
+        await manager.shutdown()
+
+
+def test_the_manager_keeps_a_bounded_number_of_lost_records(monkeypatch):
+    from sagemath_mcp import manager as manager_module
+
+    monkeypatch.setattr(manager_module, "_LOST_RECORDS_KEPT", 2)
+    manager = SageSessionManager(SageSettings(force_python_worker=True))
+    manager._keep_lost_record("a", {"n": "why"})
+    manager._keep_lost_record("b", {"n": "why"})
+    manager._keep_lost_record("a", {"m": "why"})    # refreshed, now the newest
+    manager._keep_lost_record("c", {"n": "why"})    # evicts the oldest: b
+    assert manager._lost_variables == {"a": {"m": "why"}, "c": {"n": "why"}}
+
+
+def test_a_session_keeps_the_record_its_predecessor_left():
+    session = SageSession("heir", SageSettings(force_python_worker=True))
+    session._names = frozenset({"restored"})
+    session._lost = {"earlier": "a timeout restarted the worker"}
+    session.inherit_lost_variables({
+        "restored": "idle",                 # the replay bound it again
+        "earlier": "idle",                  # the first record of it stands
+        "gone": "idle",
+    })
+    assert session._lost == {"earlier": "a timeout restarted the worker", "gone": "idle"}
+    assert session.variables_lost_to("stopped") == {
+        "earlier": "a timeout restarted the worker", "gone": "idle", "restored": "stopped",
+    }

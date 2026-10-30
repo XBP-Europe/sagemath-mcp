@@ -33,7 +33,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reasons, and to assign it again. The first sentence, which the corpus sweep
   keys on, is unchanged, and so is every verdict. The verdict fingerprint moves,
   because it covers refusal messages in full. A symbol-shaped name such as `M`
-  meets no refusal: `evaluate_sage` declares it as a fresh symbol.
+  met no refusal, because `evaluate_sage` declared it as a fresh symbol. That is
+  fixed below (REVIEW_ACTIONS 106).
 
 ### Fixed
 
@@ -87,6 +88,22 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a 2 s TTL and a computation 4 s in: main culled the session, and the call
   reported "The session was shut down while this computation was running."
   Now the session survives, and an interrupt keeps its variables.
+- **A lost variable came back with a different meaning** (REVIEW_ACTIONS 106,
+  low). A timeout, a cancel, a crash or idle culling discards a session's
+  variables. A later snippet that read one ran with the name's meaning in a
+  fresh worker. Measured against SageMath 10.10, after a cancel:
+  - a lost `w = 7` became the symbol `w`, so `w + 1` answered `w + 1`;
+  - a lost `e = 5` became Euler's number, so `e * 2` answered `2*e`;
+  - a lost matrix `M` became a symbol with no `det()`;
+  - a lost `n` became Sage's numerical approximation function.
+
+  Such a read is now refused with a `NameError` that names the variable and
+  what discarded it, until the variable is assigned again. Idle culling drops
+  the session, so the server keeps the record for the session that next opens
+  the workspace. With persistence on, a variable the journal replay restores is
+  not refused. A name that held only its own symbol, such as `a = var('a')`, is
+  not recorded. Neither is anything `reset_sage_session` or
+  `stop_sage_session` discards, because both are requested.
 
 ## [0.9.7] - 2026-10-26
 

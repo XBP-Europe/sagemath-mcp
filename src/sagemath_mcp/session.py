@@ -98,6 +98,14 @@ _CRASHED_MESSAGE = (
 _STOPPED_MESSAGE = "The session was shut down while this computation was running."
 
 
+# How a namespace was lost, as the refusal of a later read of one of its
+# variables says it: "... the session lost its variables when <reason>."
+_LOST_TO_TIMEOUT = "a timeout restarted the worker"
+_LOST_TO_CANCEL = "cancel_sage_session restarted the worker"
+_LOST_TO_CRASH = "the worker crashed or was killed"
+LOST_TO_IDLE = "it went unused for longer than the idle limit and was shut down"
+
+
 class SageSession(JournalMixin, WorkerChannelMixin):
     """Encapsulates a single long-lived Sage worker."""
 
@@ -131,6 +139,12 @@ class SageSession(JournalMixin, WorkerChannelMixin):
         # Set by shutdown(). From then on a dead worker is one this side
         # stopped, not one that crashed, so its saved journal is left alone.
         self._stopped = False
+        # The caller's names that hold a value, as the worker last reported.
+        self._names: frozenset[str] = frozenset()
+        # Names a discarded namespace held values under -> how it was discarded.
+        # Sent with caller code, so reading one is refused rather than giving
+        # the name's fresh meaning: a symbol for `w`, Euler's number for `e`.
+        self._lost: dict[str, str] = {}
         self._dropped_stdout_lines = 0
         self._queued_stdout_chars = 0
 
@@ -152,7 +166,7 @@ class SageSession(JournalMixin, WorkerChannelMixin):
                     "Sage worker for %s exited (returncode %s); its variables are gone",
                     self.session_id, self._process.returncode,
                 )
-                self._forget_journal()
+                self._discard_namespace(_LOST_TO_CRASH)
             await self._launch_worker()
 
     async def _launch_worker(self) -> None:
@@ -246,6 +260,8 @@ class SageSession(JournalMixin, WorkerChannelMixin):
             # Ask the worker to emit stdout line events as they happen.
             "stream": on_stdout is not None,
         }
+        if self._lost and not trusted:
+            payload["lost"] = self._lost
         data = json.dumps(payload).encode("utf-8") + b"\n"
         effective_timeout = timeout_seconds or self.settings.eval_timeout
         async with self._lock:
@@ -273,7 +289,7 @@ class SageSession(JournalMixin, WorkerChannelMixin):
                 # worker out of memory comes back with them. Discard it, as a
                 # cancel and a timeout do, and say so.
                 await self._reap_dead_worker()
-                self._forget_journal()
+                self._discard_namespace(_LOST_TO_CRASH)
                 raise SageProcessError(_CRASHED_MESSAGE)
         self.last_used_at = time.time()
         return self._result_from(response, code, trusted)
@@ -332,6 +348,11 @@ class SageSession(JournalMixin, WorkerChannelMixin):
         return raw, response
 
     def _result_from(self, response: dict, code: str, trusted: bool) -> WorkerResult:
+        # A failed call reports names too: `a = 1; 1/0` bound `a` before failing.
+        names = response.get("names", ())
+        for name in names:
+            self._lost.pop(name, None)      # bound again since the loss
+        self._names = frozenset(names) - frozenset(response.get("symbols", ()))
         if not response.get("ok", False):
             error = response.get("error", {})
             raise SageEvaluationError(
@@ -365,12 +386,43 @@ class SageSession(JournalMixin, WorkerChannelMixin):
             if not raw:
                 # The namespace is gone either way, which is what a reset asks.
                 await self._reap_dead_worker()
-                self._forget_journal()
+                self._discard_namespace(None)
                 raise SageProcessError("Sage worker terminated during reset.")
         if not response.get("ok", False):
             raise SageProcessError("Failed to reset Sage session.")
-        self._forget_journal()
+        self._discard_namespace(None)
         self.last_used_at = time.time()
+
+    def _discard_namespace(self, reason: str | None) -> None:
+        """The worker's namespace is gone: forget its journal, remember its names.
+
+        *reason* says how, for the refusal of a later read of one of them. None
+        is a reset, which the caller asked for: nothing is remembered, and what
+        earlier losses left is forgotten too, so a reset is a fresh start.
+        """
+        if reason is None:
+            self._lost.clear()
+        else:
+            self._lost.update(dict.fromkeys(self._names, reason))
+        self._names = frozenset()
+        self._forget_journal()
+
+    def variables_lost_to(self, reason: str) -> dict[str, str]:
+        """What this session's record of lost names becomes if it ends for *reason*.
+
+        For idle culling, which drops the session object: the manager keeps this
+        and hands it to the session that next opens the workspace.
+        """
+        return {**self._lost, **dict.fromkeys(self._names, reason)}
+
+    def inherit_lost_variables(self, record: dict[str, str]) -> None:
+        """Take on the record a culled predecessor left, after any journal replay.
+
+        A name the replay bound again holds its value and is left out.
+        """
+        for name, reason in record.items():
+            if name not in self._names:
+                self._lost.setdefault(name, reason)
 
     async def interrupt(self) -> bool:
         """Abort the running computation but keep the namespace.
@@ -413,7 +465,7 @@ class SageSession(JournalMixin, WorkerChannelMixin):
         LOGGER.info("Cancelling Sage session %s", self.session_id)
         # Recorded before the kill, so it is in place when the request reads EOF.
         self._cancelled_request = self._in_flight
-        await self._restart_worker()
+        await self._restart_worker(_LOST_TO_CANCEL)
         self.last_used_at = time.time()
 
     async def shutdown(self) -> None:
@@ -460,15 +512,15 @@ class SageSession(JournalMixin, WorkerChannelMixin):
             )
             return
         LOGGER.error("Timeout in Sage session %s - restarting worker", self.session_id)
-        await self._restart_worker()
+        await self._restart_worker(_LOST_TO_TIMEOUT)
 
-    async def _restart_worker(self) -> None:
+    async def _restart_worker(self, reason: str) -> None:
         await self._terminate_worker()
         # The namespace died with the worker, so the journal that would rebuild
         # it goes too. Keeping it (as item 84 deliberately did) let culling save
         # it and the next call replay it, bringing back the variables a cancel
         # or a timeout had just reported discarded.
-        self._forget_journal()
+        self._discard_namespace(reason)
         await self._launch_worker()
 
     async def _terminate_worker(self) -> None:

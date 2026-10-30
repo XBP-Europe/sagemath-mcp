@@ -428,6 +428,9 @@ class SageSession(JournalMixin, WorkerChannelMixin):
             await asyncio.wait_for(self._process.wait(), timeout=self.settings.shutdown_grace)
         except TimeoutError:
             self._kill_worker_group()
+            # Until asyncio collects the exit, the worker reads as alive, and a
+            # late call on this session would write to it: "Connection lost".
+            await self._process.wait()
         self._process.stdin.close()
         with contextlib.suppress(Exception):
             await self._process.stdin.wait_closed()

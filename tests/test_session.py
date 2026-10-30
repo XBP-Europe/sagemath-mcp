@@ -2294,3 +2294,26 @@ async def test_culling_spares_a_session_that_is_computing():
         assert manager.snapshot() == []
     finally:
         await manager.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_a_shutdown_that_kills_the_worker_waits_for_it_to_exit(python_settings):
+    """A worker killed for outlasting the grace period is dead when shutdown returns.
+
+    `shutdown()` sent SIGKILL and returned without waiting, so asyncio had not
+    collected the exit yet and the session still read as alive. A late call on
+    the stopped session then skipped starting a worker and wrote to the dead
+    one: "Connection lost". It made
+    test_stopping_a_running_session_keeps_the_journal_it_saved fail now and then.
+    """
+    session = SageSession(
+        "killed-on-shutdown",
+        SageSettings(force_python_worker=True, shutdown_grace=0.2, eval_timeout=60.0),
+    )
+    running = await _start_long_loop(session)
+    await session.shutdown()
+    assert session._process is not None
+    assert session._process.returncode is not None
+    assert not session.is_alive()
+    with pytest.raises(SageProcessError):
+        await asyncio.wait_for(running, timeout=5)

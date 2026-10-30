@@ -78,6 +78,14 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (4 of 5 against SageMath 10.10), because the dead worker's exit had not been
   collected yet. A computation ended by stopping its session now says so
   instead of reporting a crash, and the journal saved by the stop is kept.
+- **A stopped session read as alive for a moment.** When a computation outlasted
+  `SAGEMATH_MCP_SHUTDOWN_GRACE`, `shutdown()` killed the worker but returned
+  before asyncio had collected its exit. A call still holding the session then
+  took the dead worker for alive and failed with "Connection lost" instead of
+  starting a fresh one. Shutdown now waits for the killed worker. This was the
+  cause of an intermittent failure of
+  `test_stopping_a_running_session_keeps_the_journal_it_saved`, 2 of 8 runs
+  against SageMath 10.10.
 - **Idle culling killed long computations** (REVIEW_ACTIONS 105, low). A
   session counted as idle from the moment its last call *finished*, and the
   per-call `timeout` has no ceiling. So a computation given more than

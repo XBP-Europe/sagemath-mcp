@@ -20,6 +20,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   authlib module. `uv.lock` and `requirements-passagemath.txt` move to 1.9.1,
   and nothing else changes. The published 0.9.7 images carry 1.8.0 and pick
   up 1.9.1 with the next release. A fresh `pip install` resolves 1.9.1 already.
+- **joserfc 1.7.7.** pip-audit, which blocks CI, found joserfc 1.7.5 under
+  CVE-2026-119284, published 2026-10-30 and fixed in 1.7.6. Compact JWS
+  parsing copied an attacker-sized payload before its size check rejected it,
+  so the limit did not bound memory. Not reachable here. Importing the server
+  loads joserfc, through fastmcp's auth module. But the only call that parses
+  input with it, `extract_compact`, is in fastmcp's private-key-JWT client
+  authenticator for an OAuth `/token` route. This server's optional bearer
+  check is a `TokenVerifier`, which mounts no routes. `uv.lock` and
+  `requirements-passagemath.txt` move to 1.7.7 (released 2026-10-19, an hour
+  after 1.7.6), and nothing else changes.
 
 ### Changed
 
@@ -79,6 +89,14 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (4 of 5 against SageMath 10.10), because the dead worker's exit had not been
   collected yet. A computation ended by stopping its session now says so
   instead of reporting a crash, and the journal saved by the stop is kept.
+- **A stopped session read as alive for a moment.** When a computation outlasted
+  `SAGEMATH_MCP_SHUTDOWN_GRACE`, `shutdown()` killed the worker but returned
+  before asyncio had collected its exit. A call still holding the session then
+  took the dead worker for alive and failed with "Connection lost" instead of
+  starting a fresh one. Shutdown now waits for the killed worker. This was the
+  cause of an intermittent failure of
+  `test_stopping_a_running_session_keeps_the_journal_it_saved`, 2 of 8 runs
+  against SageMath 10.10.
 - **Idle culling killed long computations** (REVIEW_ACTIONS 105, low). A
   session counted as idle from the moment its last call *finished*, and the
   per-call `timeout` has no ceiling. So a computation given more than

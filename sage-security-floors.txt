@@ -33,7 +33,7 @@ notebook>=7.6.3
 nbconvert>=7.17.2
 mistune>=3.3.0
 soupsieve>=2.9.0
-tornado>=6.5.9
+tornado>=6.6
 
 # HTTP client under `requests` [2.6.3]: 10 advisories, up to high.
 urllib3>=2.8.0

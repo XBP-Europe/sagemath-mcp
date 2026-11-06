@@ -6413,3 +6413,86 @@ real-Sage run.
 ### Status
 
 Fixed 2026-10-28. Found while investigating item 104.
+
+## 106. A lost variable came back with a different meaning — low — DONE
+
+### What was wrong
+
+A timeout, `cancel_sage_session`, a crash and idle culling (with persistence
+off, the default) discard a session's variables. Each says so in the call it
+ends, except culling, which ends no call. But a snippet that read a lost
+variable afterwards was not refused. It ran with whatever the name means in a
+fresh worker.
+
+Reproduced against a real SageMath 10.10 worker. The session ran
+`n = 10; M = matrix(QQ, [[1,2],[3,4]]); e = 5; w = 7; f(x) = x^2; total = 3`,
+and then a cancel:
+
+```
+                 main (59bf704)                               fixed
+w + 1         -> 'w + 1'                                      NameError: 'w' held a value
+e * 2         -> '2*e'                                          earlier in this session, but
+M.det()       -> AttributeError: 'Expression' object            the session lost its
+                 has no attribute 'det'                         variables when
+n + 1         -> TypeError: unsupported operand parent(s)       cancel_sage_session
+                 for +: '<class 'function'>' and ...            restarted the worker. Assign
+f(3)          -> TypeError: Substitution using                  it again before using it.
+                 function-call syntax ... has been removed      (the same for each name)
+total + 1     -> "'total' is not a name this server offers"
+```
+
+`w` and `M` are symbol-shaped, so `evaluate_sage` declared each as a fresh
+symbol (item 65). `e` is Euler's number and `n` Sage's numerical approximation,
+both offered by the allowlist. The first two rows are answers a model can take
+at face value. The errors in the next three name a type, not the cause. The
+last is the generic refusal, which since #264 adds that an earlier variable may
+be gone. That hint could not reach the other rows, because nothing refused
+them.
+
+### Why low
+
+Nothing reaches what the caller is not allowed to read: every value involved
+is the caller's own or one the allowlist offers. The harm is a wrong answer
+from a session that has silently changed under the model. That is what this
+server exists to prevent, and idle culling, the default 15 minutes, is the
+common way to get there.
+
+### The fix
+
+The worker reports, with every execute response, the caller's names that the
+namespace holds, and which of them hold only their own symbol (`a = var('a')`,
+an auto-declared `w`). That is exactly what a fresh worker gives back for the
+name, so losing it loses nothing. `SageSession` keeps the rest. When the
+namespace is lost, they go into a record with how it was lost: a timeout, a
+cancel, or a crash, including a worker found dead between calls. The record is
+sent with each caller snippet. Before auto-declaring symbols and before
+validating, the worker refuses a read of a recorded name with a `NameError`
+naming it and the cause. A name the snippet binds itself, by assignment, as a
+parameter or with `var()`, is the caller's again and passes. So is one bound
+since the loss, and from then on it leaves the record.
+
+Culling drops the session object, so `SageSessionManager.cull_idle` keeps the
+culled session's record under its storage key, bounded at 1024 workspaces with
+the oldest dropped first. `get()` hands it to the session that next opens the
+workspace, after any journal replay, so with persistence on, a name the replay
+restores is not refused. `reset_sage_session` and `stop_sage_session` record
+nothing and forget earlier records, because both are asked for. Generated code
+is not sent the record: a tool's snippet binds and reads its own names.
+
+### How to verify
+
+- `tests/test_session.py`: `test_reading_a_variable_a_cancel_lost_names_it_and_the_cancel`
+  and its timeout, crash and idle-culling siblings check the message for each
+  cause. `test_a_variable_the_journal_restores_after_culling_is_not_lost` covers
+  persistence. `test_a_reset_is_a_fresh_start_with_nothing_remembered` covers
+  the reset.
+- `tests/test_sage_worker.py`: `test_a_lost_symbol_shaped_name_is_refused_not_redeclared`
+  and the rebinding cases. `test_a_symbol_named_after_itself_is_not_a_value_on_real_sage`
+  runs on real Sage in the integration job.
+- The table above is the real-Sage run. The corpus sweep is unaffected and its
+  fingerprint unchanged: it validates without a record.
+
+### Status
+
+Fixed 2026-10-30. Found while writing the refusal hint of #264, which only
+multi-letter names could reach.

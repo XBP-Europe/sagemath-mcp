@@ -163,6 +163,92 @@ def _declare_symbols(namespace: dict[str, Any], names: frozenset[str]) -> None:
                 namespace[name] = var(name)
 
 
+def _refuse_lost_reads(
+    module: ast.Module, lost: dict[str, str], session_names: frozenset[str] | set[str]
+) -> None:
+    """Refuse code that reads a variable the session lost, saying how it was lost.
+
+    *lost* maps each name a discarded namespace held a value under to how it was
+    discarded; the parent sends it, because the worker that held the values is
+    the one that died. Without this the read did not fail: a lost `w = 7` came
+    back as the symbol `w`, a lost `e = 5` as Euler's number, a lost matrix `M`
+    as a symbol with no `det()`. A model reads `w + 1` as an answer.
+
+    A name the snippet binds itself, or one bound since the loss, is the
+    caller's again and passes.
+    """
+    bound = _bound_names(module)
+    read = {
+        node.id for node in ast.walk(module)
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
+    }
+    gone = {
+        name: lost[name] for name in read & lost.keys()
+        if name not in bound and name not in session_names
+    }
+    if gone:
+        raise _lost_variables_error(gone)
+
+
+def _lost_variables_error(gone: dict[str, str]) -> NameError:
+    """The NameError for reading *gone*, one sentence per way they were lost."""
+    by_reason: dict[str, list[str]] = {}
+    for name in sorted(gone):
+        by_reason.setdefault(gone[name], []).append(name)
+    sentences = []
+    for reason, names in by_reason.items():
+        quoted = ", ".join(f"'{name}'" for name in names)
+        held = "a value" if len(names) == 1 else "values"
+        sentences.append(
+            f"{quoted} held {held} earlier in this session, but the session lost "
+            f"its variables when {reason}."
+        )
+    them = "it" if len(gone) == 1 else "them"
+    sentences.append(f"Assign {them} again before using {them}.")
+    return NameError(" ".join(sentences))
+
+
+def _symbol_type() -> type[Any] | None:
+    """Sage's symbolic expression type, or None without Sage."""
+    try:
+        from sage.symbolic.expression import Expression
+    except ImportError:
+        return None
+    return Expression
+
+
+def _holds_a_value(name: str, value: Any, symbol_type: type[Any] | None) -> bool:
+    """Is *value* something losing *name* would lose?
+
+    A symbol named after itself is not: `a = var('a')` or an auto-declared `w`
+    is exactly what a fresh worker gives back for the name. The exact type, not
+    isinstance, so no caller-defined subclass method runs out here.
+    """
+    if symbol_type is None or type(value) is not symbol_type:
+        return True
+    try:
+        return not (value.is_symbol() and str(value) == name)
+    except Exception:
+        return True
+
+
+def _caller_names(namespace: dict[str, Any]) -> dict[str, list[str]]:
+    """The caller's live names, for the parent to remember if this worker dies.
+
+    `names` is every name the caller bound that the namespace still holds;
+    `symbols` the ones among them that only hold their own symbol.
+    """
+    symbol_type = _symbol_type()
+    names = sorted(name for name in _CALLER_BOUND_NAMES if name in namespace)
+    return {
+        "names": names,
+        "symbols": [
+            name for name in names
+            if not _holds_a_value(name, namespace[name], symbol_type)
+        ],
+    }
+
+
 def _build_namespace() -> dict[str, Any]:
     # NOTE: Each worker keeps its own global namespace. We allow a single
     # preload statement so sessions can bootstrap Sage or the lightweight math
@@ -590,11 +676,13 @@ def _split_code(
     code: str, trusted: bool = False,
     session_names: frozenset[str] | set[str] = frozenset(),
     withheld: frozenset[str] = frozenset(),
+    lost: dict[str, str] | None = None,
 ) -> SimpleNamespace:
     """Return the executable and tail expression chunks for *code*.
 
     *trusted* selects the policy for code this server generated itself, which
-    needs sage_eval. Caller-supplied code never sets it.
+    needs sage_eval. Caller-supplied code never sets it. *lost* names the
+    variables the session lost, see `_refuse_lost_reads`.
     """
 
     if not trusted:
@@ -624,6 +712,10 @@ def _split_code(
         module = rewrite_permitted_imports(
             module, offered=ALLOWED_CALLER_NAMES, policy=policy
         )
+        # Before declaring symbols and before validating: a lost `w` must not
+        # become a fresh symbol, nor a lost `total` the generic refusal.
+        if lost:
+            _refuse_lost_reads(module, lost, session_names)
     # Symbol-shaped free names evaluate_sage would otherwise refuse are declared
     # as symbols instead (caller code only -- generated templates have the
     # allowlist off and declare their own). Computed before validation and handed
@@ -753,6 +845,7 @@ def _execute(
     namespace: dict[str, Any],
     trusted: bool = False,
     stream_id: str | None = None,
+    lost: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     if _STARTUP_ERROR:
         return {
@@ -776,7 +869,7 @@ def _execute(
     try:
         compiled = _split_code(
             code, trusted=trusted, session_names=_CALLER_BOUND_NAMES,
-            withheld=_WITHHELD_NAMES,
+            withheld=_WITHHELD_NAMES, lost=lost,
         )
     except Exception as exc:
         return _error_payload(exc, stdout_buffer.getvalue() if stdout_buffer else "")
@@ -934,7 +1027,9 @@ def _main() -> int:
                 namespace=namespace,
                 trusted=bool(message.get("trusted", False)),
                 stream_id=msg_id if message.get("stream") else None,
+                lost=message.get("lost"),
             )
+            response.update(_caller_names(namespace))
             response["id"] = msg_id
             print(json.dumps(response), file=_protocol_stream(), flush=True)
         elif msg_type == "reset":

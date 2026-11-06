@@ -10,7 +10,7 @@ import time
 
 from .config import DEFAULT_SETTINGS, SageSettings
 from .errors import SageProcessError
-from .session import SageSession
+from .session import LOST_TO_IDLE, SageSession
 
 # The session logger, not this module's own: these lines were logged under
 # `sagemath_mcp.session` before the 2026-09 split and still are.
@@ -41,6 +41,11 @@ _WARM_SPARE_ID = "__warm_spare__"
 # Ceiling on the throwaway warm-up evaluation, so a wedged spare cannot hang the
 # server's startup or a background refill.
 _WARM_EVAL_TIMEOUT = 30.0
+
+# Culled workspaces whose record of lost variables is kept, oldest dropped first.
+# A record is a few names; the bound is against an HTTP server that culls a
+# workspace per client and never sees most of them again.
+_LOST_RECORDS_KEPT = 1024
 
 
 class SageSessionManager:
@@ -75,6 +80,10 @@ class SageSessionManager:
         # mid-cleanup cannot orphan a live worker. Its spare stays reserved in
         # `_warm_in_flight` until the process exits, and shutdown awaits these.
         self._reclaim_tasks: set[asyncio.Task[None]] = set()
+        # Storage key -> the variables a culled workspace lost, for the session
+        # that next opens it (`SageSession.variables_lost_to`). Culling drops
+        # the session object, and with it the only record of what it held.
+        self._lost_variables: dict[str, dict[str, str]] = {}
 
     @staticmethod
     def key_for(scope: str, name: str = DEFAULT_SESSION_NAME) -> str:
@@ -178,6 +187,8 @@ class SageSessionManager:
         async with self._lock:
             session = self._sessions.pop(key, None)
         self._forget_aliases_for(key)
+        # Stopping is asked for, like a reset: a culled workspace's record goes.
+        self._lost_variables.pop(key, None)
         if session is None:
             return False
         with contextlib.suppress(Exception):
@@ -371,6 +382,9 @@ class SageSessionManager:
                         len(journal), session_id,
                     )
                     await session.restore_from_journal(journal)
+        # Taken only once the session is up, so a launch that fails keeps it.
+        if (record := self._lost_variables.pop(session_id, None)) is not None:
+            session.inherit_lost_variables(record)
         return session
 
     async def reset(self, session_id: str) -> None:
@@ -404,8 +418,10 @@ class SageSessionManager:
         # silently opening an empty workspace -- parity with a culled name,
         # which the caller re-creates by name, is not possible for a handle
         # whose only identity was the token.
-        for sid, _ in sessions_to_shutdown:
+        for sid, session in sessions_to_shutdown:
             self._forget_aliases_for(sid)
+            if record := session.variables_lost_to(LOST_TO_IDLE):
+                self._keep_lost_record(sid, record)
         LOGGER.info("Culling %d idle Sage session(s)", len(sessions_to_shutdown))
         # Persist before terminating. shutdown() and stop() already do this, but
         # culling did not -- so with persistence enabled the ordinary idle
@@ -422,6 +438,13 @@ class SageSessionManager:
         for (sid, _), result in zip(sessions_to_shutdown, results, strict=False):
             if isinstance(result, Exception):
                 LOGGER.warning("Failed to shut down session %s cleanly: %s", sid, result)
+
+    def _keep_lost_record(self, key: str, record: dict[str, str]) -> None:
+        """Keep a culled workspace's lost variables, within `_LOST_RECORDS_KEPT`."""
+        self._lost_variables.pop(key, None)        # re-inserted as the newest
+        self._lost_variables[key] = record
+        if len(self._lost_variables) > _LOST_RECORDS_KEPT:
+            del self._lost_variables[next(iter(self._lost_variables))]
 
     async def shutdown(self) -> None:
         # Stop refilling, and reclaim any spares that never got adopted.

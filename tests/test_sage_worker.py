@@ -1538,3 +1538,155 @@ def test_the_protocol_fuzz_target_runs() -> None:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     assert module.campaign(2000, seed=3) == 0
+
+
+_TIMEOUT = "a timeout restarted the worker"
+
+
+def test_reading_a_lost_variable_is_refused_with_how_it_was_lost(pure_python_worker):
+    with pytest.raises(NameError) as excinfo:
+        _split_code("total + 1", lost={"total": _TIMEOUT})
+    assert str(excinfo.value) == (
+        "'total' held a value earlier in this session, but the session lost its "
+        "variables when a timeout restarted the worker. Assign it again before "
+        "using it."
+    )
+
+
+def test_a_lost_symbol_shaped_name_is_refused_not_redeclared(monkeypatch):
+    """The case that answered wrongly: a lost `w = 7` became the symbol `w`."""
+    from sagemath_mcp import _sage_worker
+
+    monkeypatch.setattr(_sage_worker, "PURE_PYTHON", True)
+    assert "w" in _sage_worker._split_code("w + 1").auto_symbols
+    with pytest.raises(NameError, match="'w' held a value"):
+        _sage_worker._split_code("w + 1", lost={"w": _TIMEOUT})
+
+
+def test_a_lost_name_the_caller_binds_again_is_theirs(monkeypatch):
+    """Bound in the snippet -- by assignment, as a parameter, by var() -- or
+    bound since the loss: either way the name holds the caller's new value."""
+    from sagemath_mcp import _sage_worker
+
+    monkeypatch.setattr(_sage_worker, "PURE_PYTHON", True)
+    lost = {"n": _TIMEOUT}
+    for code in ("n = 2\nn + 1", "f = lambda n: n + 1", "[n for n in range(3)]",
+                 "var('n')\nn"):
+        _sage_worker._split_code(code, lost=lost)
+    _sage_worker._split_code("n + 1", lost=lost, session_names=frozenset({"n"}))
+    # Names that are not read are no concern, whatever the record says.
+    _sage_worker._split_code("1 + 1", lost=lost)
+
+
+def test_lost_names_are_grouped_by_how_they_were_lost():
+    from sagemath_mcp import _sage_worker
+
+    error = _sage_worker._lost_variables_error({
+        "n": _TIMEOUT, "M": _TIMEOUT, "w": "the worker crashed or was killed",
+    })
+    assert str(error) == (
+        "'M', 'n' held values earlier in this session, but the session lost its "
+        "variables when a timeout restarted the worker. 'w' held a value earlier "
+        "in this session, but the session lost its variables when the worker "
+        "crashed or was killed. Assign them again before using them."
+    )
+
+
+class _FakeSymbol:
+    """Stands in for Sage's Expression: a symbol prints as its own name."""
+
+    def __init__(self, text: str, symbol: bool = True) -> None:
+        self.text, self.symbol = text, symbol
+
+    def is_symbol(self) -> bool:
+        if self.text == "broken":
+            raise RuntimeError("cannot tell")
+        return self.symbol
+
+    def __str__(self) -> str:
+        return self.text
+
+
+def test_caller_names_set_apart_names_that_only_hold_their_own_symbol(monkeypatch):
+    """`a = var('a')` is what a fresh worker gives back for `a`, so losing it
+    loses nothing; `b = var('a')`, `p = a + 1` and `w = 7` are values."""
+    from sagemath_mcp import _sage_worker
+
+    monkeypatch.setattr(_sage_worker, "_symbol_type", lambda: _FakeSymbol)
+    monkeypatch.setattr(
+        _sage_worker, "_CALLER_BOUND_NAMES", {"a", "b", "p", "w", "odd", "unbound"}
+    )
+    namespace = {
+        "a": _FakeSymbol("a"),
+        "b": _FakeSymbol("a"),
+        "p": _FakeSymbol("a + 1", symbol=False),
+        "w": 7,
+        "odd": _FakeSymbol("broken"),       # a value whose kind cannot be told
+    }
+    assert _sage_worker._caller_names(namespace) == {
+        "names": ["a", "b", "odd", "p", "w"],   # `unbound` failed before binding
+        "symbols": ["a"],
+    }
+
+
+def test_caller_names_treat_everything_as_a_value_without_sage(monkeypatch):
+    from sagemath_mcp import _sage_worker
+
+    # A None entry makes the import fail, with or without Sage installed.
+    monkeypatch.setitem(sys.modules, "sage.symbolic.expression", None)
+    assert _sage_worker._symbol_type() is None
+    monkeypatch.setattr(_sage_worker, "_CALLER_BOUND_NAMES", {"a"})
+    assert _sage_worker._caller_names({"a": _FakeSymbol("a")}) == {
+        "names": ["a"], "symbols": [],
+    }
+
+
+def test_symbol_type_is_sages_expression(monkeypatch):
+    module = types.SimpleNamespace(Expression=_FakeSymbol)
+    monkeypatch.setitem(sys.modules, "sage", types.SimpleNamespace(symbolic=None))
+    monkeypatch.setitem(sys.modules, "sage.symbolic", types.SimpleNamespace(expression=module))
+    monkeypatch.setitem(sys.modules, "sage.symbolic.expression", module)
+    from sagemath_mcp import _sage_worker
+
+    assert _sage_worker._symbol_type() is _FakeSymbol
+
+
+def test_the_protocol_carries_lost_names_in_and_live_names_out(pure_python_worker, monkeypatch):
+    """The parent sends what was lost with each caller snippet, and every
+    execute response reports the caller's live names for the parent to keep."""
+    _sage_worker = pure_python_worker
+    frames = [
+        {"type": "execute", "id": "1", "code": "kept = 1"},
+        {"type": "execute", "id": "2", "code": "gone + kept", "lost": {"gone": _TIMEOUT}},
+        {"type": "shutdown", "id": "3"},
+    ]
+    monkeypatch.setattr(
+        _sage_worker.sys, "stdin", io.StringIO("".join(json.dumps(f) + "\n" for f in frames))
+    )
+    captured = io.StringIO()
+    monkeypatch.setattr(_sage_worker.sys, "stdout", captured)
+    assert _sage_worker._main() == 0
+    bound, refused, _ = (json.loads(line) for line in captured.getvalue().splitlines())
+    assert bound["ok"] is True
+    assert bound["names"] == ["kept"] and bound["symbols"] == []
+    assert refused["error"]["type"] == "NameError"
+    assert "'gone' held a value" in refused["error"]["message"]
+    assert refused["names"] == ["kept"]
+
+
+def test_a_symbol_named_after_itself_is_not_a_value_on_real_sage():
+    """On real Sage: `a = var('a')` and the predefined-style `f(x) = ...` binding
+    of `x` hold only their own symbol; `w = 7` and the function `f` are values."""
+    pytest.importorskip("sage.all")
+    from sagemath_mcp import _sage_worker
+
+    ns = _sage_worker._build_namespace()
+    ran = _sage_worker._execute(
+        "a = var('a')\nw = 7\nf(x) = x^2", want_latex=False, capture_stdout=False,
+        namespace=ns, trusted=False,
+    )
+    assert ran["ok"] is True
+    reported = _sage_worker._caller_names(ns)
+    assert {"a", "f", "w"} <= set(reported["names"])
+    assert "a" in reported["symbols"]
+    assert not {"f", "w"} & set(reported["symbols"])

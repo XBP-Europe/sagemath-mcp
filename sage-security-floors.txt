@@ -33,7 +33,10 @@ notebook>=7.6.3
 nbconvert>=7.17.2
 mistune>=3.3.0
 soupsieve>=2.9.0
-tornado>=6.5.9
+# Since raised again: GHSA-pcg2-g6cj-q92c, GHSA-pw9p-v7r6-gx4p and
+# GHSA-r4j5-9xpp-3985 (2026-10-28), quadratic CPU on folded headers, an open
+# redirect in RedirectHandler and blocking on many-chunked bodies, fixed in 6.6.
+tornado>=6.6
 
 # HTTP client under `requests` [2.6.3]: 10 advisories, up to high.
 urllib3>=2.8.0

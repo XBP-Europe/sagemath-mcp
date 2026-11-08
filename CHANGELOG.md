@@ -30,6 +30,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   check is a `TokenVerifier`, which mounts no routes. `uv.lock` and
   `requirements-passagemath.txt` move to 1.7.7 (released 2026-10-19, an hour
   after 1.7.6), and nothing else changes.
+- **tornado 6.6.** GHSA-pcg2-g6cj-q92c, GHSA-pw9p-v7r6-gx4p and
+  GHSA-r4j5-9xpp-3985, published 2026-10-28 and fixed in 6.6, cover quadratic
+  CPU on folded HTTP headers, an open redirect in `RedirectHandler` and
+  event-loop blocking on bodies with many small chunks. Not reachable: tornado
+  is in Sage's Jupyter stack and, for passagemath, comes in through `ipykernel`
+  and `jupyter-client`. The server starts no Tornado server, and caller code
+  cannot import it. `sage-security-floors.txt` raises the image's floor to 6.6,
+  and `uv.lock` and `requirements-passagemath.txt` move to 6.6 with nothing
+  else changed. Dependabot's #275 raised the floor alone, which
+  `tests/test_sage_security_floors.py` correctly refused: the lock was below it.
 
 ### Changed
 

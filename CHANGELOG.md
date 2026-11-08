@@ -71,6 +71,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   update has failed on hatchling ("No files have changed!"), and one failing
   member sinks the group. `dependabot.yml` now ignores hatchling, which moves
   with hand refreshes like this one.
+- **CI installs uv 0.13.7** (from 0.13.5, pinned in `.tool-versions`, which
+  Dependabot cannot bump). With 0.13.7, `uv lock --check` passes and the
+  passagemath export is byte-identical, so no lock or export change comes with
+  it. The `clean install` job's `ghcr.io/astral-sh/uv:0.13.7-debian-slim` image
+  exists.
 
 ### Fixed
 

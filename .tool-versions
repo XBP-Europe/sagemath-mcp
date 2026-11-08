@@ -7,4 +7,4 @@
 # an unpinned CI turned red on main the day a new uv shipped, with no change in
 # this repository. Dependabot cannot bump this file: move it by hand, run
 # `make passagemath-lock` with the new uv, and commit both together.
-uv 0.13.5
+uv 0.13.7

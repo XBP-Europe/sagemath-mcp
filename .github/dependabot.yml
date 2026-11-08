@@ -29,8 +29,19 @@ updates:
     # nothing and states the intent where the next person will look; the
     # `Regenerate the passagemath export` workflow is what actually holds,
     # whether this is honoured or not.
+    #
+    # Nor the Sage image's security floors. A floor is the lowest version that
+    # clears an advisory, and lines are removed once the base image catches
+    # up, so floors move with advisories rather than releases. Dependabot
+    # treats the file as requirements and lifts every floor to the newest
+    # release: #283 proposed six such bumps, soupsieve 2.9 to 4.0.1 among them,
+    # and missed the one floor (setuptools) that was below a fix. Its
+    # tornado security update, #275, raised the floor without the lock and
+    # failed `test_the_lock_is_not_below_any_floor`. `make audit-floors` (CI's
+    # security job and the weekly audit) is what watches the floors instead.
     exclude-paths:
       - "requirements-passagemath.txt"
+      - "sage-security-floors.txt"
     schedule:
       interval: "weekly"
     groups:

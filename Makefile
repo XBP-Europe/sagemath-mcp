@@ -23,6 +23,16 @@ integration-test: sage-deps
 	docker exec $(SAGEMATH_MCP_DOCKER_CONTAINER) cat /tmp/doctest-corpus-stats.md > doctest-corpus-stats.md
 	tar -czf integration-artifacts.tar.gz integration.log doctest-corpus-stats.md || true
 
+# Audit sage-security-floors.txt itself: each floor pinned to its exact version
+# and checked against OSV. pip installs the newest release over a base below a
+# floor, so a fresh image is usually above it, but a floor that is itself
+# vulnerable is not the "lowest version that clears every advisory" the file
+# promises. OSV, not pip-audit's default PyPI source: on 2026-11-08 the PyPI
+# source missed GHSA-cx6f-vjhg-g3cc against the virtualenv floor.
+audit-floors:
+	uv run pip-audit --vulnerability-service osv --no-deps --disable-pip --desc \
+		-r <(sed -E 's/^([A-Za-z0-9_.-]+)>=/\1==/' sage-security-floors.txt)
+
 lint:
 	uv run ruff check
 
@@ -149,4 +159,4 @@ all: test integration-test
 mutation:
 	uv run python scripts/run_mutation_tests.py
 
-.PHONY: test sage-deps integration-test lint typecheck build mutation sage-container allowlist allowlist-passagemath star-exports-passagemath denylist doctest-execution cli-integration cli-extended tool-surface mcpb all
+.PHONY: test sage-deps integration-test audit-floors lint typecheck build mutation sage-container allowlist allowlist-passagemath star-exports-passagemath denylist doctest-execution cli-integration cli-extended tool-surface mcpb all

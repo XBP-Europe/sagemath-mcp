@@ -59,6 +59,57 @@ def test_the_lock_is_not_below_any_floor() -> None:
             )
 
 
+def test_the_floors_themselves_are_audited() -> None:
+    """A floor below an advisory fix is a known-vulnerable minimum.
+
+    pip-audit covered the lock and never this file, so on 2026-11-08 three
+    floors (mistune 3.3.0, setuptools 83.0.0, virtualenv 21.14.9) sat below
+    fixes nobody had noticed. `make audit-floors` pins each floor to its exact
+    version and audits it against OSV, whose data caught an advisory the
+    default PyPI source missed. It has to run in both places: CI blocks a
+    merge, and the weekly audit finds an advisory published after one.
+    """
+    import yaml
+
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    recipe = makefile.split("\naudit-floors:", 1)[1].split("\n\n", 1)[0]
+    assert "--vulnerability-service osv" in recipe
+    assert FLOORS.name in recipe
+
+    def runs(workflow: str, job: str) -> str:
+        config = yaml.safe_load((ROOT / ".github" / "workflows" / workflow).read_text("utf-8"))
+        return "\n".join(str(step.get("run", "")) for step in config["jobs"][job]["steps"])
+
+    assert "make audit-floors" in runs("ci.yml", "security")
+    assert "make -s audit-floors" in runs("audit.yml", "audit")
+
+
+def test_every_floor_pins_cleanly_for_the_audit() -> None:
+    """`make audit-floors` turns `name>=v` into `name==v` with one sed
+    expression; a floor with extras, a marker or a second clause would reach
+    pip-audit unpinned or not at all, and be audited at no version."""
+    lines = FLOORS.read_text(encoding="utf-8").splitlines()
+    for line in lines:
+        if line.strip() and not line.startswith("#"):
+            assert re.fullmatch(r"[A-Za-z0-9_.-]+>=[0-9][0-9A-Za-z.]*", line), line
+
+
+def test_dependabot_leaves_the_floors_alone() -> None:
+    """Floors move with advisories, not releases: #283 lifted six to the
+    newest release (soupsieve across a major) and missed the one below a
+    fix. The audit above watches them instead."""
+    import yaml
+
+    config = yaml.safe_load((ROOT / ".github" / "dependabot.yml").read_text(encoding="utf-8"))
+    excluded = {
+        path
+        for update in config["updates"]
+        if update["package-ecosystem"] in {"uv", "pip"}
+        for path in update.get("exclude-paths", [])
+    }
+    assert FLOORS.name in excluded
+
+
 def test_the_passagemath_image_ships_without_pip() -> None:
     """Nothing installs at runtime, so pip in the shipped image is only exposure.
 

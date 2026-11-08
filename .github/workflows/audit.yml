@@ -40,9 +40,16 @@ jobs:
         # Do not fail the job here: the report is wanted either way, and the
         # issue below is more useful than a red schedule nobody is watching.
         continue-on-error: true
+        # Both audits run whatever the first finds, and either failing files
+        # the issue: the floors in sage-security-floors.txt ship in the image
+        # as surely as the lock does.
         run: |
           set -o pipefail
-          uv run pip-audit --skip-editable --desc | tee audit-report.txt
+          status=0
+          uv run pip-audit --skip-editable --desc | tee audit-report.txt || status=1
+          printf '\nSage image floors (sage-security-floors.txt):\n' >> audit-report.txt
+          make -s audit-floors 2>&1 | tee -a audit-report.txt || status=1
+          exit "$status"
       - name: Open an issue when something is found
         if: steps.audit.outcome == 'failure'
         env:
@@ -53,7 +60,7 @@ jobs:
           EXISTING=$(gh issue list --state open --search "$TITLE in:title" \
             --json number --jq '.[0].number // empty')
           BODY=$(printf '%s\n\n```\n%s\n```\n' \
-            "The weekly audit found advisories against \`main\`. CI blocks on pip-audit, so this will also fail any open pull request until the lock is updated (\`uv lock --upgrade\`)." \
+            "The weekly audit found advisories against \`main\`. CI blocks on pip-audit, so this will also fail any open pull request until the lock is updated (\`uv lock --upgrade\`) or, for a floor, \`sage-security-floors.txt\` is raised to the fixed version." \
             "$(head -60 audit-report.txt)")
           if [ -n "$EXISTING" ]; then
             gh issue comment "$EXISTING" --body "$BODY"

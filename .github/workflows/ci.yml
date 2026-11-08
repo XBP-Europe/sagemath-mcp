@@ -96,6 +96,10 @@ jobs:
         run: uv pip install -e .[dev]
       - name: Audit dependencies
         run: uv run pip-audit --skip-editable --desc
+      # The audit above covers this environment, never the Sage image's floors,
+      # so three floors sat below an advisory fix unnoticed until 2026-11-08.
+      - name: Audit the Sage image floors
+        run: make audit-floors
       # The lockfile is what `uv sync` installs, so a stale one means the audit
       # above and the dependencies a consumer actually gets are different sets.
       # It went stale at the v0.5.0 release and nothing noticed.

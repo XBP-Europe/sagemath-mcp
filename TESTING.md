@@ -294,7 +294,8 @@ skipped required check as passed.
   with the committed file), so a new uv release must not change CI's verdict by
   itself. Move the pin by hand and re-run `make passagemath-lock` with it
 - `security` runs `pip-audit` and is **blocking**; a new upstream advisory turns CI red
-  with no repository change
+  with no repository change. It audits the environment and, with `make audit-floors`,
+  each floor in `sage-security-floors.txt` at its exact version against OSV
 - `smoke` brings up the compose stack and runs `scripts/exercise_mcp.py` plus the
   monitoring resource check. The script checks state across calls, then
   interrupts and cancels a computation that is still running, and fails when

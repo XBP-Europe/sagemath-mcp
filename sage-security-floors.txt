@@ -7,6 +7,11 @@
 # tests/test_sage_security_floors.py fails if the lock falls below a floor.
 #
 # Remove a line once the base image ships a version at or above it.
+#
+# A floor must not itself be vulnerable: `make audit-floors` audits every
+# floor at its exact version against OSV, in CI's security job and the weekly
+# audit. Three floors were, unnoticed, until 2026-11-08 (mistune, setuptools,
+# virtualenv below).
 
 # GHSA-6q48-6c7w-9gw2 (critical, 2026-10-20): the bundle trusted emSign roots
 # whose intermediate CA keys were compromised. Base image 10.10: 2026.02.25.
@@ -31,7 +36,10 @@ jupyter-server>=2.21.0
 jupyterlab>=4.5.11
 notebook>=7.6.3
 nbconvert>=7.17.2
-mistune>=3.3.0
+# Since raised: GHSA-6m44-fpc8-c3rq / CVE-2026-76098 (high, 2026-09-02), a
+# RecursionError DoS on excessive emphasis markers that 3.3.0 introduced and
+# 3.3.3 fixed, so the old floor of 3.3.0 was itself affected.
+mistune>=3.3.3
 soupsieve>=2.9.0
 # Since raised again: GHSA-pcg2-g6cj-q92c, GHSA-pw9p-v7r6-gx4p and
 # GHSA-r4j5-9xpp-3985 (2026-10-28), quadratic CPU on folded headers, an open
@@ -43,8 +51,14 @@ urllib3>=2.8.0
 
 # Build and test tooling left in the image [setuptools 82.0.1, virtualenv
 # 21.2.0, pytest 9.0.2]: 20 advisories, up to high.
-setuptools>=83.0.0
-virtualenv>=21.14.9
+# Since raised, because both old floors were themselves affected:
+# GHSA-xmj3-9gf7-h52w (low, Windows path escape in legacy wheel installs),
+# fixed in setuptools 84.1.0; GHSA-4f8h-vr72-p32c (moderate, dangling seed
+# links) and GHSA-cx6f-vjhg-g3cc (high, the bash activator expands an
+# unescaped --prompt), introduced in virtualenv 21.14.8/21.14.9 and fixed in
+# 21.14.10/21.14.13. All published 2026-10-23.
+setuptools>=84.1.0
+virtualenv>=21.14.13
 pytest>=9.0.3
 
 # Lock library under virtualenv, tox and python-discovery [3.25.2]:

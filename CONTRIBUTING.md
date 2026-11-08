@@ -97,8 +97,12 @@ code, so they are listed here rather than discovered.
   release Dockerfile and `make sage-deps` both install the file, so the
   integration suite runs on what the image ships, and
   `tests/test_sage_security_floors.py` fails if either stops installing it or
-  if `uv.lock` (the passagemath runtime) falls below a floor. Remove a floor
-  once the base image catches up.
+  if `uv.lock` (the passagemath runtime) falls below a floor. Use the lowest
+  version that clears every open advisory, not the newest release, and check
+  it with `make audit-floors`: it audits each floor at its exact version
+  against OSV, and CI and the weekly audit run it too. Dependabot is kept out
+  of this file because it lifts every floor to the newest release. Remove a
+  floor once the base image catches up.
 - **Actions are pinned to a commit, with the version in a comment.** A tag is
   mutable, and a job here holds the secrets that publish to PyPI and GHCR.
   `tests/test_workflow_pins.py` fails on a mutable ref, and on a bare hash

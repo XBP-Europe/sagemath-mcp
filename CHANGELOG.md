@@ -40,6 +40,23 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and `uv.lock` and `requirements-passagemath.txt` move to 6.6 with nothing
   else changed. Dependabot's #275 raised the floor alone, which
   `tests/test_sage_security_floors.py` correctly refused: the lock was below it.
+- **Three Sage-image floors were themselves vulnerable, and the floors are now
+  audited.** `sage-security-floors.txt` promises the lowest version that clears
+  every advisory, but pip-audit only ever covered the lock, never the floors.
+  `mistune>=3.3.0` sat inside GHSA-6m44-fpc8-c3rq (high, a RecursionError DoS
+  introduced in 3.3.0 and fixed in 3.3.3). `virtualenv>=21.14.9` sat inside
+  GHSA-cx6f-vjhg-g3cc (high, fixed in 21.14.13) and GHSA-4f8h-vr72-p32c
+  (moderate, fixed in 21.14.10). `setuptools>=83.0.0` sat inside
+  GHSA-xmj3-9gf7-h52w (low, Windows only, fixed in 84.1.0). The floors move to
+  3.3.3, 21.14.13 and 84.1.0. Not reachable: the server runs none of these. In
+  practice a fresh image was already above them, because pip installs the
+  newest release over a base below a floor. `make audit-floors` now pins each
+  floor to its exact version and audits it against OSV, whose data caught the
+  virtualenv advisory that pip-audit's default PyPI source missed. CI's
+  `security` job and the weekly audit both run it. Dependabot is excluded from
+  the file: it treats floors as requirements and lifted six to the newest
+  release in #283 (soupsieve across a major), while leaving setuptools below
+  its fix.
 
 ### Changed
 

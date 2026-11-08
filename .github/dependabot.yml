@@ -58,6 +58,17 @@ updates:
       # than the test environment. Same removal criterion as above.
       - dependency-name: "fastmcp-slim"
         update-types: ["version-update:semver-major"]
+      # The build backend, which `pyproject.toml` names twice: in
+      # `[build-system].requires` and in the `dev` extra. Since hatchling
+      # 1.33.0 (2026-10-28) the grouped update has died on it with "Error
+      # processing hatchling (RuntimeError) No files have changed!", although
+      # `uv lock --upgrade-package hatchling` moves it cleanly. One failing
+      # member sinks the whole group, so the weekly runs of 2026-11-01 and
+      # 2026-11-08 opened no pull request at all and the lock fell ~70
+      # packages behind unnoticed. Ignored, the group goes through, and
+      # hatchling moves with a hand refresh (`uv lock --upgrade`). Remove this
+      # once a weekly run without it succeeds.
+      - dependency-name: "hatchling"
 
   - package-ecosystem: "github-actions"
     directory: "/"

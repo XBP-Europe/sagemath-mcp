@@ -55,6 +55,22 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   because it covers refusal messages in full. A symbol-shaped name such as `M`
   met no refusal, because `evaluate_sage` declared it as a fresh symbol. That is
   fixed below (REVIEW_ACTIONS 106).
+- **Dependencies refreshed** (`uv lock --upgrade`, ~70 packages). In the
+  runtime set: `fastmcp`/`fastmcp-slim` 4.1.2 → 4.1.6, `starlette` 1.7.0 →
+  1.10.0, `sse-starlette` 3.7.0, `pydantic` 2.14.3 (`pydantic-core` 2.50.4),
+  `pydantic-settings` 2.16.2, `anyio` 4.16.0, `authlib` 1.9.5, `joserfc` 1.8.0,
+  `httpx2` 2.16.0, `websockets` 17.4 and `cachetools` 8.0.0 (a major, through
+  fastmcp's key-value store). `keyring` and seven helpers leave the lock,
+  because fastmcp-slim 4.1.6 no longer asks for its key-value store's
+  `keyring` extra. The passagemath set takes
+  `python-dateutil` 4.0.0 and `sphinxcontrib-jsmath` 2.0.0 (majors, through
+  `jupyter-client` and `sphinx`), `numpy` 2.5.4 and `ipython` 9.18.1. `cyclopts`
+  stays at 5.3.3, because 5.4.0 had been on PyPI for an hour.
+  `requirements-passagemath.txt` is re-exported with the pinned uv. Dependabot
+  had been proposing none of this: since hatchling 1.33.0 its weekly grouped
+  update has failed on hatchling ("No files have changed!"), and one failing
+  member sinks the group. `dependabot.yml` now ignores hatchling, which moves
+  with hand refreshes like this one.
 
 ### Fixed
 

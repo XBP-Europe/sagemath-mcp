@@ -7,6 +7,26 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-09
+
+**The session-lifecycle release.** A session loses its variables four ways
+without being asked to: a cancel, a timeout, a crashed worker and idle culling.
+Each had a path that undid the loss or misreported it. With persistence on, a
+cancel or a timeout was undone by journal replay (REVIEW_ACTIONS 103). A crashed
+worker's journal outlived it and could rebuild what the crash destroyed (104).
+Idle culling killed computations that were still running (105). And a snippet
+that read a lost variable ran with the name's meaning in a fresh worker, so a
+lost `e = 5` came back as Euler's number (106). Each is fixed and measured
+against SageMath 10.10 (see Fixed). Tool output changes, which makes this a
+minor release: a cancelled call says it was cancelled instead of reporting a
+crash, a read of a lost variable is refused with a `NameError` that names what
+discarded it, and the refusal for an unknown name says an earlier variable may
+be gone. Advisories against authlib, joserfc and tornado are cleared, and so
+are three Sage-image floors that were themselves vulnerable. None was reachable,
+and the floors are now audited against OSV in CI and weekly (see Security).
+Tool names, schemas, descriptions and generated code are unchanged, and so is
+every doctest-corpus verdict.
+
 ### Security
 
 - **authlib 1.9.1.** pip-audit, which blocks CI, found authlib 1.8.0 under six
@@ -174,6 +194,14 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   not refused. A name that held only its own symbol, such as `a = var('a')`, is
   not recorded. Neither is anything `reset_sage_session` or
   `stop_sage_session` discards, because both are requested.
+- **The Bump Version workflow could never have worked.** Since August,
+  `scripts/bump_version.py` printed its re-lock status ("Updated uv.lock", or a
+  warning) on stdout, which the workflow captures as the new version and writes
+  to `$GITHUB_OUTPUT`. Its first run, for this release, failed with "Invalid
+  format '0.10.0'". Every earlier release ran the script by hand, so nothing
+  noticed. Status now goes to stderr, a test holds stdout to the version alone,
+  and the workflow installs the uv pinned in `.tool-versions` for the re-lock
+  instead of whatever uv the runner happens to carry.
 
 ## [0.9.7] - 2026-10-26
 

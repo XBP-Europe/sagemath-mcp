@@ -184,6 +184,25 @@ def test_bump_script_updates_every_version_file(tmp_path) -> None:
     assert released == datetime.datetime.now(datetime.UTC).date().isoformat()
 
 
+def test_bump_script_prints_only_the_version_on_stdout(tmp_path) -> None:
+    """The Bump Version workflow runs `NEW_VERSION=$(bump_version.py ...)` and
+    writes `new_version=${NEW_VERSION}` to $GITHUB_OUTPUT. A status line on
+    stdout ("Updated uv.lock") put the version on a line of its own, and the
+    step failed with "Invalid format '0.10.0'" (2026-11-09). With a lock to
+    refresh, whether `uv lock` succeeds or warns, stdout is one line."""
+    _copy_versioned_files(tmp_path)
+    shutil.copy(ROOT / "uv.lock", tmp_path / "uv.lock")
+
+    result = subprocess.run(
+        [sys.executable, str(tmp_path / "scripts" / "bump_version.py"), "--segment", "minor"],
+        cwd=tmp_path, check=True, capture_output=True, text=True,
+    )
+    assert result.stdout.splitlines() == [_declared_versions(tmp_path)["pyproject"]], (
+        result.stdout
+    )
+    assert "uv.lock" in result.stderr, result.stderr
+
+
 def test_dry_run_changes_nothing(tmp_path) -> None:
     _copy_versioned_files(tmp_path)
 

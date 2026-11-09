@@ -13,7 +13,7 @@ schema_version: 1
 
 context:
   name: sagemath-mcp
-  version: "0.9.7"
+  version: "0.10.0"
   # conda-forge's global `python_min` is 3.11, and this package requires 3.12.
   # Without this override the build environment gets 3.11 and pip refuses the
   # install outright: "Package 'sagemath-mcp' requires a different Python:
@@ -28,7 +28,7 @@ package:
 
 source:
   url: https://pypi.org/packages/source/${{ name[0] }}/${{ name }}/sagemath_mcp-${{ version }}.tar.gz
-  sha256: 81277acd4193e71029a5810802d263e54f4f42d0fef5b2ae499f7497bf969c8e
+  sha256: fe5240849340f569be2cc3118680d42bac77ffd4b8c95a38fd49cbe80d7f86e4
 
 build:
   noarch: python

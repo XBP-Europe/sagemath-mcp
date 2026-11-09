@@ -8,6 +8,7 @@ import datetime as _dt
 import json
 import re
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from re import Pattern
@@ -271,9 +272,15 @@ def _refresh_lockfile() -> None:
             capture_output=True,
             timeout=120,
         )
-        print("Updated uv.lock")
+        # Status goes to stderr: the Bump Version workflow captures stdout as
+        # the new version and writes it to $GITHUB_OUTPUT, where any other line
+        # fails the step ("Invalid format '0.10.0'", 2026-11-09).
+        print("Updated uv.lock", file=sys.stderr)
     except (OSError, subprocess.SubprocessError) as exc:
-        print(f"WARNING: could not update uv.lock ({exc}); run `uv lock` before committing")
+        print(
+            f"WARNING: could not update uv.lock ({exc}); run `uv lock` before committing",
+            file=sys.stderr,
+        )
 
 
 def main(argv: list[str] | None = None) -> int:

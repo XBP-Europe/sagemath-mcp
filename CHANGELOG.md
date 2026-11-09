@@ -82,7 +82,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `keyring` extra. The passagemath set takes
   `python-dateutil` 4.0.0 and `sphinxcontrib-jsmath` 2.0.0 (majors, through
   `jupyter-client` and `sphinx`), `numpy` 2.5.4 and `ipython` 9.18.1. `cyclopts`
-  stays at 5.3.3, because 5.4.0 had been on PyPI for an hour.
+  was held at 5.3.3 while 5.4.0 had been on PyPI for an hour, and followed a
+  day later. The passagemath image's `python:3.12-slim-bookworm` base moves to
+  Docker's 2026-11-05 rebuild (`935c3c5`, still Python 3.12.16, newer Debian
+  packages). Dependabot missed that one: it compares the tag, which did not
+  change, and reported "No update needed".
   `requirements-passagemath.txt` is re-exported with the pinned uv. Dependabot
   had been proposing none of this: since hatchling 1.33.0 its weekly grouped
   update has failed on hatchling ("No files have changed!"), and one failing

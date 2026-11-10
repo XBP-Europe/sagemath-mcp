@@ -7,6 +7,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-11-10
+
+**The conda-forge fix.** conda-forge's `sage` moved from 10.9 to 10.10, and
+the conda install the README describes stopped working: started from its
+environment without activating it, the server failed every Sage-backed tool,
+whatever the sagemath-mcp version. The worker now finds the programs of its
+Sage's environment (see Fixed). Nothing else changes: tool names, schemas,
+descriptions, generated code and every doctest-corpus verdict are as in 0.10.0.
+
 ### Fixed
 
 - **conda-forge's Sage 10.10 failed every tool when the server was started
@@ -19,8 +28,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   why 0.9.7 passed the same check. The worker now gets the directory of the
   `sage` it launches first on its `PATH`, as activation would, whenever that
   directory is not already on it. A Sage already on `PATH` (the Docker image)
-  is unaffected. Until this is released, activate the environment or set
-  `PATH` in the client's server entry.
+  is unaffected. Earlier releases work on conda-forge's Sage 10.10 only with
+  the environment activated, or with `PATH` set in the client's server entry.
 
 ## [0.10.0] - 2026-11-09
 

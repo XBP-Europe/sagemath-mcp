@@ -19,8 +19,7 @@
 - Or install the server and Sage together from conda-forge (Linux and macOS):
   `conda install -c conda-forge "sagemath-mcp>=0.9.4" sage`. Keep the floor --
   earlier releases cannot start a worker on conda-forge's `sage`.
-  conda-forge's `sage` is 10.9, a release behind the 10.10 the allowlist is
-  generated from, so names 10.10 added are unavailable.
+  conda-forge's `sage` is 10.10, the release the allowlist is generated from.
 - Or a `sage` you already have, on your `PATH` or in the server's own
   environment. Prefer 10.10: the set of names callers may use is generated from
   a specific SageMath and baked into the package, so a different release can
@@ -1085,7 +1084,7 @@ to the release its version names. Inside a session:
 /plugin install sagemath-mcp --marketplace XBP-Europe/sagemath-mcp
 ```
 
-`claude mcp add sagemath -- uvx --python 3.12 --from "sagemath-mcp[passagemath]==0.10.0" sagemath-mcp`
+`claude mcp add sagemath -- uvx --python 3.12 --from "sagemath-mcp[passagemath]==0.10.1" sagemath-mcp`
 does the same without the plugin.
 
 **VS Code (Copilot) and Cursor.** The *Install in VS Code* and *Install in
@@ -1095,7 +1094,7 @@ with the same `uvx` command, unpinned.
 **Gemini CLI.** The repository is itself an extension:
 
 ```bash
-gemini extensions install https://github.com/XBP-Europe/sagemath-mcp --ref v0.10.0
+gemini extensions install https://github.com/XBP-Europe/sagemath-mcp --ref v0.10.1
 ```
 
 Pass the release tag you want as `--ref`; without it you get whatever `main`
@@ -1106,7 +1105,7 @@ removes it.
 local server it is one command:
 
 ```bash
-codex mcp add sagemath -- uvx --python 3.12 --from "sagemath-mcp[passagemath]==0.10.0" sagemath-mcp
+codex mcp add sagemath -- uvx --python 3.12 --from "sagemath-mcp[passagemath]==0.10.1" sagemath-mcp
 ```
 
 All of these install a Sage runtime along with the server through the

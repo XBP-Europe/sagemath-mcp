@@ -171,6 +171,7 @@ class SageSession(JournalMixin, WorkerChannelMixin):
 
     async def _launch_worker(self) -> None:
         sage_binary = self.settings.sage_binary
+        sage_dir: str | None = None
         if self.settings.force_python_worker:
             python_exe = sys.executable or shutil.which("python3") or shutil.which("python")
             if not python_exe:
@@ -190,7 +191,19 @@ class SageSession(JournalMixin, WorkerChannelMixin):
                 )
             launcher = _console_script_interpreter(sage_path) or [sage_path, "-python"]
             command = [*launcher, "-m", "sagemath_mcp._sage_worker"]
+            sage_dir = os.path.dirname(sage_path)
         env = os.environ.copy()
+        # Sage expects its environment's programs on PATH. Since 10.10 it runs
+        # `gap` while importing sage.all (to read the GAP kernel's root paths),
+        # so a worker started off PATH failed at its first import with "No such
+        # file or directory: 'gap'" -- every tool did, on conda-forge's `sage`
+        # launched by absolute path. Activating the environment puts this
+        # directory first; a client starting the server does not activate it,
+        # so the worker is given it here. A Sage already on PATH is left as is.
+        if sage_dir is not None:
+            search_path = env.get("PATH", os.defpath)
+            if sage_dir not in search_path.split(os.pathsep):
+                env["PATH"] = os.pathsep.join(filter(None, [sage_dir, search_path]))
         pythonpath_entries: list[str] = []
         if (sage_venv := env.get("SAGE_VENV")):
             py_version = f"python{sys.version_info.major}.{sys.version_info.minor}"

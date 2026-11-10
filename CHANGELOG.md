@@ -7,6 +7,21 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **conda-forge's Sage 10.10 failed every tool when the server was started
+  without activating its environment**, which is how the README registers it
+  (`.../envs/sage/bin/sagemath-mcp`). Sage 10.10 runs the `gap` program while
+  importing `sage.all`, to read the GAP kernel's root paths, and finds it on
+  `PATH`. The worker inherited the client's `PATH`, which has no environment
+  directory, so its first import failed with `Startup code failed: [Errno 2] No
+  such file or directory: 'gap'`. Sage 10.9 did not run `gap` there, which is
+  why 0.9.7 passed the same check. The worker now gets the directory of the
+  `sage` it launches first on its `PATH`, as activation would, whenever that
+  directory is not already on it. A Sage already on `PATH` (the Docker image)
+  is unaffected. Until this is released, activate the environment or set
+  `PATH` in the client's server entry.
+
 ## [0.10.0] - 2026-11-09
 
 **The session-lifecycle release.** A session loses its variables four ways

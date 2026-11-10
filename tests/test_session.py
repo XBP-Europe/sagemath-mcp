@@ -1371,6 +1371,53 @@ async def test_a_sage_beside_the_servers_interpreter_is_found_off_path(monkeypat
     assert recorded["command"][0] == "/opt/conda/envs/s/bin/python"
 
 
+async def _launch_env(monkeypatch, sage_path: str) -> dict[str, str]:
+    """The environment a worker for the `sage` at sage_path is spawned with."""
+    import shutil as shutil_module
+
+    from sagemath_mcp import session as session_module
+
+    recorded: dict[str, dict[str, str]] = {}
+
+    async def fake_exec(*command, **kwargs):
+        recorded["env"] = kwargs["env"]
+        raise SageProcessError("stopped before spawning")
+
+    monkeypatch.setattr(shutil_module, "which", lambda name, path=None: sage_path)
+    monkeypatch.setattr(session_module.asyncio, "create_subprocess_exec", fake_exec)
+    session = SageSession("launch-env", SageSettings(force_python_worker=False))
+    with pytest.raises(SageProcessError, match="stopped before spawning"):
+        await session.ensure_started()
+    return recorded["env"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("client_path", "worker_path"),
+    [
+        pytest.param("/usr/bin:/bin", "{env_bin}:/usr/bin:/bin", id="off-path"),
+        pytest.param("/usr/bin:{env_bin}:/bin", "/usr/bin:{env_bin}:/bin", id="already-on-path"),
+        # Not "{env_bin}:" -- an empty entry is the current directory.
+        pytest.param("", "{env_bin}", id="empty-path"),
+    ],
+)
+async def test_the_worker_finds_the_programs_of_its_sages_environment(
+    monkeypatch, tmp_path, client_path, worker_path
+):
+    """Sage 10.10 runs `gap` while importing sage.all, so conda-forge's `sage`
+    started off PATH failed every tool with "No such file or directory: 'gap'".
+    The worker gets the `sage`'s directory first on PATH, as activation would."""
+    env_bin = tmp_path / "env" / "bin"
+    env_bin.mkdir(parents=True)
+    sage = env_bin / "sage"
+    sage.write_bytes(_CONDA_FORGE_SAGE)
+    monkeypatch.setenv("PATH", client_path.format(env_bin=env_bin))
+
+    env = await _launch_env(monkeypatch, str(sage))
+
+    assert env["PATH"] == worker_path.format(env_bin=env_bin)
+
+
 @pytest.mark.parametrize(
     ("script", "expected"),
     [

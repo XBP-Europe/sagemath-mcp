@@ -152,9 +152,8 @@ sagemath-mcp
 ```
 
 The version floor matters: earlier releases cannot start a worker on
-conda-forge's `sage`, and without it the solver may pick one. That `sage` is 10.9, one release behind the 10.10 the
-security artifacts are generated from, so names 10.10 added are unavailable and
-nothing outside the allowlist is admitted.
+conda-forge's `sage`, and without it the solver may pick one. That `sage` is
+10.10, the release the security artifacts are generated from.
 
 Source install, Docker Compose, and the Kubernetes Helm chart are in
 **[USAGE.md](USAGE.md)**.

@@ -1143,7 +1143,7 @@ here.
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `SAGEMATH_MCP_SAGE_BINARY` | `sage` | The Sage executable the worker is spawned with. Looked up on `PATH`, then beside the server's own Python, so a conda env or venv works without being activated. A `sage` installed as a Python console script (conda-forge's) starts the worker on the interpreter it names; a shell launcher gets `sage -python`. |
+| `SAGEMATH_MCP_SAGE_BINARY` | `sage` | The Sage executable the worker is spawned with. Looked up on `PATH`, then beside the server's own Python, so a conda env or venv works without being activated: the worker gets that directory first on its `PATH`, as activation would, because Sage 10.10 runs programs such as `gap` from it. A `sage` installed as a Python console script (conda-forge's) starts the worker on the interpreter it names; a shell launcher gets `sage -python`. |
 | `SAGEMATH_MCP_STARTUP` | `from sage.all import *` | Code each new worker namespace runs before any caller code. Setting it *replaces* the default import, so keep `from sage.all import *` in anything you set. |
 | `SAGEMATH_MCP_EVAL_TIMEOUT` | `30` | Seconds per evaluation. A tool's `timeout` argument overrides it. |
 | `SAGEMATH_MCP_MAX_STDOUT` | `100000` | Characters of captured stdout kept; the rest is truncated. |

@@ -123,7 +123,7 @@ The release workflow automatically builds and pushes Docker images to GHCR at
 `ghcr.io/xbp-europe/sagemath-mcp`. To pull locally:
 
 ```bash
-docker pull ghcr.io/xbp-europe/sagemath-mcp:v0.10.0   # or :latest to track releases
+docker pull ghcr.io/xbp-europe/sagemath-mcp:v0.10.1   # or :latest to track releases
 ```
 
 Prefer a version tag in anything you deploy. `latest` gives no way to say which

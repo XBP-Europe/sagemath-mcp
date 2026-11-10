@@ -21,10 +21,9 @@ jobs:
   bump:
     runs-on: ubuntu-latest
     permissions:
+      # Pushes the release/vX.Y.Z branch. It opens no pull request (see the
+      # last step), so it needs no pull-requests scope.
       contents: write
-      # Needed to open the bump pull request, since main is protected and
-      # cannot be pushed to directly.
-      pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -50,13 +49,26 @@ jobs:
         run: |
           NEW_VERSION=$(python scripts/bump_version.py --segment "${{ inputs.segment }}")
           echo "new_version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+      # The script re-locks with `uv lock --offline`, which needs every
+      # package's metadata already in uv's cache. A runner's cache starts
+      # empty, so on the 0.10.1 run it failed, the script only warned, and the
+      # bump commit left uv.lock at 0.10.0, which `uv lock --check` refuses.
+      # Here the lock is resolved online, without --upgrade, so only the
+      # project's own version line moves; --check then proves it is current.
+      - name: Re-lock
+        run: |
+          uv lock
+          uv lock --check
       # main is a protected branch with required status checks, so a direct
       # push is rejected. The bump goes through a pull request like any other
-      # change, and the release tag is pushed once that merges.
-      - name: Open a version-bump pull request
+      # change, and the release tag is pushed once that merges. The workflow
+      # pushes the branch but does not open that pull request: this repository
+      # does not let GitHub Actions create pull requests (the 0.10.1 run failed
+      # on it), and one opened with this job's token would start no CI, so the
+      # required checks would never run on it. The summary links the PR to open.
+      - name: Push the release branch
         env:
           NEW_VERSION: ${{ steps.bump.outputs.new_version }}
-          GH_TOKEN: ${{ github.token }}
         run: |
           if git rev-parse "v${NEW_VERSION}" >/dev/null 2>&1; then
             echo "Tag v${NEW_VERSION} already exists; aborting."
@@ -75,15 +87,21 @@ jobs:
           fi
           git commit -m "Bump version to ${NEW_VERSION}"
           git push origin "${BRANCH}"
-          gh pr create \
-            --base "${GITHUB_REF_NAME}" \
-            --head "${BRANCH}" \
-            --title "Bump version to ${NEW_VERSION}" \
-            --body "$(printf '%s\n' \
-              "Automated version bump to \`${NEW_VERSION}\`." \
-              "" \
-              "Merge this, then push the release tag to publish:" \
-              "" \
-              '```' \
-              "git tag v${NEW_VERSION} && git push origin v${NEW_VERSION}" \
-              '```')"
+          COMPARE="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/${GITHUB_REF_NAME}...${BRANCH}?expand=1"
+          {
+            echo "## Bumped to ${NEW_VERSION}"
+            echo ""
+            echo "Pushed \`${BRANCH}\`. Add the hand-written release changes there"
+            echo "(CHANGELOG section, SECURITY.md recipe, ROADMAP), then open the"
+            echo "pull request: [compare and open](${COMPARE}), or"
+            echo ""
+            echo '```bash'
+            echo "gh pr create --base ${GITHUB_REF_NAME} --head ${BRANCH} --title \"Release ${NEW_VERSION}\""
+            echo '```'
+            echo ""
+            echo "Once it merges, push the tag to publish:"
+            echo ""
+            echo '```bash'
+            echo "git tag v${NEW_VERSION} && git push origin v${NEW_VERSION}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

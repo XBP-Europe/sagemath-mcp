@@ -61,7 +61,7 @@
 - Update `README.md`, `USAGE.md`, and the monitoring docs whenever you touch CLI flags, security toggles, or observability outputs.
 - Surface new automation (e.g., build pipeline steps, artifact locations) in `AGENTS.md` and `TODO.md` so follow-on work is visible.
 - Keep distribution guidance current (`INSTALLATION.md`, `DISTRIBUTION.md`) and maintain cross-platform notes (Windows/macOS).
-- Kick off the **Bump Version** workflow ahead of a release: it bumps every versioned file and opens a pull request. Push the `vX.Y.Z` tag yourself once that merges.
+- Kick off the **Bump Version** workflow ahead of a release: it bumps every versioned file and pushes `release/vX.Y.Z`. Open the pull request yourself, from the link in the run summary; the workflow cannot. Push the `vX.Y.Z` tag yourself once that merges.
 - If the tag goes out on a later day than the bump, re-date the CHANGELOG entry **and** `CITATION.cff`'s `date-released` before merging; `test_the_citation_date_is_the_changelog_date` fails when they differ.
 - After the release workflow finishes: re-run the commands in `SECURITY.md` ("Verifying a release") against the new version and restate the date there, move `packaging/conda/recipe.yaml` to the new PyPI sdist and its SHA-256, and run `server.json`'s `uvx` launcher from PyPI in the bare uv image the `clean install` job uses. The conda-forge feedstock follows through the autotick bot; `SUPPORT.md` names the conda-forge version last verified end to end.
 

@@ -204,7 +204,10 @@ directly. The flow is:
    `packaging/mcpb/manifest.json`, `packaging/mcpb/pyproject.toml`,
    `gemini-extension.json`, `packaging/claude-plugin/.claude-plugin/plugin.json`
    and the install examples in `USAGE.md`, `INSTALLATION.md` and
-   `DISTRIBUTION.md` — re-locks `uv.lock`, then opens a pull request.
+   `DISTRIBUTION.md` — re-locks `uv.lock`, then pushes `release/vX.Y.Z`. Open
+   the pull request yourself from the link in the run's summary: this repository
+   does not let GitHub Actions create pull requests, and one opened with the
+   workflow's token would start no CI, so its required checks would never run.
    `tests/test_version_consistency.py` fails if any of them disagree. The
    bundle, extension and plugin manifests decide which release a one-click
    install pulls. `SECURITY.md`'s verification commands are restated by hand in

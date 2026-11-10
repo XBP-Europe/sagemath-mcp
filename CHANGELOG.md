@@ -7,6 +7,20 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The Bump Version workflow's first real run, for 0.10.1, failed twice
+  more** after the fix in 0.10.0. The script re-locks with `uv lock
+  --offline`, which needs a warm uv cache; a runner's starts empty, so the
+  script only warned and the bump commit left `uv.lock` at the old version,
+  which `uv lock --check` refuses. And `gh pr create` failed, because this
+  repository does not let GitHub Actions create pull requests. The workflow
+  now re-locks online (no `--upgrade`, so only the project's own line moves)
+  and checks the lock, then pushes `release/vX.Y.Z` and puts the pull-request
+  link and the tag command in the run summary. It no longer asks for
+  `pull-requests: write`. A pull request opened with the workflow's token would
+  start no CI anyway, so it is opened by a person.
+
 ## [0.10.1] - 2026-11-10
 
 **The conda-forge fix.** conda-forge's `sage` moved from 10.9 to 10.10, and

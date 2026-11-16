@@ -48,6 +48,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   are in the skills API, which this server does not use, and a Python 3.11
   floor below this package's 3.12. Tool names, schemas and descriptions are
   unchanged, and fastmcp raises no deprecation warning in the suite.
+- **The passagemath image is built on Debian 13 (trixie)**, the current
+  stable, instead of Debian 12 (bookworm), still on Python 3.12. A Trivy scan
+  of the two base images found 212 known vulnerabilities in trixie's
+  system packages against 357 in bookworm's (high: 49 against 100; critical:
+  none against 2). Nothing in the image installs a Debian package at runtime.
+  On arm64, cysignals 1.12.6 and memory-allocator 0.1.4 have no wheel and are
+  compiled in the build stage; both build with trixie's GCC 14. The amd64
+  image passes the release's stateful smoke test (both protocol eras, Maxima,
+  GAP) and `scripts/exercise_mcp.py` under the README's hardened `docker run`.
 
 ### Fixed
 

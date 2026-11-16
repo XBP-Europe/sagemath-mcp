@@ -7,6 +7,34 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- **soupsieve 4.0 and tornado 6.6.1.** Five advisories published 2026-11-13
+  failed CI's security job on every pull request. Four are against soupsieve
+  2.9.0, the Sage image's floor: GHSA-6655-6qjp-jx7x and GHSA-mmhr-3c5m-f64f
+  (high) and GHSA-4j63-6c4x-wfg4 and GHSA-7g44-g9rc-x53w (moderate), an
+  exponential ReDoS, unbounded recursion and polynomial-time matching on
+  untrusted selectors or HTML, the last fixed only in 4.0. The fifth is
+  GHSA-5cjw-f85j-cv6r (low), an open redirect through triple-slash paths in
+  tornado 6.6, fixed in 6.6.1. None is reachable: both are in Sage's Jupyter
+  stack, and tornado reaches passagemath through `ipykernel` and
+  `jupyter-client`. The server starts no Tornado server and parses no HTML,
+  and caller code cannot import either. `sage-security-floors.txt` raises both
+  floors. soupsieve 4's breaking changes are selector semantics, not API, and
+  on the 10.10 image the floors add no `pip check` conflict and
+  BeautifulSoup's `select` still works. `uv.lock` and
+  `requirements-passagemath.txt` move to tornado 6.6.1.
+
+### Changed
+
+- **Dependencies refreshed** within their existing ranges: fastmcp 4.1.8
+  (4.1.7 and 4.1.8 require patched Authlib and joserfc), authlib 1.9.6,
+  numpy 2.5.5, pydantic-settings 2.16.3, cyclopts 5.5.1, and among the
+  development tools ruff 0.17.5, pytest-asyncio 1.5.0, coverage 7.17.3 and
+  cosmic-ray 8.9.0. fastmcp 4.2.0, released 2026-11-13, is left for a pull
+  request of its own. CI and `requirements-passagemath.txt` move to uv
+  0.13.8, which leaves the export unchanged apart from versions and hashes.
+
 ### Fixed
 
 - **The Bump Version workflow's first real run, for 0.10.1, failed twice

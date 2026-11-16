@@ -24,6 +24,17 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   on the 10.10 image the floors add no `pip check` conflict and
   BeautifulSoup's `select` still works. `uv.lock` and
   `requirements-passagemath.txt` move to tornado 6.6.1.
+- **authlib 1.9.8.** Authlib 1.9.7 and 1.9.8 (2026-11-15/16) fix
+  GHSA-8cj9-p42v-64gg (high: a JWE JSON message with unbounded `recipients`
+  costs one RSA decryption each), GHSA-5mqf-4prf-9r2m (moderate: ECDH-1PU
+  decryption accepted any `enc`, so a co-recipient could forge a sender) and
+  GHSA-4gjv-v7fq-ghfp (moderate: the OAuth 1.0 server accepted HMAC-SHA1 and
+  PLAINTEXT signatures from a client with no secret). OSV did not list them
+  yet, so the audit was still green. Not reachable: authlib comes in through
+  fastmcp's OAuth support, and this server's optional bearer check is a
+  static-token `TokenVerifier` that decrypts no JWE and serves no OAuth 1.0.
+  `uv.lock` and `requirements-passagemath.txt` move to 1.9.8, with httpx2
+  and httpcore2 2.16.2 and python-multipart 0.0.34.
 
 ### Changed
 

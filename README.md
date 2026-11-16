@@ -147,12 +147,13 @@ on the host; without a Sage of your own, use the `[passagemath]` extra above.
 **From conda-forge (Linux and macOS, next to conda-forge's Sage):**
 
 ```bash
-conda install -c conda-forge "sagemath-mcp>=0.9.4" sage
+conda install -c conda-forge "sagemath-mcp>=0.10.1" sage
 sagemath-mcp
 ```
 
 The version floor matters: earlier releases cannot start a worker on
-conda-forge's `sage`, and without it the solver may pick one. That `sage` is
+conda-forge's `sage` unless its environment is activated, which an MCP client
+does not do, and without the floor the solver may pick one. That `sage` is
 10.10, the release the security artifacts are generated from.
 
 Source install, Docker Compose, and the Kubernetes Helm chart are in

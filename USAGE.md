@@ -17,8 +17,9 @@
   A pip install runs with your own privileges; for untrusted input or a shared
   host, run the container image instead (below, and in the README).
 - Or install the server and Sage together from conda-forge (Linux and macOS):
-  `conda install -c conda-forge "sagemath-mcp>=0.9.4" sage`. Keep the floor --
-  earlier releases cannot start a worker on conda-forge's `sage`.
+  `conda install -c conda-forge "sagemath-mcp>=0.10.1" sage`. Keep the floor --
+  earlier releases cannot start a worker on conda-forge's `sage` unless its
+  environment is activated, which an MCP client does not do.
   conda-forge's `sage` is 10.10, the release the allowlist is generated from.
 - Or a `sage` you already have, on your `PATH` or in the server's own
   environment. Prefer 10.10: the set of names callers may use is generated from

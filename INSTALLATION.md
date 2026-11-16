@@ -19,7 +19,7 @@ SageMath MCP server.
 >   line in the README. The image runs **SageMath 10.10**, the version the set
 >   of names callers may use is generated from.
 > - **conda-forge** (macOS and Linux):
->   `conda install -c conda-forge "sagemath-mcp>=0.9.4" sage`.
+>   `conda install -c conda-forge "sagemath-mcp>=0.10.1" sage`.
 > - **A Sage you already have.** If `sage` is on your `PATH`, or installed in the
 >   same environment as the server (a conda env or venv, even when not
 >   activated), the server uses it. Point `SAGEMATH_MCP_SAGE_BINARY` at it if it
@@ -121,7 +121,7 @@ the integration tests run in.
    ```bash
    pip3 install "sagemath-mcp[passagemath]"
    ```
-   (or conda-forge: `conda install -c conda-forge "sagemath-mcp>=0.9.4" sage`)
+   (or conda-forge: `conda install -c conda-forge "sagemath-mcp>=0.10.1" sage`)
 4. Launch the server:
    ```bash
    sagemath-mcp

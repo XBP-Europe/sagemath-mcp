@@ -220,8 +220,9 @@ def _write_claude_plugin(new_version: str) -> None:
 def _write_doc_pins(new_version: str) -> None:
     """Move the release pinned in the docs' install examples.
 
-    The conda floor (`sagemath-mcp>=0.9.4`) is deliberately not a pin: it names
-    the first release that runs on conda-forge's `sage`, so it stays put.
+    The conda floor (`sagemath-mcp>=0.10.1`) is deliberately not a pin: it names
+    the first release that runs on conda-forge's `sage` (10.10) without its
+    environment activated, so it stays put.
     """
     for path in DOC_PIN_PATHS:
         if not path.exists():

@@ -40,11 +40,18 @@ nbconvert>=7.17.2
 # RecursionError DoS on excessive emphasis markers that 3.3.0 introduced and
 # 3.3.3 fixed, so the old floor of 3.3.0 was itself affected.
 mistune>=3.3.3
-soupsieve>=2.9.0
+# Since raised across two majors: GHSA-6655-6qjp-jx7x and GHSA-mmhr-3c5m-f64f
+# (high) and GHSA-4j63-6c4x-wfg4 and GHSA-7g44-g9rc-x53w (moderate), published
+# 2026-11-13, are ReDoS, recursion and polynomial-time matching on untrusted
+# selectors or HTML, fixed in 2.10.0, 3.0.2 and 4.0. 4.0's breaking changes are
+# selector semantics (template and iframe contents), not API.
+soupsieve>=4.0
 # Since raised again: GHSA-pcg2-g6cj-q92c, GHSA-pw9p-v7r6-gx4p and
 # GHSA-r4j5-9xpp-3985 (2026-10-28), quadratic CPU on folded headers, an open
 # redirect in RedirectHandler and blocking on many-chunked bodies, fixed in 6.6.
-tornado>=6.6
+# And again: GHSA-5cjw-f85j-cv6r (low, 2026-11-13), an open redirect through
+# triple-slash paths, fixed in 6.6.1.
+tornado>=6.6.1
 
 # HTTP client under `requests` [2.6.3]: 10 advisories, up to high.
 urllib3>=2.8.0

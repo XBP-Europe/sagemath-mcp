@@ -31,9 +31,12 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (4.1.7 and 4.1.8 require patched Authlib and joserfc), authlib 1.9.6,
   numpy 2.5.5, pydantic-settings 2.16.3, cyclopts 5.5.1, and among the
   development tools ruff 0.17.5, pytest-asyncio 1.5.0, coverage 7.17.3 and
-  cosmic-ray 8.9.0. fastmcp 4.2.0, released 2026-11-13, is left for a pull
-  request of its own. CI and `requirements-passagemath.txt` move to uv
-  0.13.8, which leaves the export unchanged apart from versions and hashes.
+  cosmic-ray 8.9.0. CI and `requirements-passagemath.txt` move to uv 0.13.8,
+  which leaves the export unchanged apart from versions and hashes.
+- **fastmcp 4.2.0**, taken separately from that refresh. Its breaking changes
+  are in the skills API, which this server does not use, and a Python 3.11
+  floor below this package's 3.12. Tool names, schemas and descriptions are
+  unchanged, and fastmcp raises no deprecation warning in the suite.
 
 ### Fixed
 

@@ -39,9 +39,9 @@ attrs==26.1.0 \
     #   jsonschema
     #   jsonschema-path
     #   referencing
-authlib==1.9.8 \
-    --hash=sha256:879735216a0b805a4dfedb4fdd19e7d75ebb8debd70cc7566da9d813db34458d \
-    --hash=sha256:de0b0138d398d0058f3139d8332bc8f674143dca0b446116ff285c7f417a4f7e
+authlib==1.9.9 \
+    --hash=sha256:0199649865fefb4304fc57683eaebb15614523073e41e09d98c72f3268ce5cbc \
+    --hash=sha256:cca3dffa51c8d80d6df19aee2279e47219dc996f5a527c06ac2e39d0757c99ef
     # via fastmcp-slim
 babel==2.18.0 \
     --hash=sha256:b80b99a14bd085fcacfa15c9165f651fbb3406e66cc603abf11c5750937c992d \
@@ -53,9 +53,9 @@ beartype==0.23.1 \
     # via
     #   fastmcp-slim
     #   py-key-value-aio
-cachetools==8.0.0 \
-    --hash=sha256:5af562e5078f0086771a1e3832a9c3dbf5d336b6e2794a2c12a64680a4c9087d \
-    --hash=sha256:5ed01bd676800d51f0025605e4fd8ad0891550513e7b0a4c3da478463764e5c3
+cachetools==8.0.2 \
+    --hash=sha256:30ac523adfc118b51d2b2e7bad8a0ddb31370dfe2700c7f10ca224f36ccf81e0 \
+    --hash=sha256:502bf3c17c6e35d78ccdaa70da8c7001b28634541f5cde0dee33c93bb252277d
     # via py-key-value-aio
 caio==0.12.10 \
     --hash=sha256:1d8b6e9275d8f9608b8ecb4b97189e7f1d0b8ed948fb552eb06518d6342a1e53 \
@@ -457,9 +457,9 @@ cycler==0.12.1 \
     --hash=sha256:85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30 \
     --hash=sha256:88bb128f02ba341da8ef447245a9e138fae777f6a23943da4540077d3601eb1c
     # via matplotlib
-cyclopts==5.5.1 \
-    --hash=sha256:01c21c97a65e3fd0a01f0fc9334f3ae2340a887e156c5a017e095dc10c9a2b0d \
-    --hash=sha256:450c03b9c48b813c6944dce12b182b9878355570c8977af31d73ba1111a4df13
+cyclopts==5.5.2 \
+    --hash=sha256:4fbe863ebace1c65dafc6520c82217915b103d27fbd1d8fcd168f2abcca3a12a \
+    --hash=sha256:c0339b7ddd7b1c886f13bb8b68a6a65aa7144d3027f1d0e290be514b8fe1589b
     # via fastmcp-slim
 cysignals==1.12.6 ; python_full_version < '3.13' \
     --hash=sha256:26a79edceeee7d74609b0cc73b4c3d93301e488dca28b166b3667049a2ee559c \
@@ -670,13 +670,13 @@ executing==2.3.0 \
     --hash=sha256:15919cb5d667e5cb4e099511971d00d659573fff2dd5c4e6cd8b71636c7858d2 \
     --hash=sha256:736e859c9f8701f11fcf516856f26f562e04776387824b43a35a1dfe21c84122
     # via stack-data
-fastmcp==4.2.0 \
-    --hash=sha256:441351551edac39eed248f0ea0f1d87fd95f44812ffee8b72fa05a5053db903d \
-    --hash=sha256:833508360b9a5db6ae3524cf12471b31716c210feee0c726a867e38c43a9287f
+fastmcp==4.2.2 \
+    --hash=sha256:a4bb3916ac9d97fc2cc65e36c7bd1a438616b5ec5f1b8d46c8e98d47f150227d \
+    --hash=sha256:c79c7fa8d268deb9f1f0be92418398838ba6d018635b7545b3a6bbc49b95baa3
     # via sagemath-mcp
-fastmcp-slim==4.2.0 \
-    --hash=sha256:01578f6d1a1423ca073e9d2ea4a193eed3ed9a5330e121fbcd9415511cfd1c0f \
-    --hash=sha256:174239bed3ac47275afa7fe82941a65f86ad0314205195766c92b138c6dcfebe
+fastmcp-slim==4.2.2 \
+    --hash=sha256:5a8100e8c527d52a953bb895f8936edb5bc721141b4c1a79807fe89af84ba091 \
+    --hash=sha256:c21e72ab66e2494d8d008885fc15f048840abae4d2979479f134668f92972f47
     # via fastmcp
 fonttools==4.68.0 \
     --hash=sha256:039142b75a068c93f8596ef68787f82c74940b9153d24c224ab31e750eb083a2 \
@@ -2743,9 +2743,9 @@ pkgconfig==1.6.0 \
     --hash=sha256:4a5a6631ce937fafac457104a40d558785a658bbdca5c49b6295bc3fd651907f \
     --hash=sha256:98e71754855e9563838d952a160eb577edabb57782e49853edb5381927e6bea1
     # via passagemath-standard-no-symbolics
-platformdirs==4.14.5 \
-    --hash=sha256:32e9921db7385aa8169bee4fe9501923e5715ba9fb7ea3b9c69b0d8e0639f7a1 \
-    --hash=sha256:8e778c6fa421516f4d3369449f8df3b0e1b72c0e0005fe88e3ec772d0a14e750
+platformdirs==4.14.7 \
+    --hash=sha256:391513b74707c42335fff3ea17eaac657a7ee9ffcadd809634d34ea594d0122c \
+    --hash=sha256:5472257c1cf97a14658af52997011c7e59e4aebf3a24950b973c11b579e1b074
     # via
     #   fastmcp-slim
     #   jupyter-core
@@ -2787,9 +2787,9 @@ pure-eval==0.2.4 \
     --hash=sha256:260c2774686e651b79f8b8e7fc9d80b3599ea6a66334b47d5f4abb69fc2c0ea1 \
     --hash=sha256:96cae060a313cfaad51bb761278bfb0e62dc0248d9315a81173752dc546cd37a
     # via stack-data
-py-key-value-aio==0.4.6 \
-    --hash=sha256:267c03c3e24cb99d3097612f8a5cfd8e11785c6a2975e272db0e303ea1850bfd \
-    --hash=sha256:820b30c7959fc738ea3d00160cdb10cd258f51e38737b2add530defeea1ded77
+py-key-value-aio==0.5.0 \
+    --hash=sha256:14268b72d1e2b94268c5b457a9bb065e9ee031c6617fa9c5adac795a776ccbfa \
+    --hash=sha256:20808520093cf8ae005a0ecb89a0cf1875859b48f1087f4ba262b3adc1f80c5b
     # via fastmcp-slim
 pycparser==3.12 ; implementation_name == 'pypy' or (implementation_name != 'PyPy' and implementation_name != 'pypy' and platform_python_implementation != 'PyPy') \
     --hash=sha256:a076f3f489b39b43ed13563a1dafe42447445bec2e294154ec5c57fcdda4c85e \
@@ -3413,9 +3413,9 @@ tzdata==2026.6 \
     --hash=sha256:0a10eec6e13ef16b627fabed9a5f2ba61a62b1c67f327305f4e7e412a70b4aec \
     --hash=sha256:85d2cd9c09f81f0bb29db27759fc83af4f1e620efb814f8c5bf8b4cc4feece6d
     # via python-dateutil
-uncalled-for==0.6.1 \
-    --hash=sha256:1e8f86f972684db50f2888f07caa87d81a431584fa77856660e0c5e89f1cc778 \
-    --hash=sha256:49d9a55a806529dbb844f64a2e3adc8f44ad0b0802f5d91381a09c088c44e144
+uncalled-for==0.6.2 \
+    --hash=sha256:58835db667a85408c7b6d6ad8dfdd74d7713d3be669b46396ba3d2c6a889242d \
+    --hash=sha256:bcac08897ceb7113b52e6c8070eead4da1610ae23e6e0d0e9f2a6c4bba7905cb
     # via fastmcp-slim
 urllib3==2.8.0 \
     --hash=sha256:0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3 \

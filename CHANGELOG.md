@@ -24,17 +24,20 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   on the 10.10 image the floors add no `pip check` conflict and
   BeautifulSoup's `select` still works. `uv.lock` and
   `requirements-passagemath.txt` move to tornado 6.6.1.
-- **authlib 1.9.8.** Authlib 1.9.7 and 1.9.8 (2026-11-15/16) fix
+- **authlib 1.9.9.** Authlib 1.9.7 to 1.9.9 (2026-11-15 to 17) fix
   GHSA-8cj9-p42v-64gg (high: a JWE JSON message with unbounded `recipients`
   costs one RSA decryption each), GHSA-5mqf-4prf-9r2m (moderate: ECDH-1PU
-  decryption accepted any `enc`, so a co-recipient could forge a sender) and
+  decryption accepted any `enc`, so a co-recipient could forge a sender),
   GHSA-4gjv-v7fq-ghfp (moderate: the OAuth 1.0 server accepted HMAC-SHA1 and
-  PLAINTEXT signatures from a client with no secret). OSV did not list them
-  yet, so the audit was still green. Not reachable: authlib comes in through
-  fastmcp's OAuth support, and this server's optional bearer check is a
-  static-token `TokenVerifier` that decrypts no JWE and serves no OAuth 1.0.
-  `uv.lock` and `requirements-passagemath.txt` move to 1.9.8, with httpx2
-  and httpcore2 2.16.2 and python-multipart 0.0.34.
+  PLAINTEXT signatures from a client with no secret) and GHSA-xjwv-fw68-2chh
+  (moderate: on an endpoint that accepts the `none` method, a confidential
+  client could authenticate with its client_id alone). OSV listed none of them
+  when they were taken, so the audit was still green. Not reachable: authlib
+  comes in through fastmcp's OAuth support, and this server's optional bearer
+  check is a static-token `TokenVerifier` that decrypts no JWE, serves no
+  OAuth 1.0 and runs no authorization server. `uv.lock` and
+  `requirements-passagemath.txt` move to 1.9.9, with httpx2 and httpcore2
+  2.16.2 and python-multipart 0.0.34.
 
 ### Changed
 
@@ -42,12 +45,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (4.1.7 and 4.1.8 require patched Authlib and joserfc), authlib 1.9.6,
   numpy 2.5.5, pydantic-settings 2.16.3, cyclopts 5.5.1, and among the
   development tools ruff 0.17.5, pytest-asyncio 1.5.0, coverage 7.17.3 and
-  cosmic-ray 8.9.0. CI and `requirements-passagemath.txt` move to uv 0.13.8,
-  which leaves the export unchanged apart from versions and hashes.
-- **fastmcp 4.2.0**, taken separately from that refresh. Its breaking changes
-  are in the skills API, which this server does not use, and a Python 3.11
-  floor below this package's 3.12. Tool names, schemas and descriptions are
-  unchanged, and fastmcp raises no deprecation warning in the suite.
+  cosmic-ray 8.9.0. CI and `requirements-passagemath.txt` move to uv 0.13.9,
+  by way of 0.13.8; neither changes the export apart from versions and hashes.
+- **fastmcp 4.2.2**, taken separately from that refresh. 4.2.0's breaking
+  changes are in the skills API, which this server does not use, and a Python
+  3.11 floor below this package's 3.12. 4.2.1 is a security patch to
+  fastmcp's JWT and OAuth handling, none of which this server uses, and 4.2.2
+  fixes skills listing. With it comes py-key-value-aio 0.5, the in-memory
+  store behind the response-caching middleware's list caching. Tool names,
+  schemas and descriptions are unchanged, and fastmcp raises no deprecation
+  warning in the suite.
 - **The passagemath image is built on Debian 13 (trixie)**, the current
   stable, instead of Debian 12 (bookworm), still on Python 3.12. A Trivy scan
   of the two base images found 212 known vulnerabilities in trixie's

@@ -35,7 +35,6 @@ DANGEROUS_SAGE_MODULES = (
     "sage.misc.sage_eval",       # evaluates strings
     "sage.repl.load",            # executes files
     "sage.repl.attach",          # executes files, and keeps doing it
-    "sage.misc.attached_files",
     "sage.misc.explain_pickle",
     "sage.misc.edit_module",     # launches an editor
     "sage.misc.trace",           # drops into the debugger

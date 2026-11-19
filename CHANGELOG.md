@@ -79,6 +79,17 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The denylist and star-export generators no longer warn about a module no
+  supported Sage has.** Every run printed "could not import for denylist
+  derivation: sage.misc.attached_files". That warning exists to flag a
+  dangerous module that has quietly stopped protecting anything, so a
+  permanent false one teaches people to ignore it. Neither SageMath 10.10
+  nor passagemath 10.8.14 ships that module. Its names (`attach`,
+  `attached_files`, `detach`, the load-path helpers) come from
+  `sage.repl.attach`, which stays listed, and they are bare-name denylist
+  entries as well. The entry is dropped from `DANGEROUS_SAGE_MODULES`. The
+  derived danger set is unchanged on both runtimes: 263 names on 10.10 and
+  261 on passagemath, each identical before and after.
 - **The Bump Version workflow's first real run, for 0.10.1, failed twice
   more** after the fix in 0.10.0. The script re-locks with `uv lock
   --offline`, which needs a warm uv cache; a runner's starts empty, so the

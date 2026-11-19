@@ -221,6 +221,9 @@ depend only on the stdlib and this package, so no porting was needed.
   wholesale. Additionally `sage.misc.attached_files` (a
   `_DANGEROUS_SAGE_MODULES` provenance entry) does not import under
   passagemath, so the matches-no-names integration test would fail as written.
+  (That test now skips a module the runtime lacks. The entry itself was
+  dropped on 2026-11-19: neither SageMath 10.10 nor passagemath 10.8.14 has
+  the module, and its names come from `sage.repl.attach`, which is listed.)
   **This is the one real engineering item**: the derivation needs to become
   layout-aware (attribute names by the value's `__module__`, tolerate a
   provenance module that is legitimately absent from the runtime) before a

@@ -54,12 +54,12 @@ passagemath = [
     # shipped a broken Maxima backend in 10.8.10/10.8.11 as first released (docs/
     # passagemath_evaluation.md §4), so a bump goes through the
     # cold-install smoke gate (the `passagemath` CI lane), not automatically.
-    # 10.8.13 (2026-10-11) moves Maxima to 5.50 and adds the HiGHS MILP backend --
-    # smoke-verified on integrate/solve/limit/desolve/maxima/gap/MILP, with the
-    # passagemath security artifacts byte-identical to 10.8.12's.
+    # 10.8.13 (2026-10-11) moved Maxima to 5.50 and added the HiGHS MILP backend.
+    # 10.8.14 (2026-11-16) carries backports from SageMath 11.0.beta6, with the
+    # passagemath security artifacts byte-identical to 10.8.13's.
     # The security artifacts dispatch to the passagemath set at import
     # (src/sagemath_mcp/_artifacts.py) when this is installed.
-    "passagemath-standard==10.8.13",
+    "passagemath-standard==10.8.14",
 ]
 dev = [
     "pytest>=9.1.1",

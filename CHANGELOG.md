@@ -55,6 +55,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   store behind the response-caching middleware's list caching. Tool names,
   schemas and descriptions are unchanged, and fastmcp raises no deprecation
   warning in the suite.
+- **passagemath pin moved to 10.8.14** (2026-11-16), the gated bump. It
+  carries backports from SageMath 11.0.beta6: bug fixes in
+  `DiscreteProbabilitySpace`, `CRT_basis` for moduli that are not pairwise
+  coprime, `edge_disjoint_paths`, `IntegerVectors` and polynomial conversion,
+  and Matplotlib stylesheet options in `plot`. The passagemath allowlist and
+  star exports are byte-identical, and the package set is unchanged. The whole
+  suite passes on a cold install, and corpus acceptance is 98.9733% of 433,827
+  examples, with the same 3,764 refusals as 10.8.13. That makes three
+  consecutive passagemath releases through the gate on first try. 10.8.14
+  publishes no Windows-on-ARM wheels for 13 of its packages, a platform this
+  project never claimed. Linux x86_64 and aarch64, macOS and Windows x64 keep
+  every Python 3.12 wheel.
 - **The passagemath image is built on Debian 13 (trixie)**, the current
   stable, instead of Debian 12 (bookworm), still on Python 3.12. A Trivy scan
   of the two base images found 212 known vulnerabilities in trixie's

@@ -11,7 +11,8 @@ roadmap item "passagemath runtime extra" (field survey, 2026-08-24) asked for.
 
 **Status 2026-10-13:** the gate this evaluation set before recommending
 passagemath (two consecutive releases passing the cold-install smoke gate on
-first try, §"Not blocking" below) was met by 10.8.12 and 10.8.13, and the
+first try, §"Not blocking" below) was met by 10.8.12 and 10.8.13 (and held by
+10.8.14 on 2026-11-19), and the
 `[passagemath]` extra became the recommended install. The monolithic container
 image stays the route for isolation and the runtime the release is built and
 smoke-tested on.
@@ -343,6 +344,9 @@ zero. 10.8.12 passed on first try and became the pin on 2026-10-05 (#205).
 the 10.8.10 regression was waiting on -- passed on first try too, and became the
 pin on 2026-10-13 (#228): its security artifacts were byte-identical, the smoke checks
 and the whole suite passed, and corpus acceptance read 98.9730%. **The counter
-stands at two, so the gate is met.** Making passagemath the recommended install
+stands at two, so the gate is met.** 10.8.14 (2026-11-16, backports from SageMath
+11.0.beta6) made it three on 2026-11-19: security artifacts byte-identical again,
+the whole suite passed on a cold install, and the corpus read 98.9733% of 433,827
+with the same 3,764 refusals. Making passagemath the recommended install
 path is now a decision rather than a wait; the pin can track stable with a
 one-release lag.

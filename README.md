@@ -43,7 +43,7 @@ Caller code is **deny-by-default**: the full breadth of Sage mathematics is
 reachable, but imports, the external CAS interfaces, and the file / display /
 persistence primitives are not. The policy accepts **98.9% of SageMath's own
 438,124 documented doctest examples** (4,259 in-scope refusals, every one
-attributed to a named rule; 98.9% of 433,687 on the passagemath runtime) while
+attributed to a named rule; 98.9% of 433,827 on the passagemath runtime) while
 refusing the rest — measured on every CI run (see [Security](#security)).
 
 Full manual: **[USAGE.md](USAGE.md)** — the tools and their parameters, how code
@@ -72,10 +72,10 @@ its own newest Python (3.15 at the time of writing), and the install fails there
 passagemath is a pip-installable, modularized SageMath. `from sage.all import *`
 and the worker run unmodified; the server detects the runtime at import and
 loads the matching security artifacts, so the deny-by-default policy is
-equivalent on both. It is pinned exactly (`passagemath-standard==10.8.13`) and
+equivalent on both. It is pinned exactly (`passagemath-standard==10.8.14`) and
 exercised by its own CI lane — the whole suite plus the doctest-corpus sweep
 against the pin — so a pin bump is verified end to end before it ships, and the
-last two releases passed that gate on first try
+last three releases passed that gate on first try
 ([docs/passagemath_evaluation.md](docs/passagemath_evaluation.md)).
 macOS and Linux; native Windows support is partial, so on Windows use the
 container or WSL.

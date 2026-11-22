@@ -82,6 +82,7 @@ Transforms: var('t s'); laplace(sin(t), t, s); inverse_laplace(1/(s^2+1), s, t)
 Modular arithmetic: Mod(17, 5); power_mod(3, 100, 97)
 Recurrences: var('n'); f = function('f'); desolve_rec(f(n+2)-f(n+1)-f(n), f, [0, 1])
 Continued fractions: continued_fraction(pi).convergents()[:10]
+Bessel zeros: var('x'); find_root(bessel_J(0, x), 2, 3)
 Number fields: K.<a> = NumberField(x^3 - 2); K.class_number()
 Any multi-step work that builds on values defined earlier in the same session, \
 since the dedicated tools cannot see them.

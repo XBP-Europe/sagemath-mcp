@@ -50,7 +50,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **Evaluation guidance** now tells clients to use Sage's available numerical
   primitives without importing NumPy or SciPy, to reset through the session
-  tool, and to avoid the blocked bare `pari` interface.
+  tool, and to avoid the blocked bare `pari` interface. A refusal of the
+  nonexistent `bessel_J_zero` name now suggests Sage's `find_root` spelling.
 - **pydantic 2.14.4** replaces 2.14.3 in the dependency lock and the generated
   PassageMath image requirements.
 - **Dependencies refreshed** within their existing ranges: fastmcp 4.1.8

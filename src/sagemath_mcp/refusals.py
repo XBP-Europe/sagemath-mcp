@@ -123,6 +123,8 @@ _SAGE_SPELLINGS: dict[str, str] = {
     "npartitions": "number_of_partitions(n)",
     "bessel_J_zeros": "find_root(bessel_J(0, x), a, b) with a bracket [a, b] around the "
                       "zero (the first zero of J_0 lies in [2, 3])",
+    "bessel_J_zero": "find_root(bessel_J(0, x), a, b) with a bracket [a, b] around the "
+                     "zero (the first zero of J_0 lies in [2, 3])",
     "besseljzero": "find_root(bessel_J(0, x), a, b) with a bracket [a, b] around the zero",
     "jn_zeros": "find_root(bessel_J(0, x), a, b) with a bracket [a, b] around the zero",
     "isprime": "is_prime(n)",

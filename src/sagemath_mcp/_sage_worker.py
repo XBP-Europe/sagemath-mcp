@@ -502,6 +502,11 @@ _RUNTIME_HINTS: tuple[tuple[str, str, str], ...] = (
      "result) and more digits cannot be recovered from it; compute at the "
      "precision you need from the start: N(exact_expression, digits=...) or "
      "RealField(200)(...)"),
+    ("TypeError", "unsupported format string passed to "
+     "sage.symbolic.expression.Expression.__format__",
+     "a symbolic expression does not support numeric format specifiers; evaluate "
+     "it first with N(value, digits=...) or RealField(precision)(value), then "
+     "format the numeric result; float(value) is suitable for double precision"),
     ("TypeError", "RealNumber' object is not callable", "NUMBER_CALLED"),
     ("TypeError", "RealLiteral' object is not callable", "NUMBER_CALLED"),
     ("TypeError", "RealDoubleElement_gsl' object is not callable", "NUMBER_CALLED"),

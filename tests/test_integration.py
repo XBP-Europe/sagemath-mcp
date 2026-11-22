@@ -900,7 +900,7 @@ async def test_every_sage_spelling_hint_computes():
 @requires_sage
 @pytest.mark.asyncio
 async def test_runtime_hints_fire_on_real_sage():
-    """The four Sage-specific error texts the hints match must be what this
+    """The Sage-specific error texts the hints match must be what this
     Sage actually says, or the hints never fire."""
     session = SageSession("hints", SageSettings(force_python_worker=False, eval_timeout=120.0))
 
@@ -918,6 +918,8 @@ async def test_runtime_hints_fire_on_real_sage():
         assert "Hint: the value is a 53-bit machine float" in message
         message = await failure("c = 299792458.0\nc(2)")
         assert "Hint: a number is not a function" in message
+        message = await failure('f"{pi:.4f}"')
+        assert "Hint: a symbolic expression does not support numeric format specifiers" in message
         # And the spellings the hints recommend work here.
         ok = await session.evaluate("N(numerical_integral(sin(x), 0, pi)[0])",
                                     want_latex=False, capture_stdout=False)
@@ -927,6 +929,9 @@ async def test_runtime_hints_fire_on_real_sage():
         assert ok.result == "True"
         ok = await session.evaluate("N(pi, digits=20)", want_latex=False, capture_stdout=False)
         assert ok.result == "3.1415926535897932385"
+        ok = await session.evaluate('f"{N(pi, digits=20):.4f}"',
+                                    want_latex=False, capture_stdout=False)
+        assert ok.result == "'3.1416'"
     finally:
         await session.shutdown()
 

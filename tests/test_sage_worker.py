@@ -1196,6 +1196,11 @@ def test_sage_only_errors_are_hinted_by_message_text():
         TypeError("'sage.rings.real_mpfr.RealLiteral' object is not callable")
     )
     assert hint == _sage_worker._NUMBER_CALLED_HINT
+    hint = _sage_worker._hint_for(TypeError(
+        "unsupported format string passed to sage.symbolic.expression.Expression.__format__"
+    ))
+    assert "N(value, digits=...)" in hint
+    assert "double precision" in hint
 
 
 def test_every_runtime_hint_row_is_reachable():

@@ -52,6 +52,8 @@ already available. Use matrix(RDF, ...) and vector(RDF, ...) instead of importin
 NumPy or SciPy. Do not call reset() inside code; use reset_sage_session to clear \
 the session. The bare pari interface is unavailable; use Sage's number-theory \
 functions or the .pari() method on a Sage object.
+Before formatting a numerical symbolic expression, convert it with \
+N(value, digits=...) or RealField(precision)(value); float(value) gives double precision.
 
 LAST RESORT for a single self-contained calculation: a dedicated tool exists for \
 most of those and should be preferred, because it validates arguments and returns \

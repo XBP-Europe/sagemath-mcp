@@ -52,7 +52,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   primitives without importing NumPy or SciPy, to reset through the session
   tool, and to avoid the blocked bare `pari` interface. A refusal of the
   nonexistent `bessel_J_zero` and `bessel_zero` names now suggest Sage's
-  `find_root` spelling.
+  `find_root` spelling. Formatting a symbolic expression with a numeric format
+  specifier now includes a hint to evaluate it numerically first.
 - **pydantic 2.14.4** replaces 2.14.3 in the dependency lock and the generated
   PassageMath image requirements.
 - **Dependencies refreshed** within their existing ranges: fastmcp 4.1.8

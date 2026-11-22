@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.cli_integration.extended_cases import ToolForcingCase
+from tests.cli_integration.extended_cases import ToolForcingCase, cases_for_tier
 from tests.cli_integration.run_extended import evaluate, read_wire_log
 
 CASE = ToolForcingCase(
@@ -168,6 +168,16 @@ def test_calling_no_accepted_tool_fails(tmp_path: Path) -> None:
     ])
     result = evaluate(CASE, "the answer is 42", log, 1.0, "codex")
     assert result.status == "NO_TOOL_CALL", result.detail
+
+
+def test_determinant_case_accepts_a_successful_calculate_expression_call(tmp_path: Path) -> None:
+    case = next(c for c in cases_for_tier("standard") if c.id == "ext-la-determinant")
+    log = _log(tmp_path, [
+        _call(1, tool="calculate_expression"),
+        _response(1, preview='{"string": "-1813"}'),
+    ])
+    assert evaluate(case, "-1813", log, 1.0, "codex").status == "PASS"
+    assert evaluate(case, "-1812", log, 1.0, "codex").status == "WRONG_ANSWER"
 
 
 @pytest.mark.parametrize(

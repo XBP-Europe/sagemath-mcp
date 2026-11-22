@@ -107,7 +107,7 @@ EXTENDED_CASES: list[ToolForcingCase] = [
             "[[3,1,4,1,5],[9,2,6,5,3],[5,8,9,7,9],[3,2,3,8,4],[6,2,6,4,3]]." + _SUFFIX
         ),
         expected_answers=["-1813"],
-        accepted_tools=["matrix_operation", "evaluate_sage"],
+        accepted_tools=["matrix_operation", "evaluate_sage", "calculate_expression"],
     ),
     # ---- elliptic curves ---------------------------------------------------
     ToolForcingCase(

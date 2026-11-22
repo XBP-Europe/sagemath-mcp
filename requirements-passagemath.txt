@@ -39,9 +39,9 @@ attrs==26.1.0 \
     #   jsonschema
     #   jsonschema-path
     #   referencing
-authlib==1.9.9 \
-    --hash=sha256:0199649865fefb4304fc57683eaebb15614523073e41e09d98c72f3268ce5cbc \
-    --hash=sha256:cca3dffa51c8d80d6df19aee2279e47219dc996f5a527c06ac2e39d0757c99ef
+authlib==1.9.10 \
+    --hash=sha256:c62d10e1b23945c6d4c578a16170bfefe4879bd23d4be62edea494993dce70aa \
+    --hash=sha256:f7453c4a3f5975f94cc55223c4d48ff9c7d8d3b4e3d727ed2549edaeb9b85d50
     # via fastmcp-slim
 babel==2.18.0 \
     --hash=sha256:b80b99a14bd085fcacfa15c9165f651fbb3406e66cc603abf11c5750937c992d \
@@ -670,13 +670,13 @@ executing==2.3.0 \
     --hash=sha256:15919cb5d667e5cb4e099511971d00d659573fff2dd5c4e6cd8b71636c7858d2 \
     --hash=sha256:736e859c9f8701f11fcf516856f26f562e04776387824b43a35a1dfe21c84122
     # via stack-data
-fastmcp==4.2.2 \
-    --hash=sha256:a4bb3916ac9d97fc2cc65e36c7bd1a438616b5ec5f1b8d46c8e98d47f150227d \
-    --hash=sha256:c79c7fa8d268deb9f1f0be92418398838ba6d018635b7545b3a6bbc49b95baa3
+fastmcp==4.2.4 \
+    --hash=sha256:9039b0eb7cde12353ae60396015e9bf8bedd278ed7b6196ee4a8eb4b63d84b06 \
+    --hash=sha256:fddc1fe906ad0c202862469ecc5b8bf69dbc81a1ea8141112399c72449527cd4
     # via sagemath-mcp
-fastmcp-slim==4.2.2 \
-    --hash=sha256:5a8100e8c527d52a953bb895f8936edb5bc721141b4c1a79807fe89af84ba091 \
-    --hash=sha256:c21e72ab66e2494d8d008885fc15f048840abae4d2979479f134668f92972f47
+fastmcp-slim==4.2.4 \
+    --hash=sha256:2aa508dace0e5d9176fe116077cdbf22a18c62f97ddd1decf5625b9f4faf55df \
+    --hash=sha256:d8c4ecad3b7ad6cb4c0a26c0d05c66af74033753d39601bee5290a10cf102a24
     # via fastmcp
 fonttools==4.68.0 \
     --hash=sha256:039142b75a068c93f8596ef68787f82c74940b9153d24c224ab31e750eb083a2 \

@@ -47,6 +47,12 @@ Run SageMath code in a persistent session; variables persist across calls. Calle
 code is deny-by-default -- ordinary mathematics is allowed, but imports, external \
 CAS interfaces and file/display/persistence calls are refused.
 
+Write Sage code without import statements: Sage's mathematical functions are \
+already available. Use matrix(RDF, ...) and vector(RDF, ...) instead of importing \
+NumPy or SciPy. Do not call reset() inside code; use reset_sage_session to clear \
+the session. The bare pari interface is unavailable; use Sage's number-theory \
+functions or the .pari() method on a Sage object.
+
 LAST RESORT for a single self-contained calculation: a dedicated tool exists for \
 most of those and should be preferred, because it validates arguments and returns \
 a typed result instead of a repr string. One exception overrides that steer -- the \

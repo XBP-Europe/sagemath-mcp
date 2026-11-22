@@ -110,7 +110,7 @@ points at the artefacts above. What the repository provides for them:
 | Glama, MCP Market, LobeHub | crawled from this repository | Listed; Glama's is claimed, MCP Market's and LobeHub's are not |
 | awesome-mcp-servers, Cline marketplace | a pull request to each list | Open: punkpeye/awesome-mcp-servers#16189, cline/marketplace#221 |
 | mcp.directory, mcpservers.org | their submission forms | Submitted 2026-10-11, pending review (mcpservers.org's contact address corrected by email 2026-10-13) |
-| HOL awesome-ai-plugins | its `plugin-scanner` gate | Waiting on a maintainer exception for the worker's `eval` ([#166](https://github.com/XBP-Europe/sagemath-mcp/issues/166)) |
+| HOL awesome-ai-plugins | catalog-owned `plugin-scanner` scan | Listed on 2026-11-22 ([listing PR](https://github.com/hashgraph-online/awesome-ai-plugins/pull/1423)); the scan scored 94/100 and reported the intentional dynamic execution paths. The maintainer can optionally [claim the listing](https://hol.org/guard/plugins?claim=xbp-europe%2Fsagemath-mcp) |
 
 Directories that ask for an icon or a privacy policy get `docs/assets/icon.png`
 (also bundled in the `.mcpb`) and [PRIVACY.md](PRIVACY.md). ChatGPT's and

@@ -39,7 +39,8 @@ nbconvert>=7.17.2
 # Since raised: GHSA-6m44-fpc8-c3rq / CVE-2026-76098 (high, 2026-09-02), a
 # RecursionError DoS on excessive emphasis markers that 3.3.0 introduced and
 # 3.3.3 fixed, so the old floor of 3.3.0 was itself affected.
-mistune>=3.3.3
+# CVE-2026-97698 and CVE-2026-97699: quadratic-time parsing DoS; fixed in 3.3.4.
+mistune>=3.3.4
 # Since raised across two majors: GHSA-6655-6qjp-jx7x and GHSA-mmhr-3c5m-f64f
 # (high) and GHSA-4j63-6c4x-wfg4 and GHSA-7g44-g9rc-x53w (moderate), published
 # 2026-11-13, are ReDoS, recursion and polynomial-time matching on untrusted

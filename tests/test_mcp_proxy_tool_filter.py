@@ -8,10 +8,12 @@ Pure functions, no subprocess, no Sage.
 
 from __future__ import annotations
 
+import io
 import json
+import threading
 
 from tests.cli_integration.extended_cases import _SUFFIX, EXTENDED_CASES
-from tests.cli_integration.mcp_proxy import ToolFilter
+from tests.cli_integration.mcp_proxy import ToolFilter, _describe, _pump_to_server
 from tests.cli_integration.run_extended import (
     CORE_TOOLS,
     accepted_tools_for,
@@ -22,6 +24,30 @@ from tests.cli_integration.run_extended import (
 
 def _frame(message: dict) -> bytes:
     return (json.dumps(message) + "\n").encode()
+
+
+def test_full_trace_is_explicit_and_keeps_complete_tool_frames() -> None:
+    call = {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": "evaluate_sage", "arguments": {"code": "x" * 1000}}}
+    response = {"jsonrpc": "2.0", "id": 1,
+                "result": {"content": [{"type": "text", "text": "y" * 1000}]}}
+    for message, direction in ((call, "client->server"), (response, "server->client")):
+        default = _describe(direction, _frame(message))
+        full = _describe(direction, _frame(message), full_frames=True)
+        assert default is not None and "frame" not in default
+        assert full is not None and full["frame"] == message
+
+
+def test_full_trace_includes_the_proxy_refusal_for_a_hidden_tool(tmp_path) -> None:
+    call = {"jsonrpc": "2.0", "id": 3, "method": "tools/call",
+            "params": {"name": "solve_equation", "arguments": {"equation": "x=1"}}}
+    log = tmp_path / "wire.jsonl"
+    reply = io.BytesIO()
+    _pump_to_server(io.BytesIO(_frame(call)), io.BytesIO(), reply, threading.Lock(), log,
+                    ToolFilter({"evaluate_sage"}), full_frames=True)
+    record = json.loads(log.read_text())
+    assert record["frame"] == call and record["blocked"]
+    assert record["blocked_reply"] == json.loads(reply.getvalue())
 
 
 def test_tools_list_is_narrowed_to_the_allowlist() -> None:

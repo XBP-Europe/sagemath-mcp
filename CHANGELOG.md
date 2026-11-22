@@ -56,6 +56,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   specifier now includes a hint to evaluate it numerically first.
 - **pydantic 2.14.4** replaces 2.14.3 in the dependency lock and the generated
   PassageMath image requirements.
+- **Client test diagnostics** report recovered answers and error categories
+  separately from the unchanged strict verdict, with opt-in per-case wire traces.
 - **Dependencies refreshed** within their existing ranges: fastmcp 4.1.8
   (4.1.7 and 4.1.8 require patched Authlib and joserfc), authlib 1.9.6,
   numpy 2.5.5, pydantic-settings 2.16.3, cyclopts 5.5.1, and among the

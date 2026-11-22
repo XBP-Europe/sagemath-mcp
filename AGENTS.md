@@ -19,7 +19,7 @@
 - `make build` → `uv run python scripts/build_release.py` (sdist/wheel; respects prerequisite guardrails)
 - `make all` → convenience alias (`make test` + `make integration-test`); keep targets separate when adding CI steps.
 - `make allowlist` → regenerates `src/sagemath_mcp/allowlist.py` from the installed Sage. Two steps on purpose: the generator imports the module it writes, so a single redirect truncates its own input. **Review every added name** before committing.
-- `make cli-extended` → drives the real Claude/Gemini/Codex CLIs and asserts from the proxy wire log that a tool was called. Costs model credits. `cli-nightly.yml` is scheduled but has no API-key secrets, so it skips every CLI; run this by hand before a release.
+- `make cli-extended` → drives the real Claude/Gemini/Codex CLIs and asserts from the proxy wire log that a tool was called. Costs model credits. `cli-nightly.yml` is scheduled but has no API-key secrets, so it skips every CLI; run this by hand before a release. For opt-in full per-case traces and recovery counts, see `TESTING.md`; traces may contain sensitive data.
 
 ## Where Code Goes
 - A new tool belongs in the matching `src/sagemath_mcp/tools/` module (`core`, `calculus`,

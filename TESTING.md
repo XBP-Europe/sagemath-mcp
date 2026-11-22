@@ -144,6 +144,28 @@ That second check is the one that matters, and it is worth confirming it can
 fail: feed the validator a correct answer with an empty log and it reports
 `NO_TOOL_CALL`, not `PASS`.
 
+The summary also counts cases with a correct answer and an accepted successful
+tool call after an error, and classifies tool errors (for example, policy
+refusal, precision or timeout). This is a recovery measure, not a second way
+to pass: the strict status and exit code still apply, including failures for
+refusals followed by a successful retry. Release readiness uses the strict
+result for each selected client; a recovered case is evidence for review, not
+an automatic exception. Compare multiple runs before attributing a change in
+retry counts to server guidance, because model behaviour varies.
+
+To retain the complete call and response frames for investigation, opt in:
+
+```bash
+uv run python -m tests.cli_integration.run_extended --cli gemini \
+  --trace-dir /tmp/sage-cli-traces-run1 --json-out /tmp/sage-cli-run1.json
+```
+
+Each case gets a separate JSONL file with mode 0600. Existing files are never
+overwritten, so use a new directory for each run. Full frames can contain code,
+results and other sensitive data, and image responses can be large; store and
+share them accordingly. Without `--trace-dir`, only short previews are kept in
+a temporary directory and removed at the end of the run.
+
 Two cases are stateful on purpose. They define a variable in one call and read
 it in a second, which no model can fake, so they prove session state survives
 between separate MCP invocations.

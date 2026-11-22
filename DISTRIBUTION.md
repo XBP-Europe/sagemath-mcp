@@ -15,7 +15,8 @@ Use the **Bump Version** workflow (GitHub Actions → *Bump Version*) before sta
   this file — and re-locks `uv.lock`, because a test fails when they disagree.
   The bundle, extension and plugin manifests decide which release a one-click
   install pulls, so a miss there ships one that installs the previous version,
-- pushes a branch and **opens a pull request**; `main` is protected by required
+- pushes a release branch; open the pull request from the workflow summary,
+  since the workflow cannot open one itself. `main` is protected by required
   status checks, so nothing is committed to it directly, and
 - stops there. **You push the tag yourself once that pull request merges:**
 

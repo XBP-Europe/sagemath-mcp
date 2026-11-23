@@ -18,9 +18,9 @@ removed from here once they ship or are decided against.
       changes using the repeated-run method in [TESTING.md](TESTING.md). A
       single run is not evidence that a change reliably reduces retries; the
       [2026-11-23 comparison](docs/gemini_client_comparison_2026-11-23.md)
-      records the earlier small-sample baseline; the [PARI guidance comparison](docs/gemini_pari_guidance_comparison_2026-11-23.md) records a follow-up.
-      Correct the error-category classifier so timeout advice in an unrelated
-      refusal does not make it report a timeout.
+      records the earlier small-sample baseline; the
+      [PARI guidance comparison](docs/gemini_pari_guidance_comparison_2026-11-23.md)
+      records a follow-up.
 
 - [ ] **Directory listings that need the maintainer's accounts** (see
       [DISTRIBUTION.md](DISTRIBUTION.md#directories-and-plugin-catalogs)):

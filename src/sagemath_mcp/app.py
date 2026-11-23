@@ -51,8 +51,10 @@ to `evaluate_sage` and the helper tools. Typical workflows include:
 
 Guidance for best results:
 
-- Always provide explicit Sage code; avoid relying on ambient imports beyond standard
-  Sage libraries. Use `var('x')`/`matrix(...)` etc. inside the code snippet.
+- Write explicit Sage code without import statements: Sage's mathematical names are
+  already available. Use `var('x')`, `matrix(RDF, ...)`, and `vector(RDF, ...)` rather
+  than importing NumPy or SciPy. Use `reset_sage_session` instead of calling `reset()`;
+  use Sage's number-theory functions or an object's `.pari()` method instead of `pari`.
 - Chain computations within the same MCP session to reuse definitions (e.g., assign `f =` and
   call `evaluate_sage` again to operate on `f`).
 - Long-running jobs emit progress heartbeat events roughly every 1.5 seconds. You can adjust

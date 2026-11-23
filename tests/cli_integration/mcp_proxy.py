@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import os
 import subprocess
 import sys
 import threading
@@ -44,7 +45,7 @@ def _append(log_path: Path, record: dict) -> None:
         handle.write(json.dumps(record) + "\n")
 
 
-def _describe(direction: str, raw: bytes) -> dict | None:
+def _describe(direction: str, raw: bytes, *, full_frames: bool = False) -> dict | None:
     """Summarise one JSON-RPC frame, or None if it is not worth recording."""
     try:
         message = json.loads(raw.decode("utf-8"))
@@ -56,13 +57,16 @@ def _describe(direction: str, raw: bytes) -> dict | None:
     method = message.get("method")
     if method == "tools/call":
         params = message.get("params") or {}
-        return {
+        record = {
             "direction": direction,
             "kind": "tool_call",
             "tool": params.get("name"),
             "arguments": json.dumps(params.get("arguments", {}))[:_MAX_PREVIEW],
             "id": message.get("id"),
         }
+        if full_frames:
+            record["frame"] = message
+        return record
     if method:
         return {"direction": direction, "kind": "request", "method": method,
                 "id": message.get("id")}
@@ -73,7 +77,7 @@ def _describe(direction: str, raw: bytes) -> dict | None:
         is_error = bool(message.get("error")) or bool(
             isinstance(result, dict) and result.get("isError")
         )
-        return {
+        record = {
             "direction": direction,
             "kind": "response",
             "id": message.get("id"),
@@ -83,6 +87,9 @@ def _describe(direction: str, raw: bytes) -> dict | None:
             if message.get("error")
             else None,
         }
+        if full_frames:
+            record["frame"] = message
+        return record
     return None
 
 
@@ -150,11 +157,18 @@ class ToolFilter:
         return self._frame(message)
 
 
-def _pump_to_server(src, dst, out, out_lock, log_path: Path, tool_filter: ToolFilter) -> None:
+def _pump_to_server(src, dst, out, out_lock, log_path: Path, tool_filter: ToolFilter,
+                    full_frames: bool = False) -> None:
     """Client -> server: forward, or answer a blocked call ourselves."""
     for raw in iter(src.readline, b""):
         forward, reply = tool_filter.client_to_server(raw)
-        record = _describe("client->server", raw.strip())
+        record = _describe("client->server", raw.strip(), full_frames=full_frames)
+        if record is not None:
+            if reply is not None:
+                record["blocked"] = True
+                if full_frames:
+                    record["blocked_reply"] = json.loads(reply)
+            _append(log_path, record)
         if forward is not None:
             dst.write(forward)
             dst.flush()
@@ -162,24 +176,21 @@ def _pump_to_server(src, dst, out, out_lock, log_path: Path, tool_filter: ToolFi
             with out_lock:
                 out.write(reply)
                 out.flush()
-            if record is not None:
-                record["blocked"] = True
-        if record is not None:
-            _append(log_path, record)
     with contextlib.suppress(Exception):
         dst.close()
 
 
-def _pump_to_client(src, out, out_lock, log_path: Path, tool_filter: ToolFilter) -> None:
+def _pump_to_client(src, out, out_lock, log_path: Path, tool_filter: ToolFilter,
+                    full_frames: bool = False) -> None:
     """Server -> client: forward, narrowing the tool list when asked to."""
     for raw in iter(src.readline, b""):
         forward = tool_filter.server_to_client(raw)
+        record = _describe("server->client", raw.strip(), full_frames=full_frames)
+        if record is not None:
+            _append(log_path, record)
         with out_lock:
             out.write(forward)
             out.flush()
-        record = _describe("server->client", raw.strip())
-        if record is not None:
-            _append(log_path, record)
     with contextlib.suppress(Exception):
         out.close()
 
@@ -187,6 +198,8 @@ def _pump_to_client(src, out, out_lock, log_path: Path, tool_filter: ToolFilter)
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--log", required=True, help="JSONL file to append to")
+    parser.add_argument("--full-frames", action="store_true",
+                        help="retain full call and response frames (may contain sensitive data)")
     parser.add_argument(
         "--allow-tools",
         help="comma-separated tool names the client may see and call; "
@@ -201,7 +214,8 @@ def main() -> int:
         print("mcp_proxy: no server command given", file=sys.stderr)
         return 2
 
-    log_path = Path(args.log)
+    trace_path = os.environ.get("SAGEMATH_MCP_CLI_TRACE_PATH") if args.full_frames else None
+    log_path = Path(trace_path or args.log)
     log_path.parent.mkdir(parents=True, exist_ok=True)
     allowed = (
         {name.strip() for name in args.allow_tools.split(",") if name.strip()}
@@ -222,12 +236,13 @@ def main() -> int:
     out_lock = threading.Lock()
     to_server = threading.Thread(
         target=_pump_to_server,
-        args=(sys.stdin.buffer, server.stdin, out, out_lock, log_path, tool_filter),
+        args=(sys.stdin.buffer, server.stdin, out, out_lock, log_path, tool_filter,
+              args.full_frames),
         daemon=True,
     )
     to_client = threading.Thread(
         target=_pump_to_client,
-        args=(server.stdout, out, out_lock, log_path, tool_filter),
+        args=(server.stdout, out, out_lock, log_path, tool_filter, args.full_frames),
         daemon=True,
     )
     to_server.start()

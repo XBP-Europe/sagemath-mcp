@@ -47,6 +47,14 @@ Run SageMath code in a persistent session; variables persist across calls. Calle
 code is deny-by-default -- ordinary mathematics is allowed, but imports, external \
 CAS interfaces and file/display/persistence calls are refused.
 
+Write Sage code without import statements: Sage's mathematical functions are \
+already available. Use matrix(RDF, ...) and vector(RDF, ...) instead of importing \
+NumPy or SciPy. Do not call reset() inside code; use reset_sage_session to clear \
+the session. The bare pari interface is unavailable; use Sage's number-theory \
+functions or the .pari() method on a Sage object.
+Before formatting a numerical symbolic expression, convert it with \
+N(value, digits=...) or RealField(precision)(value); float(value) gives double precision.
+
 LAST RESORT for a single self-contained calculation: a dedicated tool exists for \
 most of those and should be preferred, because it validates arguments and returns \
 a typed result instead of a repr string. One exception overrides that steer -- the \
@@ -76,6 +84,7 @@ Transforms: var('t s'); laplace(sin(t), t, s); inverse_laplace(1/(s^2+1), s, t)
 Modular arithmetic: Mod(17, 5); power_mod(3, 100, 97)
 Recurrences: var('n'); f = function('f'); desolve_rec(f(n+2)-f(n+1)-f(n), f, [0, 1])
 Continued fractions: continued_fraction(pi).convergents()[:10]
+Bessel zeros: var('x'); find_root(bessel_J(0, x), 2, 3)
 Number fields: K.<a> = NumberField(x^3 - 2); K.class_number()
 Any multi-step work that builds on values defined earlier in the same session, \
 since the dedicated tools cannot see them.

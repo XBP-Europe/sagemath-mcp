@@ -32,11 +32,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 import subprocess
 import sys
 import tempfile
 import time
-from dataclasses import asdict, dataclass
+from collections import Counter
+from dataclasses import asdict, dataclass, field
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from .extended_cases import _SUFFIX, ToolForcingCase, cases_for_tier
@@ -107,20 +111,28 @@ class CaseResult:
     # answer_correct=True -- a distinction the tool-surface report needs.
     answer_correct: bool | None = None
     tier: str = "standard"
+    error_count: int = 0
+    error_categories: list[str] = field(default_factory=list)
+    recovered: bool = False
+    recovery_response_matches: bool = False
 
 
-def proxy_command(log_path: Path, allowed: frozenset[str] | None = None) -> list[str]:
+def proxy_command(log_path: Path, allowed: frozenset[str] | None = None,
+                  *, full_frames: bool = False) -> list[str]:
     cmd = [sys.executable, str(PROXY), "--log", str(log_path)]
     if allowed is not None:
         cmd += ["--allow-tools", ",".join(sorted(allowed))]
+    if full_frames:
+        cmd.append("--full-frames")
     return [*cmd, "--", *REAL_SERVER]
 
 
 # --------------------------------------------------------------------------
 # Per-CLI registration. Each CLI has its own syntax; none of them is hard.
 # --------------------------------------------------------------------------
-def register(cli: str, log_path: Path, allowed: frozenset[str] | None = None) -> None:
-    cmd = proxy_command(log_path, allowed)
+def register(cli: str, log_path: Path, allowed: frozenset[str] | None = None,
+             *, full_frames: bool = False) -> None:
+    cmd = proxy_command(log_path, allowed, full_frames=full_frames)
     unregister(cli)
     if cli == "claude":
         args = ["claude", "mcp", "add", SERVER_NAME, "--", *cmd]
@@ -254,6 +266,106 @@ def read_wire_log(
     return tools, errored, succeeded, tolerated
 
 
+_NUMBER = re.compile(r"(?<![\w.])[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?(?![\w.])")
+
+
+def _response_matches(record: dict, expected: list[str], fields: tuple[str, ...]) -> bool:
+    """Compare numeric output fields at the case's stated decimal precision."""
+    if not fields:
+        return False
+    frame = record.get("frame")
+    if isinstance(frame, dict) and "result" in frame:
+        result = frame["result"]
+    else:
+        try:
+            result = json.loads(record.get("preview") or "")
+        except (json.JSONDecodeError, TypeError):
+            return False  # missing or truncated previews cannot prove a match
+    if not isinstance(result, dict):
+        return False
+    if "structuredContent" in result:
+        result = result["structuredContent"]
+    elif isinstance(result.get("content"), list):
+        # Some clients return only a text-encoded structured object.
+        try:
+            text = next(part["text"] for part in result["content"]
+                        if isinstance(part, dict) and part.get("type") == "text")
+            result = json.loads(text)
+        except (StopIteration, KeyError, TypeError, json.JSONDecodeError):
+            return False
+    if not isinstance(result, dict):
+        return False
+    values = [result[key] for key in fields if key in result and result[key] is not None]
+    for value in values:
+        for token in _NUMBER.findall(str(value)):
+            try:
+                actual = Decimal(token)
+                for answer in expected:
+                    target = Decimal(answer)
+                    exponent = target.as_tuple().exponent
+                    if actual == target or (exponent < 0 and
+                                            abs(actual - target) < Decimal(1).scaleb(exponent)):
+                        return True
+            except (InvalidOperation, ValueError):
+                continue
+    return False
+
+
+def recovery_diagnostics(
+    log_path: Path, accepted: list[str], answered: bool, expected: list[str],
+    response_fields: dict[str, tuple[str, ...]],
+) -> tuple[int, list[str], bool, bool]:
+    """Count tool errors and require a later accepted success for recovery.
+
+    These observations do not change the strict verdict. An answer alone, or a
+    successful call followed by an error, is not evidence of recovery.
+    """
+    if not log_path.exists():
+        return 0, [], False, False
+    calls: dict[object, str] = {}
+    categories: list[str] = []
+    success_after_error = False
+    match_after_error = False
+    for line in log_path.read_text(encoding="utf-8").splitlines():
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if record.get("kind") == "tool_call" and record.get("id") is not None:
+            calls[record["id"]] = record.get("tool", "")
+        elif record.get("kind") == "response" and record.get("id") in calls:
+            if record.get("is_error"):
+                preview = " ".join(str(record.get(k) or "") for k in ("preview", "error"))
+                lowered = preview.lower()
+                if "timed out" in lowered or "timeout" in lowered:
+                    category = "timeout"
+                elif "cannot approximate to a precision" in lowered:
+                    category = "precision"
+                elif "unsupported format string passed to sage.symbolic.expression" in lowered:
+                    category = "symbolic_formatting"
+                elif any(s in lowered for s in (
+                    "securityviolation", "not a name this server offers",
+                    "import statements are disabled", "is not offered",
+                    "rejected by the security policy", "is not permitted in sage executions",
+                )):
+                    category = "policy_refusal"
+                elif _is_client_fault(preview):
+                    category = "client_validation"
+                elif _is_mathematics_fault(preview):
+                    category = "mathematics"
+                else:
+                    category = "other_tool_error"
+                categories.append(category)
+                success_after_error = False
+                match_after_error = False
+            elif categories and calls[record["id"]] in accepted:
+                success_after_error = True
+                match_after_error |= _response_matches(
+                    record, expected, response_fields.get(calls[record["id"]], ()))
+    recovered = bool(answered and success_after_error)
+    return len(categories), categories, recovered, bool(recovered and match_after_error)
+
+
 def normalise(text: str) -> str:
     """Strip separators so 1,844,349,560 matches 1844349560."""
     return text.replace(",", "").replace(" ", "").replace("_", "").lower()
@@ -314,10 +426,18 @@ def evaluate(case: ToolForcingCase, output: str, log_path: Path, elapsed: float,
              cli: str, arm: str = "full") -> CaseResult:
     flat = normalise(output)
     answered = any(normalise(a) in flat for a in case.expected_answers)
+    accepted = accepted_tools_for(case, arm)
+    error_count, error_categories, recovered, response_matches = (
+        recovery_diagnostics(log_path, accepted, answered, case.expected_answers,
+                             case.response_fields)
+        if arm != "none" else (0, [], False, False)
+    )
 
     def result(status: str, detail: str, tools: list[str]) -> CaseResult:
         return CaseResult(cli, case.id, status, detail, tools, elapsed, arm, case.domain,
-                          answer_correct=answered, tier=case.tier)
+                          answer_correct=answered, tier=case.tier, error_count=error_count,
+                          error_categories=error_categories, recovered=recovered,
+                          recovery_response_matches=response_matches)
 
     if not answered and _is_quota_failure(output):
         tail = output.strip()[-160:].replace("\n", " ")
@@ -334,7 +454,6 @@ def evaluate(case: ToolForcingCase, output: str, log_path: Path, elapsed: float,
         return result(status, detail, tools)
 
     tools, errored, succeeded, tolerated = read_wire_log(log_path)
-    accepted = accepted_tools_for(case, arm)
     relevant = [t for t in tools if t in accepted]
     # An accepted tool that was CALLED proves nothing; one that answered does.
     relevant_ok = [t for t in succeeded if t in accepted]
@@ -412,15 +531,32 @@ def run_case(cli: str, case: ToolForcingCase, log_path: Path, arm: str = "full")
         output, elapsed = _invoke(cli, prompt_for(case, arm), case.timeout_seconds, arm,
                                   log_path)
     except subprocess.TimeoutExpired:
+        count, categories, _, _ = recovery_diagnostics(
+            log_path, accepted_tools_for(case, arm), False, case.expected_answers,
+            case.response_fields)
         return CaseResult(
             cli, case.id, "TIMEOUT",
             f"no answer within {case.timeout_seconds}s", [], float(case.timeout_seconds),
-            arm, case.domain, answer_correct=False, tier=case.tier,
+            arm, case.domain, answer_correct=False, tier=case.tier, error_count=count,
+            error_categories=categories,
         )
     except Exception as exc:  # report and continue with the next case
+        count, categories, _, _ = recovery_diagnostics(
+            log_path, accepted_tools_for(case, arm), False, case.expected_answers,
+            case.response_fields)
         return CaseResult(cli, case.id, "ERROR", f"{type(exc).__name__}: {exc}", [], 0.0,
-                          arm, case.domain, answer_correct=False, tier=case.tier)
+                          arm, case.domain, answer_correct=False, tier=case.tier,
+                          error_count=count, error_categories=categories)
     return evaluate(case, output, log_path, elapsed, cli, arm)
+
+
+def prepare_trace(trace_dir: Path, cli: str, case_id: str) -> Path:
+    """Write directly to a private case file so interruption cannot discard it."""
+    trace_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    destination = trace_dir / f"{cli}-{case_id}.jsonl"
+    fd = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    os.close(fd)
+    return destination
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -436,6 +572,8 @@ def main(argv: list[str] | None = None) -> int:
                              "checking exactly the integration contract it always has")
     parser.add_argument("--json-out", type=Path,
                         help="write every case result (with arm, domain, tools, timing) here")
+    parser.add_argument("--trace-dir", type=Path,
+                        help="retain full per-case wire traces (may contain sensitive data)")
     args = parser.parse_args(argv)
 
     cases = cases_for_tier(args.tier)
@@ -468,7 +606,9 @@ def main(argv: list[str] | None = None) -> int:
                 unregister(cli)
             else:
                 try:
-                    if allowed is None:
+                    if args.trace_dir is not None:
+                        register(cli, log_path, allowed, full_frames=True)
+                    elif allowed is None:
                         register(cli, log_path)
                     else:
                         register(cli, log_path, allowed)
@@ -477,7 +617,20 @@ def main(argv: list[str] | None = None) -> int:
                     continue
             try:
                 for case in cases:
-                    result = run_case(cli, case, log_path, arm)
+                    if args.trace_dir is not None:
+                        case_log = prepare_trace(args.trace_dir, cli, case.id).resolve()
+                        trace_env = "SAGEMATH_MCP_CLI_TRACE_PATH"
+                        previous = os.environ.get(trace_env)
+                        os.environ[trace_env] = str(case_log)
+                        try:
+                            result = run_case(cli, case, case_log, arm)
+                        finally:
+                            if previous is None:
+                                os.environ.pop(trace_env, None)
+                            else:
+                                os.environ[trace_env] = previous
+                    else:
+                        result = run_case(cli, case, log_path, arm)
                     results.append(result)
                     mark = "PASS" if result.status == "PASS" else result.status
                     print(f"  [{mark:>13}] {case.id:<24} {result.elapsed:6.1f}s  "
@@ -494,6 +647,7 @@ def main(argv: list[str] | None = None) -> int:
             "arm": arm,
             "tier": args.tier,
             "clis": clis,
+            "gemini_model": os.environ.get("GEMINI_MODEL") if "gemini" in clis else None,
             "cases": [c.id for c in cases],
             "started": started,
             "finished": time.time(),
@@ -507,6 +661,11 @@ def main(argv: list[str] | None = None) -> int:
         subset = [r for r in results if r.cli == cli]
         passed = sum(1 for r in subset if r.status == "PASS")
         print(f"  {cli:<8} {passed}/{len(subset)} passed")
+        recovered = sum(r.recovered for r in subset)
+        matched = sum(r.recovery_response_matches for r in subset)
+        categories = Counter(category for r in subset for category in r.error_categories)
+        print(f"           {recovered} correct after recovery ({matched} response-matched); "
+              f"{sum(categories.values())} tool errors {dict(sorted(categories.items()))}")
         if not subset:
             ran_nothing.append(cli)
 

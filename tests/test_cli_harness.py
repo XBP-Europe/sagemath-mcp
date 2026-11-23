@@ -15,12 +15,13 @@ plausible-looking answer was a PASS.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
 
-from tests.cli_integration.extended_cases import ToolForcingCase
-from tests.cli_integration.run_extended import evaluate, read_wire_log
+from tests.cli_integration.extended_cases import ToolForcingCase, cases_for_tier
+from tests.cli_integration.run_extended import evaluate, prepare_trace, read_wire_log
 
 CASE = ToolForcingCase(
     id="unit-case",
@@ -28,6 +29,7 @@ CASE = ToolForcingCase(
     prompt="irrelevant",
     expected_answers=["42"],
     accepted_tools=["combinatorics_operation"],
+    response_fields={"combinatorics_operation": ("result",)},
 )
 
 
@@ -87,6 +89,154 @@ def test_a_real_server_error_still_fails(tmp_path: Path) -> None:
     ])
     result = evaluate(CASE, "the answer is 42", log, 1.0, "claude")
     assert result.status == "TOOL_ERROR", result.detail
+    assert result.recovered
+    assert result.recovery_response_matches
+    assert result.error_count == 1
+    assert result.error_categories == ["policy_refusal"]
+
+
+def test_recovery_requires_a_correct_answer_and_a_later_accepted_success(tmp_path: Path) -> None:
+    log = _log(tmp_path, [
+        _call(1), _response(1, preview='{"result": "42"}'),
+        _call(2), _response(2, is_error=True, preview="Sage evaluation timed out"),
+    ])
+    result = evaluate(CASE, "42", log, 1.0, "gemini")
+    assert result.status == "TOOL_ERROR"
+    assert not result.recovered
+    assert result.error_categories == ["timeout"]
+
+    log = _log(tmp_path, [
+        _call(1), _response(1, is_error=True, preview="Sage evaluation timed out"),
+        _call(2), _response(2, preview='{"result": "42"}'),
+    ])
+    assert evaluate(CASE, "42", log, 1.0, "gemini").recovered
+    assert not evaluate(CASE, "41", log, 1.0, "gemini").recovered
+
+
+@pytest.mark.parametrize("message", [
+    "Rejected by the security policy: ';' is not permitted in an expression",
+    "Access through 'pari' is blocked ('pari' is not permitted in Sage executions)",
+])
+def test_recovery_categorizes_policy_errors_without_changing_verdict(
+    tmp_path: Path, message: str,
+) -> None:
+    log = _log(tmp_path, [
+        _call(1), _response(1, is_error=True, preview=message),
+        _call(2), _response(2, preview='{"result": "42"}'),
+    ])
+    result = evaluate(CASE, "42", log, 1.0, "gemini")
+    assert result.status == "TOOL_ERROR"
+    assert result.error_categories == ["policy_refusal"]
+
+
+def test_recovery_response_match_excludes_unrelated_calls_and_truncated_previews(
+    tmp_path: Path,
+) -> None:
+    log = _log(tmp_path, [
+        _call(1), _response(1, is_error=True, preview="SecurityViolation: blocked"),
+        {**_call(2), "arguments": '{"code": "42"}'},
+        _response(2, preview='{"result": "7"}'),
+    ])
+    result = evaluate(CASE, "42", log, 1.0, "gemini")
+    assert result.recovered and not result.recovery_response_matches
+    log = _log(tmp_path, [
+        _call(1), _response(1, is_error=True, preview="SecurityViolation: blocked"),
+        _call(2), _response(2, preview='{"result": "truncated'),
+    ])
+    assert not evaluate(CASE, "42", log, 1.0, "gemini").recovery_response_matches
+    log = _log(tmp_path, [
+        _call(1), _response(1, is_error=True, preview="SecurityViolation: blocked"),
+        _call(2), {**_response(2, preview='{"result": "truncated'),
+                   "frame": {"result": {"structuredContent": {"result": "42"}}}},
+    ])
+    assert evaluate(CASE, "42", log, 1.0, "gemini").recovery_response_matches
+
+
+def test_response_corroboration_uses_only_case_fields_and_numeric_precision(tmp_path: Path) -> None:
+    case = next(c for c in cases_for_tier("standard") if c.id == "ext-phys-mercury")
+
+    def verdict(payload):
+        log = _log(tmp_path, [
+            _call(1, tool="evaluate_sage"),
+            _response(1, is_error=True, preview="SecurityViolation: blocked"),
+            _call(2, tool="evaluate_sage"),
+            {**_response(2), "frame": {"result": {"structuredContent": payload}}},
+        ])
+        return evaluate(case, "42.98", log, 1.0, "gemini").recovery_response_matches
+
+    assert not verdict({"expression": "42.98", "result": "142.98"})
+    assert not verdict({"result": "4.298e2"})
+    assert not verdict({"unrelated": "42.98"})
+    assert verdict({"stdout": "answer = 42.9821"})
+    assert verdict({"result": "4.2982e1"})
+    assert verdict({"result": "42.98"})
+
+
+def test_trace_retention_is_private_and_does_not_overwrite(tmp_path: Path) -> None:
+    trace = prepare_trace(tmp_path / "traces", "gemini", "case")
+    trace.write_text("partial call recorded before interruption")
+    assert trace.read_text() == "partial call recorded before interruption"
+    if os.name != "nt":
+        assert trace.stat().st_mode & 0o777 == 0o600
+    with pytest.raises(FileExistsError):
+        prepare_trace(tmp_path / "traces", "gemini", "case")
+    assert trace.read_text() == "partial call recorded before interruption"
+
+
+def test_interrupted_case_keeps_its_live_trace(tmp_path: Path, monkeypatch) -> None:
+    from tests.cli_integration import run_extended
+
+    monkeypatch.setattr(run_extended, "register", lambda *args, **kwargs: None)
+    monkeypatch.setenv("SAGEMATH_MCP_CLI_TRACE_PATH", "prior-value")
+    unregistered = []
+    monkeypatch.setattr(run_extended, "unregister", lambda cli: unregistered.append(cli))
+
+    def interrupted(cli, case, log_path, arm):
+        log_path.write_text('{"kind":"tool_call"}\n')
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(run_extended, "run_case", interrupted)
+    trace_dir = tmp_path / "traces"
+    with pytest.raises(KeyboardInterrupt):
+        run_extended.main(["--cli", "gemini", "--case", "ext-la-determinant",
+                           "--trace-dir", str(trace_dir)])
+    assert (trace_dir / "gemini-ext-la-determinant.jsonl").read_text() == '{"kind":"tool_call"}\n'
+    assert unregistered == ["gemini"]
+    assert os.environ["SAGEMATH_MCP_CLI_TRACE_PATH"] == "prior-value"
+
+
+def test_trace_option_keeps_strict_failure_and_saves_case_log(tmp_path: Path, monkeypatch) -> None:
+    from tests.cli_integration import run_extended
+
+    registrations = []
+    monkeypatch.setenv("GEMINI_MODEL", "fixed-test-model")
+    monkeypatch.setattr(run_extended, "register",
+                        lambda *args, **kwargs: registrations.append(kwargs))
+    monkeypatch.setattr(run_extended, "unregister", lambda cli: None)
+
+    def fake_case(cli, case, log_path, arm):
+        records = [
+            _call(1, tool="evaluate_sage"),
+            _response(1, is_error=True, preview="SecurityViolation: blocked"),
+            _call(2, tool="evaluate_sage"),
+            _response(2, preview='{"result": "-1813"}'),
+        ]
+        log_path.write_text("\n".join(json.dumps(r) for r in records), encoding="utf-8")
+        return evaluate(case, "-1813", log_path, 1.0, cli, arm)
+
+    monkeypatch.setattr(run_extended, "run_case", fake_case)
+    trace_dir = tmp_path / "traces"
+    result_path = tmp_path / "result.json"
+    result = run_extended.main(["--cli", "gemini", "--case", "ext-la-determinant",
+                                "--trace-dir", str(trace_dir), "--json-out", str(result_path)])
+    assert result == 1
+    assert registrations == [{"full_frames": True}]
+    report = json.loads(result_path.read_text())
+    assert report["gemini_model"] == "fixed-test-model"
+    saved = report["results"][0]
+    assert saved["status"] == "TOOL_ERROR" and saved["recovered"]
+    assert saved["error_categories"] == ["policy_refusal"]
+    assert (trace_dir / "gemini-ext-la-determinant.jsonl").exists()
 
 
 def test_a_recovered_mathematics_error_still_passes(tmp_path: Path) -> None:
@@ -168,6 +318,16 @@ def test_calling_no_accepted_tool_fails(tmp_path: Path) -> None:
     ])
     result = evaluate(CASE, "the answer is 42", log, 1.0, "codex")
     assert result.status == "NO_TOOL_CALL", result.detail
+
+
+def test_determinant_case_accepts_a_successful_calculate_expression_call(tmp_path: Path) -> None:
+    case = next(c for c in cases_for_tier("standard") if c.id == "ext-la-determinant")
+    log = _log(tmp_path, [
+        _call(1, tool="calculate_expression"),
+        _response(1, preview='{"string": "-1813"}'),
+    ])
+    assert evaluate(case, "-1813", log, 1.0, "codex").status == "PASS"
+    assert evaluate(case, "-1812", log, 1.0, "codex").status == "WRONG_ANSWER"
 
 
 @pytest.mark.parametrize(

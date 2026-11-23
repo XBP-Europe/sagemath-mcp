@@ -8,10 +8,20 @@ Pure functions, no subprocess, no Sage.
 
 from __future__ import annotations
 
+import io
 import json
+import os
+import select
+import signal
+import subprocess
+import sys
+import threading
 
+import pytest
+
+from tests.cli_integration import mcp_proxy
 from tests.cli_integration.extended_cases import _SUFFIX, EXTENDED_CASES
-from tests.cli_integration.mcp_proxy import ToolFilter
+from tests.cli_integration.mcp_proxy import ToolFilter, _describe, _pump_to_server
 from tests.cli_integration.run_extended import (
     CORE_TOOLS,
     accepted_tools_for,
@@ -22,6 +32,95 @@ from tests.cli_integration.run_extended import (
 
 def _frame(message: dict) -> bytes:
     return (json.dumps(message) + "\n").encode()
+
+
+def test_full_trace_is_explicit_and_keeps_complete_tool_frames() -> None:
+    call = {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": "evaluate_sage", "arguments": {"code": "x" * 1000}}}
+    response = {"jsonrpc": "2.0", "id": 1,
+                "result": {"content": [{"type": "text", "text": "y" * 1000}]}}
+    for message, direction in ((call, "client->server"), (response, "server->client")):
+        default = _describe(direction, _frame(message))
+        full = _describe(direction, _frame(message), full_frames=True)
+        assert default is not None and "frame" not in default
+        assert full is not None and full["frame"] == message
+
+
+def test_full_trace_includes_the_proxy_refusal_for_a_hidden_tool(tmp_path) -> None:
+    call = {"jsonrpc": "2.0", "id": 3, "method": "tools/call",
+            "params": {"name": "solve_equation", "arguments": {"equation": "x=1"}}}
+    log = tmp_path / "wire.jsonl"
+    reply = io.BytesIO()
+    _pump_to_server(io.BytesIO(_frame(call)), io.BytesIO(), reply, threading.Lock(), log,
+                    ToolFilter({"evaluate_sage"}), full_frames=True)
+    record = json.loads(log.read_text())
+    assert record["frame"] == call and record["blocked"]
+    assert record["blocked_reply"] == json.loads(reply.getvalue())
+
+
+def test_proxy_writes_full_frames_to_per_case_environment_path(tmp_path) -> None:
+    trace = tmp_path / "case.jsonl"
+    trace.touch(mode=0o600)
+    fallback = tmp_path / "fallback.jsonl"
+    call = {"jsonrpc": "2.0", "id": 3, "method": "tools/call",
+            "params": {"name": "evaluate_sage", "arguments": {"code": "1+1"}}}
+    server = (
+        "import json,sys\n"
+        "for line in sys.stdin:\n"
+        " m=json.loads(line); print(json.dumps({'jsonrpc':'2.0','id':m['id'],"
+        "'result':{'content':[{'type':'text','text':'2'}]}}),flush=True)\n"
+    )
+    env = {**os.environ, "SAGEMATH_MCP_CLI_TRACE_PATH": str(trace)}
+    proc = subprocess.run(
+        [sys.executable, mcp_proxy.__file__, "--log", str(fallback), "--full-frames",
+         "--", sys.executable, "-u", "-c", server],
+        input=_frame(call), capture_output=True, check=True, timeout=10, env=env,
+    )
+    assert json.loads(proc.stdout)["result"]["content"][0]["text"] == "2"
+    records = [json.loads(line) for line in trace.read_text().splitlines()]
+    assert records[0]["frame"] == call
+    assert records[1]["frame"]["result"]["content"][0]["text"] == "2"
+    assert not fallback.exists()
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX process-group termination")
+def test_killing_live_proxy_preserves_partial_full_trace(tmp_path) -> None:
+    trace = tmp_path / "case.jsonl"
+    trace.touch(mode=0o600)
+    call = {"jsonrpc": "2.0", "id": 3, "method": "tools/call",
+            "params": {"name": "evaluate_sage", "arguments": {"code": "1+1"}}}
+    server = (
+        "import json,sys\n"
+        "for line in sys.stdin:\n"
+        " m=json.loads(line); print(json.dumps({'jsonrpc':'2.0','id':m['id'],"
+        "'result':{'content':[{'type':'text','text':'2'}]}}),flush=True)\n"
+    )
+    env = {**os.environ, "SAGEMATH_MCP_CLI_TRACE_PATH": str(trace)}
+    proc = subprocess.Popen(
+        [sys.executable, mcp_proxy.__file__, "--log", str(tmp_path / "fallback"),
+         "--full-frames", "--", sys.executable, "-u", "-c", server],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        start_new_session=True, env=env,
+    )
+    try:
+        assert proc.stdin and proc.stdout
+        proc.stdin.write(_frame(call))
+        proc.stdin.flush()
+        assert select.select([proc.stdout], [], [], 10)[0], "proxy did not respond"
+        assert json.loads(proc.stdout.readline())["result"]["content"][0]["text"] == "2"
+        assert proc.poll() is None
+        os.killpg(proc.pid, signal.SIGKILL)
+        proc.wait(timeout=10)
+        rows = [json.loads(line) for line in trace.read_text().splitlines()]
+        assert rows[0]["frame"] == call
+        assert rows[1]["frame"]["result"]["content"][0]["text"] == "2"
+    finally:
+        if proc.poll() is None:
+            os.killpg(proc.pid, signal.SIGKILL)
+            proc.wait(timeout=10)
+        for pipe in (proc.stdin, proc.stdout, proc.stderr):
+            if pipe:
+                pipe.close()
 
 
 def test_tools_list_is_narrowed_to_the_allowlist() -> None:

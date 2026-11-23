@@ -9,6 +9,13 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- **mistune 3.3.4.** Raise the Sage image floor to fix CVE-2026-97698 and
+  CVE-2026-97699, two quadratic-time parsing denial-of-service vulnerabilities.
+- **fastmcp 4.2.4 and authlib 1.9.10.** FastMCP fixes concurrent redemption
+  of OAuth proxy codes and refresh tokens and revoked proxy tokens being
+  accepted after refresh; Authlib rejects private keys in registered JWKS that
+  can cause expensive RSA key imports. This server uses a static bearer-token
+  verifier, not an OAuth proxy or dynamic client registration.
 - **soupsieve 4.0 and tornado 6.6.1.** Five advisories published 2026-11-13
   failed CI's security job on every pull request. Four are against soupsieve
   2.9.0, the Sage image's floor: GHSA-6655-6qjp-jx7x and GHSA-mmhr-3c5m-f64f
@@ -41,6 +48,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Evaluation guidance** now tells clients to use Sage's available numerical
+  primitives without importing NumPy or SciPy, to reset through the session
+  tool, and to avoid the blocked bare `pari` interface. A refusal of the
+  nonexistent `bessel_J_zero` and `bessel_zero` names now suggest Sage's
+  `find_root` spelling. Formatting a symbolic expression with a numeric format
+  specifier now includes a hint to evaluate it numerically first.
+- **pydantic 2.14.4** replaces 2.14.3 in the dependency lock and the generated
+  PassageMath image requirements.
+- **Client test diagnostics** report recovered answers, response matches and
+  error categories separately from the unchanged strict verdict. Opt-in
+  per-case wire traces are written as calls happen, so interruptions keep them;
+  a separate sanitizer exports payload-free structural traces.
 - **Dependencies refreshed** within their existing ranges: fastmcp 4.1.8
   (4.1.7 and 4.1.8 require patched Authlib and joserfc), authlib 1.9.6,
   numpy 2.5.5, pydantic-settings 2.16.3, cyclopts 5.5.1, and among the

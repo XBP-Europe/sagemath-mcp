@@ -62,6 +62,9 @@ class ToolForcingCase:
     # answer against the installed Sage, which turns this file from "numbers
     # someone pasted once" into something a Sage upgrade can re-check.
     verify_code: str = ""
+    # Only these output fields can corroborate a recovered answer. A case
+    # without an explicit mapping stays unverified rather than scanning echoes.
+    response_fields: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
 
 _SUFFIX = " Use the sagemath MCP server. Reply with ONLY the result, no prose."
@@ -287,6 +290,9 @@ EXTENDED_CASES: list[ToolForcingCase] = [
         expected_answers=["0.8037706"],
         accepted_tools=["evaluate_sage", "matrix_operation", "evaluate_sage_streaming"],
         timeout_seconds=420,
+        response_fields={"evaluate_sage": ("result", "stdout"),
+                         "evaluate_sage_streaming": ("result", "stdout"),
+                         "matrix_operation": ("result",)},
     ),
     ToolForcingCase(
         id="ext-phys-mercury",
@@ -300,6 +306,8 @@ EXTENDED_CASES: list[ToolForcingCase] = [
         ) + _SUFFIX,
         expected_answers=["42.98"],
         accepted_tools=["evaluate_sage", "calculate_expression"],
+        response_fields={"evaluate_sage": ("result", "stdout"),
+                         "calculate_expression": ("string", "numeric")},
     ),
     ToolForcingCase(
         id="ext-phys-bessel-zero",
@@ -310,6 +318,9 @@ EXTENDED_CASES: list[ToolForcingCase] = [
         ) + _SUFFIX,
         expected_answers=["14.9309177"],
         accepted_tools=["find_root", "evaluate_sage", "calculate_expression"],
+        response_fields={"evaluate_sage": ("result", "stdout"),
+                         "find_root": ("root",),
+                         "calculate_expression": ("string", "numeric")},
     ),
     ToolForcingCase(
         id="ext-session-state",

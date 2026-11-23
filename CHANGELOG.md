@@ -58,7 +58,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   PassageMath image requirements.
 - **Client test diagnostics** report recovered answers, response matches and
   error categories separately from the unchanged strict verdict. Opt-in
-  per-case wire traces are written as calls happen, so interruptions keep them.
+  per-case wire traces are written as calls happen, so interruptions keep them;
+  a separate sanitizer exports payload-free structural traces.
 - **Dependencies refreshed** within their existing ranges: fastmcp 4.1.8
   (4.1.7 and 4.1.8 require patched Authlib and joserfc), authlib 1.9.6,
   numpy 2.5.5, pydantic-settings 2.16.3, cyclopts 5.5.1, and among the

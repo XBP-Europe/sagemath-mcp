@@ -33,12 +33,14 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
 import time
 from collections import Counter
 from dataclasses import asdict, dataclass, field
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from .extended_cases import _SUFFIX, ToolForcingCase, cases_for_tier
@@ -264,8 +266,13 @@ def read_wire_log(
     return tools, errored, succeeded, tolerated
 
 
-def _response_matches(record: dict, expected: list[str]) -> bool:
-    """Look for an expected value in the successful response, not the call."""
+_NUMBER = re.compile(r"(?<![\w.])[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?(?![\w.])")
+
+
+def _response_matches(record: dict, expected: list[str], fields: tuple[str, ...]) -> bool:
+    """Compare numeric output fields at the case's stated decimal precision."""
+    if not fields:
+        return False
     frame = record.get("frame")
     if isinstance(frame, dict) and "result" in frame:
         result = frame["result"]
@@ -274,21 +281,39 @@ def _response_matches(record: dict, expected: list[str]) -> bool:
             result = json.loads(record.get("preview") or "")
         except (json.JSONDecodeError, TypeError):
             return False  # missing or truncated previews cannot prove a match
-    if isinstance(result, dict) and ("content" in result or "structuredContent" in result):
-        content = result.get("content")
-        content = content if isinstance(content, list) else []
-        values = [part.get("text", "") for part in content
-                  if isinstance(part, dict) and part.get("type") == "text"]
-        if "structuredContent" in result:
-            values.append(result["structuredContent"])
-    else:
-        values = [result]
-    text = normalise(json.dumps(values, ensure_ascii=False))
-    return any(value and normalise(value) in text for value in expected)
+    if not isinstance(result, dict):
+        return False
+    if "structuredContent" in result:
+        result = result["structuredContent"]
+    elif isinstance(result.get("content"), list):
+        # Some clients return only a text-encoded structured object.
+        try:
+            text = next(part["text"] for part in result["content"]
+                        if isinstance(part, dict) and part.get("type") == "text")
+            result = json.loads(text)
+        except (StopIteration, KeyError, TypeError, json.JSONDecodeError):
+            return False
+    if not isinstance(result, dict):
+        return False
+    values = [result[key] for key in fields if key in result and result[key] is not None]
+    for value in values:
+        for token in _NUMBER.findall(str(value)):
+            try:
+                actual = Decimal(token)
+                for answer in expected:
+                    target = Decimal(answer)
+                    exponent = target.as_tuple().exponent
+                    if actual == target or (exponent < 0 and
+                                            abs(actual - target) < Decimal(1).scaleb(exponent)):
+                        return True
+            except (InvalidOperation, ValueError):
+                continue
+    return False
 
 
 def recovery_diagnostics(
-    log_path: Path, accepted: list[str], answered: bool, expected: list[str]
+    log_path: Path, accepted: list[str], answered: bool, expected: list[str],
+    response_fields: dict[str, tuple[str, ...]],
 ) -> tuple[int, list[str], bool, bool]:
     """Count tool errors and require a later accepted success for recovery.
 
@@ -334,7 +359,8 @@ def recovery_diagnostics(
                 match_after_error = False
             elif categories and calls[record["id"]] in accepted:
                 success_after_error = True
-                match_after_error |= _response_matches(record, expected)
+                match_after_error |= _response_matches(
+                    record, expected, response_fields.get(calls[record["id"]], ()))
     recovered = bool(answered and success_after_error)
     return len(categories), categories, recovered, bool(recovered and match_after_error)
 
@@ -401,7 +427,8 @@ def evaluate(case: ToolForcingCase, output: str, log_path: Path, elapsed: float,
     answered = any(normalise(a) in flat for a in case.expected_answers)
     accepted = accepted_tools_for(case, arm)
     error_count, error_categories, recovered, response_matches = (
-        recovery_diagnostics(log_path, accepted, answered, case.expected_answers)
+        recovery_diagnostics(log_path, accepted, answered, case.expected_answers,
+                             case.response_fields)
         if arm != "none" else (0, [], False, False)
     )
 
@@ -504,7 +531,8 @@ def run_case(cli: str, case: ToolForcingCase, log_path: Path, arm: str = "full")
                                   log_path)
     except subprocess.TimeoutExpired:
         count, categories, _, _ = recovery_diagnostics(
-            log_path, accepted_tools_for(case, arm), False, case.expected_answers)
+            log_path, accepted_tools_for(case, arm), False, case.expected_answers,
+            case.response_fields)
         return CaseResult(
             cli, case.id, "TIMEOUT",
             f"no answer within {case.timeout_seconds}s", [], float(case.timeout_seconds),
@@ -513,7 +541,8 @@ def run_case(cli: str, case: ToolForcingCase, log_path: Path, arm: str = "full")
         )
     except Exception as exc:  # report and continue with the next case
         count, categories, _, _ = recovery_diagnostics(
-            log_path, accepted_tools_for(case, arm), False, case.expected_answers)
+            log_path, accepted_tools_for(case, arm), False, case.expected_answers,
+            case.response_fields)
         return CaseResult(cli, case.id, "ERROR", f"{type(exc).__name__}: {exc}", [], 0.0,
                           arm, case.domain, answer_correct=False, tier=case.tier,
                           error_count=count, error_categories=categories)

@@ -29,6 +29,7 @@ CASE = ToolForcingCase(
     prompt="irrelevant",
     expected_answers=["42"],
     accepted_tools=["combinatorics_operation"],
+    response_fields={"combinatorics_operation": ("result",)},
 )
 
 
@@ -133,6 +134,26 @@ def test_recovery_response_match_excludes_unrelated_calls_and_truncated_previews
                    "frame": {"result": {"structuredContent": {"result": "42"}}}},
     ])
     assert evaluate(CASE, "42", log, 1.0, "gemini").recovery_response_matches
+
+
+def test_response_corroboration_uses_only_case_fields_and_numeric_precision(tmp_path: Path) -> None:
+    case = next(c for c in cases_for_tier("standard") if c.id == "ext-phys-mercury")
+
+    def verdict(payload):
+        log = _log(tmp_path, [
+            _call(1, tool="evaluate_sage"),
+            _response(1, is_error=True, preview="SecurityViolation: blocked"),
+            _call(2, tool="evaluate_sage"),
+            {**_response(2), "frame": {"result": {"structuredContent": payload}}},
+        ])
+        return evaluate(case, "42.98", log, 1.0, "gemini").recovery_response_matches
+
+    assert not verdict({"expression": "42.98", "result": "142.98"})
+    assert not verdict({"result": "4.298e2"})
+    assert not verdict({"unrelated": "42.98"})
+    assert verdict({"stdout": "answer = 42.9821"})
+    assert verdict({"result": "4.2982e1"})
+    assert verdict({"result": "42.98"})
 
 
 def test_trace_retention_is_private_and_does_not_overwrite(tmp_path: Path) -> None:

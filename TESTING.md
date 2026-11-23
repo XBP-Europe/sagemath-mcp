@@ -145,11 +145,12 @@ fail: feed the validator a correct answer with an empty log and it reports
 `NO_TOOL_CALL`, not `PASS`.
 
 The summary also counts cases with a correct answer and an accepted successful
-tool call after an error, classifies tool errors, and reports how often a later
-successful tool response contains an expected answer. The response match is
-supporting evidence, not proof the model used that result: a response might
-echo an input, and a truncated preview may leave a match unverified. Full
-traces allow a closer review.
+tool call after an error and classifies tool errors. For the anharmonic,
+Mercury and Bessel cases, it also checks case-specific structured output fields
+for a numeric value within one unit of the expected last decimal place. Other
+cases, unstructured responses and truncated previews remain unverified. A match
+is supporting evidence, not proof the model used the result: even an output
+field might echo an input. Full traces allow a closer review.
 
 Release readiness uses the **strict result**: every case for each selected
 client must pass. A correct answer after an error is reported separately and
@@ -176,6 +177,19 @@ record `gemini --version` alongside it. Full frames can contain code,
 results and other sensitive data, and image responses can be large; store and
 share them accordingly. Without `--trace-dir`, only short previews are kept in
 a temporary directory and removed at the end of the run.
+
+For a shareable structural export, keep the original private and run:
+
+```bash
+uv run python -m tests.cli_integration.sanitize_trace \
+  /tmp/sage-cli-traces-run1/gemini-ext-phys-bessel-zero.jsonl /tmp/bessel-sanitized.jsonl
+```
+
+The export removes all arguments, result text, raw frames and timestamps,
+pseudonymizes request IDs, and retains only known tool names and status flags.
+Every row marks its payload as redacted; malformed and oversized records are
+labelled as omitted. The output is created exclusively and never overwrites a
+file. Review even the remaining tool names and status metadata before sharing.
 
 Two cases are stateful on purpose. They define a variable in one call and read
 it in a second, which no model can fake, so they prove session state survives

@@ -68,8 +68,9 @@ _NATIVE_EQUIVALENTS: dict[str, str] = {
               "which use Maxima in process",
     "gp": "the number theory functions directly: factor(), is_prime(), "
           "qfbclassno via QuadraticField(...).class_number()",
-    "pari": "the number theory functions directly, or the .pari() method on a "
-            "Sage object",
+    "pari": "Sage native functions directly, such as factor() and is_prime(); "
+            "for a Bessel zero, use find_root(bessel_J(0, x), a, b) with a "
+            "bracket around the zero",
     "magma": "Sage's own algebra: PolynomialRing, NumberField, EllipticCurve",
     "mathematica": "Sage's own symbolics: var(), integrate(), solve(), simplify()",
     "maple": "Sage's own symbolics: var(), integrate(), solve(), simplify()",

@@ -48,6 +48,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **PARI guidance** now recommends native Sage functions and a bracketed Bessel
+  root calculation instead of suggesting `.pari()` on arbitrary Sage objects.
+
 - **Evaluation guidance** now tells clients to use Sage's available numerical
   primitives without importing NumPy or SciPy, to reset through the session
   tool, and to avoid the blocked bare `pari` interface. A refusal of the

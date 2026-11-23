@@ -10,8 +10,12 @@ from __future__ import annotations
 
 import io
 import json
+import os
+import subprocess
+import sys
 import threading
 
+from tests.cli_integration import mcp_proxy
 from tests.cli_integration.extended_cases import _SUFFIX, EXTENDED_CASES
 from tests.cli_integration.mcp_proxy import ToolFilter, _describe, _pump_to_server
 from tests.cli_integration.run_extended import (
@@ -48,6 +52,31 @@ def test_full_trace_includes_the_proxy_refusal_for_a_hidden_tool(tmp_path) -> No
     record = json.loads(log.read_text())
     assert record["frame"] == call and record["blocked"]
     assert record["blocked_reply"] == json.loads(reply.getvalue())
+
+
+def test_proxy_writes_full_frames_to_per_case_environment_path(tmp_path) -> None:
+    trace = tmp_path / "case.jsonl"
+    trace.touch(mode=0o600)
+    fallback = tmp_path / "fallback.jsonl"
+    call = {"jsonrpc": "2.0", "id": 3, "method": "tools/call",
+            "params": {"name": "evaluate_sage", "arguments": {"code": "1+1"}}}
+    server = (
+        "import json,sys\n"
+        "for line in sys.stdin:\n"
+        " m=json.loads(line); print(json.dumps({'jsonrpc':'2.0','id':m['id'],"
+        "'result':{'content':[{'type':'text','text':'2'}]}}),flush=True)\n"
+    )
+    env = {**os.environ, "SAGEMATH_MCP_CLI_TRACE_PATH": str(trace)}
+    proc = subprocess.run(
+        [sys.executable, mcp_proxy.__file__, "--log", str(fallback), "--full-frames",
+         "--", sys.executable, "-u", "-c", server],
+        input=_frame(call), capture_output=True, check=True, timeout=10, env=env,
+    )
+    assert json.loads(proc.stdout)["result"]["content"][0]["text"] == "2"
+    records = [json.loads(line) for line in trace.read_text().splitlines()]
+    assert records[0]["frame"] == call
+    assert records[1]["frame"]["result"]["content"][0]["text"] == "2"
+    assert not fallback.exists()
 
 
 def test_tools_list_is_narrowed_to_the_allowlist() -> None:

@@ -14,9 +14,9 @@ removed from here once they ship or are decided against.
       talk to CoCalc (hosted Sage). Lead with the doctest-corpus acceptance
       figure — the strongest single credibility claim.
 
-- [ ] **Measure Gemini recovery across repeated runs** using the opt-in client
-      traces and strict/recovery counts in [TESTING.md](TESTING.md). A single
-      run is not evidence that a guidance change reliably reduces retries.
+- [ ] **Reduce Gemini's intermittent client errors** and compare guidance
+      changes using the repeated-run method in [TESTING.md](TESTING.md). A
+      single run is not evidence that a change reliably reduces retries.
 
 - [ ] **Directory listings that need the maintainer's accounts** (see
       [DISTRIBUTION.md](DISTRIBUTION.md#directories-and-plugin-catalogs)):

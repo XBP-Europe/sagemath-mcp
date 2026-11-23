@@ -145,23 +145,34 @@ fail: feed the validator a correct answer with an empty log and it reports
 `NO_TOOL_CALL`, not `PASS`.
 
 The summary also counts cases with a correct answer and an accepted successful
-tool call after an error, and classifies tool errors (for example, policy
-refusal, precision or timeout). This is a recovery measure, not a second way
-to pass: the strict status and exit code still apply, including failures for
-refusals followed by a successful retry. Release readiness uses the strict
-result for each selected client; a recovered case is evidence for review, not
-an automatic exception. Compare multiple runs before attributing a change in
-retry counts to server guidance, because model behaviour varies.
+tool call after an error, classifies tool errors, and reports how often a later
+successful tool response contains an expected answer. The response match is
+supporting evidence, not proof the model used that result: a response might
+echo an input, and a truncated preview may leave a match unverified. Full
+traces allow a closer review.
+
+Release readiness uses the **strict result**: every case for each selected
+client must pass. A correct answer after an error is reported separately and
+does not change the exit code. If a maintainer chooses to release with a known
+client failure, record the strict result, the recovered and response-matched
+counts, the error categories and the reason for accepting it in the release
+PR. Do not relabel it as a pass. For a guidance change, compare at least three
+independent runs of the affected cases using the same explicitly selected
+model, CLI version, tier and tool arm; report each run as well as the total.
+That is a small diagnostic sample, not proof of a stable improvement rate.
 
 To retain the complete call and response frames for investigation, opt in:
 
 ```bash
-uv run python -m tests.cli_integration.run_extended --cli gemini \
+GEMINI_MODEL=gemini-3.8-flash uv run python -m tests.cli_integration.run_extended --cli gemini \
   --trace-dir /tmp/sage-cli-traces-run1 --json-out /tmp/sage-cli-run1.json
 ```
 
-Each case gets a separate JSONL file with mode 0600. Existing files are never
-overwritten, so use a new directory for each run. Full frames can contain code,
+Each case gets a separate JSONL file, written as the case runs so its partial
+trace survives interruption. Files are created with mode 0600 on POSIX; on
+Windows, use a directory with appropriate access controls. Existing files are
+never overwritten, so use a new directory for each run. The JSON summary records `GEMINI_MODEL`;
+record `gemini --version` alongside it. Full frames can contain code,
 results and other sensitive data, and image responses can be large; store and
 share them accordingly. Without `--trace-dir`, only short previews are kept in
 a temporary directory and removed at the end of the run.

@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import os
 import subprocess
 import sys
 import threading
@@ -213,7 +214,8 @@ def main() -> int:
         print("mcp_proxy: no server command given", file=sys.stderr)
         return 2
 
-    log_path = Path(args.log)
+    trace_path = os.environ.get("SAGEMATH_MCP_CLI_TRACE_PATH") if args.full_frames else None
+    log_path = Path(trace_path or args.log)
     log_path.parent.mkdir(parents=True, exist_ok=True)
     allowed = (
         {name.strip() for name in args.allow_tools.split(",") if name.strip()}

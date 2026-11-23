@@ -15,12 +15,13 @@ plausible-looking answer was a PASS.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
 
 from tests.cli_integration.extended_cases import ToolForcingCase, cases_for_tier
-from tests.cli_integration.run_extended import evaluate, read_wire_log, retain_trace
+from tests.cli_integration.run_extended import evaluate, prepare_trace, read_wire_log
 
 CASE = ToolForcingCase(
     id="unit-case",
@@ -88,6 +89,7 @@ def test_a_real_server_error_still_fails(tmp_path: Path) -> None:
     result = evaluate(CASE, "the answer is 42", log, 1.0, "claude")
     assert result.status == "TOOL_ERROR", result.detail
     assert result.recovered
+    assert result.recovery_response_matches
     assert result.error_count == 1
     assert result.error_categories == ["policy_refusal"]
 
@@ -110,20 +112,67 @@ def test_recovery_requires_a_correct_answer_and_a_later_accepted_success(tmp_pat
     assert not evaluate(CASE, "41", log, 1.0, "gemini").recovered
 
 
+def test_recovery_response_match_excludes_unrelated_calls_and_truncated_previews(
+    tmp_path: Path,
+) -> None:
+    log = _log(tmp_path, [
+        _call(1), _response(1, is_error=True, preview="SecurityViolation: blocked"),
+        {**_call(2), "arguments": '{"code": "42"}'},
+        _response(2, preview='{"result": "7"}'),
+    ])
+    result = evaluate(CASE, "42", log, 1.0, "gemini")
+    assert result.recovered and not result.recovery_response_matches
+    log = _log(tmp_path, [
+        _call(1), _response(1, is_error=True, preview="SecurityViolation: blocked"),
+        _call(2), _response(2, preview='{"result": "truncated'),
+    ])
+    assert not evaluate(CASE, "42", log, 1.0, "gemini").recovery_response_matches
+    log = _log(tmp_path, [
+        _call(1), _response(1, is_error=True, preview="SecurityViolation: blocked"),
+        _call(2), {**_response(2, preview='{"result": "truncated'),
+                   "frame": {"result": {"structuredContent": {"result": "42"}}}},
+    ])
+    assert evaluate(CASE, "42", log, 1.0, "gemini").recovery_response_matches
+
+
 def test_trace_retention_is_private_and_does_not_overwrite(tmp_path: Path) -> None:
-    log = _log(tmp_path, [_call(1), _response(1, preview="full result")])
-    trace = retain_trace(tmp_path / "traces", "gemini", "case", log)
-    assert trace.read_text() == log.read_text()
-    assert trace.stat().st_mode & 0o777 == 0o600
+    trace = prepare_trace(tmp_path / "traces", "gemini", "case")
+    trace.write_text("partial call recorded before interruption")
+    assert trace.read_text() == "partial call recorded before interruption"
+    if os.name != "nt":
+        assert trace.stat().st_mode & 0o777 == 0o600
     with pytest.raises(FileExistsError):
-        retain_trace(tmp_path / "traces", "gemini", "case", log)
-    assert trace.read_text() == log.read_text()
+        prepare_trace(tmp_path / "traces", "gemini", "case")
+    assert trace.read_text() == "partial call recorded before interruption"
+
+
+def test_interrupted_case_keeps_its_live_trace(tmp_path: Path, monkeypatch) -> None:
+    from tests.cli_integration import run_extended
+
+    monkeypatch.setattr(run_extended, "register", lambda *args, **kwargs: None)
+    monkeypatch.setenv("SAGEMATH_MCP_CLI_TRACE_PATH", "prior-value")
+    unregistered = []
+    monkeypatch.setattr(run_extended, "unregister", lambda cli: unregistered.append(cli))
+
+    def interrupted(cli, case, log_path, arm):
+        log_path.write_text('{"kind":"tool_call"}\n')
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(run_extended, "run_case", interrupted)
+    trace_dir = tmp_path / "traces"
+    with pytest.raises(KeyboardInterrupt):
+        run_extended.main(["--cli", "gemini", "--case", "ext-la-determinant",
+                           "--trace-dir", str(trace_dir)])
+    assert (trace_dir / "gemini-ext-la-determinant.jsonl").read_text() == '{"kind":"tool_call"}\n'
+    assert unregistered == ["gemini"]
+    assert os.environ["SAGEMATH_MCP_CLI_TRACE_PATH"] == "prior-value"
 
 
 def test_trace_option_keeps_strict_failure_and_saves_case_log(tmp_path: Path, monkeypatch) -> None:
     from tests.cli_integration import run_extended
 
     registrations = []
+    monkeypatch.setenv("GEMINI_MODEL", "fixed-test-model")
     monkeypatch.setattr(run_extended, "register",
                         lambda *args, **kwargs: registrations.append(kwargs))
     monkeypatch.setattr(run_extended, "unregister", lambda cli: None)
@@ -145,7 +194,9 @@ def test_trace_option_keeps_strict_failure_and_saves_case_log(tmp_path: Path, mo
                                 "--trace-dir", str(trace_dir), "--json-out", str(result_path)])
     assert result == 1
     assert registrations == [{"full_frames": True}]
-    saved = json.loads(result_path.read_text())["results"][0]
+    report = json.loads(result_path.read_text())
+    assert report["gemini_model"] == "fixed-test-model"
+    saved = report["results"][0]
     assert saved["status"] == "TOOL_ERROR" and saved["recovered"]
     assert saved["error_categories"] == ["policy_refusal"]
     assert (trace_dir / "gemini-ext-la-determinant.jsonl").exists()

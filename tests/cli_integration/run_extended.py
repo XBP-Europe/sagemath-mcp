@@ -197,6 +197,23 @@ _MATHEMATICS_FAULT_MARKERS = (
 )
 
 
+# Error categories for the recovery diagnostics, which never change a verdict.
+# A refusal is matched on the server's own refusal wording.
+_POLICY_REFUSAL_MARKERS = (
+    "securityviolation",
+    "not a name this server offers",
+    "import statements are disabled",
+    "is not offered",
+    "rejected by the security policy",
+    "is not permitted in sage executions",
+)
+# A timeout is matched on "timed out", which is how both the server ("Sage
+# evaluation timed out after 30.00s") and MCP clients ("Request timed out")
+# report one. The bare word "timeout" also names the `timeout` argument, so a
+# validation error about it was reported as a timeout.
+_TIMEOUT_MARKERS = ("timed out", "timeouterror")
+
+
 def _is_client_fault(preview: str) -> bool:
     lowered = preview.lower()
     return any(marker in lowered for marker in _CLIENT_FAULT_MARKERS)
@@ -337,18 +354,17 @@ def recovery_diagnostics(
             if record.get("is_error"):
                 preview = " ".join(str(record.get(k) or "") for k in ("preview", "error"))
                 lowered = preview.lower()
-                if "timed out" in lowered or "timeout" in lowered:
+                # A refusal first: nothing ran, so it cannot have timed out, and
+                # the unknown-name refusal lists "a timeout" among the ways a
+                # session loses its variables.
+                if any(marker in lowered for marker in _POLICY_REFUSAL_MARKERS):
+                    category = "policy_refusal"
+                elif any(marker in lowered for marker in _TIMEOUT_MARKERS):
                     category = "timeout"
                 elif "cannot approximate to a precision" in lowered:
                     category = "precision"
                 elif "unsupported format string passed to sage.symbolic.expression" in lowered:
                     category = "symbolic_formatting"
-                elif any(s in lowered for s in (
-                    "securityviolation", "not a name this server offers",
-                    "import statements are disabled", "is not offered",
-                    "rejected by the security policy", "is not permitted in sage executions",
-                )):
-                    category = "policy_refusal"
                 elif _is_client_fault(preview):
                     category = "client_validation"
                 elif _is_mathematics_fault(preview):

@@ -14,12 +14,15 @@ plausible-looking answer was a PASS.
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 from pathlib import Path
 
 import pytest
 
+from sagemath_mcp.policy import SecurityViolation
+from sagemath_mcp.security import validate_module
 from tests.cli_integration.extended_cases import ToolForcingCase, cases_for_tier
 from tests.cli_integration.run_extended import evaluate, prepare_trace, read_wire_log
 
@@ -127,6 +130,45 @@ def test_recovery_categorizes_policy_errors_without_changing_verdict(
     result = evaluate(CASE, "42", log, 1.0, "gemini")
     assert result.status == "TOOL_ERROR"
     assert result.error_categories == ["policy_refusal"]
+
+
+def _refusal_of(code: str) -> str:
+    try:
+        validate_module(ast.parse(code), code=code)
+    except SecurityViolation as exc:
+        return f"SecurityViolation: {exc}"
+    raise AssertionError(f"{code} was not refused")  # pragma: no cover
+
+
+def test_an_unknown_name_refusal_is_not_categorized_as_a_timeout(tmp_path: Path) -> None:
+    """The refusal's advice lists "a timeout" among the ways variables are lost.
+
+    The 2026-11-23 Gemini comparison reported Gemini's `bessel_zeros` refusal
+    as a timeout. The message is the validator's own, built the same way as in
+    that run, so a change of wording is covered too. Its "timeout" falls inside
+    the proxy's 400-character preview.
+    """
+    refusal = _refusal_of("not_a_sage_name_at_all(5)")
+    preview = json.dumps({"content": [{"type": "text", "text": refusal}], "isError": True})[:400]
+    assert "timeout" in preview
+    log = _log(tmp_path, [
+        _call(1), _response(1, is_error=True, preview=preview),
+        _call(2), _response(2, preview='{"result": "42"}'),
+    ])
+    assert evaluate(CASE, "42", log, 1.0, "gemini").error_categories == ["policy_refusal"]
+
+
+@pytest.mark.parametrize(("preview", "category"), [
+    ("Sage evaluation timed out after 30.00s. The worker was restarted", "timeout"),
+    ("MCP error -32001: Request timed out", "timeout"),
+    ("1 validation error for call[evaluate_sage]\ntimeout\n  Input should be greater than 0",
+     "client_validation"),
+])
+def test_only_a_call_that_timed_out_is_categorized_as_a_timeout(
+    tmp_path: Path, preview: str, category: str,
+) -> None:
+    log = _log(tmp_path, [_call(1), _response(1, is_error=True, preview=preview)])
+    assert evaluate(CASE, "42", log, 1.0, "gemini").error_categories == [category]
 
 
 def test_recovery_response_match_excludes_unrelated_calls_and_truncated_previews(

@@ -716,6 +716,8 @@ async def test_the_blocked_interfaces_do_not_block_the_mathematics() -> None:
         # longer exports it at all, and the class number is asked for this way.)
         assert await value("QuadraticField(-23).class_number()") == "3"
         assert await value("(2^61 - 1).is_prime()") == "True"
+        root = await value("var('x'); find_root(bessel_J(0, x), 14, 15)")
+        assert float(root) == pytest.approx(14.9309177085, abs=1e-9)
         assert await value("EllipticCurve('389a').rank()") == "2"
         await value("K.<a> = NumberField(x^3 - 2)")
         assert await value("K.class_number()") == "1"

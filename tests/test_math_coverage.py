@@ -814,6 +814,7 @@ def test_a_withheld_name_names_the_spelling_that_works() -> None:
         ("singular('2+2')", "groebner_basis"),
         ("maxima('integrate(x^2, x)')", "integrate"),
         ("gp('factor(2^64+1)')", "factor"),
+        ("pari(0).besseljzero(5)", "find_root(bessel_J(0, x), a, b)"),
         ("magma('1+1')", "PolynomialRing"),
         # `attrcall('bruhat_le')` used to sit here with the lambda advice; a
         # screened literal is now simply accepted (see
@@ -829,6 +830,8 @@ def test_a_withheld_name_names_the_spelling_that_works() -> None:
             validate_module(ast.parse(code), code=code)
         except SecurityViolation as exc:
             assert wanted in str(exc), f"{code}: message does not mention {wanted!r}: {exc}"
+            if code.startswith("pari("):
+                assert ".pari()" not in str(exc)
         else:  # pragma: no cover - a refusal is the point
             raise AssertionError(f"{code} was not refused at all")
 

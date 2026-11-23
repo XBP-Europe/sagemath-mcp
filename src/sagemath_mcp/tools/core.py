@@ -50,8 +50,9 @@ CAS interfaces and file/display/persistence calls are refused.
 Write Sage code without import statements: Sage's mathematical functions are \
 already available. Use matrix(RDF, ...) and vector(RDF, ...) instead of importing \
 NumPy or SciPy. Do not call reset() inside code; use reset_sage_session to clear \
-the session. The bare pari interface is unavailable; use Sage's number-theory \
-functions or the .pari() method on a Sage object.
+the session. The bare pari interface is unavailable; use Sage's native functions. \
+For a Bessel zero, use find_root(bessel_J(0, x), a, b) with a bracket around \
+the desired zero.
 Before formatting a numerical symbolic expression, convert it with \
 N(value, digits=...) or RealField(precision)(value); float(value) gives double precision.
 

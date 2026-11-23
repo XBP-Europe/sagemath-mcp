@@ -16,7 +16,9 @@ removed from here once they ship or are decided against.
 
 - [ ] **Reduce Gemini's intermittent client errors** and compare guidance
       changes using the repeated-run method in [TESTING.md](TESTING.md). A
-      single run is not evidence that a change reliably reduces retries.
+      single run is not evidence that a change reliably reduces retries; the
+      [2026-11-23 comparison](docs/gemini_client_comparison_2026-11-23.md)
+      records the current small-sample baseline.
 
 - [ ] **Directory listings that need the maintainer's accounts** (see
       [DISTRIBUTION.md](DISTRIBUTION.md#directories-and-plugin-catalogs)):

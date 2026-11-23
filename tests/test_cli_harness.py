@@ -113,6 +113,22 @@ def test_recovery_requires_a_correct_answer_and_a_later_accepted_success(tmp_pat
     assert not evaluate(CASE, "41", log, 1.0, "gemini").recovered
 
 
+@pytest.mark.parametrize("message", [
+    "Rejected by the security policy: ';' is not permitted in an expression",
+    "Access through 'pari' is blocked ('pari' is not permitted in Sage executions)",
+])
+def test_recovery_categorizes_policy_errors_without_changing_verdict(
+    tmp_path: Path, message: str,
+) -> None:
+    log = _log(tmp_path, [
+        _call(1), _response(1, is_error=True, preview=message),
+        _call(2), _response(2, preview='{"result": "42"}'),
+    ])
+    result = evaluate(CASE, "42", log, 1.0, "gemini")
+    assert result.status == "TOOL_ERROR"
+    assert result.error_categories == ["policy_refusal"]
+
+
 def test_recovery_response_match_excludes_unrelated_calls_and_truncated_previews(
     tmp_path: Path,
 ) -> None:

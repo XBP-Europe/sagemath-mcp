@@ -346,6 +346,7 @@ def recovery_diagnostics(
                 elif any(s in lowered for s in (
                     "securityviolation", "not a name this server offers",
                     "import statements are disabled", "is not offered",
+                    "rejected by the security policy", "is not permitted in sage executions",
                 )):
                     category = "policy_refusal"
                 elif _is_client_fault(preview):

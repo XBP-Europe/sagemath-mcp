@@ -330,6 +330,23 @@ def test_conductor_accepts_successful_calculate_expression(tmp_path: Path) -> No
     assert evaluate(case, "5077", log, 1.0, "codex").status == "PASS"
 
 
+def test_every_case_that_accepts_evaluate_sage_accepts_calculate_expression() -> None:
+    """Both run caller-supplied Sage in the session's worker.
+
+    `calculate_expression` evaluates one Sage expression, so an answer it
+    returns was computed by the server just as surely as one from
+    evaluate_sage. Accepting it case by case left the rest failing a correct
+    call: on 2026-11-24 Codex asked it for the conductor of
+    `EllipticCurve([0,0,1,-7,6])`, got 5077 from Sage, answered 5077, and
+    ext-ec-conductor failed as NO_TOOL_CALL. The session cases are the
+    exception: they test state across evaluate_sage calls.
+    """
+    missing = [c.id for c in cases_for_tier("all")
+               if c.domain != "session" and "evaluate_sage" in c.accepted_tools
+               and "calculate_expression" not in c.accepted_tools]
+    assert missing == []
+
+
 def test_a_recovered_mathematics_error_still_passes(tmp_path: Path) -> None:
     """Sage refusing the mathematics is not the server failing.
 

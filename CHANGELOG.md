@@ -7,6 +7,23 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-24
+
+**The client-recovery release.** Two release-gate runs of the extended
+client cases traced every failure to the call that caused it. Two were
+defects in the test harness (see Fixed) and the rest were the models' own
+mistakes, except one, which was the server's: a 31-digit integer argument,
+retried as decimal digits wrapped in literal quotes, was refused by the
+exact-integer guard although nothing had been rounded. Such an argument is now
+accepted, and a tool returning a value where it used to refuse makes this a
+minor release. The server instructions, the `evaluate_sage` description and
+several refusals now steer clients away from common mistakes: importing NumPy,
+the bare `pari` interface, invented Bessel-zero names and formatting a symbolic
+value. Floors and locks move past advisories in mistune, soupsieve, tornado,
+authlib and fastmcp (see Security). passagemath moves to 10.8.14 and its image
+to Debian 13. Tool names, schemas, generated code and both allowlists are
+unchanged.
+
 ### Security
 
 - **mistune 3.3.4.** Raise the Sage image floor to fix CVE-2026-97698 and
@@ -48,16 +65,20 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- Exact integer arguments also accept decimal digits wrapped in one matching
-  pair of literal quotes, while retaining the guard against lossy JSON numbers.
-
+- **An exact integer given as quoted decimal digits is accepted.** In a
+  Claude Code run, `next_prime`'s argument for 10^30 first arrived as `1e+30`,
+  which the guard rightly refused as already rounded; the retry wrapped the
+  digits in a second pair of quotes, `"\"1000…000\""`, and was refused too. Every
+  argument parsed as an exact integer now strips one matching pair of `"` or
+  `'` before parsing. A JSON number above 2^53, a float and anything that is
+  not decimal digits are still refused.
 - **PARI guidance** now recommends native Sage functions and a bracketed Bessel
   root calculation instead of suggesting `.pari()` on arbitrary Sage objects.
 
 - **Evaluation guidance** now tells clients to use Sage's available numerical
   primitives without importing NumPy or SciPy, to reset through the session
   tool, and to avoid the blocked bare `pari` interface. A refusal of the
-  nonexistent `bessel_J_zero` and `bessel_zero` names now suggest Sage's
+  nonexistent `bessel_J_zero` and `bessel_zero` names now suggests Sage's
   `find_root` spelling. Formatting a symbolic expression with a numeric format
   specifier now includes a hint to evaluate it numerically first.
 - **pydantic 2.14.4** replaces 2.14.3 in the dependency lock and the generated
@@ -104,9 +125,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- Per-case client traces use explicit proxy paths, including with Codex. The
-  elliptic-curve conductor case accepts `calculate_expression` as evidence.
-
+- **Per-case client traces work with Codex.** The tracing proxy read its
+  output path from an environment variable, and Codex does not pass its
+  environment to MCP servers, so `--trace-dir` turned every Codex case into
+  `NO_TOOL_CALL`. The path is now a `--log` argument, registered per case.
+- **The client cases accept `calculate_expression` wherever they accept
+  `evaluate_sage`**, outside the session cases. Codex answered the
+  elliptic-curve conductor and twin-prime cases correctly through it, and the
+  strict verdict failed it, or would have, for the tool it chose. A test now
+  keeps the two lists in step.
+- **The README's DOI badge rendered as a broken image.** zenodo.org's badge
+  endpoint refuses GitHub's image proxy, so the badge is now a static
+  shields.io one, still linking to the concept DOI, and
+  `scripts/set_zenodo_doi.py` writes and converts to that form.
 - **The denylist and star-export generators no longer warn about a module no
   supported Sage has.** Every run printed "could not import for denylist
   derivation: sage.misc.attached_files". That warning exists to flag a

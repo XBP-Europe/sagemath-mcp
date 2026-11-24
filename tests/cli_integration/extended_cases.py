@@ -121,7 +121,7 @@ EXTENDED_CASES: list[ToolForcingCase] = [
             "what is its conductor?" + _SUFFIX
         ),
         expected_answers=["5077"],
-        accepted_tools=["elliptic_curve_operation", "evaluate_sage"],
+        accepted_tools=["elliptic_curve_operation", "evaluate_sage", "calculate_expression"],
     ),
     # ---- coding theory -----------------------------------------------------
     ToolForcingCase(

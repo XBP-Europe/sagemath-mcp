@@ -17,6 +17,7 @@ from __future__ import annotations
 import ast
 import json
 import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -229,7 +230,6 @@ def test_interrupted_case_keeps_its_live_trace(tmp_path: Path, monkeypatch) -> N
     from tests.cli_integration import run_extended
 
     monkeypatch.setattr(run_extended, "register", lambda *args, **kwargs: None)
-    monkeypatch.setenv("SAGEMATH_MCP_CLI_TRACE_PATH", "prior-value")
     unregistered = []
     monkeypatch.setattr(run_extended, "unregister", lambda cli: unregistered.append(cli))
 
@@ -244,7 +244,6 @@ def test_interrupted_case_keeps_its_live_trace(tmp_path: Path, monkeypatch) -> N
                            "--trace-dir", str(trace_dir)])
     assert (trace_dir / "gemini-ext-la-determinant.jsonl").read_text() == '{"kind":"tool_call"}\n'
     assert unregistered == ["gemini"]
-    assert os.environ["SAGEMATH_MCP_CLI_TRACE_PATH"] == "prior-value"
 
 
 def test_trace_option_keeps_strict_failure_and_saves_case_log(tmp_path: Path, monkeypatch) -> None:
@@ -279,6 +278,56 @@ def test_trace_option_keeps_strict_failure_and_saves_case_log(tmp_path: Path, mo
     assert saved["status"] == "TOOL_ERROR" and saved["recovered"]
     assert saved["error_categories"] == ["policy_refusal"]
     assert (trace_dir / "gemini-ext-la-determinant.jsonl").exists()
+
+
+def test_codex_trace_registers_a_distinct_explicit_path_for_each_case(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from tests.cli_integration import run_extended
+
+    registered = []
+    def register(cli, path, *args, **kw):
+        registered.append((cli, path, kw))
+
+    monkeypatch.setattr(run_extended, "register", register)
+    monkeypatch.setattr(run_extended, "unregister", lambda cli: None)
+
+    def fake_case(cli, case, log_path, arm):
+        assert registered[-1][1] == log_path
+        log_path.write_text("{}\n")
+        return run_extended.CaseResult(cli, case.id, "PASS", "", [], 0)
+
+    monkeypatch.setattr(run_extended, "run_case", fake_case)
+    assert run_extended.main(["--cli", "codex", "--case", "ext-la-determinant",
+                              "--case", "ext-ec-conductor", "--trace-dir", str(tmp_path)]) == 0
+    assert len(registered) == 2
+    assert len({path for _, path, _ in registered}) == 2
+    assert all(cli == "codex" and kw["full_frames"] for cli, _, kw in registered)
+    assert all(path.read_text() == "{}\n" for _, path, _ in registered)
+
+
+def test_trace_registration_failure_after_a_pass_is_a_failure(tmp_path: Path, monkeypatch) -> None:
+    from tests.cli_integration import run_extended
+
+    calls = []
+
+    def register(*args, **kwargs):
+        calls.append(1)
+        if len(calls) == 2:
+            raise subprocess.CalledProcessError(1, "codex", stderr="registration failed")
+
+    monkeypatch.setattr(run_extended, "register", register)
+    monkeypatch.setattr(run_extended, "unregister", lambda cli: None)
+    monkeypatch.setattr(run_extended, "run_case", lambda cli, case, log, arm:
+                        run_extended.CaseResult(cli, case.id, "PASS", "", [], 0))
+    assert run_extended.main(["--cli", "codex", "--case", "ext-la-determinant",
+                              "--case", "ext-ec-conductor", "--trace-dir", str(tmp_path)]) == 1
+
+
+def test_conductor_accepts_successful_calculate_expression(tmp_path: Path) -> None:
+    case = next(c for c in cases_for_tier("standard") if c.id == "ext-ec-conductor")
+    log = _log(tmp_path, [_call(1, tool="calculate_expression"), _response(1, preview="5077")])
+    assert evaluate(case, "5077", log, 1.0, "codex").status == "PASS"
 
 
 def test_a_recovered_mathematics_error_still_passes(tmp_path: Path) -> None:

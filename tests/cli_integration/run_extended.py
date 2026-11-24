@@ -620,11 +620,9 @@ def main(argv: list[str] | None = None) -> int:
             if arm == "none":
                 # Make sure no earlier run left the server registered.
                 unregister(cli)
-            else:
+            elif args.trace_dir is None:
                 try:
-                    if args.trace_dir is not None:
-                        register(cli, log_path, allowed, full_frames=True)
-                    elif allowed is None:
+                    if allowed is None:
                         register(cli, log_path)
                     else:
                         register(cli, log_path, allowed)
@@ -635,16 +633,17 @@ def main(argv: list[str] | None = None) -> int:
                 for case in cases:
                     if args.trace_dir is not None:
                         case_log = prepare_trace(args.trace_dir, cli, case.id).resolve()
-                        trace_env = "SAGEMATH_MCP_CLI_TRACE_PATH"
-                        previous = os.environ.get(trace_env)
-                        os.environ[trace_env] = str(case_log)
-                        try:
-                            result = run_case(cli, case, case_log, arm)
-                        finally:
-                            if previous is None:
-                                os.environ.pop(trace_env, None)
-                            else:
-                                os.environ[trace_env] = previous
+                        if arm != "none":
+                            try:
+                                register(cli, case_log, allowed, full_frames=True)
+                            except subprocess.CalledProcessError as exc:
+                                detail = (f"could not register with {cli}: "
+                                          f"{exc.stderr.strip()[:120]}")
+                                print(f"  {detail}")
+                                results.append(CaseResult(cli, case.id, "ERROR", detail, [], 0,
+                                                          arm=arm, domain=case.domain))
+                                break
+                        result = run_case(cli, case, case_log, arm)
                     else:
                         result = run_case(cli, case, log_path, arm)
                     results.append(result)

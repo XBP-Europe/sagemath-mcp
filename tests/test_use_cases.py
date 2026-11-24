@@ -62,6 +62,11 @@ async def test_use_cases_cover_manual_examples(monkeypatch):
         )
         assert series_sum.result == "385"
 
+        conductor = await server.calculate_expression(
+            "EllipticCurve([0,0,1,-7,6]).conductor()", ctx=ctx
+        )
+        assert conductor["string"] == "5077"
+
         # Statistics helper tool (pure Python)
         stats = await server.statistics_summary([1, 2, 3, 4, 5], ctx=ctx)
         assert stats["mean"] == pytest.approx(3.0)

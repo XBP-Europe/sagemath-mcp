@@ -96,6 +96,28 @@ def test_the_issue_is_reachable_from_the_citation_file() -> None:
     assert "zenodo" in citation.lower()
 
 
+def test_the_readme_doi_badge_is_not_hotlinked_from_zenodo() -> None:
+    """zenodo.org/badge refuses GitHub's image proxy: 403 directly, 504
+    through camo. The README showed a broken image in the badge row until the
+    badge moved to a static shields.io one; the script writes that form too."""
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "zenodo.org/badge" not in readme
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "set_zenodo_doi", ROOT / "scripts" / "set_zenodo_doi.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    old = ("[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7.svg)]"
+           "(https://doi.org/10.5281/zenodo.7)")
+    updated = module._readme("10.5281/zenodo.7", f"[![OpenSSF Scorecard](x)](y)\n{old}\n")
+    assert "zenodo.org/badge" not in updated
+    assert updated.count("[![DOI]") == 1
+    assert "img.shields.io/badge/DOI-10.5281%2Fzenodo.7-blue" in updated
+
+
 def test_recording_a_doi_twice_changes_nothing() -> None:
     """Re-running the script -- to correct a DOI, or just by habit -- must be a
     no-op the second time. The CONTRIBUTING.md updater's replacement pattern

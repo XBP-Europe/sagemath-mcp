@@ -121,7 +121,7 @@ EXTENDED_CASES: list[ToolForcingCase] = [
             "what is its conductor?" + _SUFFIX
         ),
         expected_answers=["5077"],
-        accepted_tools=["elliptic_curve_operation", "evaluate_sage"],
+        accepted_tools=["elliptic_curve_operation", "evaluate_sage", "calculate_expression"],
     ),
     # ---- coding theory -----------------------------------------------------
     ToolForcingCase(
@@ -132,7 +132,7 @@ EXTENDED_CASES: list[ToolForcingCase] = [
             "and dimension as 'length,dimension'." + _SUFFIX
         ),
         expected_answers=["31,26", "31, 26"],
-        accepted_tools=["coding_theory_operation", "evaluate_sage"],
+        accepted_tools=["coding_theory_operation", "evaluate_sage", "calculate_expression"],
     ),
     # ---- stateful: impossible to fake ---------------------------------------
     # ---- open problems ------------------------------------------------------
@@ -148,7 +148,8 @@ EXTENDED_CASES: list[ToolForcingCase] = [
             "Twin primes are an open problem, so count them exactly rather than estimating."
         ) + _SUFFIX,
         expected_answers=["8169"],
-        accepted_tools=["evaluate_sage", "evaluate_sage_streaming", "number_theory_operation"],
+        accepted_tools=["evaluate_sage", "evaluate_sage_streaming", "number_theory_operation",
+                        "calculate_expression"],
     ),
     ToolForcingCase(
         id="ext-open-collatz-record",
@@ -158,7 +159,7 @@ EXTENDED_CASES: list[ToolForcingCase] = [
             "steps to reach 1, and how many steps does it take? Answer as 'value, steps'."
         ) + _SUFFIX,
         expected_answers=["77031"],
-        accepted_tools=["evaluate_sage", "evaluate_sage_streaming"],
+        accepted_tools=["evaluate_sage", "evaluate_sage_streaming", "calculate_expression"],
         timeout_seconds=420,
     ),
     ToolForcingCase(
@@ -169,7 +170,8 @@ EXTENDED_CASES: list[ToolForcingCase] = [
             "which prime does that gap start at? Answer as 'gap, prime'."
         ) + _SUFFIX,
         expected_answers=["492113"],
-        accepted_tools=["evaluate_sage", "evaluate_sage_streaming", "number_theory_operation"],
+        accepted_tools=["evaluate_sage", "evaluate_sage_streaming", "number_theory_operation",
+                        "calculate_expression"],
     ),
     ToolForcingCase(
         id="ext-open-amicable",
@@ -179,7 +181,7 @@ EXTENDED_CASES: list[ToolForcingCase] = [
             "sum of the other's proper divisors."
         ) + _SUFFIX,
         expected_answers=["6232"],
-        accepted_tools=["evaluate_sage", "evaluate_sage_streaming"],
+        accepted_tools=["evaluate_sage", "evaluate_sage_streaming", "calculate_expression"],
     ),
     ToolForcingCase(
         id="ext-open-bsd-rank",
@@ -189,7 +191,7 @@ EXTENDED_CASES: list[ToolForcingCase] = [
             "and its conductor? Answer as 'rank, conductor'."
         ) + _SUFFIX,
         expected_answers=["5077"],
-        accepted_tools=["elliptic_curve_operation", "evaluate_sage"],
+        accepted_tools=["elliptic_curve_operation", "evaluate_sage", "calculate_expression"],
     ),
     # ---- numerical analysis -------------------------------------------------
     # The questions where a model's *memory* is the failure mode rather than its
@@ -236,7 +238,8 @@ EXTENDED_CASES: list[ToolForcingCase] = [
             "all-ones vector, and report the largest absolute value among the entries of x."
         ) + _SUFFIX,
         expected_answers=["249420600"],
-        accepted_tools=["evaluate_sage", "matrix_operation", "evaluate_sage_streaming"],
+        accepted_tools=["evaluate_sage", "matrix_operation", "evaluate_sage_streaming",
+                        "calculate_expression"],
     ),
     ToolForcingCase(
         id="ext-num-planck-integral",
@@ -274,7 +277,8 @@ EXTENDED_CASES: list[ToolForcingCase] = [
             "figures. I want the discrete eigenvalue, not the exact 0.5."
         ) + _SUFFIX,
         expected_answers=["0.49992186"],
-        accepted_tools=["evaluate_sage", "matrix_operation", "evaluate_sage_streaming"],
+        accepted_tools=["evaluate_sage", "matrix_operation", "evaluate_sage_streaming",
+                        "calculate_expression"],
         timeout_seconds=420,
     ),
     ToolForcingCase(
@@ -288,7 +292,8 @@ EXTENDED_CASES: list[ToolForcingCase] = [
             "figures. Perturbation theory diverges here, so do not use it."
         ) + _SUFFIX,
         expected_answers=["0.8037706"],
-        accepted_tools=["evaluate_sage", "matrix_operation", "evaluate_sage_streaming"],
+        accepted_tools=["evaluate_sage", "matrix_operation", "evaluate_sage_streaming",
+                        "calculate_expression"],
         timeout_seconds=420,
         response_fields={"evaluate_sage": ("result", "stdout"),
                          "evaluate_sage_streaming": ("result", "stdout"),
@@ -413,7 +418,7 @@ HARD_CASES: list[ToolForcingCase] = [
         ),
         expected_answers=["981640996"],
         verify_code="GF(next_prime(10^9))(123456789).log(GF(next_prime(10^9)).multiplicative_generator())",
-        accepted_tools=["evaluate_sage", "number_theory_operation"],
+        accepted_tools=["evaluate_sage", "number_theory_operation", "calculate_expression"],
     ),
     ToolForcingCase(
         id="hard-nt-sigma",
@@ -472,7 +477,7 @@ HARD_CASES: list[ToolForcingCase] = [
         ),
         expected_answers=["5927270622255626726430"],
         verify_code="matrix(ZZ, 10, 10, lambda i, j: (3*i^2 + 5*j^2 + 7*i*j + 13) % 211).det()",
-        accepted_tools=["matrix_operation", "evaluate_sage"],
+        accepted_tools=["matrix_operation", "evaluate_sage", "calculate_expression"],
     ),
     ToolForcingCase(
         id="hard-la-hilbert",
@@ -486,7 +491,7 @@ HARD_CASES: list[ToolForcingCase] = [
         ),
         expected_answers=["909388800000000"],
         verify_code="matrix(QQ, 9, 9, lambda i, j: 1/(i+j+1)).det().denominator() % 10^15",
-        accepted_tools=["matrix_operation", "evaluate_sage"],
+        accepted_tools=["matrix_operation", "evaluate_sage", "calculate_expression"],
     ),
     # ---- elliptic curves ---------------------------------------------------
     ToolForcingCase(
@@ -500,7 +505,7 @@ HARD_CASES: list[ToolForcingCase] = [
         ),
         expected_answers=["1000000107054"],
         verify_code="EllipticCurve(GF(next_prime(10^12)), [3, 17]).cardinality()",
-        accepted_tools=["elliptic_curve_operation", "evaluate_sage"],
+        accepted_tools=["elliptic_curve_operation", "evaluate_sage", "calculate_expression"],
     ),
     ToolForcingCase(
         id="hard-ec-conductor",
@@ -512,7 +517,7 @@ HARD_CASES: list[ToolForcingCase] = [
         ),
         expected_answers=["35826"],
         verify_code="EllipticCurve([1, -3, 5, -7, 11]).conductor()",
-        accepted_tools=["elliptic_curve_operation", "evaluate_sage"],
+        accepted_tools=["elliptic_curve_operation", "evaluate_sage", "calculate_expression"],
     ),
     # ---- group theory ------------------------------------------------------
     ToolForcingCase(
@@ -525,7 +530,7 @@ HARD_CASES: list[ToolForcingCase] = [
         ),
         expected_answers=["19958400"],
         verify_code="PermutationGroup([[(1,2,3,4,5,6,7,8,9,10,11)],[(1,3,9,5,4)]]).order()",
-        accepted_tools=["group_operation", "evaluate_sage"],
+        accepted_tools=["group_operation", "evaluate_sage", "calculate_expression"],
     ),
     # ---- number fields and numerics ---------------------------------------
     ToolForcingCase(
@@ -538,7 +543,7 @@ HARD_CASES: list[ToolForcingCase] = [
         ),
         expected_answers=["205"],
         verify_code="QuadraticField(-99991).class_number()",
-        accepted_tools=["evaluate_sage", "number_theory_operation"],
+        accepted_tools=["evaluate_sage", "number_theory_operation", "calculate_expression"],
     ),
     ToolForcingCase(
         id="hard-num-convergent",

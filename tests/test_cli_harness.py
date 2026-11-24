@@ -229,7 +229,6 @@ def test_interrupted_case_keeps_its_live_trace(tmp_path: Path, monkeypatch) -> N
     from tests.cli_integration import run_extended
 
     monkeypatch.setattr(run_extended, "register", lambda *args, **kwargs: None)
-    monkeypatch.setenv("SAGEMATH_MCP_CLI_TRACE_PATH", "prior-value")
     unregistered = []
     monkeypatch.setattr(run_extended, "unregister", lambda cli: unregistered.append(cli))
 
@@ -244,7 +243,42 @@ def test_interrupted_case_keeps_its_live_trace(tmp_path: Path, monkeypatch) -> N
                            "--trace-dir", str(trace_dir)])
     assert (trace_dir / "gemini-ext-la-determinant.jsonl").read_text() == '{"kind":"tool_call"}\n'
     assert unregistered == ["gemini"]
-    assert os.environ["SAGEMATH_MCP_CLI_TRACE_PATH"] == "prior-value"
+
+
+def test_each_traced_case_registers_the_proxy_with_its_own_trace_path(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    """The proxy must learn the trace path from its command line, per case.
+
+    It used to read it from an environment variable, which Codex does not pass
+    to the MCP servers it starts: every traced Codex case read an empty trace
+    and failed as NO_TOOL_CALL, 0/23, while the same run without traces passed
+    22/23.
+    """
+    from tests.cli_integration import run_extended
+
+    registrations = []
+    monkeypatch.setattr(run_extended, "register",
+                        lambda cli, log, *args, **kwargs: registrations.append((cli, log, kwargs)))
+    monkeypatch.setattr(run_extended, "unregister", lambda cli: None)
+    used = []
+
+    def fake_case(cli, case, log_path, arm):
+        used.append(log_path)
+        log_path.write_text(json.dumps(_call(1, tool="evaluate_sage")) + "\n"
+                            + json.dumps(_response(1)) + "\n", encoding="utf-8")
+        return evaluate(case, case.expected_answers[0], log_path, 1.0, cli, arm)
+
+    monkeypatch.setattr(run_extended, "run_case", fake_case)
+    trace_dir = tmp_path / "traces"
+    run_extended.main(["--cli", "codex", "--case", "ext-la-determinant",
+                       "--case", "ext-session-state", "--trace-dir", str(trace_dir)])
+    expected = [(trace_dir / f"codex-{case}.jsonl").resolve()
+                for case in ("ext-la-determinant", "ext-session-state")]
+    assert [(cli, log) for cli, log, _ in registrations] == [("codex", p) for p in expected]
+    assert all(kwargs == {"full_frames": True} for _, _, kwargs in registrations)
+    assert used == expected
+    assert "SAGEMATH_MCP_CLI_TRACE_PATH" not in os.environ
 
 
 def test_trace_option_keeps_strict_failure_and_saves_case_log(tmp_path: Path, monkeypatch) -> None:
@@ -360,6 +394,32 @@ def test_calling_no_accepted_tool_fails(tmp_path: Path) -> None:
     ])
     result = evaluate(CASE, "the answer is 42", log, 1.0, "codex")
     assert result.status == "NO_TOOL_CALL", result.detail
+
+
+def test_every_case_that_accepts_evaluate_sage_accepts_calculate_expression() -> None:
+    """Both run caller-supplied Sage in the session's worker.
+
+    `calculate_expression` evaluates one Sage expression, so an answer it
+    returns was computed by the server just as surely as one from
+    evaluate_sage. Leaving it out made a correct call fail: on 2026-11-24 Codex
+    asked it for `EllipticCurve([0,0,1,-7,6]).conductor()`, got 5077, answered
+    5077, and ext-ec-conductor failed as NO_TOOL_CALL. The session cases are
+    the exception: they test state across evaluate_sage calls.
+    """
+    missing = [c.id for c in cases_for_tier("all")
+               if c.domain != "session" and "evaluate_sage" in c.accepted_tools
+               and "calculate_expression" not in c.accepted_tools]
+    assert missing == []
+
+
+def test_conductor_case_accepts_the_calculate_expression_call_codex_made(tmp_path: Path) -> None:
+    case = next(c for c in cases_for_tier("standard") if c.id == "ext-ec-conductor")
+    log = _log(tmp_path, [
+        {**_call(1, tool="calculate_expression"),
+         "arguments": '{"expression": "EllipticCurve([0,0,1,-7,6]).conductor()"}'},
+        _response(1, preview='{"string": "5077", "numeric": 5077.0}'),
+    ])
+    assert evaluate(case, "5077", log, 1.0, "codex").status == "PASS"
 
 
 def test_determinant_case_accepts_a_successful_calculate_expression_call(tmp_path: Path) -> None:

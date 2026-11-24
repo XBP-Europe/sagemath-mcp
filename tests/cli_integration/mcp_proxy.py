@@ -28,7 +28,6 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
-import os
 import subprocess
 import sys
 import threading
@@ -214,8 +213,11 @@ def main() -> int:
         print("mcp_proxy: no server command given", file=sys.stderr)
         return 2
 
-    trace_path = os.environ.get("SAGEMATH_MCP_CLI_TRACE_PATH") if args.full_frames else None
-    log_path = Path(trace_path or args.log)
+    # The path comes on the command line, never from the environment: Codex
+    # starts MCP servers with a scrubbed environment, so a trace path passed as
+    # a variable never reached the proxy, and every Codex case read an empty
+    # trace and failed as NO_TOOL_CALL.
+    log_path = Path(args.log)
     log_path.parent.mkdir(parents=True, exist_ok=True)
     allowed = (
         {name.strip() for name in args.allow_tools.split(",") if name.strip()}

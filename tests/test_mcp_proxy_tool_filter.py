@@ -58,10 +58,16 @@ def test_full_trace_includes_the_proxy_refusal_for_a_hidden_tool(tmp_path) -> No
     assert record["blocked_reply"] == json.loads(reply.getvalue())
 
 
-def test_proxy_writes_full_frames_to_per_case_environment_path(tmp_path) -> None:
+def test_proxy_writes_full_frames_to_the_path_on_its_command_line(tmp_path) -> None:
+    """Codex starts MCP servers with a scrubbed environment.
+
+    The trace path used to come from SAGEMATH_MCP_CLI_TRACE_PATH, which never
+    reached a proxy that Codex launched, so every Codex case read an empty trace
+    and failed as NO_TOOL_CALL. The proxy runs here with only PATH, the way
+    Codex launches it, and still writes to the path it was given.
+    """
     trace = tmp_path / "case.jsonl"
     trace.touch(mode=0o600)
-    fallback = tmp_path / "fallback.jsonl"
     call = {"jsonrpc": "2.0", "id": 3, "method": "tools/call",
             "params": {"name": "evaluate_sage", "arguments": {"code": "1+1"}}}
     server = (
@@ -70,17 +76,16 @@ def test_proxy_writes_full_frames_to_per_case_environment_path(tmp_path) -> None
         " m=json.loads(line); print(json.dumps({'jsonrpc':'2.0','id':m['id'],"
         "'result':{'content':[{'type':'text','text':'2'}]}}),flush=True)\n"
     )
-    env = {**os.environ, "SAGEMATH_MCP_CLI_TRACE_PATH": str(trace)}
     proc = subprocess.run(
-        [sys.executable, mcp_proxy.__file__, "--log", str(fallback), "--full-frames",
+        [sys.executable, mcp_proxy.__file__, "--log", str(trace), "--full-frames",
          "--", sys.executable, "-u", "-c", server],
-        input=_frame(call), capture_output=True, check=True, timeout=10, env=env,
+        input=_frame(call), capture_output=True, check=True, timeout=10,
+        env={"PATH": os.environ.get("PATH", "")},
     )
     assert json.loads(proc.stdout)["result"]["content"][0]["text"] == "2"
     records = [json.loads(line) for line in trace.read_text().splitlines()]
     assert records[0]["frame"] == call
     assert records[1]["frame"]["result"]["content"][0]["text"] == "2"
-    assert not fallback.exists()
 
 
 @pytest.mark.skipif(os.name == "nt", reason="POSIX process-group termination")
@@ -95,12 +100,11 @@ def test_killing_live_proxy_preserves_partial_full_trace(tmp_path) -> None:
         " m=json.loads(line); print(json.dumps({'jsonrpc':'2.0','id':m['id'],"
         "'result':{'content':[{'type':'text','text':'2'}]}}),flush=True)\n"
     )
-    env = {**os.environ, "SAGEMATH_MCP_CLI_TRACE_PATH": str(trace)}
     proc = subprocess.Popen(
-        [sys.executable, mcp_proxy.__file__, "--log", str(tmp_path / "fallback"),
+        [sys.executable, mcp_proxy.__file__, "--log", str(trace),
          "--full-frames", "--", sys.executable, "-u", "-c", server],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        start_new_session=True, env=env,
+        start_new_session=True,
     )
     try:
         assert proc.stdin and proc.stdout

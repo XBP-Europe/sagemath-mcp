@@ -58,7 +58,7 @@ def test_full_trace_includes_the_proxy_refusal_for_a_hidden_tool(tmp_path) -> No
     assert record["blocked_reply"] == json.loads(reply.getvalue())
 
 
-def test_proxy_writes_full_frames_to_per_case_environment_path(tmp_path) -> None:
+def test_proxy_writes_full_frames_to_explicit_case_path(tmp_path) -> None:
     trace = tmp_path / "case.jsonl"
     trace.touch(mode=0o600)
     fallback = tmp_path / "fallback.jsonl"
@@ -70,9 +70,9 @@ def test_proxy_writes_full_frames_to_per_case_environment_path(tmp_path) -> None
         " m=json.loads(line); print(json.dumps({'jsonrpc':'2.0','id':m['id'],"
         "'result':{'content':[{'type':'text','text':'2'}]}}),flush=True)\n"
     )
-    env = {**os.environ, "SAGEMATH_MCP_CLI_TRACE_PATH": str(trace)}
+    env = {**os.environ, "SAGEMATH_MCP_CLI_TRACE_PATH": str(fallback)}
     proc = subprocess.run(
-        [sys.executable, mcp_proxy.__file__, "--log", str(fallback), "--full-frames",
+        [sys.executable, mcp_proxy.__file__, "--log", str(trace), "--full-frames",
          "--", sys.executable, "-u", "-c", server],
         input=_frame(call), capture_output=True, check=True, timeout=10, env=env,
     )
@@ -95,12 +95,11 @@ def test_killing_live_proxy_preserves_partial_full_trace(tmp_path) -> None:
         " m=json.loads(line); print(json.dumps({'jsonrpc':'2.0','id':m['id'],"
         "'result':{'content':[{'type':'text','text':'2'}]}}),flush=True)\n"
     )
-    env = {**os.environ, "SAGEMATH_MCP_CLI_TRACE_PATH": str(trace)}
     proc = subprocess.Popen(
-        [sys.executable, mcp_proxy.__file__, "--log", str(tmp_path / "fallback"),
+        [sys.executable, mcp_proxy.__file__, "--log", str(trace),
          "--full-frames", "--", sys.executable, "-u", "-c", server],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        start_new_session=True, env=env,
+        start_new_session=True,
     )
     try:
         assert proc.stdin and proc.stdout

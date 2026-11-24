@@ -101,6 +101,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Per-case client traces use explicit proxy paths, including with Codex. The
+  elliptic-curve conductor case accepts `calculate_expression` as evidence.
+
 - **The denylist and star-export generators no longer warn about a module no
   supported Sage has.** Every run printed "could not import for denylist
   derivation: sage.misc.attached_files". That warning exists to flag a

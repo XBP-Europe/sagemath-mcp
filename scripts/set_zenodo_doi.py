@@ -59,12 +59,16 @@ def _citation(doi: str, text: str) -> str:
 
 
 def _readme(doi: str, text: str) -> str:
+    # A static shields.io badge, not Zenodo's own: zenodo.org/badge refuses
+    # GitHub's image proxy (403 directly, 504 through camo), so the README
+    # showed a broken image where the DOI should be.
     badge = (
-        f"[![DOI](https://zenodo.org/badge/DOI/{doi}.svg)]"
+        f"[![DOI](https://img.shields.io/badge/DOI-{doi.replace('/', '%2F')}-blue)]"
         f"(https://doi.org/{doi})"
     )
-    if "zenodo.org/badge/DOI/" in text:
-        return re.sub(r"\[!\[DOI\]\([^)]*\)\]\([^)]*\)", badge, text)
+    existing = re.compile(r"\[!\[DOI\]\([^)]*\)\]\([^)]*\)")
+    if existing.search(text):
+        return existing.sub(badge, text)
     # Beside the other supply-chain badges, after the Scorecard one.
     marker = "[![OpenSSF Scorecard]"
     line_end = text.index("\n", text.index(marker))

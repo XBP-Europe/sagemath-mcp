@@ -132,12 +132,38 @@ def test_exact_int_accepts_the_documented_spellings() -> None:
 
 
 @pytest.mark.parametrize(
+    "value,expected",
+    [
+        ('"1000000000000000000000000000000"', 10**30),
+        ("'42'", 42),
+        (' "-7" ', -7),
+        ('" 1_000 "', 1000),
+    ],
+)
+def test_exact_int_accepts_a_decimal_string_inside_one_pair_of_quotes(value, expected) -> None:
+    """What a model sends to force a string after a number was refused.
+
+    In the 2026-11-24 release run, Claude's first call for next_prime(10^30)
+    arrived as the JSON number 1e+30, which the schema refuses. Its retry
+    wrapped the digits in literal quotes, and this refused that too, although
+    the digits were exact and the intent unambiguous.
+    """
+    assert exact_int(value, "a") == expected
+
+
+@pytest.mark.parametrize(
     "value,message",
     [
         (True, "must be an integer, got a boolean"),   # bool is an int subclass
         ("twelve", "not a decimal integer"),
         ("1e5", "not a decimal integer"),
         (7.5, "whole number"),
+        # One pair of matching quotes is unwrapped, and only one.
+        ('""7""', "not a decimal integer"),
+        ('"7', "not a decimal integer"),
+        ("\"7'", "not a decimal integer"),
+        ('""', "not a decimal integer"),
+        ('"1e5"', "not a decimal integer"),
     ],
 )
 def test_exact_int_rejects_what_it_cannot_represent(value, message: str) -> None:

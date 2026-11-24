@@ -31,7 +31,13 @@ def exact_int(value: int | str | float, name: str) -> int:
     if isinstance(value, bool):  # bool is an int subclass; never meant here
         raise ToolError(f"'{name}' must be an integer, got a boolean")
     if isinstance(value, str):
-        text = value.strip().replace("_", "")
+        text = value.strip()
+        # A client that turns a numeric string back into a number leaves the
+        # model one way to force a string: quoting the digits. Unwrap one
+        # matching pair; the digits inside are still parsed exactly.
+        if len(text) >= 2 and text[0] == text[-1] and text[0] in "\"'":
+            text = text[1:-1].strip()
+        text = text.replace("_", "")
         try:
             return int(text, 10)
         except ValueError:

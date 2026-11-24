@@ -101,6 +101,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **An integer argument written as digits inside one pair of quotes is
+  accepted.** In the 2026-11-24 client run, Claude's first
+  `number_theory_operation` call for 10^30 arrived as the JSON number
+  `1e+30`, which the schema refuses. Its retry quoted the digits to force a
+  string, and that was refused as "not a decimal integer" although the
+  digits were exact and the intent unambiguous. One matching pair of `"` or `'` is now unwrapped and the digits
+  inside are parsed exactly, as before. Anything else is still refused,
+  including nested or unbalanced quotes and `"1e5"`.
+
 - **The denylist and star-export generators no longer warn about a module no
   supported Sage has.** Every run printed "could not import for denylist
   derivation: sage.misc.attached_files". That warning exists to flag a

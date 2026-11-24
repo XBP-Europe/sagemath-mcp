@@ -883,6 +883,8 @@ Both directions therefore speak decimal strings past that boundary:
   boundary is JavaScript's `Number.MAX_SAFE_INTEGER` (2^53 - 1), not 2^53:
   2^53 + 1 rounds to exactly 2^53, so those two arrive indistinguishable and
   neither can be trusted.
+- Integer arguments also accept a decimal string wrapped in one matching pair
+  of literal quotes, for clients that include the quotes in the argument value.
 - **Out:** integer results beyond that boundary come back as decimal strings.
   Smaller integers keep their numeric type, so ordinary results are unchanged.
 - **Matrices:** entries may be integers, decimal strings or floats. Integer

@@ -48,6 +48,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Exact integer arguments also accept decimal digits wrapped in one matching
+  pair of literal quotes, while retaining the guard against lossy JSON numbers.
+
 - **PARI guidance** now recommends native Sage functions and a bracketed Bessel
   root calculation instead of suggesting `.pari()` on arbitrary Sage objects.
 

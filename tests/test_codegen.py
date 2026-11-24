@@ -129,6 +129,8 @@ def test_exact_int_accepts_the_documented_spellings() -> None:
     assert exact_int("7", "a") == 7
     assert exact_int(7.0, "a") == 7
     assert exact_int("-12345678901234567890123", "a") == -12345678901234567890123
+    assert exact_int('"1000000000000000000000000000000"', "a") == 10**30
+    assert exact_int("'-42'", "a") == -42
 
 
 @pytest.mark.parametrize(
@@ -137,6 +139,10 @@ def test_exact_int_accepts_the_documented_spellings() -> None:
         (True, "must be an integer, got a boolean"),   # bool is an int subclass
         ("twelve", "not a decimal integer"),
         ("1e5", "not a decimal integer"),
+        ('"1e5"', "not a decimal integer"),
+        ('"123\'', "not a decimal integer"),
+        ('""123""', "not a decimal integer"),
+        ('"1; 2"', "not a decimal integer"),
         (7.5, "whole number"),
     ],
 )

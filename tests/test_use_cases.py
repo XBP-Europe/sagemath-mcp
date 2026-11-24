@@ -253,3 +253,17 @@ async def test_use_cases_cover_the_peer_field_workloads(monkeypatch):
     finally:
         await manager.shutdown()
         runtime.SESSION_MANAGER = original_manager
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_quoted_large_integer_reaches_sage_exactly(monkeypatch):
+    manager = SageSessionManager(SageSettings())
+    monkeypatch.setattr(runtime, "SESSION_MANAGER", manager)
+    try:
+        prime = await server.number_theory_operation(
+            "next_prime", '"1000000000000000000000000000000"', ctx=FakeContext()
+        )
+        assert prime["result"] == "1000000000000000000000000000057"
+    finally:
+        await manager.shutdown()

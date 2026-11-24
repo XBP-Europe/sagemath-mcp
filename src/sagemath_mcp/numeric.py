@@ -31,7 +31,10 @@ def exact_int(value: int | str | float, name: str) -> int:
     if isinstance(value, bool):  # bool is an int subclass; never meant here
         raise ToolError(f"'{name}' must be an integer, got a boolean")
     if isinstance(value, str):
-        text = value.strip().replace("_", "")
+        text = value.strip()
+        if len(text) >= 2 and text[0] in ("\"", "'") and text[-1] == text[0]:
+            text = text[1:-1]
+        text = text.replace("_", "")
         try:
             return int(text, 10)
         except ValueError:

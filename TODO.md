@@ -24,8 +24,12 @@ removed from here once they ship or are decided against.
 
 - [ ] **Directory listings that need the maintainer's accounts** (see
       [DISTRIBUTION.md](DISTRIBUTION.md#directories-and-plugin-catalogs)):
-      submit the Claude Code plugin at claude.ai/directory/manage; claim the
-      MCP Market and LobeHub listings; optionally claim the HOL listing.
+      request Verified status for the organization in the developer portal
+      (claude.ai/directory/manage: Help and appeals, then Request verified; it
+      needs a proven domain), because the Claude directory refuses a local MCP
+      server from an unverified organization; then connect GitHub in that
+      organization and submit the Claude Code plugin; claim the MCP Market and
+      LobeHub listings; optionally claim the HOL listing.
 
 - [ ] **The JOSS paper.** The skeleton is `paper/paper.md`, built to PDF by
       `.github/workflows/paper.yml`. The Zenodo concept DOI now exists

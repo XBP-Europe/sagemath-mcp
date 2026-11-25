@@ -7,6 +7,23 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **Two runtime hints say what actually went wrong.** Both came from the
+  2026-11-24 client runs.
+  - A session variable that has taken a function's name is now named: after
+    `N = 10^6`, `N(s, digits=12)` fails with "`N` holds 1000000 in this
+    session, so `N(...)` calls that value". Claude Code made this mistake in
+    both runs. For `N` and `n`, the hint adds that `numerical_approx(...)` and
+    `.n(...)` still work and that `N = numerical_approx` restores the
+    function. Deleting `N` is refused, because the server provides it. Other
+    names point to `reset_sage_session`. The general "a number is not a
+    function" hint is unchanged when no session variable is involved.
+  - MATLAB's `A \ b` is a syntax error in Sage, and its hint said the
+    client's newlines were double-escaped. A backslash between two operands
+    now suggests `A.solve_right(b)` (or `A.solve_left(b)`). A literal
+    backslash-`n` pair keeps the double-escape hint.
+
 ## [0.11.0] - 2026-11-24
 
 **The client-recovery release.** Two release-gate runs of the extended

@@ -920,6 +920,20 @@ async def test_runtime_hints_fire_on_real_sage():
         assert "Hint: a number is not a function" in message
         message = await failure('f"{pi:.4f}"')
         assert "Hint: a symbolic expression does not support numeric format specifiers" in message
+        # A variable that took Sage's N is named, and the restore it suggests works.
+        message = await failure("N = 10^6\nN(pi, digits=12)")
+        assert "`N` holds 1000000 in this session" in message
+        ok = await session.evaluate("N = numerical_approx\nN(pi, digits=12)",
+                                    want_latex=False, capture_stdout=False)
+        assert ok.result == "3.14159265359"
+        # MATLAB's `A \ b` is a syntax error here, and the hint says what solves it.
+        await session.evaluate("H = matrix(QQ, [[1, 2], [3, 4]])\nb = vector(QQ, [1, 1])",
+                               want_latex=False, capture_stdout=False)
+        message = await failure("H \\ b")
+        assert "A.solve_right(b)" in message
+        assert "double-escaped" not in message
+        ok = await session.evaluate("H.solve_right(b)", want_latex=False, capture_stdout=False)
+        assert ok.result == "(-1, 1)"
         # And the spellings the hints recommend work here.
         ok = await session.evaluate("N(numerical_integral(sin(x), 0, pi)[0])",
                                     want_latex=False, capture_stdout=False)

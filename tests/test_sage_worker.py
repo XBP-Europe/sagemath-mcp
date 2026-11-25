@@ -1162,12 +1162,53 @@ def test_a_python_int_without_n_gets_its_own_hint(pure_python_worker):
 def test_calling_a_number_gets_the_multiplication_hint(pure_python_worker):
     from sagemath_mcp import _sage_worker
 
-    # Bound first: a literal `(2)(3)` also draws a compile-time SyntaxWarning,
-    # which is noise here -- the runtime TypeError is what carries the hint.
-    response = _sage_worker._execute("n = 2\nn(3)", False, False, {})
+    # Through a subscript, not a name: a literal `(2)(3)` also draws a
+    # compile-time SyntaxWarning, and a bound name gets the hint that names it.
+    response = _sage_worker._execute("values = [2]\nvalues[0](3)", False, False, {})
     assert response["error"]["type"] == "TypeError"
     assert "Hint: a number is not a function" in response["error"]["message"]
     assert "2*x, not 2(x)" in response["error"]["message"]
+
+
+def test_a_variable_that_shadowed_n_is_named_in_the_hint(pure_python_worker):
+    """`N = 10^6` and then `N(s, digits=12)`: Claude Code did this in both client
+    runs on 2026-11-24. The bare "'Integer' object is not callable" says what
+    was called, not which name held it."""
+    from sagemath_mcp import _sage_worker
+
+    response = _sage_worker._execute("N = 10**6\nN(2, digits=12)", False, False, {})
+    message = response["error"]["message"]
+    assert message.startswith("'int' object is not callable. Hint: a number is not a function")
+    assert "`N` holds 1000000 in this session, so `N(...)` calls that value" in message
+    assert "numerical_approx(value, digits=...)" in message
+    assert "`N = numerical_approx` restores it" in message
+    assert "2*x, not 2(x)" not in message
+
+
+def test_any_other_shadowed_name_points_at_a_reset(pure_python_worker):
+    from sagemath_mcp import _sage_worker
+
+    # The snippet ends in an assignment, so it has no expression tail to walk.
+    response = _sage_worker._execute("total = 0\ny = total([1, 2])", False, False, {})
+    message = response["error"]["message"]
+    assert "`total` holds 0 in this session" in message
+    assert "reset_sage_session restores the original" in message
+    assert "numerical_approx" not in message
+
+
+def test_only_a_called_value_of_the_failing_type_is_named(pure_python_worker):
+    """A float the snippet also calls, but which is not what failed, and a
+    function it calls, stay out of the hint; a long value is shortened."""
+    from sagemath_mcp import _sage_worker
+
+    response = _sage_worker._execute(
+        "rate = 2.5\nbig = 10**60\nlen([1]) + (rate(1) if False else big(1))",
+        False, False, {},
+    )
+    message = response["error"]["message"]
+    assert f"`big` holds {'1' + '0' * 36}... in this session" in message
+    assert "rate" not in message.split("Hint:")[1]
+    assert "len" not in message.split("Hint:")[1]
 
 
 def test_a_stray_backslash_gets_the_double_escape_hint(pure_python_worker):
@@ -1179,6 +1220,20 @@ def test_a_stray_backslash_gets_the_double_escape_hint(pure_python_worker):
     assert response["error"]["type"] == "SyntaxError"
     assert "Hint: a stray backslash" in response["error"]["message"]
     assert "send real newlines" in response["error"]["message"]
+
+
+def test_a_backslash_solve_gets_the_solve_right_hint(pure_python_worker):
+    """`H \\ b` is MATLAB's solve; Gemini wrote it on 2026-11-24 and was told
+    its newlines were double-escaped. Python, and this Sage, have no such
+    operator."""
+    from sagemath_mcp import _sage_worker
+
+    for code in ("H = 1\nb = 2\nH \\ b", "x = A\\b", "M \\ vector([1, 2])"):
+        response = _sage_worker._execute(code, False, False, {})
+        assert response["error"]["type"] == "SyntaxError"
+        message = response["error"]["message"]
+        assert "A.solve_right(b)" in message, code
+        assert "double-escaped" not in message, code
 
 
 def test_sage_only_errors_are_hinted_by_message_text():
@@ -1210,7 +1265,12 @@ def test_every_runtime_hint_row_is_reachable():
         exc = {"AttributeError": AttributeError, "TypeError": TypeError,
                "SyntaxError": SyntaxError}[exc_type](f"prefix {needle} suffix")
         resolved = _sage_worker._hint_for(exc)
-        assert resolved == (_sage_worker._NUMBER_CALLED_HINT if hint == "NUMBER_CALLED" else hint)
+        expected = {
+            "NUMBER_CALLED": _sage_worker._NUMBER_CALLED_HINT,
+            # A SyntaxError built from a message alone has no line to read.
+            "STRAY_BACKSLASH": _sage_worker._DOUBLE_ESCAPE_HINT,
+        }.get(hint, hint)
+        assert resolved == expected
         # The same text under another exception type is not the same error.
         assert _sage_worker._hint_for(ValueError(f"prefix {needle} suffix")) is None
 

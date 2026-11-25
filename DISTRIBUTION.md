@@ -105,12 +105,13 @@ points at the artefacts above. What the repository provides for them:
 | --- | --- | --- |
 | Official MCP registry | `server.json`, published by the release | Listed |
 | GitHub MCP registry | curated by GitHub from the official registry | Listed since 2026-10-16 ([github.com/mcp/XBP-Europe/sagemath-mcp](https://github.com/mcp/XBP-Europe/sagemath-mcp)), after GitHub approved the request on 2026-10-15 |
-| Claude Code plugin | `.claude-plugin/marketplace.json` (this repository is a marketplace) and the plugin in `packaging/claude-plugin/`, whose launcher pins the release | Installable with `/plugin install sagemath-mcp --marketplace XBP-Europe/sagemath-mcp`. Not yet submitted to the Claude directory, which takes local servers only as plugins, no longer as `.mcpb` bundles; submission goes through claude.ai/directory/manage |
-| Gemini CLI extension gallery | `gemini-extension.json` at the root, found through the `gemini-cli-extension` repository topic | Topic set; the gallery crawls repositories with it daily. The topic is a repository setting, not a file |
+| Claude Code plugin | `.claude-plugin/marketplace.json` (this repository is a marketplace) and the plugin in `packaging/claude-plugin/`, whose launcher pins the release | Installable with `/plugin install sagemath-mcp --marketplace XBP-Europe/sagemath-mcp`. Not yet submitted to the Claude directory, which takes local servers only as plugins, no longer as `.mcpb` bundles; submission goes through claude.ai/directory/manage. `plugin.json` carries the fields the directory lists from: an icon (read once, when a submission is first saved), documentation, support and privacy links, and under `network.hosts` the three hosts a traced first start reached |
+| Gemini CLI extension gallery | `gemini-extension.json` at the root, found through the `gemini-cli-extension` repository topic | Listed (in the [gallery](https://geminicli.com/extensions/) on 2026-11-25), found through the topic. The topic is a repository setting, not a file |
 | VS Code, Cursor | the install buttons in the README | No listing needed |
-| Glama, MCP Market, LobeHub | crawled from this repository | Listed; Glama's is claimed, MCP Market's and LobeHub's are not |
+| Glama, MCP Market, LobeHub | crawled from this repository | Listed. Glama's is claimed and showed 0.11.0 on 2026-11-25. MCP Market's and LobeHub's are unclaimed and were out of date that day (37 tools; 0.9.11). Claiming one takes a sign-in with a GitHub account that owns the repository, and lets that account edit the listing |
 | awesome-mcp-servers, Cline marketplace | a pull request to each list | Open: punkpeye/awesome-mcp-servers#16189, cline/marketplace#221 |
-| mcp.directory, mcpservers.org | their submission forms | Submitted 2026-10-11, pending review (mcpservers.org's contact address corrected by email 2026-10-13) |
+| mcpservers.org | its submission form | [Listed](https://mcpservers.org/servers/xbp-europe/sagemath-mcp); submitted 2026-10-11, contact address corrected by email 2026-10-13 |
+| mcp.directory | its submission form | Submitted 2026-10-11; not listed as of 2026-11-25 |
 | HOL awesome-ai-plugins | catalog-owned `plugin-scanner` scan | Listed on 2026-11-22 ([listing PR](https://github.com/hashgraph-online/awesome-ai-plugins/pull/1423)); the scan scored 94/100 and reported the intentional dynamic execution paths. The maintainer can optionally [claim the listing](https://hol.org/guard/plugins?claim=xbp-europe%2Fsagemath-mcp) |
 
 Directories that ask for an icon or a privacy policy get `docs/assets/icon.png`

@@ -10,6 +10,10 @@
   "homepage": "https://github.com/XBP-Europe/sagemath-mcp",
   "repository": "https://github.com/XBP-Europe/sagemath-mcp",
   "license": "MIT",
+  "icon": "./assets/icon.png",
+  "documentationUrl": "https://github.com/XBP-Europe/sagemath-mcp/blob/main/USAGE.md",
+  "supportUrl": "https://github.com/XBP-Europe/sagemath-mcp/blob/main/SUPPORT.md",
+  "privacyPolicyUrl": "https://github.com/XBP-Europe/sagemath-mcp/blob/main/PRIVACY.md",
   "keywords": [
     "sagemath",
     "mathematics",
@@ -28,5 +32,12 @@
         "sagemath-mcp"
       ]
     }
+  },
+  "network": {
+    "hosts": [
+      "pypi.org",
+      "files.pythonhosted.org",
+      "releases.astral.sh"
+    ]
   }
 }

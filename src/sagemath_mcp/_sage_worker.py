@@ -7,9 +7,11 @@ import contextlib
 import io
 import json
 import os
+import re
 import sys
 import time
 import traceback
+from collections.abc import Callable
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -515,9 +517,7 @@ _RUNTIME_HINTS: tuple[tuple[str, str, str], ...] = (
     ("TypeError", "'float' object is not callable", "NUMBER_CALLED"),
     ("TypeError", "'int' object is not callable", "NUMBER_CALLED"),
     ("SyntaxError", "unexpected character after line continuation character",
-     "a stray backslash: usually a newline that arrived as the two characters "
-     "backslash and n (double-escaped by the client), or a shell-style line "
-     "continuation; send real newlines"),
+     "STRAY_BACKSLASH"),
 )
 
 # One hint shared by every "a number is not a function" row above.
@@ -527,22 +527,108 @@ _NUMBER_CALLED_HINT = (
     "session that ran `sum = 0` has no sum() until reset)"
 )
 
+# The same SyntaxError has two causes, told apart by the line it points at.
+_DOUBLE_ESCAPE_HINT = (
+    "a stray backslash: usually a newline that arrived as the two characters "
+    "backslash and n (double-escaped by the client), or a shell-style line "
+    "continuation; send real newlines"
+)
+_BACKSLASH_SOLVE_HINT = (
+    "`A \\ b` is not valid syntax here: Python has no backslash operator; solve "
+    "A*x = b with A.solve_right(b), or x*A = b with A.solve_left(b)"
+)
+# A backslash between two operands -- `H \ b`, `A\b`, `M \ vector(...)` -- as
+# opposed to one followed by the letter n, which is a double-escaped newline.
+_OPERAND_BACKSLASH = re.compile(r"[\w)\]]\s*\\\s*[\w(\[]")
 
-def _hint_for(exc: BaseException) -> str | None:
-    """The hint for *exc*, or None when the error is not one of the known ones."""
+# What N() and n() are, for a session whose own variable has taken the name.
+_NUMERICAL_APPROX_ALTERNATIVE = (
+    "numerical_approx(value, digits=...) and value.n(digits=...) still work, "
+    "and `{name} = numerical_approx` restores it"
+)
+
+
+def _stray_backslash_hint(exc: BaseException) -> str:
+    line = getattr(exc, "text", None) or ""
+    if "\\n" not in line and _OPERAND_BACKSLASH.search(line):
+        return _BACKSLASH_SOLVE_HINT
+    return _DOUBLE_ESCAPE_HINT
+
+
+def _values_called(
+    exc: BaseException, trees: tuple[ast.AST | None, ...], namespace: dict[str, Any]
+) -> list[tuple[str, Any]]:
+    """The names *trees* call that the session holds as a value of the type *exc* names.
+
+    `N = 10^6` and then `N(s, digits=12)` fails with "'sage.rings.integer.Integer'
+    object is not callable": it says what was called, not which name held it,
+    and Sage's `N` is the name a model least expects to have lost. Claude Code
+    did exactly this in both client runs on 2026-11-24. Matching the value's
+    type against the message keeps a callable variable, or a number the snippet
+    never calls, out of the hint.
+    """
+    text = str(exc)
+    found: dict[str, Any] = {}
+    for tree in trees:
+        if tree is None:
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                name = node.func.id
+                value = namespace.get(name)
+                if name in namespace and f"{type(value).__name__}'" in text:
+                    found.setdefault(name, value)
+    return list(found.items())
+
+
+def _number_called_hint(called: list[tuple[str, Any]]) -> str:
+    if not called:
+        return _NUMBER_CALLED_HINT
+    parts = []
+    for name, value in called[:3]:
+        shown = repr(value)
+        shown = shown if len(shown) <= 40 else shown[:37] + "..."
+        part = (
+            f"`{name}` holds {shown} in this session, so `{name}(...)` calls that "
+            f"value; give the variable another name"
+        )
+        if name in ("N", "n"):
+            part += "; " + _NUMERICAL_APPROX_ALTERNATIVE.format(name=name)
+        else:
+            part += " (reset_sage_session restores the original, but discards variables)"
+        parts.append(part)
+    return "a number is not a function: " + "; ".join(parts)
+
+
+def _hint_for(
+    exc: BaseException,
+    values_called: Callable[[BaseException], list[tuple[str, Any]]] | None = None,
+) -> str | None:
+    """The hint for *exc*, or None when the error is not one of the known ones.
+
+    *values_called* finds the session variables a failing snippet called; it is
+    only run for a "not callable" error, so other failures cost nothing."""
     kind = exc.__class__.__name__
     text = str(exc)
     for exc_type, needle, hint in _RUNTIME_HINTS:
         if kind == exc_type and needle in text:
-            return _NUMBER_CALLED_HINT if hint == "NUMBER_CALLED" else hint
+            if hint == "NUMBER_CALLED":
+                return _number_called_hint(values_called(exc) if values_called else [])
+            if hint == "STRAY_BACKSLASH":
+                return _stray_backslash_hint(exc)
+            return hint
     return None
 
 
-def _error_payload(exc: BaseException, stdout_value: str) -> dict[str, Any]:
+def _error_payload(
+    exc: BaseException,
+    stdout_value: str,
+    values_called: Callable[[BaseException], list[tuple[str, Any]]] | None = None,
+) -> dict[str, Any]:
     """The failure response for *exc*: type, message (with a hint when one is
     known), traceback and whatever stdout was produced before it."""
     message = str(exc)
-    hint = _hint_for(exc)
+    hint = _hint_for(exc, values_called)
     if hint:
         message = f"{message}. Hint: {hint}."
     return {
@@ -944,7 +1030,11 @@ def _execute(
             },
         }
     except Exception as exc:
-        return _error_payload(exc, stdout_buffer.getvalue() if stdout_buffer else "")
+        return _error_payload(
+            exc,
+            stdout_buffer.getvalue() if stdout_buffer else "",
+            lambda error: _values_called(error, (compiled.prefix, compiled.tail), namespace),
+        )
 
 
     finally:

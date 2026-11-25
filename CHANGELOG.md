@@ -7,6 +7,22 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **The Claude plugin carries what Anthropic's directory lists it from.** Its
+  `plugin.json` now has:
+  - an icon, a copy of the project's;
+  - links to the usage guide, the support policy and the privacy statement;
+  - under `network.hosts`, the hosts it reaches.
+
+  The hosts were measured with a traced first start using a fresh uv cache.
+  That start reached `pypi.org` and `files.pythonhosted.org` for the packages,
+  and `releases.astral.sh` for Python 3.12. A second start opened no internet
+  connections. The plugin's README now names the same three hosts. The
+  directory reads the icon only once, when a submission is first saved, so it
+  had to be in the plugin before submission. `claude plugin validate` now
+  reports nothing.
+
 ### Changed
 
 - **Two runtime hints say what actually went wrong.** Both came from the

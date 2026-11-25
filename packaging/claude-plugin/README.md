@@ -31,8 +31,12 @@ In Claude Code:
 The server runs on your machine with your user's privileges. Code the model
 sends is checked by a deny-by-default validator before Sage runs it: imports,
 file and network access, shell access and external computer-algebra interfaces
-are refused. Nothing is sent anywhere by the server; the only network access is
-uv downloading the packages on first launch. See the
+are refused. Nothing is sent anywhere by the server, and it opens no network
+connections. The only network access is uv's, on the first start: the packages
+from PyPI (`pypi.org`, `files.pythonhosted.org`) and, if no Python 3.12 is
+installed, Python itself from uv's download host (`releases.astral.sh`). The same
+three hosts are declared under `network.hosts` in `plugin.json`. They are what a
+traced first start reached, and a second start reached none. See the
 [security model](https://github.com/XBP-Europe/sagemath-mcp/blob/main/SECURITY.md)
 and the [privacy statement](https://github.com/XBP-Europe/sagemath-mcp/blob/main/PRIVACY.md).
 

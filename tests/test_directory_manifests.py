@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import re
+import struct
 from pathlib import Path
 
 import yaml
@@ -107,6 +108,47 @@ def test_the_plugin_ships_its_license_and_reporting_channels() -> None:
     plugin_policy = (PLUGIN_DIR / "SECURITY.md").read_text(encoding="utf-8")
     for channel in channels:
         assert channel in plugin_policy, f"the plugin's SECURITY.md lacks {channel}"
+
+
+def test_the_plugin_carries_the_directory_listing_fields() -> None:
+    """Anthropic's directory builds the listing from these fields in `plugin.json`.
+
+    The icon is read only once, when a submission is first saved in the
+    developer portal, and changing it later does not change the listing. So it
+    is in the plugin before any submission. It is a copy because the plugin is
+    installed without the repository around it. The copy must stay identical to
+    the project icon so the listing and the `.mcpb` cannot show different icons.
+    """
+    icon = (PLUGIN_DIR / PLUGIN["icon"]).resolve()
+    assert icon.is_relative_to(PLUGIN_DIR.resolve()), "the icon must be inside the plugin"
+    data = icon.read_bytes()
+    assert data == (ROOT / "docs" / "assets" / "icon.png").read_bytes()
+    assert data[:8] == b"\x89PNG\r\n\x1a\n"
+    width, height = struct.unpack(">II", data[16:24])
+    assert width == height and 512 <= width <= 2048, (width, height)
+    assert len(data) < 2 * 1024 * 1024
+    links = "https://github.com/XBP-Europe/sagemath-mcp/blob/main/"
+    for field in ("documentationUrl", "supportUrl", "privacyPolicyUrl"):
+        url = PLUGIN[field]
+        assert url.startswith(links), f"{field} should link to a document in this repository"
+        assert (ROOT / url.removeprefix(links)).is_file(), f"{field} links to a missing file"
+
+
+def test_the_plugin_declares_and_discloses_the_hosts_it_reaches() -> None:
+    """The directory's security scan looks for data sent to an undisclosed destination.
+
+    The hosts were measured on 2026-11-25. A first start of the plugin's command,
+    with a fresh uv cache and only uv-managed Python, ran under
+    `strace -e trace=connect`. It reached PyPI's two hosts and uv's Python
+    download host, nothing else. A second start opened no internet connections,
+    so neither the server nor any tool reached the network. `network.hosts`
+    declares the hosts, and the README states them because the scan reads it.
+    """
+    hosts = PLUGIN["network"]["hosts"]
+    assert hosts == ["pypi.org", "files.pythonhosted.org", "releases.astral.sh"]
+    readme = (PLUGIN_DIR / "README.md").read_text(encoding="utf-8")
+    for host in hosts:
+        assert f"`{host}`" in readme, f"the plugin README does not name {host}"
 
 
 def test_the_desktop_bundle_ships_its_icon() -> None:

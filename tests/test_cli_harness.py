@@ -640,3 +640,13 @@ def test_expected_answer_requires_corresponding_tool_evidence(tmp_path: Path) ->
     log = _log(tmp_path, [_call(1, tool="evaluate_sage"),
                           _response(1, preview='{"result": "5077"}')])
     assert evaluate(case, "5077", log, 1, "codex").status == "PASS"
+
+
+def test_response_evidence_is_required_for_other_cases(tmp_path: Path) -> None:
+    case = next(c for c in cases_for_tier("standard") if c.id == "ext-la-determinant")
+    log = _log(tmp_path, [_call(1, tool="calculate_expression"),
+                          _response(1, preview='{"string": "2"}')])
+    assert evaluate(case, "-1813", log, 1, "codex").status == "UNVERIFIED"
+    log = _log(tmp_path, [_call(1, tool="calculate_expression"),
+                          _response(1, preview='{"string": "-1813"}')])
+    assert evaluate(case, "-1813", log, 1, "codex").status == "PASS"

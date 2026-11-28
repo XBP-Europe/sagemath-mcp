@@ -98,7 +98,7 @@ _NONE_SUFFIX = (
 class CaseResult:
     cli: str
     case_id: str
-    status: str  # PASS | WRONG_ANSWER | DODGED | NO_TOOL_CALL | TOOL_ERROR | TIMEOUT | ERROR
+    status: str  # PASS | WRONG_ANSWER | DODGED | NO_TOOL_CALL | TOOL_ERROR | UNVERIFIED | TIMEOUT
     #             | QUOTA (cut off by the provider)
     detail: str
     tools_called: list[str]
@@ -314,11 +314,13 @@ def _response_matches(record: dict, expected: list[str], fields: tuple[str, ...]
         return False
     values = [result[key] for key in fields if key in result and result[key] is not None]
     for value in values:
-        for token in _NUMBER.findall(str(value)):
+        value_text = re.sub(r"(?<=\d)\s+(?=\d)", "",
+                            str(value).replace(",", "").replace("_", ""))
+        for token in _NUMBER.findall(value_text):
             try:
                 actual = Decimal(token)
                 for answer in expected:
-                    target = Decimal(answer)
+                    target = Decimal(normalise(answer))
                     exponent = target.as_tuple().exponent
                     if actual == target or (exponent < 0 and
                                             abs(actual - target) < Decimal(1).scaleb(exponent)):
@@ -326,6 +328,13 @@ def _response_matches(record: dict, expected: list[str], fields: tuple[str, ...]
             except (InvalidOperation, ValueError):
                 continue
     return False
+
+
+_OUTPUT_FIELDS = (
+    "result", "stdout", "string", "numeric", "root", "solutions", "derivative", "integral",
+    "limit", "series", "product", "sum", "expanded", "simplified", "factored", "value",
+    "count", "answer",
+)
 
 
 def _successful_response_matches(
@@ -345,7 +354,7 @@ def _successful_response_matches(
         elif record.get("kind") == "response" and not record.get("is_error"):
             tool = calls.get(record.get("id"), "")
             if tool in accepted and _response_matches(
-                record, case.expected_answers, case.response_fields.get(tool, ())
+                record, case.expected_answers, case.response_fields.get(tool, _OUTPUT_FIELDS)
             ):
                 return True
     return False
@@ -526,7 +535,7 @@ def evaluate(case: ToolForcingCase, output: str, log_path: Path, elapsed: float,
             tools)
 
     status, detail = _answer_status(case, output)
-    if status == "PASS" and case.require_response_match and not _successful_response_matches(
+    if status == "PASS" and not _successful_response_matches(
         log_path, case, accepted
     ):
         return result("UNVERIFIED", "no matching accepted tool response", tools)

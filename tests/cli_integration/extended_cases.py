@@ -65,7 +65,6 @@ class ToolForcingCase:
     # Only these output fields can corroborate a recovered answer. A case
     # without an explicit mapping stays unverified rather than scanning echoes.
     response_fields: dict[str, tuple[str, ...]] = field(default_factory=dict)
-    require_response_match: bool = False
 
 
 _SUFFIX = " Use the sagemath MCP server. Reply with ONLY the result, no prose."
@@ -126,7 +125,6 @@ EXTENDED_CASES: list[ToolForcingCase] = [
         response_fields={"elliptic_curve_operation": ("result",),
                          "evaluate_sage": ("result", "stdout"),
                          "calculate_expression": ("string", "numeric")},
-        require_response_match=True,
     ),
     # ---- coding theory -----------------------------------------------------
     ToolForcingCase(

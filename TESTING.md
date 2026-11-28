@@ -144,10 +144,10 @@ That second check is the one that matters, and it is worth confirming it can
 fail: feed the validator a correct answer with an empty log and it reports
 `NO_TOOL_CALL`, not `PASS`.
 
-For the conductor case, a passing result additionally requires the expected value
-in a configured output field of a successful accepted tool response; an absent
-or truncated response is `UNVERIFIED`. Other cases do not yet have that strict
-response requirement.
+A passing result additionally requires the expected value in an output field of
+a successful accepted tool response. An absent, unrelated or truncated
+response is `UNVERIFIED`. Cases with a configured response contract use only
+their specified fields; others use the common result fields.
 
 The summary also counts cases with a correct answer and an accepted successful
 tool call after an error and classifies tool errors. For the anharmonic,

@@ -86,3 +86,15 @@ def test_no_document_misstates_the_tool_count(document: str) -> None:
             f"{document} says {match.group(1)} tools; the server registers "
             f"{expected}, and the sentence does not date itself as history"
         )
+
+
+def test_every_trusted_import_is_documented() -> None:
+    """USAGE.md lists the imports the generated templates may use, and it is
+    the only place a reader learns what the trusted policy imports. `numpy.random`
+    joined the policy without its row, and nothing noticed."""
+    from sagemath_mcp.policy import _TRUSTED_IMPORTS
+
+    usage = (ROOT / "USAGE.md").read_text(encoding="utf-8")
+    table = usage.split("| Import | Used by |", 1)[1].split("\n\n", 1)[0]
+    missing = [module for module in _TRUSTED_IMPORTS if f"`{module}`" not in table]
+    assert not missing, f"USAGE.md's trusted-imports table lacks {missing}"

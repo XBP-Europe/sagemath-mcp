@@ -144,6 +144,14 @@ def test_the_rendered_chart_is_valid_kubernetes_yaml() -> None:
         assert doc.get("apiVersion"), json.dumps(doc)[:200]
 
 
+_SERVICE_NAMES = [
+    "test-release-sagemath-mcp",
+    "test-release-sagemath-mcp.default",
+    "test-release-sagemath-mcp.default.svc",
+    "test-release-sagemath-mcp.default.svc.cluster.local",
+]
+
+
 def _allowed_hosts(docs: list[dict]) -> list[list[str]]:
     deployment = next(d for d in docs if d.get("kind") == "Deployment")
     env = deployment["spec"]["template"]["spec"]["containers"][0]["env"]
@@ -155,12 +163,7 @@ def test_the_chart_allows_its_own_service_names(deployment: dict) -> None:
     IP and the loopback names it knows; a client inside the cluster uses the
     service's DNS name, which only the chart can supply."""
     (names,) = _allowed_hosts([deployment])
-    assert names == [
-        "test-release-sagemath-mcp",
-        "test-release-sagemath-mcp.default",
-        "test-release-sagemath-mcp.default.svc",
-        "test-release-sagemath-mcp.default.svc.cluster.local",
-    ]
+    assert names == _SERVICE_NAMES
 
 
 def test_an_enabled_ingress_is_allowed_by_its_host_names() -> None:
@@ -173,8 +176,7 @@ def test_an_enabled_ingress_is_allowed_by_its_host_names() -> None:
         "ingress.hosts[0].paths[0].pathType=Prefix",
     )
     (names,) = _allowed_hosts(docs)
-    assert "sage.example.org" in names
-    assert "test-release-sagemath-mcp.default.svc" in names
+    assert names == [*_SERVICE_NAMES, "sage.example.org"]
 
 
 def test_an_operator_list_replaces_the_default() -> None:

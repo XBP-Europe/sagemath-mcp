@@ -227,11 +227,16 @@ def _host_origin_kwargs(transport: str) -> dict[str, object]:
     served from a domain that rebinds to 127.0.0.1 is same-origin to the
     browser, needs no preflight, and can read the response (REVIEW_ACTIONS 82).
 
-    `"auto"`, not `True`: the guard then validates only when the connection
-    ARRIVES over loopback, so a wildcard bind reached on a real address is
-    untouched and the container and Helm deployments are unaffected. A reverse
-    proxy talking to this server over localhost while forwarding its own Host
-    needs `FASTMCP_HTTP_ALLOWED_HOSTS`; SECURITY.md says so.
+    Strict (`True`), not `"auto"`. Auto validates only when the connection
+    ARRIVES on a loopback address, and in the container the README recommends
+    it never does: `-p 127.0.0.1:8314:8314` keeps other machines out, but
+    Docker delivers the connection to the container's own address, so auto
+    validated nothing and a rebinding page completed `tools/call` there
+    (REVIEW_ACTIONS 107). Strict still accepts the loopback names and the
+    address the connection arrived on, which covers a local client, a pod IP
+    and Kubernetes' probes. A DNS name -- an ingress, a reverse proxy, a
+    Kubernetes service, a Compose service -- must be listed in
+    `FASTMCP_HTTP_ALLOWED_HOSTS`; the Helm chart lists its own.
 
     **The legacy SSE app ignores the flag.** `create_sse_app` never reads
     `host_origin_protection`, so passing it there installs nothing -- the
@@ -241,17 +246,20 @@ def _host_origin_kwargs(transport: str) -> dict[str, object]:
     than trusting a keyword that transport drops on the floor.
     """
     if transport != "sse":
-        return {"host_origin_protection": "auto"}
+        return {"host_origin_protection": True}
+    from fastmcp import settings as fastmcp_settings
     from fastmcp.server.http import HostOriginGuardMiddleware
     from starlette.middleware import Middleware
 
+    # Built by hand, so it reads the allowlists the other transports get from
+    # fastmcp's settings (`FASTMCP_HTTP_ALLOWED_HOSTS` and `..._ORIGINS`).
     return {
         "middleware": [
             Middleware(
                 HostOriginGuardMiddleware,
-                allowed_hosts=None,
-                allowed_origins=None,
-                mode="auto",
+                allowed_hosts=fastmcp_settings.http_allowed_hosts,
+                allowed_origins=fastmcp_settings.http_allowed_origins,
+                mode="strict",
             )
         ]
     }
@@ -298,12 +306,9 @@ def main(argv: list[str] | None = None) -> None:  # pragma: no cover - CLI entry
         # no preflight, and can read the response. Arbitrary evaluation and full
         # result disclosure from a drive-by page (REVIEW_ACTIONS 82).
         #
-        # "auto", not True: the guard then validates only when the connection
-        # ARRIVES over loopback. Verified against a running server -- a wildcard
-        # bind reached on a real address is untouched, so the container and the
-        # Helm deployment are unaffected. A reverse proxy that talks to this
-        # server over localhost while forwarding its own Host is the one shape
-        # that needs `FASTMCP_HTTP_ALLOWED_HOSTS`; SECURITY.md says so.
+        # Strict, not "auto": auto validated only connections arriving on
+        # loopback, and in a container they arrive on the container's own
+        # address however the port is published (REVIEW_ACTIONS 107).
         transport_kwargs.update(_host_origin_kwargs(args.transport))
         if args.path:
             transport_kwargs["path"] = args.path

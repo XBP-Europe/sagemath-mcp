@@ -90,7 +90,7 @@ the container.
 
 ```bash
 docker run --rm \
-  --read-only --tmpfs /tmp:rw,size=512m --tmpfs /home/sage/.sage:rw,size=256m \
+  --read-only --tmpfs /tmp:rw,size=512m --tmpfs /home/sage/.sage:rw,size=256m,uid=1001,gid=1001,mode=0700 \
   --cap-drop ALL --security-opt no-new-privileges --pids-limit 256 --memory 4g \
   -p 127.0.0.1:8314:8314 \
   ghcr.io/xbp-europe/sagemath-mcp:latest
@@ -99,6 +99,11 @@ docker run --rm \
 Those flags are the hardening the server expects; the port is published on
 loopback deliberately — the server executes code and authenticates nobody.
 `docker compose up --build` applies the same hardening from one reviewed file.
+The server answers only requests addressed to `localhost`, `127.0.0.1` or the
+address they arrived on, which is what keeps a DNS-rebinding page out. A
+deployment reached by a DNS name lists it in `FASTMCP_HTTP_ALLOWED_HOSTS`, as a
+JSON list; the Helm chart lists its service names and ingress hosts itself. See
+[SECURITY.md](SECURITY.md).
 Released images are signed with Cosign and carry SLSA provenance and an SPDX
 SBOM as registry attestations; the PyPI files carry PEP 740 attestations.
 [DISTRIBUTION.md](DISTRIBUTION.md#verifying-signatures-provenance-and-sboms)
@@ -112,7 +117,7 @@ security policy:
 
 ```bash
 docker run --rm \
-  --read-only --tmpfs /tmp:rw,size=512m --tmpfs /home/sage/.sage:rw,size=256m \
+  --read-only --tmpfs /tmp:rw,size=512m --tmpfs /home/sage/.sage:rw,size=256m,uid=1001,gid=1001,mode=0700 \
   --cap-drop ALL --security-opt no-new-privileges --pids-limit 256 --memory 4g \
   -p 127.0.0.1:8314:8314 \
   ghcr.io/xbp-europe/sagemath-mcp:latest-passagemath

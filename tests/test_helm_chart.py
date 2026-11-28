@@ -142,3 +142,45 @@ def test_the_rendered_chart_is_valid_kubernetes_yaml() -> None:
     assert {"Deployment", "Service"} <= kinds, kinds
     for doc in docs:
         assert doc.get("apiVersion"), json.dumps(doc)[:200]
+
+
+_SERVICE_NAMES = [
+    "test-release-sagemath-mcp",
+    "test-release-sagemath-mcp.default",
+    "test-release-sagemath-mcp.default.svc",
+    "test-release-sagemath-mcp.default.svc.cluster.local",
+]
+
+
+def _allowed_hosts(docs: list[dict]) -> list[list[str]]:
+    deployment = next(d for d in docs if d.get("kind") == "Deployment")
+    env = deployment["spec"]["template"]["spec"]["containers"][0]["env"]
+    return [json.loads(e["value"]) for e in env if e["name"] == "FASTMCP_HTTP_ALLOWED_HOSTS"]
+
+
+def test_the_chart_allows_its_own_service_names(deployment: dict) -> None:
+    """The server refuses a Host it does not know (REVIEW_ACTIONS 107). Its pod
+    IP and the loopback names it knows; a client inside the cluster uses the
+    service's DNS name, which only the chart can supply."""
+    (names,) = _allowed_hosts([deployment])
+    assert names == _SERVICE_NAMES
+
+
+def test_an_enabled_ingress_is_allowed_by_its_host_names() -> None:
+    """Without this, enabling the chart's own ingress answered every request
+    through it with 421."""
+    docs = _render(
+        "ingress.enabled=true",
+        "ingress.hosts[0].host=sage.example.org",
+        "ingress.hosts[0].paths[0].path=/",
+        "ingress.hosts[0].paths[0].pathType=Prefix",
+    )
+    (names,) = _allowed_hosts(docs)
+    assert names == [*_SERVICE_NAMES, "sage.example.org"]
+
+
+def test_an_operator_list_replaces_the_default() -> None:
+    """One variable, set once: a second entry with the same name is ambiguous
+    about which one the container sees."""
+    docs = _render('env.FASTMCP_HTTP_ALLOWED_HOSTS=["sage.example.org"]')
+    assert _allowed_hosts(docs) == [["sage.example.org"]]

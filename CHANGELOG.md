@@ -40,6 +40,23 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     now suggests `A.solve_right(b)` (or `A.solve_left(b)`). A literal
     backslash-`n` pair keeps the double-escape hint.
 
+### Fixed
+
+- **`distribution_operation` handles Poisson and Student's t at their edges.**
+  - Poisson `sample` failed on every call. Its template drew from a
+    `numpy_rng` that nothing defined. It now draws from NumPy's default
+    generator.
+  - Poisson `cdf` at a negative point returned P(0) instead of 0, because it
+    truncated the point toward zero. `pdf` at a non-integer point now returns 0
+    instead of a number that mixed the point with its integer part.
+  - Poisson `pdf` and `cdf` without `x` returned 0, and a negative rate was
+    accepted. Both are now refused with a message.
+  - Student's t with two or fewer degrees of freedom refused its pdf, cdf and
+    quantile, because the undefined mean or variance was built for every
+    operation. Only the undefined moment is refused now.
+
+  Found by an automated review (PR #324).
+
 ## [0.11.0] - 2026-11-24
 
 **The client-recovery release.** Two release-gate runs of the extended

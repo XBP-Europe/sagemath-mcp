@@ -1935,11 +1935,11 @@ _d = RealDistribution('exponential', 2)
 
 === distribution_poisson_pdf [call 1] trusted=True
 <<PRELUDE>>
-float(exp(-3) * 3**0.5 / factorial(int(0.5)))
+float(exp(-3) * 3**0.5 / factorial(int(0.5))) if 0.5 >= 0 and float(0.5).is_integer() else 0.0
 
 === distribution_poisson_cdf [call 1] trusted=True
 <<PRELUDE>>
-float(sum(exp(-3) * 3**k / factorial(k) for k in range(int(0.5) + 1)))
+float(sum(exp(-3) * 3**k / factorial(k) for k in range(int(floor(0.5)) + 1)))
 
 === distribution_poisson_quantile [no code sent]
 raised ToolError: Unknown operation 'quantile' for Poisson distribution
@@ -1954,7 +1954,9 @@ float(3)
 
 === distribution_poisson_sample [call 1] trusted=True
 <<PRELUDE>>
-[int(numpy_rng.poisson(3)) for _ in range(3)]
+from numpy.random import default_rng
+_rng = default_rng()
+[int(v) for v in _rng.poisson(3, size=3)]
 
 === distribution_chi_squared_pdf [call 1] trusted=True
 <<PRELUDE>>

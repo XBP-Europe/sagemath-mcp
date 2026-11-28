@@ -452,4 +452,9 @@ _TRUSTED_CALLS = frozenset({"sage_eval", "preparse", "sage_input"})
 
 
 # Imports the generated templates need. Caller code imports nothing at all.
-_TRUSTED_IMPORTS = ("math", "cmath", "sage", "sage.all", "statistics", "base64", "io")
+# `numpy.random` is for Poisson sampling: RealDistribution has no discrete
+# distributions, and the template it replaced called a `numpy_rng` that nothing
+# defined. Names a template binds never become readable by caller code.
+_TRUSTED_IMPORTS = (
+    "math", "cmath", "sage", "sage.all", "statistics", "base64", "io", "numpy.random",
+)

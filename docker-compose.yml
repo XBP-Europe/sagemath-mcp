@@ -22,7 +22,7 @@ services:
     read_only: true
     tmpfs:
       - /tmp:rw,size=512m
-      - /home/sage/.sage:rw,size=256m
+      - /home/sage/.sage:rw,size=256m,uid=1001,gid=1001,mode=0700
     cap_drop:
       - ALL
     security_opt:

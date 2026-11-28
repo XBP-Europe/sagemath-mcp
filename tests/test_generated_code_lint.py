@@ -22,6 +22,7 @@ import re
 from pathlib import Path
 
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_DIR = ROOT / "src" / "sagemath_mcp"
@@ -529,6 +530,20 @@ def test_the_compose_file_does_not_publish_on_every_interface() -> None:
         assert mapping.startswith("127.0.0.1:") or mapping.startswith("localhost:"), (
             f"docker-compose publishes {mapping} on every interface"
         )
+
+
+def test_the_sage_scratch_tmpfs_is_private_to_the_runtime_user() -> None:
+    """Docker creates a tmpfs world-writable (1777, owned by root). The `sage`
+    user (UID 1001 in both images) could write to `~/.sage`, but so could any
+    other user in the container. Owning it and closing it is the hardening.
+    The README's `docker run` lines must say the same as the compose file."""
+    compose = yaml.safe_load((ROOT / "docker-compose.yml").read_text(encoding="utf-8"))
+    (mount,) = [m for m in compose["services"]["sage-mcp"]["tmpfs"]
+                if m.startswith("/home/sage/.sage:")]
+    assert {"uid=1001", "gid=1001", "mode=0700"} <= set(mount.split(":", 1)[1].split(","))
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    flags = re.findall(r"--tmpfs (/home/sage/\.sage:\S+)", readme)
+    assert flags and set(flags) == {mount}, flags
 
 
 def test_the_release_workflow_publishes_only_on_a_tag_push() -> None:

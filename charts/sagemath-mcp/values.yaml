@@ -82,6 +82,10 @@ service:
   port: 8314
   targetPort: 8314
 
+# The server answers only Host names it knows. By default the chart sets
+# FASTMCP_HTTP_ALLOWED_HOSTS to its service's DNS names and, when the ingress
+# is enabled, the ingress hosts. Setting FASTMCP_HTTP_ALLOWED_HOSTS here (a JSON
+# list) replaces that list, so include any service names clients use.
 env: {}
 extraEnvFrom: []
 

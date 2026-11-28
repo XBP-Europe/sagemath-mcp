@@ -76,35 +76,74 @@ def test_a_public_bind_with_auth_is_not_warned() -> None:
 # --- DNS rebinding: the loopback default is not self-protecting ----------------
 
 
-def test_the_http_transport_asks_for_host_and_origin_protection() -> None:
-    """Binding to loopback does not keep a browser out.
+# What Docker hands the server for `-p 127.0.0.1:8314:8314`: the browser
+# connects to the host's loopback, and the connection arrives on the
+# container's own address. The server never sees a loopback address.
+_CONTAINER_ADDRESS = "http://172.17.0.2:8314"
 
-    Found by a security review on 2026-09-19 and reproduced live: with no
-    `Host`/`Origin` validation, a request carrying `Host: attacker.example`
-    was accepted and the full protocol chain -- initialize, initialized,
-    `tools/call` -- completed. A page the user visits, served from a domain
-    that rebinds to 127.0.0.1, is same-origin to the browser, so no preflight
-    is needed and the response body is readable: arbitrary evaluation and full
-    result disclosure from a drive-by page.
 
-    This matters *more* because running locally with no authentication is a
-    deliberate, supported posture here. There is no second line behind it.
+def _app_as_served(transport: str, **override: object):
+    from sagemath_mcp.app import mcp
+    from sagemath_mcp.server import _host_origin_kwargs, _register_health_route
 
-    `"auto"` validates only when the connection arrives over loopback, so
-    container and Kubernetes deployments -- where traffic arrives on a real
-    address -- are untouched. Verified both ways against a running server.
+    _register_health_route()
+    kwargs = override or _host_origin_kwargs(transport)
+    return mcp.http_app(transport=transport, **kwargs)
+
+
+@pytest.mark.parametrize("transport", ["http", "streamable-http", "sse"])
+def test_a_rebinding_page_is_refused_in_a_container(transport: str) -> None:
+    """Binding to loopback does not keep a browser out (REVIEW_ACTIONS 82), and
+    publishing a container port on loopback does not either (item 107).
+
+    A page served from a domain that rebinds to 127.0.0.1 is same-origin to the
+    browser, needs no preflight, and can read the response. Item 82 guarded the
+    HTTP transports in fastmcp's "auto" mode, which validates only connections
+    that arrive on a loopback address. In the README's
+    `docker run -p 127.0.0.1:8314:8314` none does, so the guard checked nothing:
+    against a running container on 2026-11-28, `initialize`, `initialized` and
+    a `tools/call` evaluating `factor(2^64+1)` all completed under
+    `Host: attacker.example`. Running locally with no authentication is a
+    supported posture here, so there is no second line behind this check.
     """
-    source = (Path(__file__).resolve().parents[1] / "src" / "sagemath_mcp" / "server.py").read_text(
-        encoding="utf-8"
+    from starlette.testclient import TestClient
+
+    client = TestClient(_app_as_served(transport), base_url=_CONTAINER_ADDRESS)
+    foreign = client.get("/health", headers={"host": "attacker.example:8314"})
+    assert foreign.status_code == 421, foreign.text
+    cross_origin = client.get(
+        "/health", headers={"host": "localhost:8314", "origin": "http://attacker.example"}
     )
-    assert '"host_origin_protection"' in source or "host_origin_protection=" in source, (
-        "the HTTP transport no longer asks for host/origin protection; a browser "
-        "page can reach the loopback server again"
-    )
-    assert '"auto"' in source, (
-        "protection should be 'auto', which guards loopback binds and leaves "
-        "real remote binds alone; True would break deployments behind a proxy"
-    )
+    assert cross_origin.status_code == 403, cross_origin.text
+    # What a local client sends, and what Kubernetes' probes send: the
+    # address the connection arrived on.
+    for host in ("localhost:8314", "127.0.0.1:8314", "172.17.0.2:8314"):
+        assert client.get("/health", headers={"host": host}).status_code == 200, host
+
+
+def test_auto_mode_is_the_hole_this_closes() -> None:
+    """The same request against fastmcp's "auto" guard is answered. If this
+    starts failing, fastmcp changed what "auto" means; re-read item 107."""
+    from starlette.testclient import TestClient
+
+    app = _app_as_served("streamable-http", host_origin_protection="auto")
+    client = TestClient(app, base_url=_CONTAINER_ADDRESS)
+    assert client.get("/health", headers={"host": "attacker.example:8314"}).status_code == 200
+
+
+def test_listed_hosts_are_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A deployment reached by a DNS name lists it, on every transport. SSE
+    builds its guard by hand, so it has to read the same settings."""
+    import fastmcp
+    from starlette.testclient import TestClient
+
+    monkeypatch.setattr(fastmcp.settings, "http_allowed_hosts", ["sage.example.org"])
+    for transport in ("http", "sse"):
+        client = TestClient(_app_as_served(transport), base_url=_CONTAINER_ADDRESS)
+        response = client.get("/health", headers={"host": "sage.example.org"})
+        assert response.status_code == 200, (transport, response.text)
+        response = client.get("/health", headers={"host": "attacker.example"})
+        assert response.status_code == 421, (transport, response.text)
 
 
 def test_the_threat_model_documents_the_rebinding_defence() -> None:

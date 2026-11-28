@@ -7,6 +7,32 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- **In a container, the DNS-rebinding check now actually runs.** The HTTP
+  transports checked `Host` and `Origin` only for connections arriving on a
+  loopback address (fastmcp's `auto` mode). Docker delivers a connection to a
+  port published on `127.0.0.1` to the container's own address, so in the
+  configuration the README recommends, nothing was checked. A web page whose
+  domain rebinds to 127.0.0.1 could evaluate Sage code and read the result.
+  This was verified against a running container: `tools/call` completed under
+  `Host: attacker.example`. The check now covers every connection (strict
+  mode).
+  - It accepts `localhost`, `127.0.0.1`, `::1`, the address a connection
+    arrived on (so probes by pod IP still work), and the names in
+    `FASTMCP_HTTP_ALLOWED_HOSTS`.
+  - **Upgrade note:** an HTTP deployment reached by a DNS name gets 421 until
+    that name is listed in `FASTMCP_HTTP_ALLOWED_HOSTS` as a JSON list. That
+    covers a reverse proxy, an ingress and a Kubernetes or Compose service
+    name. The Helm chart now sets the variable to its service names and its
+    ingress hosts.
+  - The SSE transport now also honours that list.
+  - The `~/.sage` tmpfs in the compose file and the README's `docker run`
+    lines now belongs to the `sage` user with mode 0700, instead of Docker's
+    world-writable default.
+
+  Found by an automated review (PR #324). See `REVIEW_ACTIONS.md` item 107.
+
 ### Added
 
 - **The Claude plugin carries what Anthropic's directory lists it from.** Its

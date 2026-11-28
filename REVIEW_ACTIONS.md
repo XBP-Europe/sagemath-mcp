@@ -6496,3 +6496,81 @@ is not sent the record: a tool's snippet binds and reads its own names.
 
 Fixed 2026-10-30. Found while writing the refusal hint of #264, which only
 multi-letter names could reach.
+
+## 107. In a container the rebinding guard checked nothing — high — DONE
+
+### What was wrong
+
+Item 82 guarded the HTTP transports against DNS rebinding with fastmcp's
+host/origin check in `"auto"` mode. Auto validates only a connection that
+**arrives** on a loopback address, and item 82's table measured that on a bare
+host, where a loopback bind does receive loopback connections. In a container
+it never does. The README's `docker run -p 127.0.0.1:8314:8314` keeps other
+machines out, but Docker hands the connection to the container's own address,
+so the server saw `172.17.0.2`, not loopback, and auto checked nothing. That is
+the configuration `SECURITY.md` recommends ("run the container, and do not
+expose the port").
+
+Reproduced on 2026-11-28 against `main` (19499dd), served from the `sage-mcp`
+container on its own address, with a foreign `Host` and `Origin` on every
+request:
+
+```
+                                                    main (auto)               fixed (strict)
+POST /mcp initialize  Host+Origin attacker.example  200                       421
+notifications/initialized                           202                       (not reached)
+tools/call evaluate_sage "factor(2^64+1)"           274177 * 67280421310721   (not reached)
+GET /health           Host: attacker.example        200                       421
+POST /mcp initialize  Host: localhost               200                       200
+```
+
+After the fix, on the same server, a probe by IP (`GET /ready` with
+`Host: 172.17.0.2`) got 200, and `Host: localhost` with a foreign `Origin` got
+403.
+
+The SSE transport builds its guard by hand (item 87) and passed it no host
+lists, so `FASTMCP_HTTP_ALLOWED_HOSTS` was also ignored there.
+
+### Why high
+
+The same harm as item 82, on the configuration this project recommends most:
+a page the user visits evaluates arbitrary Sage and reads the result. Running
+locally with no authentication is a supported posture, so there is nothing
+behind this check. Browsers' own local-network restrictions vary, and the
+server cannot rely on them.
+
+### The fix
+
+The transports run fastmcp's strict mode (`host_origin_protection=True`, and
+`mode="strict"` in the SSE guard, which now reads fastmcp's host and origin
+settings). Strict still answers `localhost`, `127.0.0.1`, `::1` and the address
+the connection arrived on, so a local client, a client using the pod IP and
+Kubernetes' probes are unaffected. A deployment reached by a DNS name must list
+it in `FASTMCP_HTTP_ALLOWED_HOSTS`. The Helm chart sets that variable to its
+service's DNS names and, when its ingress is enabled, the ingress hosts. An
+operator's own value replaces the chart's list.
+
+This breaks any HTTP deployment reached by a name that is not listed. Such a
+deployment now gets 421 instead of an answer. The changelog says so.
+
+Found by an automated review (Codex, PR #324). The PR's test exercised a
+hand-built Starlette app, not this server's, and its chart change left the
+chart's own ingress refused. Both are fixed here.
+
+### How to verify
+
+- `tests/test_auth.py`: `test_a_rebinding_page_is_refused_in_a_container` runs
+  each transport's app as `main()` builds it, with the connection arriving on a
+  container address, and checks that a foreign `Host` gets 421, a foreign
+  `Origin` 403, and `localhost`, `127.0.0.1` and the container address 200.
+  `test_auto_mode_is_the_hole_this_closes` gets 200 from the same request under
+  auto. `test_listed_hosts_are_accepted` covers the allowlist on both guard
+  paths. The first and third fail on `main`. The second passes on both, by
+  design.
+- `tests/test_helm_chart.py`: the chart's service names, the ingress hosts and
+  the operator's override.
+- The table above, from a live server in the container before and after.
+
+### Status
+
+Fixed 2026-11-28.

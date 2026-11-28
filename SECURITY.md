@@ -126,14 +126,25 @@ from a drive-by page. Verified against a running server in September 2026:
 before the fix, a request carrying `Host: attacker.example` was accepted and
 the whole protocol chain completed.
 
-The HTTP transports therefore run with host/origin protection in `auto` mode.
-It validates only when the connection **arrives** over loopback, so a container
-or Kubernetes deployment reached on a real address is untouched. The one shape
-that needs configuration is a reverse proxy that talks to this server over
-localhost while forwarding its own `Host`: set `FASTMCP_HTTP_ALLOWED_HOSTS` to
-the names it forwards. This matters more here than it would elsewhere, because
-running locally with no authentication is a supported posture — there is
-nothing behind it.
+The HTTP transports therefore validate `Host` and `Origin` on every request.
+A request is answered when its `Host` is `localhost`, `127.0.0.1`, `::1`, the
+address the connection arrived on (a pod IP, which is what Kubernetes' probes
+use), or a name listed in `FASTMCP_HTTP_ALLOWED_HOSTS` as a JSON list, for
+example `FASTMCP_HTTP_ALLOWED_HOSTS='["sage.example.org"]'`. A deployment
+reached by a DNS name — a reverse proxy, an ingress, a Kubernetes or Compose
+service name — must list it; the Helm chart lists its own service names and
+ingress hosts. A browser origin other than the request's own goes in
+`FASTMCP_HTTP_ALLOWED_ORIGINS`.
+
+Through 0.11.0 the check ran in fastmcp's `auto` mode, which validates only a
+connection that **arrives** on a loopback address. In a container none does:
+Docker hands a connection to the published `127.0.0.1:8314` to the container's
+own address. So in the configuration this document recommends, the check
+checked nothing, and on 2026-11-28 a request under `Host: attacker.example`
+completed a `tools/call` against a running container (`REVIEW_ACTIONS.md`
+item 107). This matters more here than it would elsewhere, because running
+locally with no authentication is a supported posture — there is nothing
+behind it.
 
 **Optional bearer-token auth (opt-in).** For anyone who does front the HTTP
 endpoint, setting `SAGEMATH_MCP_HTTP_AUTH_TOKEN=<secret>` requires every MCP

@@ -1003,6 +1003,11 @@ evaluate code, which is why every default here is loopback: `--host` defaults to
 to `127.0.0.1:8314`, and the Helm service is `ClusterIP`. Putting it on a network
 means putting something that authenticates in front of it.
 
+It also answers only `Host` names it knows, which is what keeps a DNS-rebinding
+page out, in a container too: a deployment reached by a DNS name lists it in
+`FASTMCP_HTTP_ALLOWED_HOSTS` (see the HTTP variables below and
+[SECURITY.md](SECURITY.md)).
+
 ### Container hardening
 
 The validator narrows what caller code can express. The container is what
@@ -1179,7 +1184,8 @@ code, so it belongs on the same storage you would trust with the session itself.
 | Variable | Default | What it does |
 | --- | --- | --- |
 | `SAGEMATH_MCP_HTTP_AUTH_TOKEN` | *(unset)* | Require `Authorization: Bearer <token>` on MCP requests. Unset means no authentication, which is the supported posture for a local run. An empty value does **not** enable it. |
-| `FASTMCP_HTTP_ALLOWED_HOSTS` | *(unset)* | Extra `Host` values the origin guard accepts. Needed only for a reverse proxy that reaches this server over loopback while forwarding its own `Host`. |
+| `FASTMCP_HTTP_ALLOWED_HOSTS` | *(unset)* | `Host` names the server answers besides `localhost`, `127.0.0.1`, `::1` and the address a connection arrived on, as a JSON list (`'["sage.example.org"]'`). Needed by any deployment reached by a DNS name: a reverse proxy, an ingress, a Kubernetes or Compose service name. The Helm chart sets it to its service names and ingress hosts. |
+| `FASTMCP_HTTP_ALLOWED_ORIGINS` | *(unset)* | Browser origins accepted besides the request's own, as a JSON list. |
 
 ### Security policy
 

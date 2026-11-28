@@ -409,3 +409,24 @@ async def test_quadrature_error_estimates_do_not_cover_the_wrong_domain(numerici
     # Wrong by the tail it was never given, which decays like 1/x: cos(100)/100.
     tail = float(await _run(ctx, "float(cos(100)/100)"))
     assert abs(abs(value - half_pi) - abs(tail)) < 5e-4, (value - half_pi, tail)
+
+
+@requires_sage
+@pytest.mark.asyncio
+async def test_distribution_boundary_cases_against_sage(numericist) -> None:
+    ctx = FakeContext("distribution-boundaries")
+    try:
+        async def value(distribution, parameters, operation, **kwargs):
+            return (await server.distribution_operation(
+                distribution, parameters, operation, ctx=ctx, **kwargs
+            ))["result"]
+
+        assert await value("student_t", [1.0], "pdf", x=0.0) == pytest.approx(1 / 3.141592653589793)
+        assert await value("student_t", [1.5], "mean") == 0.0
+        assert await value("poisson", [2.0], "pdf", x=1.5) == 0.0
+        assert await value("poisson", [2.0], "cdf", x=-0.5) == 0.0
+        assert await value("poisson", [2.0], "pdf", x=2.0) == pytest.approx(0.2706705664732254)
+        sample = await value("poisson", [2.0], "sample", n=4)
+        assert len(sample) == 4 and all(isinstance(x, int) and x >= 0 for x in sample)
+    finally:
+        await numericist.shutdown()

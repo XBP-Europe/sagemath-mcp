@@ -145,3 +145,34 @@ async def test_distribution_no_context():
 async def test_statistics_summary_rejects_an_empty_dataset(sage_manager):
     with pytest.raises(ToolError, match="at least one value"):
         await server.statistics_summary(data=[], ctx=FakeContext("stats-client"))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation,x", [("pdf", None), ("cdf", None)])
+async def test_poisson_requires_an_evaluation_point(operation, x, monkeypatch):
+    await _stub_manager(monkeypatch, StubSession("0"))
+    with pytest.raises(ToolError, match="requires x"):
+        await server.distribution_operation("poisson", [2.0], operation, x=x, ctx=FakeContext())
+
+
+@pytest.mark.asyncio
+async def test_poisson_rejects_negative_rate(monkeypatch):
+    await _stub_manager(monkeypatch, StubSession("0"))
+    with pytest.raises(ToolError, match="nonnegative"):
+        await server.distribution_operation("poisson", [-1.0], "mean", ctx=FakeContext())
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["pdf", "cdf", "quantile", "sample"])
+async def test_an_undefined_moment_refuses_only_itself(operation, monkeypatch):
+    """Student's t with one degree of freedom (the Cauchy) has no mean and no
+    variance, but it has a density. Both moments used to be built for every
+    operation, so their refusal refused the density too."""
+    await _stub_manager(monkeypatch, StubSession("0.3"))
+    result = await server.distribution_operation(
+        "student_t", [1.0], operation, x=0.5, n=2, ctx=FakeContext()
+    )
+    assert result["operation"] == operation
+    for moment in ("mean", "variance"):
+        with pytest.raises(ToolError, match="undefined"):
+            await server.distribution_operation("student_t", [1.0], moment, ctx=FakeContext())

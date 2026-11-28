@@ -994,6 +994,7 @@ screened names), and nothing else --- see the Imports row above:
 | `sage`, `sage.all` | The generated prelude |
 | `base64`, `io` | The plot templates, for in-memory PNG encoding |
 | `math`, `cmath`, `statistics` | Helper templates |
+| `numpy.random` | Poisson sampling in `distribution_operation` |
 
 ### Network exposure
 

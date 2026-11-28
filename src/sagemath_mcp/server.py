@@ -218,30 +218,15 @@ def _exposure_warning(host: str, has_auth: bool) -> str | None:
 
 
 def _host_origin_kwargs(transport: str) -> dict[str, object]:
-    """The host/origin protection this transport actually honours.
+    """Require host and origin validation on every HTTP transport.
 
-    Binding to loopback does not keep a browser out, and this server's
-    supported posture is local with no authentication -- so there is no second
-    line behind it. Without a guard, a request carrying
-    `Host: attacker.example` was accepted and the whole chain completed: a page
-    served from a domain that rebinds to 127.0.0.1 is same-origin to the
-    browser, needs no preflight, and can read the response (REVIEW_ACTIONS 82).
-
-    `"auto"`, not `True`: the guard then validates only when the connection
-    ARRIVES over loopback, so a wildcard bind reached on a real address is
-    untouched and the container and Helm deployments are unaffected. A reverse
-    proxy talking to this server over localhost while forwarding its own Host
-    needs `FASTMCP_HTTP_ALLOWED_HOSTS`; SECURITY.md says so.
-
-    **The legacy SSE app ignores the flag.** `create_sse_app` never reads
-    `host_origin_protection`, so passing it there installs nothing -- the
-    control was silently absent on one supported transport for a day
-    (REVIEW_ACTIONS 87). For SSE the same middleware is therefore constructed
-    and passed explicitly, with the arguments the streamable path uses, rather
-    than trusting a keyword that transport drops on the floor.
+    Container port forwarding can make loopback traffic appear non-loopback
+    inside the container, so automatic detection cannot protect local users.
+    Deployments using DNS names must configure FastMCP's allowed hosts.
     """
     if transport != "sse":
-        return {"host_origin_protection": "auto"}
+        return {"host_origin_protection": True}
+    from fastmcp import settings as fastmcp_settings
     from fastmcp.server.http import HostOriginGuardMiddleware
     from starlette.middleware import Middleware
 
@@ -249,9 +234,9 @@ def _host_origin_kwargs(transport: str) -> dict[str, object]:
         "middleware": [
             Middleware(
                 HostOriginGuardMiddleware,
-                allowed_hosts=None,
-                allowed_origins=None,
-                mode="auto",
+                allowed_hosts=fastmcp_settings.http_allowed_hosts,
+                allowed_origins=fastmcp_settings.http_allowed_origins,
+                mode="strict",
             )
         ]
     }
@@ -289,21 +274,8 @@ def main(argv: list[str] | None = None) -> None:  # pragma: no cover - CLI entry
         runtime.anchor_to_process()
     else:
         transport_kwargs.update({"host": args.host, "port": args.port})
-        # Binding to loopback does not keep a browser out, and this server's
-        # supported posture is local with no authentication -- so there is no
-        # second line behind it. Without this, a request carrying
-        # `Host: attacker.example` was accepted and the whole chain
-        # (initialize, initialized, tools/call) completed: a page served from a
-        # domain that rebinds to 127.0.0.1 is same-origin to the browser, needs
-        # no preflight, and can read the response. Arbitrary evaluation and full
-        # result disclosure from a drive-by page (REVIEW_ACTIONS 82).
-        #
-        # "auto", not True: the guard then validates only when the connection
-        # ARRIVES over loopback. Verified against a running server -- a wildcard
-        # bind reached on a real address is untouched, so the container and the
-        # Helm deployment are unaffected. A reverse proxy that talks to this
-        # server over localhost while forwarding its own Host is the one shape
-        # that needs `FASTMCP_HTTP_ALLOWED_HOSTS`; SECURITY.md says so.
+        # Validate even forwarded loopback traffic; the container sees the
+        # bridge address, not the address on which the host published the port.
         transport_kwargs.update(_host_origin_kwargs(args.transport))
         if args.path:
             transport_kwargs["path"] = args.path

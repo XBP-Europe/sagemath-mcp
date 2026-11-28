@@ -59,7 +59,7 @@ def run_claude(
         stdin=None if stdin_text is not None else subprocess.DEVNULL,
     )
     elapsed = time.monotonic() - start
-    output = result.stdout + result.stderr
+    output = result.stdout if result.returncode == 0 else result.stdout + result.stderr
     return output, elapsed
 
 
@@ -88,7 +88,7 @@ def run_gemini(
         stdin=subprocess.DEVNULL,
     )
     elapsed = time.monotonic() - start
-    output = result.stdout + result.stderr
+    output = result.stdout if result.returncode == 0 else result.stdout + result.stderr
     return output, elapsed
 
 
@@ -153,7 +153,7 @@ def run_codex(prompt: str, timeout: int = DEFAULT_TIMEOUT) -> tuple[str, float]:
         stdin=subprocess.DEVNULL,
     )
     elapsed = time.monotonic() - start
-    return result.stdout + result.stderr, elapsed
+    return (result.stdout if result.returncode == 0 else result.stdout + result.stderr), elapsed
 
 
 def run_codex_observed(

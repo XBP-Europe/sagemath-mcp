@@ -158,6 +158,9 @@ unchanged.
 
 ### Fixed
 
+- Harden HTTP host and origin checks, correct container scratch permissions,
+  repair distribution edge cases, and tighten client answer verification.
+
 - **Per-case client traces work with Codex.** The tracing proxy read its
   output path from an environment variable, and Codex does not pass its
   environment to MCP servers, so `--trace-dir` turned every Codex case into

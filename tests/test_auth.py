@@ -77,34 +77,10 @@ def test_a_public_bind_with_auth_is_not_warned() -> None:
 
 
 def test_the_http_transport_asks_for_host_and_origin_protection() -> None:
-    """Binding to loopback does not keep a browser out.
+    """Host validation also covers requests forwarded through a container."""
+    from sagemath_mcp.server import _host_origin_kwargs
 
-    Found by a security review on 2026-09-19 and reproduced live: with no
-    `Host`/`Origin` validation, a request carrying `Host: attacker.example`
-    was accepted and the full protocol chain -- initialize, initialized,
-    `tools/call` -- completed. A page the user visits, served from a domain
-    that rebinds to 127.0.0.1, is same-origin to the browser, so no preflight
-    is needed and the response body is readable: arbitrary evaluation and full
-    result disclosure from a drive-by page.
-
-    This matters *more* because running locally with no authentication is a
-    deliberate, supported posture here. There is no second line behind it.
-
-    `"auto"` validates only when the connection arrives over loopback, so
-    container and Kubernetes deployments -- where traffic arrives on a real
-    address -- are untouched. Verified both ways against a running server.
-    """
-    source = (Path(__file__).resolve().parents[1] / "src" / "sagemath_mcp" / "server.py").read_text(
-        encoding="utf-8"
-    )
-    assert '"host_origin_protection"' in source or "host_origin_protection=" in source, (
-        "the HTTP transport no longer asks for host/origin protection; a browser "
-        "page can reach the loopback server again"
-    )
-    assert '"auto"' in source, (
-        "protection should be 'auto', which guards loopback binds and leaves "
-        "real remote binds alone; True would break deployments behind a proxy"
-    )
+    assert _host_origin_kwargs("http")["host_origin_protection"] is True
 
 
 def test_the_threat_model_documents_the_rebinding_defence() -> None:
@@ -169,3 +145,42 @@ async def test_the_verifier_accepts_only_the_configured_token() -> None:
     assert await verifier.verify_token("s3cret") is not None
     for wrong in ("", "s3cre", "s3cretX", "S3CRET", "s3crét", "s3cret\x00", "x" * 100_000):
         assert await verifier.verify_token(wrong) is None, wrong
+
+
+@pytest.mark.parametrize("transport", ["http", "streamable-http", "sse"])
+async def test_forwarded_requests_still_validate_host_and_origin(transport):
+    import httpx2 as httpx
+    from fastmcp.server.http import HostOriginGuardMiddleware
+    from starlette.applications import Starlette
+    from starlette.middleware import Middleware
+    from starlette.responses import PlainTextResponse
+    from starlette.routing import Route
+
+    async def endpoint(request):
+        return PlainTextResponse("ok")
+
+    app = Starlette(routes=[Route("/", endpoint)], middleware=[
+        Middleware(HostOriginGuardMiddleware, mode="strict"),
+    ])
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app),
+                                 base_url="http://172.20.0.2:8314") as client:
+        response = await client.get("/", headers={"host": "attacker.example:8314",
+                                                   "origin": "http://attacker.example:8314"})
+        assert response.status_code == 421
+        assert (await client.get("/", headers={"host": "localhost:8314"})).status_code == 200
+    from sagemath_mcp.server import _host_origin_kwargs
+    config = _host_origin_kwargs(transport)
+    if transport == "sse":
+        assert config["middleware"][0].kwargs["mode"] == "strict"
+    else:
+        assert config["host_origin_protection"] is True
+
+
+def test_container_scratch_directory_is_writable_by_runtime_user():
+    import yaml
+
+    root = Path(__file__).resolve().parents[1]
+    compose = yaml.safe_load((root / "docker-compose.yml").read_text())
+    mounts = compose["services"]["sage-mcp"]["tmpfs"]
+    sage_mount = next(m for m in mounts if m.startswith("/home/sage/.sage:"))
+    assert {"uid=1001", "gid=1001", "mode=0700"} <= set(sage_mount.split(":", 1)[1].split(","))

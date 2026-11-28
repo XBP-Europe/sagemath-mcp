@@ -142,3 +142,20 @@ def test_the_rendered_chart_is_valid_kubernetes_yaml() -> None:
     assert {"Deployment", "Service"} <= kinds, kinds
     for doc in docs:
         assert doc.get("apiVersion"), json.dumps(doc)[:200]
+
+
+def test_service_hostnames_are_allowed_by_default(deployment: dict) -> None:
+    container = deployment["spec"]["template"]["spec"]["containers"][0]
+    env = {item["name"]: item["value"] for item in container["env"]}
+    names = json.loads(env["FASTMCP_HTTP_ALLOWED_HOSTS"])
+    assert "test-release-sagemath-mcp" in names
+    assert "test-release-sagemath-mcp.default.svc" in names
+
+
+def test_service_hostname_allowlist_can_be_overridden() -> None:
+    docs = _render('env.FASTMCP_HTTP_ALLOWED_HOSTS=["sage.example.org"]')
+    deployment_doc = next(d for d in docs if d.get("kind") == "Deployment")
+    env = deployment_doc["spec"]["template"]["spec"]["containers"][0]["env"]
+    entries = [item for item in env if item["name"] == "FASTMCP_HTTP_ALLOWED_HOSTS"]
+    assert len(entries) == 1
+    assert json.loads(entries[0]["value"]) == ["sage.example.org"]

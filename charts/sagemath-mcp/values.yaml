@@ -82,6 +82,9 @@ service:
   port: 8314
   targetPort: 8314
 
+# By default the chart allows its own Kubernetes service DNS names. To use
+# ingress or alternate names, set FASTMCP_HTTP_ALLOWED_HOSTS to a JSON list
+# containing those names and any service DNS names clients use.
 env: {}
 extraEnvFrom: []
 

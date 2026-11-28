@@ -126,14 +126,15 @@ from a drive-by page. Verified against a running server in September 2026:
 before the fix, a request carrying `Host: attacker.example` was accepted and
 the whole protocol chain completed.
 
-The HTTP transports therefore run with host/origin protection in `auto` mode.
-It validates only when the connection **arrives** over loopback, so a container
-or Kubernetes deployment reached on a real address is untouched. The one shape
-that needs configuration is a reverse proxy that talks to this server over
-localhost while forwarding its own `Host`: set `FASTMCP_HTTP_ALLOWED_HOSTS` to
-the names it forwards. This matters more here than it would elsewhere, because
-running locally with no authentication is a supported posture — there is
-nothing behind it.
+The HTTP transports validate host and origin headers for every connection,
+including requests forwarded through container networking. Set
+`FASTMCP_HTTP_ALLOWED_HOSTS` to the DNS names forwarded by a reverse proxy or
+used to reach a network deployment, as a JSON list, for example
+`FASTMCP_HTTP_ALLOWED_HOSTS='["sage.example.org"]'`. This also applies to
+reverse-proxy and ingress hosts. The Helm chart permits its own service names
+by default; an override must also include any service names clients use.
+Browser origins that differ from the request host can be listed in
+`FASTMCP_HTTP_ALLOWED_ORIGINS`.
 
 **Optional bearer-token auth (opt-in).** For anyone who does front the HTTP
 endpoint, setting `SAGEMATH_MCP_HTTP_AUTH_TOKEN=<secret>` requires every MCP

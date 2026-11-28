@@ -328,6 +328,29 @@ def _response_matches(record: dict, expected: list[str], fields: tuple[str, ...]
     return False
 
 
+def _successful_response_matches(
+    log_path: Path, case: ToolForcingCase, accepted: list[str]
+) -> bool:
+    """Require output evidence for cases with a configured response contract."""
+    calls: dict[object, str] = {}
+    if not log_path.exists():
+        return False
+    for line in log_path.read_text(encoding="utf-8").splitlines():
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if record.get("kind") == "tool_call":
+            calls[record.get("id")] = record.get("tool", "")
+        elif record.get("kind") == "response" and not record.get("is_error"):
+            tool = calls.get(record.get("id"), "")
+            if tool in accepted and _response_matches(
+                record, case.expected_answers, case.response_fields.get(tool, ())
+            ):
+                return True
+    return False
+
+
 def recovery_diagnostics(
     log_path: Path, accepted: list[str], answered: bool, expected: list[str],
     response_fields: dict[str, tuple[str, ...]],
@@ -409,16 +432,32 @@ def _is_quota_failure(output: str) -> bool:
     return any(marker in lowered for marker in _QUOTA_MARKERS)
 
 
+def _answer_matches(case: ToolForcingCase, output: str) -> bool:
+    """Match the final numeric answer as a whole value at the stated precision."""
+    text = re.sub(r"(?<=\d)\s+(?=\d)", "", output.replace(",", "").replace("_", ""))
+    tokens = _NUMBER.findall(text)
+    if not tokens:
+        return False
+    if re.search(r"\bnot\s+(?:equal\s+to\s+)?[-+\d]", output, re.IGNORECASE):
+        return False
+    try:
+        actual = Decimal(tokens[-1])
+        for answer in case.expected_answers:
+            target = Decimal(normalise(answer))
+            exponent = target.as_tuple().exponent
+            if actual == target or (exponent < 0 and
+                                    abs(actual - target) < Decimal(1).scaleb(exponent)):
+                return True
+    except InvalidOperation:
+        return False
+    return False
+
+
 def _answer_status(case: ToolForcingCase, output: str) -> tuple[str, str]:
     """PASS / DODGED / WRONG_ANSWER from the answer text alone, with a detail."""
-    flat = normalise(output)
-    for answer in case.expected_answers:
-        if normalise(answer) in flat:
-            return "PASS", f"matched {answer!r}"
+    if _answer_matches(case, output):
+        return "PASS", "matched final answer"
     tail = output.strip()[-160:].replace("\n", " ")
-    # Same failure, different diagnosis: a model that refused is not a model that
-    # computed the wrong number, and the two want different fixes -- one is a
-    # prompt or a permission, the other is the server.
     lowered = output.lower()
     if any(marker.lower() in lowered for marker in case.forbidden):
         return "DODGED", f"answer declined rather than computed; tail: {tail!r}"
@@ -440,8 +479,7 @@ def accepted_tools_for(case: ToolForcingCase, arm: str) -> list[str]:
 
 def evaluate(case: ToolForcingCase, output: str, log_path: Path, elapsed: float,
              cli: str, arm: str = "full") -> CaseResult:
-    flat = normalise(output)
-    answered = any(normalise(a) in flat for a in case.expected_answers)
+    answered = _answer_matches(case, output)
     accepted = accepted_tools_for(case, arm)
     error_count, error_categories, recovered, response_matches = (
         recovery_diagnostics(log_path, accepted, answered, case.expected_answers,
@@ -488,6 +526,10 @@ def evaluate(case: ToolForcingCase, output: str, log_path: Path, elapsed: float,
             tools)
 
     status, detail = _answer_status(case, output)
+    if status == "PASS" and case.require_response_match and not _successful_response_matches(
+        log_path, case, accepted
+    ):
+        return result("UNVERIFIED", "no matching accepted tool response", tools)
     if status == "PASS" and tolerated:
         detail += f" ({len(tolerated)} tolerated: {tolerated[0]!r})"
     return result(status, detail, tools)

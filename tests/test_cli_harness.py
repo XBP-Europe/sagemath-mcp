@@ -326,7 +326,8 @@ def test_trace_registration_failure_after_a_pass_is_a_failure(tmp_path: Path, mo
 
 def test_conductor_accepts_successful_calculate_expression(tmp_path: Path) -> None:
     case = next(c for c in cases_for_tier("standard") if c.id == "ext-ec-conductor")
-    log = _log(tmp_path, [_call(1, tool="calculate_expression"), _response(1, preview="5077")])
+    log = _log(tmp_path, [_call(1, tool="calculate_expression"),
+                          _response(1, preview='{"string": "5077"}')])
     assert evaluate(case, "5077", log, 1.0, "codex").status == "PASS"
 
 
@@ -606,3 +607,36 @@ def test_tolerated_faults_are_reported_rather_than_swallowed(tmp_path: Path) -> 
     result = evaluate(CASE, "the answer is 42", log, 1.0, "claude")
     assert result.status == "PASS", result.detail
     assert "2 tolerated" in result.detail, result.detail
+
+
+def test_answer_must_be_the_last_complete_numeric_value(tmp_path: Path) -> None:
+    case = next(c for c in cases_for_tier("standard") if c.id == "ext-ec-conductor")
+    log = _log(tmp_path, [_call(1, tool="evaluate_sage"),
+                          _response(1, preview='{"result": "5077"}')])
+    assert evaluate(case, "15077", log, 1, "codex").status == "WRONG_ANSWER"
+    assert evaluate(case, "Not 5077; the answer is 42", log, 1, "codex").status == "WRONG_ANSWER"
+    assert evaluate(case, "The answer is 5,077.", log, 1, "codex").status == "PASS"
+
+
+def test_successful_client_ignores_stderr_when_checking_answer(monkeypatch):
+    from types import SimpleNamespace
+
+    from tests.cli_integration import runner
+
+    monkeypatch.setattr(runner, "_find_cli", lambda name: name)
+    monkeypatch.setattr(runner.subprocess, "run", lambda *args, **kwargs: SimpleNamespace(
+        stdout="42", stderr="previous answer 5077", returncode=0
+    ))
+    for invoke in (runner.run_claude, runner.run_gemini, runner.run_codex):
+        output, _ = invoke("prompt")
+        assert output == "42"
+
+
+def test_expected_answer_requires_corresponding_tool_evidence(tmp_path: Path) -> None:
+    case = next(c for c in cases_for_tier("standard") if c.id == "ext-ec-conductor")
+    log = _log(tmp_path, [_call(1, tool="evaluate_sage"),
+                          _response(1, preview='{"result": "2"}')])
+    assert evaluate(case, "5077", log, 1, "codex").status == "UNVERIFIED"
+    log = _log(tmp_path, [_call(1, tool="evaluate_sage"),
+                          _response(1, preview='{"result": "5077"}')])
+    assert evaluate(case, "5077", log, 1, "codex").status == "PASS"

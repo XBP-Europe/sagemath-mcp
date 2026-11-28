@@ -186,25 +186,30 @@ async def distribution_operation(
     }
     # For distributions not directly in RealDistribution, use scipy-like Sage constructs
     if distribution == "poisson":
-        # Poisson is discrete; handle separately
+        # Poisson is supported only on the nonnegative integers.
         lam = parameters[0] if parameters else 1
+        if lam < 0:
+            raise ToolError("Poisson rate must be nonnegative")
+        if operation in {"pdf", "cdf"} and x is None:
+            raise ToolError(f"Poisson {operation} requires x")
         op_code = {
             "pdf": (
-                f"float(exp(-{lam}) * {lam}**{x} / factorial(int({x})))"
-                if x is not None else "0"
+                f"float(exp(-{lam}) * {lam}**{x} / factorial(int({x}))) "
+                f"if {x} >= 0 and float({x}).is_integer() else 0.0"
             ),
             "cdf": (
                 f"float(sum(exp(-{lam}) * {lam}**k / factorial(k)"
-                f" for k in range(int({x}) + 1)))"
-                if x is not None else "0"
+                f" for k in range(int(floor({x})) + 1)))"
             ),
             "mean": f"float({lam})",
             "variance": f"float({lam})",
-            "sample": f"[int(numpy_rng.poisson({lam})) for _ in range({n or 1})]",
+            "sample": f"[int(v) for v in _rng.poisson({lam}, size={n or 1})]",
         }
         if operation not in op_code:
             raise ToolError(f"Unknown operation '{operation}' for Poisson distribution")
-        code = sage_prelude() + op_code.get(operation, "None") + "\n"
+        rng = ("from numpy.random import default_rng\n_rng = default_rng()\n"
+               if operation == "sample" else "")
+        code = sage_prelude() + rng + op_code[operation] + "\n"
     elif distribution in dist_map:
         dist_expr = dist_map[distribution]
         # Only the normal distribution carries a location parameter here; for
@@ -227,8 +232,10 @@ async def distribution_operation(
             # so "mean" reported a random draw from the distribution -- a
             # different wrong answer on every call -- and "variance" was
             # always null.
-            "mean": f"float({_distribution_mean(distribution, parameters)})",
-            "variance": f"float({_distribution_variance(distribution, parameters)})",
+            "mean": (f"float({_distribution_mean(distribution, parameters)})"
+                     if operation == "mean" else "None"),
+            "variance": (f"float({_distribution_variance(distribution, parameters)})"
+                         if operation == "variance" else "None"),
             "sample": f"[float(_d.get_random_element()) for _ in range({n or 1})]",
         }
         if operation not in op_code:

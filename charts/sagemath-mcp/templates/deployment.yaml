@@ -51,8 +51,13 @@ spec:
             - name: http
               containerPort: {{ .Values.service.targetPort }}
               protocol: TCP
-          {{- if or .Values.env .Values.auth.existingSecret }}
           env:
+            {{- if not (hasKey .Values.env "FASTMCP_HTTP_ALLOWED_HOSTS") }}
+            {{- $service := include "sagemath-mcp.fullname" . }}
+            {{- $namespaced := printf "%s.%s" $service .Release.Namespace }}
+            - name: FASTMCP_HTTP_ALLOWED_HOSTS
+              value: {{ list $service $namespaced (printf "%s.svc" $namespaced) (printf "%s.svc.cluster.local" $namespaced) | toJson | quote }}
+            {{- end }}
             {{- range $key, $value := .Values.env }}
             - name: {{ $key }}
               value: {{ $value | quote }}
@@ -67,7 +72,6 @@ spec:
                   name: {{ .Values.auth.existingSecret }}
                   key: {{ .Values.auth.secretKey }}
             {{- end }}
-          {{- end }}
           {{- if .Values.livenessProbe.enabled }}
           livenessProbe:
             tcpSocket:

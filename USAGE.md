@@ -997,11 +997,13 @@ screened names), and nothing else --- see the Imports row above:
 
 ### Network exposure
 
-**The server has no authentication.** Anyone who can reach the HTTP endpoint can
-evaluate code, which is why every default here is loopback: `--host` defaults to
-`127.0.0.1`, the default transport is stdio, the bundled compose file publishes
-to `127.0.0.1:8314`, and the Helm service is `ClusterIP`. Putting it on a network
-means putting something that authenticates in front of it.
+**HTTP authentication is optional and off by default.** The default transport is
+stdio, `--host` defaults to `127.0.0.1`, Compose publishes to loopback, and the
+Helm service is `ClusterIP`. For network access, configure
+`SAGEMATH_MCP_HTTP_AUTH_TOKEN` or an authenticating proxy. HTTP deployments
+reached through a DNS name must list it in `FASTMCP_HTTP_ALLOWED_HOSTS`; the
+Helm chart includes its service names by default. See [SECURITY.md](SECURITY.md)
+for the JSON syntax and origin settings.
 
 ### Container hardening
 

@@ -452,4 +452,5 @@ _TRUSTED_CALLS = frozenset({"sage_eval", "preparse", "sage_input"})
 
 
 # Imports the generated templates need. Caller code imports nothing at all.
-_TRUSTED_IMPORTS = ("math", "cmath", "sage", "sage.all", "statistics", "base64", "io")
+_TRUSTED_IMPORTS = ("math", "cmath", "sage", "sage.all", "statistics", "base64", "io",
+                    "numpy.random")
